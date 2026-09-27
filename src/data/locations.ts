@@ -1,0 +1,96 @@
+import type { LocationDef } from '../types';
+
+export const LOCATIONS: LocationDef[] = [
+  {
+    id: 'village',
+    name: 'Заброшенная деревня',
+    description: 'Здесь когда-то жили люди. Теперь по улицам бродят волки и мертвецы.',
+    icon: '🏚️',
+    gradient: 'from-stone-800/80 via-stone-900/80 to-black',
+    unlockLevel: 1,
+    stages: [
+      { enemyId: 'darkWolf', level: 1 },
+      { enemyId: 'bandit', level: 2 },
+      { enemyId: 'rottenPeasant', level: 3 },
+      { enemyId: 'plagueHound', level: 4 },
+      { enemyId: 'ghoulElder', level: 5 },
+    ],
+  },
+  {
+    id: 'forest',
+    name: 'Лес мёртвых',
+    description: 'Деревья шепчут имена погибших. В чаще живёт Пожиратель душ.',
+    icon: '🌲',
+    gradient: 'from-emerald-950/80 via-slate-900/80 to-black',
+    unlockLevel: 5,
+    stages: [
+      { enemyId: 'skeletonArcher', level: 6 },
+      { enemyId: 'shadowHunter', level: 7 },
+      { enemyId: 'forestWraith', level: 9 },
+      { enemyId: 'rotTreant', level: 10 },
+      { enemyId: 'morok', level: 12 },
+    ],
+  },
+  {
+    id: 'swamp',
+    name: 'Кровавые болота',
+    description: 'Трясина окрашена кровью. Каждый шаг может стать последним.',
+    icon: '🩸',
+    gradient: 'from-red-950/80 via-green-950/60 to-black',
+    unlockLevel: 11,
+    stages: [
+      { enemyId: 'swampWitch', level: 13 },
+      { enemyId: 'corpseEater', level: 14 },
+      { enemyId: 'toxicToad', level: 15 },
+      { enemyId: 'bloodBerserker', level: 17 },
+      { enemyId: 'swampMother', level: 18 },
+    ],
+  },
+  {
+    id: 'fortress',
+    name: 'Крепость теней',
+    description: 'Бастион павшего ордена. Его рыцари служат тьме даже после смерти.',
+    icon: '🏰',
+    gradient: 'from-slate-800/80 via-slate-950/80 to-black',
+    unlockLevel: 17,
+    stages: [
+      { enemyId: 'cursedKnight', level: 19 },
+      { enemyId: 'fortressGuard', level: 21 },
+      { enemyId: 'necromancer', level: 22 },
+      { enemyId: 'gargoyle', level: 24 },
+      { enemyId: 'ironCastellan', level: 25 },
+    ],
+  },
+  {
+    id: 'city',
+    name: 'Проклятый город',
+    description: 'Столица, где казни не прекращаются ни днём, ни ночью.',
+    icon: '🌆',
+    gradient: 'from-orange-950/70 via-red-950/70 to-black',
+    unlockLevel: 24,
+    stages: [
+      { enemyId: 'executioner', level: 26 },
+      { enemyId: 'abyssCultist', level: 28 },
+      { enemyId: 'plagueDoctor', level: 30 },
+      { enemyId: 'demon', level: 32 },
+      { enemyId: 'grandExecutioner', level: 33 },
+    ],
+  },
+  {
+    id: 'citadel',
+    name: 'Цитадель короля теней',
+    description: 'Трон, с которого началась Тьма. Здесь всё и закончится.',
+    icon: '👑',
+    gradient: 'from-purple-950/80 via-indigo-950/70 to-black',
+    unlockLevel: 32,
+    stages: [
+      { enemyId: 'facelessKnight', level: 35 },
+      { enemyId: 'lightDevourer', level: 37 },
+      { enemyId: 'boneDragon', level: 39 },
+      { enemyId: 'shadowLord', level: 42 },
+      { enemyId: 'shadowKing', level: 45 },
+    ],
+  },
+];
+
+export const getLocation = (id: string) => LOCATIONS.find((l) => l.id === id)!;
