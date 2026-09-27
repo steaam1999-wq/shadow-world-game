@@ -368,7 +368,10 @@ function playerAction(kind) {
     flog('heal', `${CONSUMABLES[id].icon} Вы выпили зелье: +${h} ❤️`);
   } else if (kind === 'flee') {
     if (f.type !== 'hunt') {
-      if (!confirm(f.type === 'arena' ? 'Сдаться? Это засчитается как поражение.' : 'Покинуть подземелье? Прогресс будет потерян.')) return;
+      if (!UI.sure) {
+        ask(f.type === 'arena' ? 'Сдаться? Это засчитается как поражение.' : 'Покинуть подземелье? Прогресс будет потерян.', () => { UI.sure = true; playerAction('flee'); UI.sure = false; });
+        return;
+      }
       return endFight(false);
     }
     if (chance(60)) { flog('sys', 'Вы сбежали с поля боя.'); f.over = true; f.win = null; stopAuto(); save(); render(); return; }
@@ -534,6 +537,14 @@ function modal(html) {
   $('#modal-body').innerHTML = html;
   $('#modal').classList.add('open');
 }
+// In-page confirmation (native confirm() is unavailable in embedded viewers).
+function ask(text, fn) {
+  UI.pending = fn;
+  modal(`<div class="center"><p>${text}</p><div class="btns">
+    <button class="btn danger" data-act="askYes">Да</button>
+    <button class="btn" data-act="closeModal">Отмена</button></div></div>`);
+}
+
 function closeModal() { $('#modal').classList.remove('open'); }
 
 function bar(cls, v, max, label) {
@@ -1077,7 +1088,8 @@ const ACTIONS = {
     toast('Добро пожаловать в Мир Теней! Загляните в почту ✉️');
   },
   tab(a) { UI.tab = a; render(); },
-  closeModal() { closeModal(); },
+  closeModal() { closeModal(); UI.pending = null; },
+  askYes() { const fn = UI.pending; UI.pending = null; closeModal(); if (fn) fn(); },
   bonus() {
     if (!bonusAvailable()) return;
     const y = new Date(); y.setDate(y.getDate() - 1);
@@ -1133,7 +1145,7 @@ const ACTIONS = {
     const i = S.bag.findIndex((x) => x.uid === +uid);
     if (i < 0) return;
     const it = S.bag[i];
-    if (it.rarity >= 3 && !confirm(`Продать ${itemName(it)}?`)) return;
+    if (it.rarity >= 3 && !UI.sure) return ask(`Продать ${esc(itemName(it))}?`, () => { UI.sure = true; ACTIONS.sell(uid); UI.sure = false; });
     S.bag.splice(i, 1);
     S.gold += itemPrice(it);
     toast(`Продано за ${itemPrice(it)}💰`);
@@ -1315,7 +1327,7 @@ const ACTIONS = {
     save(); render();
   },
   clanLeave() {
-    if (!confirm('Покинуть клан? Бонус клана будет потерян.')) return;
+    if (!UI.sure) return ask('Покинуть клан? Бонус клана будет потерян.', () => { UI.sure = true; ACTIONS.clanLeave(); UI.sure = false; });
     S.clan = null;
     save(); render();
   },
@@ -1356,9 +1368,9 @@ const ACTIONS = {
     } catch (e) { toast('Неверный код сохранения'); }
   },
   reset() {
-    if (!confirm('Удалить персонажа и начать заново?')) return;
+    if (!UI.sure) return ask('Удалить персонажа и начать заново?', () => { UI.sure = true; ACTIONS.reset(); UI.sure = false; });
     stopAuto();
-    localStorage.removeItem(SAVE_KEY);
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) { /* storage unavailable */ }
     S = null;
     go('create');
   },
