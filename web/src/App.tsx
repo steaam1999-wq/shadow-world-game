@@ -76,6 +76,20 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
+  // Верхняя панель уезжает при прокрутке вниз и возвращается при прокрутке вверх, как в Инстаграме.
+  const [hideTop, setHideTop] = useState(false)
+  useEffect(() => {
+    let last = window.scrollY
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y > last + 6 && y > 56) setHideTop(true)
+      else if (y < last - 6 || y < 56) setHideTop(false)
+      last = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  useEffect(() => { setHideTop(false) }, [tab])
   const player = usePlayer()
 
   useEffect(() => {
@@ -101,7 +115,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   return (
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && tab !== 'reels' && (
-        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/55 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3">
+        <header className={`sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/55 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3 transition-transform duration-300 ease-out ${hideTop ? '-translate-y-[calc(100%+env(safe-area-inset-top,0px))]' : ''}`}>
           {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <ThemeToggle />

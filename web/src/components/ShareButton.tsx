@@ -163,7 +163,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
   )
 }
 
-/** Бумажный самолётик: два крыла и киль, окрашен фирменным градиентом. */
+/** Бумажный самолётик со скруглёнными углами, окрашен фирменным градиентом; тень выделяет второе крыло. */
 function PaperPlane({ size = 44 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ overflow: 'visible' }}>
@@ -174,17 +174,16 @@ function PaperPlane({ size = 44 }: { size?: number }) {
           <stop offset="1" style={{ stopColor: 'var(--violet)' }} />
         </linearGradient>
       </defs>
-      <g stroke="#fff" strokeWidth=".7" strokeLinejoin="round">
-        <path d="M21.5 2.5 2.5 7.6l7 3.4z" fill="url(#plane-grad)" />
-        <path d="M21.5 2.5 9.5 11l3.9 10.5z" fill="url(#plane-grad)" />
-        <path d="M9.5 11l.9 5.6 1.9-2.3z" fill="#000" fillOpacity=".25" />
-      </g>
+      <path d="M14.54 21.69a.5.5 0 0 0 .93-.03l6.5-19a.5.5 0 0 0-.63-.63l-19 6.5a.5.5 0 0 0-.03.93l7.93 3.18a2 2 0 0 1 1.11 1.11z"
+        fill="url(#plane-grad)" stroke="#fff" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="M21.85 2.15 10.91 13.09" stroke="#fff" strokeWidth="1.1" strokeLinecap="round" />
+      <path d="M10.91 13.09 14.54 21.69a.5.5 0 0 0 .93-.03l6.38-19.51z" fill="#000" fillOpacity=".14" />
     </svg>
   )
 }
 
 // Нос самолётика смотрит вверх-вправо: поправка, чтобы он летел носом вперёд.
-const NOSE_ANGLE = (Math.atan2(-8.5, 12) * 180) / Math.PI
+const NOSE_ANGLE = -45
 
 /** Самолётик летит по плавной дуге к аватарке получателя, покачиваясь, со шлейфом. */
 function PlaneFlight({ from, to, onDone }: { from: Point; to: Point; onDone: () => void }) {
