@@ -5,7 +5,7 @@ window.App = window.App || {};
   const store = App.store;
   const auth = App.auth;
 
-  const HISTORY_ICONS = { case: 'Кейс', upgrade: 'Апгрейд', contract: 'Контракт', battle: 'Батл', sell: 'Продажа', deposit: 'Баланс', account: 'Аккаунт' };
+  const HISTORY_ICONS = { case: 'Кейс', upgrade: 'Апгрейд', contract: 'Контракт', battle: 'Батл', trade: 'Обмен', sell: 'Продажа', deposit: 'Баланс', account: 'Аккаунт' };
 
   const avatar = (u, size = '') =>
     `<span class="avatar ${size}" style="--hue:${u ? u.hue : 220}">${esc(u ? u.login[0].toUpperCase() : '?')}</span>`;

@@ -20,6 +20,12 @@ window.App = window.App || {};
     { id: 'WW', name: 'Поношенное', mult: 0.85, p: 0.15 },
     { id: 'BS', name: 'Закалённое в боях', mult: 0.75, p: 0.15 },
   ];
+  // Диапазоны float для каждого износа, как в CS2.
+  const FLOAT_RANGES = { FN: [0, 0.07], MW: [0.07, 0.15], FT: [0.15, 0.38], WW: [0.38, 0.45], BS: [0.45, 1] };
+  const floatFor = (wear, r) => {
+    const [a, b] = FLOAT_RANGES[wear] || FLOAT_RANGES.FT;
+    return Math.round((a + (b - a) * r) * 1e6) / 1e6;
+  };
   const STATTRAK_CHANCE = 0.1;
   const STATTRAK_MULT = 1.8;
 
@@ -202,7 +208,7 @@ window.App = window.App || {};
 
   App.data = {
     RARITY, WEARS, SKINS, SKIN_LIST, CASES, CASE_BY_ID, GROUPS, CATALOG,
-    STATTRAK_CHANCE, STATTRAK_MULT, round2, itemPrice, fullName, DROPS, wearOdds,
+    STATTRAK_CHANCE, STATTRAK_MULT, FLOAT_RANGES, floatFor, round2, itemPrice, fullName, DROPS, wearOdds,
     wear: (id) => WEARS.find((w) => w.id === id),
   };
 })(window.App);

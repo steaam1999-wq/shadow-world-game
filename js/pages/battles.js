@@ -72,7 +72,7 @@ window.App = window.App || {};
       // Ничья решается ещё одним честным броском.
       const leaders = totals.map((t, i) => (t === best ? i : -1)).filter((i) => i >= 0);
       const winner = leaders[Math.floor(App.fair.next()() * leaders.length)];
-      const allItems = drops.flat().map((d) => store.makeItem(d.skin, d.wear, d.st, `Батл «${c.name}»`));
+      const allItems = drops.flat().map((d) => store.makeItem(d.skin, d.wear, d.st, `Батл «${c.name}»`, d.float));
       if (winner === 0) {
         store.state.stats.battlesWon++;
         store.addItems(allItems);

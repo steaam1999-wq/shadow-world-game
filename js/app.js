@@ -89,6 +89,7 @@ window.App = window.App || {};
   const ROUTES = [
     [/^#?\/?$/, (v) => App.pages.home(v), ''],
     [/^#\/case\/([\w-]+)$/, (v, m) => App.pages.case(v, m[1]), ''],
+    [/^#\/swap$/, (v) => App.pages.swap(v), 'swap'],
     [/^#\/upgrade$/, (v) => App.pages.upgrade(v), 'upgrade'],
     [/^#\/contracts$/, (v) => App.pages.contracts(v), 'contracts'],
     [/^#\/battles$/, (v) => App.pages.battles(v), 'battles'],

@@ -13,8 +13,8 @@ window.App = window.App || {};
     const ctx = cv.getContext('2d');
     let w, h, dpr;
     const orbs = [
-      { x: 0.15, y: 0.2, r: 0.45, c: '255,122,24', sx: 0.00007, sy: 0.00005 },
-      { x: 0.85, y: 0.35, r: 0.4, c: '255,61,110', sx: -0.00006, sy: 0.00008 },
+      { x: 0.15, y: 0.2, r: 0.45, c: '61,220,132', sx: 0.00007, sy: 0.00005 },
+      { x: 0.85, y: 0.35, r: 0.4, c: '34,184,255', sx: -0.00006, sy: 0.00008 },
       { x: 0.5, y: 0.9, r: 0.5, c: '120,70,255', sx: 0.00005, sy: -0.00006 },
     ];
     const sparks = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random(), v: 0.00005 + Math.random() * 0.00016, s: 0.6 + Math.random() * 1.8, a: Math.random() * Math.PI * 2 }));
@@ -39,7 +39,7 @@ window.App = window.App || {};
         p.a += 0.02;
         if (p.y < -0.02) { p.y = 1.02; p.x = Math.random(); }
         const x = (p.x + Math.sin(p.a) * 0.004) * w, y = p.y * h;
-        ctx.fillStyle = `rgba(255,${150 + Math.floor(p.s * 40)},80,${0.25 + 0.35 * Math.abs(Math.sin(p.a))})`;
+        ctx.fillStyle = `rgba(${80 + Math.floor(p.s * 30)},${200 + Math.floor(p.s * 20)},255,${0.25 + 0.35 * Math.abs(Math.sin(p.a))})`;
         ctx.beginPath();
         ctx.arc(x, y, p.s * dpr, 0, Math.PI * 2);
         ctx.fill();
@@ -94,7 +94,7 @@ window.App = window.App || {};
   };
 
   // ---------- Конфетти ----------
-  function confetti({ x = innerWidth / 2, y = innerHeight / 2, colors = ['#ff7a18', '#ff3d6e', '#ffc93c', '#8847ff', '#2bd576'], count = 120 } = {}) {
+  function confetti({ x = innerWidth / 2, y = innerHeight / 2, colors = ['#3ddc84', '#22b8ff', '#ffc93c', '#8847ff', '#ffffff'], count = 120 } = {}) {
     if (reduced) return;
     const cv = document.createElement('canvas');
     cv.className = 'confetti';

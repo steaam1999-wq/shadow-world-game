@@ -115,8 +115,15 @@ window.App = window.App || {};
       <div class="item-weapon">${esc(skin.weapon)}</div>
       <div class="item-name">${esc(skin.name)}</div>
       <div class="item-price">${money(item.price)}</div>
+      ${item.float != null ? floatBar(item.float) : ''}
       ${extra}${actions ? `<div class="item-actions">${actions}</div>` : ''}
     </div>`;
+  }
+
+  // Шкала float, как на торговых площадках: зоны FN…BS и маркер точного значения.
+  function floatBar(f) {
+    return `<div class="float" title="Float ${f.toFixed(6)}"><div class="float-bar"><i style="left:${(f * 100).toFixed(2)}%"></i></div>
+      <span class="float-val">${f.toFixed(4)}</span></div>`;
   }
 
   function skinCard(skin, { chance, price, wear, key, selected, view = false } = {}) {
@@ -199,5 +206,5 @@ window.App = window.App || {};
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  App.ui = { esc, fmt, money, skinIcon, caseArt, itemCard, skinCard, fmtChance, toast, modal, showDrops, skinOf, rarityOf, sleep };
+  App.ui = { floatBar, esc, fmt, money, skinIcon, caseArt, itemCard, skinCard, fmtChance, toast, modal, showDrops, skinOf, rarityOf, sleep };
 })(window.App);

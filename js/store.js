@@ -38,6 +38,12 @@ window.App = window.App || {};
     const legacy = App.CS2_DB.legacy;
     const fix = (it) => {
       if (it && !SKINS[it.skinId] && legacy[it.skinId]) it.skinId = legacy[it.skinId];
+      // Старым предметам без float выдаём постоянное значение по их uid.
+      if (it && it.float == null) {
+        let h = 0;
+        for (const ch of String(it.uid)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+        it.float = App.data.floatFor(it.wear, (h % 10000) / 10000);
+      }
       return it && SKINS[it.skinId] ? it : null;
     };
     if (Array.isArray(saved.inventory)) saved.inventory = saved.inventory.map(fix).filter(Boolean);
@@ -95,8 +101,8 @@ window.App = window.App || {};
       return { lvl, progress: (state.xp - cur) / (next - cur), next };
     },
 
-    makeItem(skin, wear, st, source) {
-      return { uid: uid(), skinId: skin.id, wear, st: !!st, price: App.data.itemPrice(skin, wear, st), source, ts: Date.now() };
+    makeItem(skin, wear, st, source, float = App.data.floatFor(wear, Math.random())) {
+      return { uid: uid(), skinId: skin.id, wear, st: !!st, float, price: App.data.itemPrice(skin, wear, st), source, ts: Date.now() };
     },
     addItems(items) {
       state.inventory.unshift(...items);
@@ -178,7 +184,8 @@ window.App = window.App || {};
     let wacc = 0, wear = wears[wears.length - 1].id;
     for (const w of wears) { wacc += w.p; if (wr < wacc) { wear = w.id; break; } }
     const st = roll() < App.data.STATTRAK_CHANCE && picked.skin.st;
-    return { skin: picked.skin, wear, st };
+    const float = App.data.floatFor(wear, roll()); // cursor 3 — точное значение float
+    return { skin: picked.skin, wear, st, float };
   }
 
   // --- Личный кабинет ---

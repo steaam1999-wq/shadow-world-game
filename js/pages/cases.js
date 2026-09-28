@@ -42,11 +42,11 @@ window.App = window.App || {};
         <div class="hero-text">
           <div class="eyebrow"><i class="live-dot"></i>${SKIN_LIST.length.toLocaleString('ru-RU')} скинов CS2 · ${CASES.length} кейсов · Provably Fair</div>
           <h1>Открывай кейсы. <span class="grad">Апгрейдь</span> скины.</h1>
-          <p>Рулетка кейсов, апгрейд с колесом шансов, контракты и батлы. Каждый результат можно
+          <p>Кейсы, обмен скинов, апгрейд с колесом шансов, контракты и батлы. Каждый результат можно
              <a href="#/fair">проверить вручную</a>.</p>
           <div class="hero-cta">
             <a class="btn primary big" href="#/case/free">Открыть бесплатный кейс</a>
-            <a class="btn ghost big" href="#/upgrade">Попробовать апгрейд</a>
+            <a class="btn ghost big" href="#/swap">Обменять скины</a>
           </div>
           <div class="hero-bottom">
             <form class="promo" id="promo">
@@ -191,7 +191,7 @@ window.App = window.App || {};
       updateButton();
 
       const results = Array.from({ length: count }, () => App.rollCaseItem(c, App.fair.next()));
-      const items = results.map((r) => store.makeItem(r.skin, r.wear, r.st, `Кейс «${c.name}»`));
+      const items = results.map((r) => store.makeItem(r.skin, r.wear, r.st, `Кейс «${c.name}»`, r.float));
       store.state.stats.opened += count;
       store.addItems(items);
       for (const it of items) {
