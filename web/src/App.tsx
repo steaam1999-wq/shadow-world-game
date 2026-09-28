@@ -80,18 +80,21 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
-  // Пока лента движется, верхняя панель прозрачная; через 180 мс после остановки становится «жидким стеклом».
-  const [scrolling, setScrolling] = useState(false)
+  // Листаете ленту дальше — панель уезжает вверх; возвращаетесь — выезжает «жидким стеклом».
+  const [hideTop, setHideTop] = useState(false)
   useEffect(() => {
-    let t: number | undefined
+    let last = window.scrollY
     const onScroll = () => {
-      setScrolling(true)
-      clearTimeout(t)
-      t = window.setTimeout(() => setScrolling(false), 180)
+      const y = window.scrollY
+      if (y < 56) setHideTop(false)
+      else if (y > last + 4) setHideTop(true)
+      else if (y < last - 4) setHideTop(false)
+      last = y
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => { window.removeEventListener('scroll', onScroll); clearTimeout(t) }
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
+  useEffect(() => { setHideTop(false) }, [tab, person])
   const player = usePlayer()
 
   useEffect(() => {
@@ -118,7 +121,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     <ProfileNav.Provider value={openProfile}>
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && (tab !== 'reels' || person) && (
-        <header className={`bar sticky top-0 z-20 -mt-[env(safe-area-inset-top,0px)] pt-[env(safe-area-inset-top,0px)] px-4 flex items-center transition-[background,box-shadow,backdrop-filter,border-color] duration-300 ${scrolling ? 'glass-off' : 'glass'}`}>
+        <header className={`bar sticky top-0 z-20 -mt-[env(safe-area-inset-top,0px)] pt-[env(safe-area-inset-top,0px)] px-4 flex items-center glass transition-transform duration-300 ease-out ${hideTop ? '-translate-y-full' : 'translate-y-0'}`}>
           <div className="w-full h-14 flex items-center justify-between gap-3">
           {tab === 'home' || person ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
