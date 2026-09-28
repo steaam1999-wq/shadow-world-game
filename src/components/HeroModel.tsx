@@ -53,6 +53,11 @@ export function HeroModel({
           <stop offset="50%" stopColor="#e5e7eb" />
           <stop offset="100%" stopColor="#6b7280" />
         </linearGradient>
+        <linearGradient id={id('robe')} x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f1ece1" />
+          <stop offset="60%" stopColor="#d8d2c4" />
+          <stop offset="100%" stopColor="#a9a192" />
+        </linearGradient>
         <filter id={id('glow')} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3" result="b" />
           <feMerge>
@@ -66,6 +71,10 @@ export function HeroModel({
       {shadows > 0 && <ellipse cx="100" cy="150" rx="95" ry="120" fill={`url(#${id('aura')})`} className={animate ? 'model-aura' : ''} />}
       <ellipse cx="100" cy="244" rx="46" ry="7" fill="#000" opacity="0.6" />
 
+      {classId === 'assassin' ? (
+        <AssassinBody id={id} trim={trim} has={has} animate={animate} weaponGlow={weaponGlow} />
+      ) : (
+      <>
       {/* Cape (behind body) */}
       <path className={animate ? 'model-cape' : ''} d="M72 96 Q58 170 52 238 L148 238 Q142 170 128 96 Z" fill={`url(#${id('cape')})`} />
 
@@ -121,8 +130,9 @@ export function HeroModel({
             <Shield accent={accent} metal={`url(#${id('metal')})`} />
           </>
         )}
-        {classId === 'assassin' && <Daggers trim={trim('weapon', '#6b7280')} metal={`url(#${id('metal')})`} glow={weaponGlow ? `url(#${id('glow')})` : undefined} />}
       </g>
+      </>
+      )}
     </svg>
   );
 }
@@ -259,23 +269,114 @@ function Shield({ accent, metal }: { accent: string; metal: string }) {
   );
 }
 
-function Daggers({ trim, metal, glow }: { trim: string; metal: string; glow?: string }) {
-  return (
-    <g filter={glow}>
-      <path d="M139 158 L142 158 L144 194 L140 200 L137 194 Z" fill={metal} stroke={trim} strokeWidth="1" />
-      <rect x="134" y="155" width="13" height="3" rx="1" fill={trim} />
-      <path d="M61 158 L64 158 L63 194 L59 200 L57 194 Z" fill={metal} stroke={trim} strokeWidth="1" />
-      <rect x="55" y="155" width="13" height="3" rx="1" fill={trim} />
-    </g>
-  );
-}
-
 function Staff({ id, trim, glow }: { id: (n: string) => string; trim: string; glow: boolean }) {
   return (
     <g>
       <rect x="140" y="52" width="4" height="186" rx="2" fill="#2e2238" />
       <path d="M134 56 Q142 34 150 56" stroke={trim} strokeWidth="2" fill="none" />
       <circle cx="142" cy="46" r={glow ? 8 : 6.5} fill={trim} filter={`url(#${id('glow')})`} className="model-orb" />
+    </g>
+  );
+}
+
+const IVORY_DARK = '#b3ab9b';
+const LEATHER = '#5a3d2b';
+const SASH = '#8b1a1a';
+
+/** Hooded assassin: ivory robe with tails, red sash, hidden blade, sword at the hip. */
+function AssassinBody({
+  id,
+  trim,
+  has,
+  animate,
+  weaponGlow,
+}: {
+  id: (n: string) => string;
+  trim: (slot: Slot, fallback?: string) => string;
+  has: (slot: Slot) => boolean;
+  animate: boolean;
+  weaponGlow: boolean;
+}) {
+  const robe = `url(#${id('robe')})`;
+  const metal = `url(#${id('metal')})`;
+  const glow = `url(#${id('glow')})`;
+  const brass = trim('ring', '#b08d3c');
+  return (
+    <g className={animate ? 'model-breathe' : ''}>
+      {/* Back tail, split like a swallowtail */}
+      <path className={animate ? 'model-cape' : ''} d="M82 166 L118 166 L128 234 L110 218 L100 236 L90 218 L72 234 Z" fill={IVORY_DARK} />
+      <path d="M72 234 L90 218 L100 236 L110 218 L128 234" fill="none" stroke={SASH} strokeWidth="1.6" />
+
+      {/* Legs and boots */}
+      <path d="M84 168 L80 228 L95 228 L99 168 Z" fill="#2b2530" />
+      <path d="M101 168 L105 228 L120 228 L116 168 Z" fill="#2b2530" />
+      <path d="M76 214 L97 214 L99 241 L70 241 Z" fill={LEATHER} stroke={trim('boots', '#3a2a20')} strokeWidth={has('boots') ? 1.6 : 0.8} />
+      <path d="M103 214 L124 214 L130 241 L101 241 Z" fill={LEATHER} stroke={trim('boots', '#3a2a20')} strokeWidth={has('boots') ? 1.6 : 0.8} />
+      <path d="M77 222 L97 222 M103 222 L123 222" stroke="#3a2a20" strokeWidth="1.5" />
+
+      {/* Sword in its scabbard on the left hip */}
+      <g filter={weaponGlow ? glow : undefined}>
+        <path d="M121 166 L127 163 L153 222 L148 225 Z" fill="#3b2a20" stroke={trim('weapon', '#2a1d16')} strokeWidth="1" />
+        <path d="M147 219 L153 222 L152 227 L147 225 Z" fill={brass} />
+        <path d="M113 162 L129 155" stroke={trim('weapon', '#9ca3af')} strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M119 158 L114 146" stroke="#2a1d16" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="113.5" cy="144.5" r="2.4" fill={brass} />
+      </g>
+
+      {/* Sleeves */}
+      <path d="M70 104 L58 150 L69 153 L80 110 Z" fill={robe} />
+      <path d="M130 104 L142 150 L131 153 L120 110 Z" fill={robe} />
+
+      {/* Robe */}
+      <path d="M75 97 Q100 88 125 97 L121 171 Q100 179 79 171 Z" fill={robe} stroke={trim('armor', IVORY_DARK)} strokeWidth={has('armor') ? 1.8 : 0.8} />
+      <path d="M96 94 L111 168" fill="none" stroke={IVORY_DARK} strokeWidth="1.4" />
+      <path d="M79 140 Q88 146 96 142 M104 146 Q112 150 120 146" fill="none" stroke={IVORY_DARK} strokeWidth="0.8" opacity="0.8" />
+
+      {/* Front coat tails with red hem */}
+      <path d="M80 168 L98 168 L96 212 L77 208 Z" fill={robe} />
+      <path d="M102 168 L120 168 L123 208 L104 212 Z" fill={robe} />
+      <path d="M77 208 L96 212 M104 212 L123 208" stroke={SASH} strokeWidth="2" />
+
+      {/* Chest strap with throwing knives */}
+      <path d="M78 102 L118 158" stroke={LEATHER} strokeWidth="4.5" strokeLinecap="round" />
+      <path d="M86 111 l5 -3 M93 121 l5 -3 M100 131 l5 -3" stroke={metal} strokeWidth="2.2" />
+
+      {/* Red sash, leather belt, own buckle emblem, pouches */}
+      <rect x="78" y="157" width="44" height="13" rx="2" fill={SASH} />
+      <rect x="78" y="161" width="44" height="5" fill={LEATHER} />
+      <path d="M100 157.5 L105 163.5 L100 169.5 L95 163.5 Z" fill={brass} stroke="#6b5424" strokeWidth="0.6" />
+      <circle cx="100" cy="163.5" r="1.3" fill="#2a1d16" />
+      <rect x="81" y="166" width="9" height="10" rx="1.5" fill={LEATHER} stroke="#3a2a20" strokeWidth="0.6" />
+      <rect x="110" y="166" width="7" height="8" rx="1.5" fill={LEATHER} stroke="#3a2a20" strokeWidth="0.6" />
+
+      {/* Red capelet on the right shoulder */}
+      <path className={animate ? 'model-cape' : ''} d="M62 97 Q74 89 90 95 L87 124 Q76 129 63 121 Z" fill={SASH} />
+      <path d="M62 97 Q74 89 90 95" fill="none" stroke="#6b4f3a" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M88 99 L116 104" stroke={LEATHER} strokeWidth="2" />
+      <ellipse cx="126" cy="101" rx="9" ry="7" fill={LEATHER} stroke={trim('armor', '#3a2a20')} strokeWidth="1" />
+
+      {/* Bracers; the left one hides the blade */}
+      <path d="M60 136 L72 139 L69 153 L58 150 Z" fill={LEATHER} stroke={trim('gloves', '#3a2a20')} strokeWidth="0.8" />
+      <path d="M140 136 L128 139 L131 153 L142 150 Z" fill={LEATHER} stroke={trim('gloves', '#3a2a20')} strokeWidth="0.8" />
+      <path d="M131 142 L140 140 L141 146 L132 148 Z" fill={brass} />
+      <g filter={weaponGlow ? glow : undefined}>
+        <path d="M136 156 L139.5 156 L141 184 L138 190 L135.5 184 Z" fill={metal} stroke={trim('weapon', '#6b7280')} strokeWidth="0.8" />
+      </g>
+
+      {/* Gloves */}
+      <circle cx="63" cy="154" r="6.5" fill="#3a2a20" stroke={trim('gloves', '#2a1d16')} strokeWidth={has('gloves') ? 1.8 : 0.8} />
+      <circle cx="137" cy="154" r="6.5" fill="#3a2a20" stroke={trim('gloves', '#2a1d16')} strokeWidth={has('gloves') ? 1.8 : 0.8} />
+      {has('ring') && <circle cx="60" cy="157" r="2" fill={trim('ring')} filter={glow} />}
+      {has('amulet') && <circle cx="100" cy="112" r="3" fill={trim('amulet')} filter={glow} />}
+
+      {/* Hood with a beak-shaped peak; the face stays in shadow */}
+      <rect x="93" y="84" width="14" height="10" fill="#2b2023" />
+      <path d="M78 98 Q74 62 100 46 Q126 62 122 98 Q112 88 100 88 Q88 88 78 98 Z" fill={robe} stroke={trim('helmet', IVORY_DARK)} strokeWidth={has('helmet') ? 1.8 : 1} />
+      <path d="M86 86 Q88 64 100 60 Q112 64 114 86 Q100 93 86 86 Z" fill="#0c0a0e" />
+      <path d="M94 88 Q100 92 106 88 L104 84 Q100 86 96 84 Z" fill="#3a2e2a" />
+      <path d="M88 66 Q100 55 112 66 L100 80 Z" fill={robe} stroke={IVORY_DARK} strokeWidth="0.8" />
+      <path d="M100 48 Q98 60 100 70" fill="none" stroke={IVORY_DARK} strokeWidth="0.8" />
+      <path d="M94 80 L96 80 M104 80 L106 80" stroke="#6b6358" strokeWidth="1.2" opacity="0.7" />
     </g>
   );
 }

@@ -42,7 +42,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
     name: 'Ассасин',
     icon: '🗡️',
     tagline: 'Смерть из тени',
-    description: 'Быстрый и неуловимый. Уклоняется, наносит смертельные криты и пускает кровь.',
+    description: 'Быстрый и неуловимый убийца в белом капюшоне. Скрытый клинок на запястье, меч на бедре, смертельные криты и кровотечение.',
     color: '#22c55e',
     mods: { hpMul: 1.0, atkMul: 1.05, defMul: 0.9, critChance: 8, critDmg: 40, speed: 6, dodge: 12, block: 0, bleedChance: 15, magicPct: 0 },
     perks: ['+6 скорости', '12% уклонения', '+40% крит. урона', '15% кровотечения'],
