@@ -5,6 +5,7 @@ import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { ShareButton } from '../components/ShareButton'
+import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
 import type { Activity, Person } from '../types'
@@ -28,7 +29,9 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate }: Props) {
     .map((p) => ({ p, a: live.filter((a) => a.authorId === p.id).sort((x, y) => x.startsAt - y.startsAt)[0] }))
     .filter((x): x is { p: Person; a: Activity } => !!x.a)
     .sort((x, y) => Number(state.seenStories.includes(x.p.id)) - Number(state.seenStories.includes(y.p.id)))
-  const posts = [...live].sort((a, b) => (a.authorId === 'me' ? -1 : b.authorId === 'me' ? 1 : a.startsAt - b.startsAt))
+  const followed = state.following ?? []
+  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : 2)
+  const posts = [...live].sort((a, b) => rank(a) - rank(b) || a.startsAt - b.startsAt)
   const me = state.me!
 
   return (
@@ -114,6 +117,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const [pop, setPop] = useState(0)
   const [menu, setMenu] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
+  const openProfile = useOpenProfile()
   const lastTap = useRef(0)
   const track = useRef<HTMLDivElement>(null)
   const [slide, setSlide] = useState(0)
@@ -137,12 +141,14 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   return (
     <article className="pb-7">
       <header className="flex items-center gap-3 px-4 pt-1 pb-3">
-        <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
-          <Avatar name={author.name} hue={author.hue} src={person ? undefined : me.photo} size={32} />
-        </StoryRing>
+        <button onClick={() => person && openProfile(person.id)} className={person ? 'cursor-pointer' : 'cursor-default'} aria-label={person ? `Профиль ${person.name}` : undefined} tabIndex={person ? 0 : -1}>
+          <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
+            <Avatar name={author.name} hue={author.hue} src={person ? undefined : me.photo} size={32} />
+          </StoryRing>
+        </button>
         <div className="flex-1 min-w-0 leading-tight">
           <div className="flex items-center gap-1 font-semibold text-[14px]">
-            {person ? person.name : me.name}
+            {person ? <button onClick={() => openProfile(person.id)} className="cursor-pointer hover:underline">{person.name}</button> : me.name}
             {author.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
             {!person && <span className="font-normal text-muted">· ваш план</span>}
           </div>
@@ -257,6 +263,7 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
   onReply: (a: Activity, text: string) => void
   onOpenCapsule: (activityId: string) => void
 }) {
+  const openProfile = useOpenProfile()
   const { state, dispatch } = useStore()
   const { p, a } = items[index]
   const [text, setText] = useState('')
@@ -298,9 +305,9 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
           ))}
         </div>
         <div className="relative flex items-center gap-3 px-3 py-3">
-          <Avatar name={p.name} hue={p.hue} size={36} verified={p.verified} />
+          <button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} size={36} verified={p.verified} /></button>
           <div className="flex-1 min-w-0 leading-tight">
-            <div className="font-semibold text-[14px]">{p.name} <span className="font-normal opacity-75">· {compat.score}% вайб</span></div>
+            <div className="font-semibold text-[14px]"><button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer">{p.name}</button> <span className="font-normal opacity-75">· {compat.score}% вайб</span></div>
             <div className="text-[12px] opacity-75">{a.area} · {whenLabel(a.startsAt, now)}</div>
             <TrackChip track={personTrack(p)} light />
           </div>

@@ -25,6 +25,10 @@
   --danger: #e0314b;
   --danger-soft: #fde6e9;
   --shadow: 0 1px 2px rgb(17 17 20 / .04), 0 8px 24px -12px rgb(17 17 20 / .12);
+  --glass-top: rgb(255 255 255 / .62);
+  --glass-bottom: rgb(255 255 255 / .22);
+  --glass-edge: rgb(255 255 255 / .75);
+  --glass-shade: rgb(60 20 60 / .10);
   --brand: linear-gradient(45deg, var(--amber) 0%, #ff7a45 28%, var(--spark) 58%, var(--violet) 100%);
   --font-display: "Rubik", "Onest", system-ui, sans-serif;
   --font-body: "Onest", "Segoe UI", system-ui, sans-serif;
@@ -37,6 +41,7 @@
     --spark: #ff4f86; --spark-soft: #3a1422; --amber: #ffc457; --violet: #9a74ff; --on-spark: #ffffff; --cobalt: #4aa8ff; --cobalt-soft: #0f2538;
     --ok: #3fd18f; --ok-soft: #0f2a1e; --warn: #e8b058; --warn-soft: #2e2211; --danger: #ff5c72; --danger-soft: #34141a;
     --shadow: 0 0 0 1px rgb(255 255 255 / .04);
+  --glass-top: rgb(255 255 255 / .14); --glass-bottom: rgb(255 255 255 / .04); --glass-edge: rgb(255 255 255 / .22); --glass-shade: rgb(0 0 0 / .45);
     color-scheme: dark;
   }
 }
@@ -45,6 +50,7 @@
   --spark: #ff4f86; --spark-soft: #3a1422; --amber: #ffc457; --violet: #9a74ff; --on-spark: #ffffff; --cobalt: #4aa8ff; --cobalt-soft: #0f2538;
   --ok: #3fd18f; --ok-soft: #0f2a1e; --warn: #e8b058; --warn-soft: #2e2211; --danger: #ff5c72; --danger-soft: #34141a;
   --shadow: 0 0 0 1px rgb(255 255 255 / .04);
+  --glass-top: rgb(255 255 255 / .14); --glass-bottom: rgb(255 255 255 / .04); --glass-edge: rgb(255 255 255 / .22); --glass-shade: rgb(0 0 0 / .45);
   color-scheme: dark;
 }
 
@@ -130,3 +136,20 @@ h1, h2, h3 { text-wrap: balance; }
 
 @keyframes received { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--spark) 60%, transparent) } 100% { box-shadow: 0 0 0 18px transparent } }
 .anim-received { animation: received .6s ease-out; border-radius: 9999px; }
+
+/* «Жидкое стекло»: размытие и насыщение фона, блик сверху, светлая кромка */
+.glass {
+  background: linear-gradient(180deg, var(--glass-top), var(--glass-bottom));
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 -8px 16px -12px var(--glass-shade), 0 10px 30px -14px var(--glass-shade);
+}
+.glass-off {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+.glass-off > * { filter: drop-shadow(0 1px 2px rgb(0 0 0 / .25)); }

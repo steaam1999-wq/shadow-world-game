@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CAPSULE_TTL } from '../data'
 import { useStore } from '../store'
+import { useOpenProfile } from '../nav'
 import { countdown, hm, isBurning, isExpired, whenLabel } from '../lib'
 import { Avatar, Button, Icon, Pill, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
@@ -84,6 +85,7 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
 }
 
 export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBack: () => void }) {
+  const openProfile = useOpenProfile()
   const { state, dispatch } = useStore()
   const c = state.capsules.find((x) => x.id === id)
   const [text, setText] = useState('')
@@ -120,11 +122,13 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-surface/55 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку капсул"><Icon name="back" /></button>
+          <button onClick={() => openProfile(p.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer" aria-label={`Профиль ${p.name}`}>
           <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{p.name}, {p.age}</div>
             <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${whenLabel(a.startsAt, now)}` : 'Активность завершена'}</div>
           </div>
+          </button>
           <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="flag" size={18} /></button>
         </div>
         <div className="flex items-center gap-3">

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../store'
+import { useOpenProfile } from '../nav'
 import { compatibility, sharedAnswers, whenLabel } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, inputCls } from '../components/ui'
 import type { Activity, Person } from '../types'
@@ -7,6 +8,7 @@ import type { Activity, Person } from '../types'
 const REASONS = ['Фейковый профиль', 'Спам или реклама', 'Грубость', 'Фото не совпадает', 'Другое']
 
 export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void }) {
+  const openProfile = useOpenProfile()
   const { state } = useStore()
   const me = state.me!
   const [hidden, setHidden] = useState<string[]>([])
@@ -30,10 +32,10 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
         return (
           <article key={p.id} className={`relative overflow-hidden rounded-[28px] bg-surface shadow-soft p-5 flex flex-col gap-4 `}>
             <div className="flex items-start gap-4">
-              <Avatar name={p.name} hue={p.hue} size={64} verified={p.verified} />
+              <button onClick={() => openProfile(p.id)} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} size={64} verified={p.verified} /></button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="font-display font-bold text-lg">{p.name}, {p.age}</h2>
+                  <h2 className="font-display font-bold text-lg"><button onClick={() => openProfile(p.id)} className="cursor-pointer hover:underline">{p.name}, {p.age}</button></h2>
                   {i === 0 && <Pill tone="spark">Лучший мэтч</Pill>}
                 </div>
                 <p className={`text-[13px] text-muted`}>{p.district} · {p.distanceKm.toFixed(1).replace('.', ',')} км · встреч: {p.meetings}</p>

@@ -93,9 +93,10 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
     await copy()
   }
 
-  // Веер: столбик аватарок у правого края, дугой над кнопкой (или под ней, если сверху мало места).
   const b = btn.current?.getBoundingClientRect()
-  const up = b ? b.top > 5 * 68 + 60 : true
+  // Веер всегда у правого края по центру экрана.
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  const fanTop = vh / 2 - (top.length * 68 - 12) / 2
 
   return (
     <>
@@ -113,7 +114,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
             {hover ? `Отпустите — отправим ${top.find((x) => x.id === hover)?.name}` : 'Проведите к человеку и отпустите'}
           </p>
           {top.map((p, i) => {
-            const y = up ? b.top - 64 - i * 68 : b.bottom + 16 + i * 68
+            const y = fanTop + i * 68
             const arc = Math.sin((i / Math.max(top.length - 1, 1)) * Math.PI) * 26
             const on = hover === p.id
             return (

@@ -28,6 +28,7 @@ type Action =
   | { type: 'toggleSave'; activityId: string }
   | { type: 'seeStory'; personId: string }
   | { type: 'share'; personId: string; activityId: string }
+  | { type: 'toggleFollow'; personId: string }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
@@ -142,6 +143,8 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
     }
+    case 'toggleFollow':
+      return { ...state, following: toggle(state.following ?? [], action.personId) }
     case 'seeStory':
       return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }
   }

@@ -173,6 +173,7 @@ export function seedState(now = Date.now()): State {
     hearts: ['a1'],
     saved: [],
     seenStories: [],
+    following: ['p1'],
     categories: DEFAULT_CATEGORIES,
     tags: DEFAULT_TAGS,
     reports: REPORTS(now),

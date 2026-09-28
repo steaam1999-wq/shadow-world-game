@@ -3,6 +3,8 @@ import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
 import { MusicPage } from './music/MusicPage'
+import { PersonProfile } from './screens/PersonProfile'
+import { ProfileNav } from './nav'
 import { DEMO_ME, Landing } from './screens/Landing'
 import { HOUR } from './data'
 import { Onboarding } from './screens/Onboarding'
@@ -73,23 +75,23 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const me = state.me!
   const [tab, setTab] = useState<Tab>('home')
   const [chat, setChat] = useState<string | null>(null)
+  const [person, setPerson] = useState<string | null>(null)
+  const openProfile = (id: string) => { setPerson(id); setChat(null); window.scrollTo(0, 0) }
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
-  // Верхняя панель уезжает при прокрутке вниз и возвращается при прокрутке вверх, как в Инстаграме.
-  const [hideTop, setHideTop] = useState(false)
+  // Пока лента движется, верхняя панель прозрачная; через 180 мс после остановки становится «жидким стеклом».
+  const [scrolling, setScrolling] = useState(false)
   useEffect(() => {
-    let last = window.scrollY
+    let t: number | undefined
     const onScroll = () => {
-      const y = window.scrollY
-      if (y > last + 6 && y > 56) setHideTop(true)
-      else if (y < last - 6 || y < 56) setHideTop(false)
-      last = y
+      setScrolling(true)
+      clearTimeout(t)
+      t = window.setTimeout(() => setScrolling(false), 180)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => { window.removeEventListener('scroll', onScroll); clearTimeout(t) }
   }, [])
-  useEffect(() => { setHideTop(false) }, [tab])
   const player = usePlayer()
 
   useEffect(() => {
@@ -113,13 +115,14 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name, music: 'Музыка' }
 
   return (
+    <ProfileNav.Provider value={openProfile}>
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
-      {!inChat && tab !== 'reels' && (
-        <header className={`sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/55 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3 transition-transform duration-300 ease-out ${hideTop ? '-translate-y-[calc(100%+env(safe-area-inset-top,0px))]' : ''}`}>
-          {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
+      {!inChat && (tab !== 'reels' || person) && (
+        <header className={`sticky top-[env(safe-area-inset-top,0px)] z-20 mx-2 mt-2 rounded-[24px] px-3 h-14 flex items-center justify-between gap-3 transition-[background,box-shadow,backdrop-filter,border-color] duration-300 ${scrolling ? 'glass-off' : 'glass'}`}>
+          {tab === 'home' || person ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <ThemeToggle />
-            <button onClick={() => { setTab('music'); setChat(null) }} className={`relative grid place-items-center w-10 h-10 cursor-pointer ${tab === 'music' ? 'text-spark' : ''}`} aria-label="Музыка">
+            <button onClick={() => { setTab('music'); setChat(null); setPerson(null) }} className={`relative grid place-items-center w-10 h-10 cursor-pointer ${tab === 'music' ? 'text-spark' : ''}`} aria-label="Музыка">
               <Icon name="note" size={23} />
               {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
             </button>
@@ -128,7 +131,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
               {state.announcement && state.announcement !== state.dismissedAnnouncement && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
             </button>
             {tab !== 'capsules' && (
-              <button onClick={() => { setTab('capsules'); setChat(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
+              <button onClick={() => { setTab('capsules'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
                 <Icon name="send" size={24} />
                 {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-surface">{unread}</span>}
               </button>
@@ -137,16 +140,18 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </header>
       )}
 
-      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' ? '' : player.track ? 'pb-[calc(140px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
-        {tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
-        {tab === 'music' && <MusicPage />}
-        {tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
-        {tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
-        {tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
-        {tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} />}
+      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(140px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
+        {person && <PersonProfile personId={person} now={now} onBack={() => setPerson(null)} onRespond={(a, t) => { setPerson(null); respond(a, t) }}
+          onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
+        {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
+        {!person && tab === 'music' && <MusicPage />}
+        {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
+        {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
+        {!person && tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
+        {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} />}
       </main>
 
-      {!inChat && tab !== 'reels' && <MiniPlayer />}
+      {!inChat && (tab !== 'reels' || person) && <MiniPlayer />}
       <FullPlayer />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
@@ -170,7 +175,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
               return (
                 <li key={t.id}>
                   <button
-                    onClick={() => (t.id === 'create' ? setCreating(true) : (setTab(t.id), setChat(null)))}
+                    onClick={() => (t.id === 'create' ? setCreating(true) : (setTab(t.id), setChat(null), setPerson(null)))}
                     aria-current={active ? 'page' : undefined} aria-label={t.label}
                     className={`relative w-full h-14 grid place-items-center cursor-pointer ${active ? 'text-fg' : 'text-muted hover:text-fg'}`}>
                     {t.id === 'profile' ? (
@@ -186,6 +191,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </nav>
       )}
     </div>
+    </ProfileNav.Provider>
   )
 }
 
