@@ -4,6 +4,7 @@ import { Landing } from './screens/Landing'
 import { Onboarding } from './screens/Onboarding'
 import { CreateActivity, Explore } from './screens/Explore'
 import { Feed } from './screens/Feed'
+import { Reels } from './screens/Reels'
 import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
@@ -12,13 +13,13 @@ import { isExpired, relative } from './lib'
 import type { Activity } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin'
-type Tab = 'home' | 'search' | 'capsules' | 'profile'
+type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile'
 
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
   { id: 'home', label: 'Главная', icon: 'home' },
   { id: 'search', label: 'Поиск', icon: 'search' },
   { id: 'create', label: 'Новый план', icon: 'create' },
-  { id: 'capsules', label: 'Капсулы', icon: 'chat' },
+  { id: 'reels', label: 'Планы на весь экран', icon: 'reels' },
   { id: 'profile', label: 'Профиль', icon: 'user' },
 ]
 
@@ -69,11 +70,11 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
   const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length
   const inChat = tab === 'capsules' && chat
-  const titles: Record<Tab, string> = { home: '', search: 'Поиск', capsules: 'Сообщения', profile: me.name }
+  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name }
 
   return (
     <div className="min-h-full mx-auto max-w-[480px] bg-bg sm:shadow-soft flex flex-col">
-      {!inChat && (
+      {!inChat && tab !== 'reels' && (
         <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/80 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3">
           {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
@@ -91,8 +92,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </header>
       )}
 
-      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
+      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' ? '' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
         {tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
+        {tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
         {tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} />}
@@ -127,9 +129,6 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                       <span className={`rounded-full ${active ? 'ring-2 ring-fg ring-offset-1 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={26} /></span>
                     ) : (
                       <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} />
-                    )}
-                    {t.id === 'capsules' && unread > 0 && (
-                      <span className="absolute top-2 left-[calc(50%+6px)] grid place-items-center min-w-4 h-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold">{unread}</span>
                     )}
                   </button>
                 </li>

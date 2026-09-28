@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore } from '../store'
 import { compatibility, relative, sharedAnswers, whenLabel } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
@@ -165,6 +165,10 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             {compat && (
               <span className="absolute right-3 top-3 rounded-full bg-white/80 text-[#111114] backdrop-blur-md px-3 h-7 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
             )}
+            {/* Плашечный заголовок — единый визуальный код обложек */}
+            <p className="absolute left-3 right-14 bottom-11 pointer-events-none">
+              <Plate>{a.title}</Plate>
+            </p>
             {pop > 0 && (
               <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none text-white drop-shadow-lg">
                 <Icon name="heart" size={110} fill />
@@ -172,7 +176,9 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             )}
           </div>
           <div className="relative snap-start shrink-0 w-full aspect-[4/5] overflow-hidden">
-            <div className="absolute inset-0 opacity-25 blur-2xl scale-125"><PostArt activity={a} /></div>
+            {/* Кадр «перетекает» с первого слайда и растворяется в карточке */}
+            <div className="absolute inset-y-0 -left-[70%] w-full [mask-image:linear-gradient(to_right,#000_55%,transparent_100%)] opacity-70"><PostArt activity={a} /></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-surface/60 to-surface" />
             <div className="relative h-full flex flex-col justify-between gap-4 p-6">
               <div className="flex flex-col gap-1">
                 <span className="text-[12px] font-medium text-muted uppercase tracking-[.12em]">{a.category}</span>
@@ -327,5 +333,14 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
         </div>
       </div>
     </div>
+  )
+}
+
+/** Текст на плашке, как подписи на обложках: каждая строка в своей подложке. */
+export function Plate({ children, size = 'md' }: { children: ReactNode; size?: 'md' | 'lg' }) {
+  return (
+    <span className={`[box-decoration-break:clone] [-webkit-box-decoration-break:clone] bg-white text-[#111114] rounded-md px-2 py-0.5 font-display font-semibold ${size === 'lg' ? 'text-[22px] leading-[1.55]' : 'text-[17px] leading-[1.6]'}`}>
+      {children}
+    </span>
   )
 }
