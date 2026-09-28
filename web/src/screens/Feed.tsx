@@ -4,6 +4,7 @@ import { compatibility, relative, sharedAnswers, whenLabel } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
+import { ShareButton } from '../components/ShareButton'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
 import type { Activity, Person } from '../types'
@@ -113,7 +114,6 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const [pop, setPop] = useState(0)
   const [menu, setMenu] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
-  const [copied, setCopied] = useState(false)
   const lastTap = useRef(0)
   const track = useRef<HTMLDivElement>(null)
   const [slide, setSlide] = useState(0)
@@ -132,11 +132,6 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       setPop((n) => n + 1)
     }
     lastTap.current = t
-  }
-  const share = async () => {
-    try { await navigator.clipboard.writeText(`${a.title} — ${a.area}, ${whenLabel(a.startsAt, now)}. Искра`) } catch { /* буфер недоступен */ }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1600)
   }
 
   return (
@@ -224,8 +219,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         {person && (
           <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Написать"><Icon name="comment" size={25} /></button>
         )}
-        <button onClick={share} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Скопировать приглашение"><Icon name="send" size={24} /></button>
-        {copied && <span className="text-[12px] text-muted">Текст скопирован</span>}
+        <ShareButton activity={a} now={now} />
         <button onClick={() => dispatch({ type: 'toggleSave', activityId: a.id })} className="ml-auto grid place-items-center w-10 h-10 cursor-pointer" aria-label={saved ? 'Убрать из сохранённого' : 'Сохранить'} aria-pressed={saved}>
           <Icon name="bookmark" size={24} fill={saved} />
         </button>

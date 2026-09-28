@@ -127,3 +127,6 @@ h1, h2, h3 { text-wrap: balance; }
 .anim-spin { animation: spin 6s linear infinite; }
 .anim-eq { height: 60%; animation: eq .9s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .anim-spin, .anim-eq { animation: none; } }
+
+@keyframes received { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--spark) 60%, transparent) } 100% { box-shadow: 0 0 0 18px transparent } }
+.anim-received { animation: received .6s ease-out; border-radius: 9999px; }

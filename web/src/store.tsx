@@ -27,6 +27,7 @@ type Action =
   | { type: 'heart'; activityId: string }
   | { type: 'toggleSave'; activityId: string }
   | { type: 'seeStory'; personId: string }
+  | { type: 'share'; personId: string; activityId: string }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
@@ -123,6 +124,24 @@ function reducer(state: State, action: Action): State {
       return state.hearts.includes(action.activityId) ? state : { ...state, hearts: [...state.hearts, action.activityId] }
     case 'toggleSave':
       return { ...state, saved: toggle(state.saved, action.activityId) }
+    case 'share': {
+      // Пересланный план попадает в капсулу с человеком; если её нет — открываем новую.
+      const activity = state.activities.find((x) => x.id === action.activityId)
+      if (!activity) return state
+      const text = `Смотри, какой план: «${activity.title}» — ${activity.area}`
+      const existing = state.capsules.find((c) => c.personId === action.personId)
+      if (existing) {
+        return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text, at: now }] } : c)) }
+      }
+      const capsule = {
+        id: uid(), personId: action.personId, activityId: activity.id, createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 0,
+        messages: [
+          { id: uid(), from: 'system' as const, text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now },
+          { id: uid(), from: 'me' as const, text, at: now + 1 },
+        ],
+      }
+      return { ...state, capsules: [capsule, ...state.capsules] }
+    }
     case 'seeStory':
       return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }
   }
