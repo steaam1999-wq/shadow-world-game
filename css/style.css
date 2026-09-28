@@ -215,6 +215,8 @@ main.container { flex: 1; }
 .wheel-center { position: absolute; inset: 60px; border-radius: 50%; background: radial-gradient(circle, var(--panel2), var(--bg2)); display: grid; place-content: center; text-align: center; border: 1px solid var(--line); }
 .wheel-chance { font-size: 38px; font-weight: 800; }
 .wheel-label { color: var(--muted); font-size: 13px; }
+.wheel-label.good { color: var(--good); font-weight: 700; }
+.wheel-label.bad { color: var(--bad); font-weight: 700; }
 .wheel.win .wheel-center { box-shadow: 0 0 40px var(--good); }
 .wheel.lose .wheel-center { box-shadow: 0 0 40px var(--bad); }
 .upgrade-target { min-height: 44px; text-align: center; }
@@ -337,9 +339,12 @@ code { background: var(--bg2); padding: 2px 6px; border-radius: 4px; font-size: 
 .case-links a { padding: 4px 10px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--line); font-size: 13px; }
 
 /* ---------- Просмотр скина ---------- */
-.item-info { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; font-style: italic; color: var(--muted); background: rgba(255,255,255,.07); flex: none; }
-.item-info:hover { color: var(--text); background: var(--accent); text-decoration: none; }
-.item-top .chance + .item-info { margin-left: 4px; }
+.item-top { align-items: center; }
+.item-tool { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; font-style: italic; color: var(--muted); background: rgba(255,255,255,.07); flex: none; cursor: pointer; }
+.item-tool:hover, .item-tool:focus-visible { color: #fff; background: var(--accent); text-decoration: none; }
+.item-tool svg { width: 12px; height: 12px; }
+.item-zoom { margin-left: auto; }
+.item-top .chance + .item-zoom { margin-left: 2px; }
 .item.viewable { cursor: zoom-in; }
 .back { color: var(--muted); display: inline-block; margin-bottom: 12px; }
 .skin-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: center; padding: 24px; border-radius: 18px; border: 1px solid var(--line);
@@ -404,4 +409,40 @@ table.odds.compact { max-width: 320px; }
   .profile-balance { align-items: flex-start; }
   .account-link span { display: none; }
   .account-link { padding: 4px; }
+}
+
+/* ---------- Детальный осмотр ---------- */
+.skin-hero-img { position: relative; border: 0; background: none; padding: 10px 20px; cursor: zoom-in; width: 100%; border-radius: 14px; }
+.skin-hero-img:hover { background: rgba(255,255,255,.03); }
+.zoom-hint { position: absolute; right: 14px; bottom: 10px; font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .2s; }
+.skin-hero-img:hover .zoom-hint, .skin-hero-img:focus-visible .zoom-hint { opacity: 1; }
+.modal.inspect-modal { max-width: 1120px; padding: 18px; text-align: left; }
+.inspect { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; }
+.inspect-stage { position: relative; height: min(68vh, 560px); border-radius: 14px; overflow: hidden; cursor: grab; touch-action: none; outline: none; border: 1px solid var(--line); }
+.inspect-stage:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.inspect-stage.zoomed { cursor: move; }
+.inspect-stage.bg-dark { background: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--rc) 30%, #1a1e2c), #07080c 75%); }
+.inspect-stage.bg-light { background: radial-gradient(circle at 50% 55%, #ffffff, #c9ced8 80%); }
+.inspect-stage.bg-grid { background-color: #151823; background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 24px 24px; }
+.inspect-canvas { position: absolute; inset: 0; display: grid; place-items: center; transform-origin: 0 0; }
+.inspect-canvas .skin-pic { width: 92%; max-width: 900px; }
+.inspect-stage[data-wear="WW"] .skin-pic { filter: saturate(.9) brightness(.96); }
+.inspect-stage[data-wear="BS"] .skin-pic { filter: saturate(.78) brightness(.9) contrast(1.05); }
+.inspect-zoom { position: absolute; left: 12px; bottom: 12px; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: rgba(7,8,12,.75); border: 1px solid var(--line); }
+.inspect-zoom button { width: 32px; height: 32px; border: 0; border-radius: 8px; background: var(--panel2); color: var(--text); font-size: 18px; font-weight: 700; }
+.inspect-zoom button:hover { background: var(--accent); }
+.inspect-zoom span { min-width: 52px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.inspect-hint { position: absolute; right: 12px; bottom: 16px; font-size: 11px; color: rgba(255,255,255,.55); pointer-events: none; text-align: right; max-width: 50%; }
+.bg-light .inspect-hint { color: rgba(0,0,0,.5); }
+.inspect-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.inspect-side h2 { margin: 0; text-wrap: balance; }
+.inspect-side .pills { margin: 0; }
+.inspect-price { font-size: 26px; }
+.inspect-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-top: 6px; }
+.inspect-side .seg { align-self: flex-start; }
+.inspect-side .btn { margin-top: auto; }
+@media (max-width: 860px) {
+  .inspect { grid-template-columns: 1fr; }
+  .inspect-stage { height: 52vh; }
+  .inspect-hint { display: none; }
 }

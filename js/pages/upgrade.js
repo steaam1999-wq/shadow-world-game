@@ -37,6 +37,9 @@ window.App = window.App || {};
     let query = skinT ? `${skinT.weapon} ${skinT.name}` : '';
     preTarget = null;
     let busy = false;
+    // Зафиксированный апгрейд: пока крутится колесо и после результата показываем именно его шанс.
+    let locked = null;
+    const unlock = () => { locked = null; };
     let angle = 0;
 
     view.innerHTML = `
@@ -60,7 +63,7 @@ window.App = window.App || {};
             <div class="wheel-pointer" id="pointer"><i></i></div>
             <div class="wheel-center">
               <div class="wheel-chance" id="chance">0%</div>
-              <div class="wheel-label">шанс</div>
+              <div class="wheel-label" id="wlabel">шанс</div>
             </div>
           </div>
           <div class="upgrade-target" id="target-view"></div>
@@ -107,30 +110,40 @@ window.App = window.App || {};
     }
 
     function renderCenter() {
-      const stake = stakeValue();
-      const ch = chanceFor(stake, target);
-      $('#stake-sum').innerHTML = money(stake);
-      $('#chance').textContent = target ? fmtChance(ch) : '—';
+      const L = locked;
+      const stake = L ? L.stake : stakeValue();
+      const tgt = L ? L.tgt : target;
+      const ch = L ? L.ch : chanceFor(stake, tgt);
+      $('#stake-sum').innerHTML = money(stakeValue());
+      $('#chance').textContent = tgt ? fmtChance(ch) : '—';
       $('#arc').setAttribute('stroke-dasharray', `${ch * 100} 100`);
-      $('#target-view').innerHTML = target
-        ? `<div class="target-line">${esc(target.skin.weapon)} | ${esc(target.skin.name)} (${target.wear}) — ${money(target.price)}
-             ${stake > 0 ? `<span class="muted">x${(target.price / stake).toFixed(2)}</span>` : ''}</div>`
+      $('#wlabel').textContent = L && L.roll != null
+        ? `выпало ${(L.roll * 100).toFixed(2)} — ${L.win ? 'победа' : 'мимо'}`
+        : L ? 'крутим…' : 'шанс';
+      $('#wlabel').className = `wheel-label ${L && L.roll != null ? (L.win ? 'good' : 'bad') : ''}`;
+      $('#target-view').innerHTML = tgt
+        ? `<div class="target-line">${esc(tgt.skin.weapon)} | ${esc(tgt.skin.name)} (${tgt.wear}) — ${money(tgt.price)}
+             ${stake > 0 ? `<span class="muted">x${(tgt.price / stake).toFixed(2)}</span>` : ''}</div>`
         : '<div class="muted">Выберите ставку и предмет справа</div>';
-      $('#go').disabled = busy || !target || stake <= 0 || ch < MIN_CHANCE;
+      $('#go').disabled = busy || !!L || !target || stakeValue() <= 0 || chanceFor(stakeValue(), target) < MIN_CHANCE;
     }
 
     function renderAll() { renderInv(); renderTargets(); renderCenter(); }
 
     $('#inv').addEventListener('click', (e) => {
+      if (e.target.closest('.item-tool')) return;
       const card = e.target.closest('.item');
       if (!card || busy) return;
       const uid = card.dataset.uid;
+      unlock();
       if (sel.has(uid)) sel.delete(uid);
       else if (sel.size >= MAX_ITEMS) return toast(`Не больше ${MAX_ITEMS} предметов`, 'bad');
       else sel.add(uid);
       renderAll();
     });
     coinsInput.addEventListener('input', () => {
+      if (busy) return;
+      unlock();
       coins = round2(+coinsInput.value);
       $('#coins-val').innerHTML = money(coins);
       renderTargets();
@@ -139,6 +152,8 @@ window.App = window.App || {};
     $('#mults').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
+      if (busy) return;
+      unlock();
       mult = +b.dataset.m;
       $('#mults').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
       target = null;
@@ -147,8 +162,10 @@ window.App = window.App || {};
     });
     $('#q').addEventListener('input', (e) => { query = e.target.value.trim(); renderTargets(); });
     $('#targets').addEventListener('click', (e) => {
+      if (e.target.closest('.item-tool')) return;
       const card = e.target.closest('.item');
       if (!card || busy) return;
+      unlock();
       target = CATALOG.find((x) => x.key === card.dataset.key);
       renderTargets();
       renderCenter();
@@ -162,6 +179,7 @@ window.App = window.App || {};
 
       busy = true;
       const tgt = target;
+      locked = { stake, ch, tgt, roll: null, win: false };
       const uids = [...sel];
       const roll = App.fair.next()();
       const win = roll < ch;
@@ -189,6 +207,8 @@ window.App = window.App || {};
       await App.ui.sleep(fast ? 1300 : 4300);
       if (!view.isConnected) return;
 
+      locked.roll = roll;
+      locked.win = win;
       view.querySelector('.wheel').classList.add(win ? 'win' : 'lose');
       setTimeout(() => view.querySelector('.wheel')?.classList.remove('win', 'lose'), 1500);
       sel.clear();

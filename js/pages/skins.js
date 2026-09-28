@@ -95,7 +95,7 @@ window.App = window.App || {};
     view.innerHTML = `
       <a href="#/skins" class="back">← Все скины</a>
       <section class="skin-hero" style="--rc:${r.color}">
-        <div class="skin-hero-img">${skinIcon(skin)}</div>
+        <button class="skin-hero-img" id="inspect" title="Осмотреть детально">${skinIcon(skin, '', '')}<span class="zoom-hint">Осмотреть</span></button>
         <div class="skin-hero-info">
           <div class="muted">${esc(skin.weapon)}</div>
           <h1>${esc(skin.name)}</h1>
@@ -110,6 +110,7 @@ window.App = window.App || {};
             : 'Не выпадает из кейсов — получите его через апгрейд или контракт.'}</div>
           <div class="hero-cta">
             <button class="btn primary" id="to-upgrade">Апгрейдить до него</button>
+            <button class="btn ghost" id="inspect-btn">Осмотреть</button>
             ${best ? `<a class="btn ghost" href="#/case/${best.case.id}">Открыть «${esc(best.case.name)}» за ${money(best.case.price)}</a>` : ''}
           </div>
         </div>
@@ -166,6 +167,8 @@ window.App = window.App || {};
     }
 
     view.querySelector('#to-upgrade').addEventListener('click', () => App.upgradeTo(skin.id));
+    view.querySelector('#inspect').addEventListener('click', () => App.openInspect(skin));
+    view.querySelector('#inspect-btn').addEventListener('click', () => App.openInspect(skin));
     renderUpgradeOdds();
     return store.subscribe(renderUpgradeOdds);
   }

@@ -58,6 +58,7 @@ window.App = window.App || {};
     }
 
     $('#inv').addEventListener('click', (e) => {
+      if (e.target.closest('.item-tool')) return;
       const card = e.target.closest('.item');
       if (!card || busy) return;
       const uid = card.dataset.uid;
