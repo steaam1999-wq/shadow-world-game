@@ -10,25 +10,8 @@ window.App = window.App || {};
   }
   const money = (n) => `<span class="money">${fmt(n)}<i class="coin"></i></span>`;
 
-  // Силуэты оружия (viewBox 0 0 200 80), закрашиваются градиентом скина.
-  const SHAPES = {
-    rifle: 'M8 36 L26 33 L30 28 L58 28 L62 31 L124 31 L128 27 L150 27 L152 31 L192 31 L192 37 L152 38 L146 43 L126 43 L118 46 L112 64 L98 64 L102 47 L86 47 L80 58 L70 58 L74 47 L54 45 L40 50 L10 56 Z',
-    sniper: 'M4 38 L22 34 L30 30 L64 30 L66 24 L112 24 L114 30 L196 32 L196 37 L118 38 L112 44 L96 44 L92 60 L80 60 L84 45 L58 45 L44 52 L8 58 Z',
-    smg: 'M20 34 L40 30 L150 30 L154 26 L170 26 L170 36 L150 38 L140 42 L112 42 L108 68 L94 68 L98 42 L78 42 L72 60 L58 60 L62 42 L44 44 L22 50 Z',
-    pistol: 'M44 26 L160 26 L164 22 L172 22 L172 38 L112 40 L106 44 L96 44 L88 70 L64 70 L74 42 L62 40 L44 38 Z',
-    knife: 'M10 44 C40 30 90 22 150 24 L190 18 C176 30 160 40 130 44 L96 46 L92 52 L58 54 C40 56 22 54 10 44 Z',
-    gloves: 'M60 70 L56 40 L62 18 L72 16 L76 36 L80 12 L90 10 L94 34 L100 10 L110 10 L112 34 L118 14 L128 16 L126 40 L136 30 L146 34 L128 60 L124 70 Z',
-  };
-
-  let gradId = 0;
-  function skinSvg(skin, cls = '') {
-    const id = `g${gradId++}`;
-    return `<svg class="skin-svg ${cls}" viewBox="0 0 200 80" aria-hidden="true">
-      <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="${skin.c1}"/><stop offset="1" stop-color="${RARITY[skin.rarity].color}"/></linearGradient></defs>
-      <path d="${SHAPES[skin.type]}" fill="url(#${id})" stroke="rgba(0,0,0,.55)" stroke-width="2" stroke-linejoin="round"/>
-    </svg>`;
-  }
+  // Нарисованное изображение скина (js/art.js): силуэт модели + узор отделки.
+  const skinSvg = (skin, cls = '') => App.art.render(skin, cls);
 
   // Картинки скинов грузятся со Steam CDN. Под картинкой всегда лежит SVG-силуэт:
   // картинка становится видимой только после настоящей загрузки. Так иконка не пропадает,
