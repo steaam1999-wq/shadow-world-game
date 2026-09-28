@@ -121,7 +121,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     <ProfileNav.Provider value={openProfile}>
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && (tab !== 'reels' || person) && (
-        <header className={`bar sticky top-0 z-20 -mt-[env(safe-area-inset-top,0px)] pt-[env(safe-area-inset-top,0px)] px-4 flex items-center glass transition-transform duration-300 ease-out ${hideTop ? '-translate-y-full' : 'translate-y-0'}`}>
+        <header className={`bar fixed top-0 inset-x-0 mx-auto w-full max-w-[480px] z-20 pt-[env(safe-area-inset-top,0px)] px-4 flex items-center glass transition-transform duration-300 ease-out ${hideTop ? '-translate-y-full' : 'translate-y-0'}`}>
           <div className="w-full h-14 flex items-center justify-between gap-3">
           {tab === 'home' || person ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
@@ -144,8 +144,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           </div>
         </header>
       )}
+      {!inChat && (tab !== 'reels' || person) && <div className="h-14 shrink-0" aria-hidden="true" />}
 
-      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(140px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
+      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(168px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
         {person && <PersonProfile personId={person} now={now} onBack={() => setPerson(null)} onRespond={(a, t) => { setPerson(null); respond(a, t) }}
           onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
         {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
@@ -162,7 +163,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {toast && (
-        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(132px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(160px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
           <Icon name="spark" size={22} className="text-spark shrink-0" fill />
           <div className="flex-1 min-w-0">
             <div className="font-semibold">Капсула открыта</div>
@@ -173,8 +174,8 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       )}
 
       {!inChat && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-surface/65 backdrop-blur-xl border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
-          <ul className="grid grid-cols-5">
+        <nav className="glass fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[456px] rounded-[32px] p-1.5" aria-label="Разделы">
+          <ul className="relative grid grid-cols-5">
             {NAV.map((t) => {
               const active = tab === t.id
               return (
@@ -182,9 +183,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                   <button
                     onClick={() => (t.id === 'create' ? setCreating(true) : (setTab(t.id), setChat(null), setPerson(null)))}
                     aria-current={active ? 'page' : undefined} aria-label={t.label}
-                    className={`relative w-full h-14 grid place-items-center cursor-pointer ${active ? 'text-fg' : 'text-muted hover:text-fg'}`}>
+                    className={`relative w-full h-13 grid place-items-center rounded-[26px] cursor-pointer transition duration-300 ${active ? 'text-fg glass-drop' : 'text-muted hover:text-fg'}`}>
                     {t.id === 'profile' ? (
-                      <span className={`rounded-full ${active ? 'ring-2 ring-fg ring-offset-1 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={26} /></span>
+                      <span className={`rounded-full ${active ? 'ring-2 ring-fg ring-offset-2 ring-offset-transparent' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={26} /></span>
                     ) : (
                       <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} />
                     )}

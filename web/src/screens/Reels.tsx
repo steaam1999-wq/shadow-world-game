@@ -18,7 +18,7 @@ export function Reels({ now, onRespond, onOpenCapsule }: { now: number; onRespon
     .sort((x, y) => compatibility(state.me!, y.p).score - compatibility(state.me!, x.p).score)
 
   return (
-    <div className="h-[calc(100dvh-56px-env(safe-area-inset-bottom,0px)-env(safe-area-inset-top,0px))] overflow-y-auto no-scrollbar snap-y snap-mandatory bg-black">
+    <div className="h-[calc(100dvh-env(safe-area-inset-top,0px))] overflow-y-auto no-scrollbar snap-y snap-mandatory bg-black">
       {items.map(({ a, p }) => (
         <Reel key={a.id} a={a} p={p} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />
       ))}
@@ -58,13 +58,13 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
         <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none drop-shadow-lg"><Icon name="heart" size={120} fill /></span>
       )}
 
-      <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5 drop-shadow">
+      <div className="absolute right-3 bottom-44 flex flex-col items-center gap-5 drop-shadow">
         {action('heart', hearted ? 'Убрать лайк' : 'Нравится', () => dispatch({ type: 'toggleHeart', activityId: a.id }), hearted, likeCount(a.id, hearted).toLocaleString('ru-RU'))}
         {action('comment', 'Написать', () => (responded ? onOpenCapsule(a.id) : onRespond(a)), false, responded ? 'чат' : undefined)}
         {action('bookmark', saved ? 'Убрать из сохранённого' : 'Сохранить', () => dispatch({ type: 'toggleSave', activityId: a.id }), saved)}
       </div>
 
-      <div className="absolute left-0 right-16 bottom-0 p-4 flex flex-col gap-3">
+      <div className="absolute left-0 right-16 bottom-0 p-4 pb-[calc(96px+env(safe-area-inset-bottom,0px))] flex flex-col gap-3">
         <div className="flex items-center gap-2.5">
           <Avatar name={p.name} hue={p.hue} size={34} verified={p.verified} />
           <span className="font-semibold">{p.name}, {p.age}</span>

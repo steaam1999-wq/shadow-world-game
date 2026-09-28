@@ -44,7 +44,7 @@ export function MiniPlayer() {
   if (!p.track || p.expanded) return null
   const pct = p.duration ? (p.position / p.duration) * 100 : 0
   return (
-    <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(62px+env(safe-area-inset-bottom,0px))] z-30 w-[calc(100%-16px)] max-w-[464px] rounded-[20px] bg-surface/85 backdrop-blur-xl shadow-soft ring-1 ring-line overflow-hidden">
+    <div className="anim-rise fixed inset-x-3 mx-auto bottom-[calc(88px+env(safe-area-inset-bottom,0px))] z-30 max-w-[456px] rounded-[24px] glass overflow-hidden">
       <div className="flex items-center gap-3 p-2 pr-2.5">
         <button onClick={() => p.setExpanded(true)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer" aria-label="Открыть плеер">
           <Disc track={p.track} size={42} spinning={p.playing} />

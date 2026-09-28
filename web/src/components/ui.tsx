@@ -4,7 +4,7 @@ const PATHS: Record<string, string> = {
   spark: 'M13 2 4 14h7l-1 8 9-12h-7z',
   vibe: 'M3 12h3l2-6 4 12 3-9 2 3h4',
   chat: 'M4 5h16v11H9l-5 4z',
-  note: 'M9 18V5.5l11-2V16M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  note: 'M9 17.5V6.4a1.2 1.2 0 0 1 1-1.2l8.6-1.6a1.2 1.2 0 0 1 1.4 1.2v10.7M9 17.5a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 0 1 5.6 0zM20 15.5a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 0 1 5.6 0z',
   play: 'M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5z',
   pause: 'M6.5 4h3.5v16H6.5zM14 4h3.5v16H14z',
   skip: 'M4 5.2v13.6a1 1 0 0 0 1.5.8l10-6.8a1 1 0 0 0 0-1.6l-10-6.8A1 1 0 0 0 4 5.2zM17.5 4.5h2.5v15h-2.5z',
@@ -14,9 +14,9 @@ const PATHS: Record<string, string> = {
   repeat: 'M4 11V9a3 3 0 0 1 3-3h13M17 3l3 3-3 3M20 13v2a3 3 0 0 1-3 3H4M7 21l-3-3 3-3',
   upload: 'M12 16V4M7 9l5-5 5 5M4 16v3.5h16V16',
   volume: 'M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11',
-  moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z',
+  moon: 'M20.3 14.3a8.3 8.3 0 1 1-10.6-10.6 6.6 6.6 0 0 0 10.6 10.6z',
   sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4',
-  reels: 'M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM3.5 8.5h17M8 3.5l3 5M13.5 3.5l3 5M10.5 12v5.5l4.5-2.75z',
+  reels: 'M9 3.5h6a5.5 5.5 0 0 1 5.5 5.5v6a5.5 5.5 0 0 1-5.5 5.5H9A5.5 5.5 0 0 1 3.5 15V9A5.5 5.5 0 0 1 9 3.5zM3.9 8.4h16.2M9.2 3.7l2.4 4.5M14.4 3.7l2.4 4.5M10.6 12.3v4.1c0 .5.5.8.9.5l3.3-2c.4-.3.4-.8 0-1.1l-3.3-2c-.4-.3-.9 0-.9.5z',
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6',
   pin: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
@@ -35,13 +35,13 @@ const PATHS: Record<string, string> = {
   bell: 'M6 16V11a6 6 0 1 1 12 0v5l2 2H4zM10 21h4',
   arrow: 'M5 12h14M13 6l6 6-6 6',
   camera: 'M4 8h4l2-3h4l2 3h4v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
-  heart: 'M12 20s-7.5-4.6-9.2-9.3C1.7 7.5 3.8 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.2 0 5.3 3 4.2 6.2C19.5 15.4 12 20 12 20z',
+  heart: 'M12 20.2c-.3 0-.6-.1-.8-.3C8 17.7 3.2 13.9 3.2 9.4A4.7 4.7 0 0 1 12 7a4.7 4.7 0 0 1 8.8 2.4c0 4.5-4.8 8.3-8 10.5-.2.2-.5.3-.8.3z',
   comment: 'M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3.5 20l1.2-4.2A8.5 8.5 0 1 1 20.5 11.5z',
   bookmark: 'M6 3.5h12v17l-6-4.5-6 4.5z',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
-  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
-  home: 'M3.5 10.5 12 3.5l8.5 7V20a.5.5 0 0 1-.5.5h-5v-6h-6v6H4a.5.5 0 0 1-.5-.5z',
-  create: 'M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM12 8v8M8 12h8',
+  search: 'M10.8 18.1a7.3 7.3 0 1 0 0-14.6 7.3 7.3 0 0 0 0 14.6zM20.5 20.5l-4.5-4.5',
+  home: 'M3.5 11c0-.8.4-1.5 1-2l5.9-4.6a2.6 2.6 0 0 1 3.2 0l5.9 4.6c.6.5 1 1.2 1 2v7.3a2.2 2.2 0 0 1-2.2 2.2H15v-4.8a1.5 1.5 0 0 0-1.5-1.5h-3A1.5 1.5 0 0 0 9 16.7v4.8H5.7a2.2 2.2 0 0 1-2.2-2.2z',
+  create: 'M9 3.5h6a5.5 5.5 0 0 1 5.5 5.5v6a5.5 5.5 0 0 1-5.5 5.5H9A5.5 5.5 0 0 1 3.5 15V9A5.5 5.5 0 0 1 9 3.5zM12 8.5v7M8.5 12h7',
   grid: 'M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z',
   people: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.8c2 .7 3.2 2.4 3.6 5.2',
 }
@@ -49,7 +49,7 @@ const PATHS: Record<string, string> = {
 export function Icon({ name, size = 20, className = '', fill = false }: { name: keyof typeof PATHS | string; size?: number; className?: string; fill?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={className}
-      fill={fill ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={fill ? 0 : 1.6} strokeLinecap="round" strokeLinejoin="round">
+      fill={fill ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={fill ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d={PATHS[name]} />
     </svg>
   )
