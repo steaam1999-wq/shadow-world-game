@@ -4,6 +4,8 @@ import { compatibility, whenLabel } from '../lib'
 import { Avatar, Button, Icon } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { Plate } from './Feed'
+import { TrackChip } from '../music/PlayerUI'
+import { personTrack } from '../music/player'
 import type { Activity, Person } from '../types'
 
 /** Вертикальная лента на весь экран: один план — один экран, листается свайпом вверх. */
@@ -69,6 +71,7 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
           <span className="rounded-full bg-white/20 backdrop-blur-md px-2.5 h-6 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
         </div>
         <p><Plate size="lg">{a.title}</Plate></p>
+        <TrackChip track={personTrack(p)} light />
         <div className="flex items-center gap-2 text-[13px] text-white/85">
           <Icon name="clock" size={14} /> {whenLabel(a.startsAt, now)} · <Icon name="pin" size={14} /> {a.area}
         </div>

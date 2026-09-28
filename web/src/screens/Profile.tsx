@@ -4,12 +4,16 @@ import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '../components/ui'
 import { PostArt } from '../components/PostArt'
+import { GENRE_LABEL, usePlayer } from '../music/player'
+import type { Genre } from '../music/engine'
 
 export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () => void }) {
   const { state, dispatch } = useStore()
   const me = state.me!
   const [editVibe, setEditVibe] = useState(false)
   const [editing, setEditing] = useState(false)
+  const player = usePlayer()
+  const myGenre = (['indie', 'electro', 'jazz', 'hiphop'].includes(me.answers.music) ? me.answers.music : 'indie') as Genre
   const [tab, setTab] = useState<'plans' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
@@ -56,6 +60,10 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
             {me.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
           <div className="text-muted">{lv.name} · {me.district}</div>
+          <button onClick={() => player.play({ id: 't-me', title: 'Мой вайб', artist: me.name, genre: myGenre, hue: me.hue, bpm: myGenre === 'jazz' ? 96 : myGenre === 'hiphop' ? 86 : myGenre === 'electro' ? 124 : 118, root: 57, bars: 24 })}
+            className="inline-flex items-center gap-1.5 my-1 rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
+            <Icon name="note" size={13} /> Моя песня: «Мой вайб» · {GENRE_LABEL[myGenre]}
+          </button>
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>

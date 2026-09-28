@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { StoreProvider, useNow, useStore } from './store'
+import { PlayerProvider, usePlayer } from './music/player'
+import { FullPlayer, MiniPlayer } from './music/PlayerUI'
 import { Landing } from './screens/Landing'
 import { Onboarding } from './screens/Onboarding'
 import { CreateActivity, Explore } from './screens/Explore'
@@ -51,6 +53,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
+  const player = usePlayer()
 
   useEffect(() => {
     if (!toast) return
@@ -79,6 +82,10 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <ThemeToggle />
+            <button onClick={() => player.setExpanded(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Музыка">
+              <Icon name="note" size={23} />
+              {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
+            </button>
             <button onClick={() => setActivityOpen(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
               <Icon name="heart" size={25} />
               {state.announcement && state.announcement !== state.dismissedAnnouncement && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
@@ -93,7 +100,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </header>
       )}
 
-      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' ? '' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
+      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' ? '' : player.track ? 'pb-[calc(140px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
         {tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
         {tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
@@ -101,11 +108,13 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         {tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} />}
       </main>
 
+      {!inChat && tab !== 'reels' && <MiniPlayer />}
+      <FullPlayer />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {toast && (
-        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(132px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
           <Icon name="spark" size={22} className="text-spark shrink-0" fill />
           <div className="flex-1 min-w-0">
             <div className="font-semibold">Капсула открыта</div>
@@ -179,7 +188,9 @@ function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; o
 export default function App() {
   return (
     <StoreProvider>
-      <Root />
+      <PlayerProvider>
+        <Root />
+      </PlayerProvider>
     </StoreProvider>
   )
 }

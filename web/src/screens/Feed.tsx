@@ -3,6 +3,8 @@ import { useStore } from '../store'
 import { compatibility, relative, sharedAnswers, whenLabel } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
+import { TrackChip } from '../music/PlayerUI'
+import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
 import type { Activity, Person } from '../types'
 
@@ -149,7 +151,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             {author.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
             {!person && <span className="font-normal text-muted">· ваш план</span>}
           </div>
-          <div className="text-[12px] text-muted truncate">{a.area}{person && ` · ${person.distanceKm.toFixed(1).replace('.', ',')} км`}</div>
+          {person ? <TrackChip track={personTrack(person)} /> : <div className="text-[12px] text-muted truncate">{a.area}</div>}
         </div>
         <button onClick={() => setMenu(true)} className="grid place-items-center w-9 h-9 -mr-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Ещё"><Icon name="more" size={22} /></button>
       </header>
@@ -306,6 +308,7 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
           <div className="flex-1 min-w-0 leading-tight">
             <div className="font-semibold text-[14px]">{p.name} <span className="font-normal opacity-75">· {compat.score}% вайб</span></div>
             <div className="text-[12px] opacity-75">{a.area} · {whenLabel(a.startsAt, now)}</div>
+            <TrackChip track={personTrack(p)} light />
           </div>
           <button onClick={onClose} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Закрыть"><Icon name="x" size={26} /></button>
         </div>
