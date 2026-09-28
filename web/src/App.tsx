@@ -2,21 +2,22 @@ import { useEffect, useState } from 'react'
 import { StoreProvider, useNow, useStore } from './store'
 import { Landing } from './screens/Landing'
 import { Onboarding } from './screens/Onboarding'
-import { Ideas } from './screens/Ideas'
-import { Vibe } from './screens/Vibe'
+import { CreateActivity, Explore } from './screens/Explore'
+import { Feed } from './screens/Feed'
 import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
-import { Icon, Logo } from './components/ui'
-import { isExpired } from './lib'
+import { Avatar, Icon, Logo, Sheet } from './components/ui'
+import { isExpired, relative } from './lib'
 import type { Activity } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin'
-type Tab = 'ideas' | 'vibe' | 'capsules' | 'profile'
+type Tab = 'home' | 'search' | 'capsules' | 'profile'
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'ideas', label: 'Идеи', icon: 'spark' },
-  { id: 'vibe', label: 'Вайб', icon: 'vibe' },
+const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
+  { id: 'home', label: 'Главная', icon: 'home' },
+  { id: 'search', label: 'Поиск', icon: 'search' },
+  { id: 'create', label: 'Новый план', icon: 'create' },
   { id: 'capsules', label: 'Капсулы', icon: 'chat' },
   { id: 'profile', label: 'Профиль', icon: 'user' },
 ]
@@ -43,9 +44,12 @@ function Root() {
 function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () => void }) {
   const { state, dispatch } = useStore()
   const now = useNow()
-  const [tab, setTab] = useState<Tab>('ideas')
+  const me = state.me!
+  const [tab, setTab] = useState<Tab>('home')
   const [chat, setChat] = useState<string | null>(null)
   const [toast, setToast] = useState<Activity | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
 
   useEffect(() => {
     if (!toast) return
@@ -58,40 +62,47 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     const c = state.capsules.find((x) => x.activityId === activityId)
     if (c) { setTab('capsules'); setChat(c.id); setToast(null) }
   }
-  const respond = (a: Activity) => {
-    dispatch({ type: 'respond', activityId: a.id })
+  const respond = (a: Activity, text?: string) => {
+    dispatch({ type: 'respond', activityId: a.id, text })
     setToast(a)
   }
 
   const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length
-  const showAnnouncement = state.announcement && state.announcement !== state.dismissedAnnouncement
   const inChat = tab === 'capsules' && chat
+  const titles: Record<Tab, string> = { home: '', search: 'Поиск', capsules: 'Сообщения', profile: me.name }
 
   return (
-    <div className="min-h-full mx-auto max-w-[480px] bg-bg sm:border-x sm:border-line flex flex-col">
+    <div className="min-h-full mx-auto max-w-[480px] bg-surface sm:border-x sm:border-line flex flex-col">
       {!inChat && (
-        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/90 backdrop-blur px-4 h-14 flex items-center justify-between">
-          <Logo className="text-lg" />
-          <span className="text-[13px] text-muted">Привет, {state.me!.name}</span>
+        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/95 backdrop-blur border-b border-line px-4 h-14 flex items-center justify-between gap-3">
+          {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
+          <div className="flex items-center gap-1 -mr-2">
+            <button onClick={() => setActivityOpen(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
+              <Icon name="heart" size={25} />
+              {state.announcement && state.announcement !== state.dismissedAnnouncement && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
+            </button>
+            {tab !== 'capsules' && (
+              <button onClick={() => { setTab('capsules'); setChat(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
+                <Icon name="send" size={24} />
+                {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-surface">{unread}</span>}
+              </button>
+            )}
+          </div>
         </header>
       )}
 
-      <main className={`flex-1 px-4 ${inChat ? 'flex flex-col' : 'pt-2 pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
-        {showAnnouncement && !inChat && (
-          <div className="anim-rise mb-4 flex items-start gap-3 rounded-2xl bg-cobalt-soft text-cobalt p-3.5">
-            <Icon name="bell" size={18} className="mt-0.5 shrink-0" />
-            <p className="flex-1 text-[14px] font-medium">{state.announcement}</p>
-            <button onClick={() => dispatch({ type: 'dismissAnnouncement' })} aria-label="Скрыть уведомление" className="cursor-pointer"><Icon name="x" size={16} /></button>
-          </div>
-        )}
-        {tab === 'ideas' && <Ideas now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
-        {tab === 'vibe' && <Vibe now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
-        {tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <CapsuleList now={now} onOpen={setChat} />)}
+      <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
+        {tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
+        {tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
+        {tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
         {tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} />}
       </main>
 
+      <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
+      <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
+
       {toast && (
-        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-2xl bg-fg text-bg p-3.5 flex items-center gap-3 shadow-xl" role="status">
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-2xl bg-fg text-bg p-3.5 flex items-center gap-3 shadow-xl" role="status">
           <Icon name="spark" size={22} className="text-spark shrink-0" fill />
           <div className="flex-1 min-w-0">
             <div className="font-semibold">Капсула открыта</div>
@@ -102,24 +113,66 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       )}
 
       {!inChat && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-surface/95 backdrop-blur border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
-          <ul className="grid grid-cols-4">
-            {TABS.map((t) => (
-              <li key={t.id}>
-                <button onClick={() => { setTab(t.id); setChat(null) }} aria-current={tab === t.id ? 'page' : undefined}
-                  className={`relative w-full h-16 flex flex-col items-center justify-center gap-1 text-[11px] font-semibold cursor-pointer ${tab === t.id ? 'text-spark' : 'text-muted hover:text-fg'}`}>
-                  <Icon name={t.icon} size={22} fill={t.id === 'ideas' && tab === t.id} />
-                  {t.label}
-                  {t.id === 'capsules' && unread > 0 && (
-                    <span className="absolute top-2 left-[calc(50%+6px)] grid place-items-center min-w-4 h-4 px-1 rounded-full bg-spark text-on-spark text-[10px] font-bold">{unread}</span>
-                  )}
-                </button>
-              </li>
-            ))}
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-surface border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
+          <ul className="grid grid-cols-5">
+            {NAV.map((t) => {
+              const active = tab === t.id
+              return (
+                <li key={t.id}>
+                  <button
+                    onClick={() => (t.id === 'create' ? setCreating(true) : (setTab(t.id), setChat(null)))}
+                    aria-current={active ? 'page' : undefined} aria-label={t.label}
+                    className={`relative w-full h-14 grid place-items-center cursor-pointer ${active ? 'text-fg' : 'text-muted hover:text-fg'}`}>
+                    {t.id === 'profile' ? (
+                      <span className={`rounded-full ${active ? 'ring-2 ring-fg ring-offset-1 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={26} /></span>
+                    ) : (
+                      <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} />
+                    )}
+                    {t.id === 'capsules' && unread > 0 && (
+                      <span className="absolute top-2 left-[calc(50%+6px)] grid place-items-center min-w-4 h-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold">{unread}</span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </nav>
       )}
     </div>
+  )
+}
+
+/** «Действия»: уведомления о сообщениях, лайках и системные объявления. */
+function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void }) {
+  const { state, dispatch } = useStore()
+  const myPlans = state.activities.filter((a) => a.authorId === 'me')
+  const items = [
+    ...(state.announcement ? [{ key: 'ann', person: null, text: state.announcement, at: now, onClick: () => dispatch({ type: 'dismissAnnouncement' }) }] : []),
+    ...state.capsules.filter((c) => !isExpired(c, now)).map((c) => {
+      const p = state.people.find((x) => x.id === c.personId)!
+      const last = [...c.messages].reverse().find((m) => m.from === 'them')
+      return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Капсула с ${p.name} открыта`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }
+    }),
+    ...myPlans.map((a, i) => {
+      const p = state.people[(i * 3 + 1) % state.people.length]
+      return { key: `like-${a.id}`, person: p, text: `${p.name} и ещё ${4 + i} человек отметили ваш план «${a.title}»`, at: now - 25 * 60_000 * (i + 1), onClick: onClose }
+    }),
+  ].sort((a, b) => b.at - a.at)
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Уведомления">
+      <ul className="flex flex-col -mx-2">
+        {items.map((it) => (
+          <li key={it.key}>
+            <button onClick={it.onClick} className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-surface-2 cursor-pointer">
+              {it.person ? <Avatar name={it.person.name} hue={it.person.hue} size={44} /> : <span className="grid place-items-center w-11 h-11 rounded-full bg-cobalt-soft text-cobalt shrink-0"><Icon name="bell" /></span>}
+              <span className="flex-1 min-w-0 text-[14px]">{it.text} <span className="text-muted">{relative(it.at, now)}</span></span>
+            </button>
+          </li>
+        ))}
+        {!items.length && <li className="p-4 text-center text-muted">Пока тихо. Откликнитесь на план, и здесь появятся ответы.</li>}
+      </ul>
+    </Sheet>
   )
 }
 

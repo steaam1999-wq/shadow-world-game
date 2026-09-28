@@ -2,14 +2,14 @@ import { createContext, useContext, useEffect, useReducer, useState, type ReactN
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
 import type { Activity, CapsuleStatus, Me, Report, State, Verification } from './types'
 
-const STORAGE_KEY = 'iskra-state-v1'
+const STORAGE_KEY = 'iskra-state'
 
 type Action =
   | { type: 'signIn'; me: Me }
   | { type: 'updateMe'; patch: Partial<Me> }
   | { type: 'signOut' }
   | { type: 'reset' }
-  | { type: 'respond'; activityId: string }
+  | { type: 'respond'; activityId: string; text?: string }
   | { type: 'createActivity'; activity: Omit<Activity, 'id' | 'authorId'> }
   | { type: 'deleteActivity'; activityId: string }
   | { type: 'send'; capsuleId: string; text: string }
@@ -23,6 +23,12 @@ type Action =
   | { type: 'setTags'; tags: string[] }
   | { type: 'announce'; text: string | null }
   | { type: 'dismissAnnouncement' }
+  | { type: 'toggleHeart'; activityId: string }
+  | { type: 'heart'; activityId: string }
+  | { type: 'toggleSave'; activityId: string }
+  | { type: 'seeStory'; personId: string }
+
+const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -59,7 +65,8 @@ function reducer(state: State, action: Action): State {
         messages: [
           { id: uid(), from: 'system' as const, text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now },
           { id: uid(), from: 'system' as const, text: `Точное место: ${activity.exactPlace}`, at: now },
-          { id: uid(), from: 'them' as const, text: 'Привет! План в силе. Во сколько тебе удобно подойти?', at: now + 1 },
+          ...(action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now + 1 }] : []),
+          { id: uid(), from: 'them' as const, text: 'Привет! План в силе. Во сколько тебе удобно подойти?', at: now + 2 },
         ],
       }
       return { ...state, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
@@ -110,6 +117,14 @@ function reducer(state: State, action: Action): State {
       return { ...state, announcement: action.text }
     case 'dismissAnnouncement':
       return { ...state, dismissedAnnouncement: state.announcement }
+    case 'toggleHeart':
+      return { ...state, hearts: toggle(state.hearts, action.activityId) }
+    case 'heart':
+      return state.hearts.includes(action.activityId) ? state : { ...state, hearts: [...state.hearts, action.activityId] }
+    case 'toggleSave':
+      return { ...state, saved: toggle(state.saved, action.activityId) }
+    case 'seeStory':
+      return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }
   }
 }
 
@@ -118,7 +133,7 @@ function load(): State {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as State
-      if (parsed.version === 1) return parsed
+      if (parsed.version === 2) return parsed
     }
   } catch {
     /* хранилище недоступно — работаем на демо-данных */

@@ -22,6 +22,15 @@ const PATHS: Record<string, string> = {
   bell: 'M6 16V11a6 6 0 1 1 12 0v5l2 2H4zM10 21h4',
   arrow: 'M5 12h14M13 6l6 6-6 6',
   camera: 'M4 8h4l2-3h4l2 3h4v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+  heart: 'M12 20s-7.5-4.6-9.2-9.3C1.7 7.5 3.8 4.5 7 4.5c2 0 3.4 1.1 5 3 1.6-1.9 3-3 5-3 3.2 0 5.3 3 4.2 6.2C19.5 15.4 12 20 12 20z',
+  comment: 'M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3.5 20l1.2-4.2A8.5 8.5 0 1 1 20.5 11.5z',
+  bookmark: 'M6 3.5h12v17l-6-4.5-6 4.5z',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+  home: 'M3.5 10.5 12 3.5l8.5 7V20a.5.5 0 0 1-.5.5h-5v-6h-6v6H4a.5.5 0 0 1-.5-.5z',
+  create: 'M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM12 8v8M8 12h8',
+  grid: 'M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z',
+  people: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c.8-3.6 3.3-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.8c2 .7 3.2 2.4 3.6 5.2',
 }
 
 export function Icon({ name, size = 20, className = '', fill = false }: { name: keyof typeof PATHS | string; size?: number; className?: string; fill?: boolean }) {
@@ -45,15 +54,17 @@ export function Logo({ className = '' }: { className?: string }) {
 }
 
 /** Аватар: инициал на цветном фоне, оттенок уникален для человека. Вместо фото в демо. */
-export function Avatar({ name, hue, size = 48, verified = false, ring = false }: { name: string; hue: number; size?: number; verified?: boolean; ring?: boolean }) {
+export function Avatar({ name, hue, size = 48, verified = false, ring = false, src }: { name: string; hue: number; size?: number; verified?: boolean; ring?: boolean; src?: string }) {
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-      <span
+      {src ? (
+        <img src={src} alt="" className={`w-full h-full rounded-full object-cover ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`} />
+      ) : <span
         className={`grid place-items-center w-full h-full rounded-full font-display font-bold text-white ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`}
         style={{ background: `linear-gradient(145deg, hsl(${hue} 70% 58%), hsl(${(hue + 40) % 360} 65% 42%))`, fontSize: size * 0.4 }}
       >
         {name.slice(0, 1)}
-      </span>
+      </span>}
       {verified && (
         <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center rounded-full bg-cobalt text-white border-2 border-surface" style={{ width: size * 0.36, height: size * 0.36, minWidth: 16, minHeight: 16 }} title="Верифицирован">
           <Icon name="check" size={Math.max(10, size * 0.22)} />
@@ -156,3 +167,35 @@ export function Field({ id, label, children }: { id: string; label: string; chil
 }
 
 export const inputCls = 'w-full h-11 rounded-xl border border-line bg-bg px-3 text-fg placeholder:text-muted focus:outline-none focus:border-cobalt'
+
+/** Кольцо сторис: градиент, пока не просмотрено, серое — после. */
+export function StoryRing({ seen, size, children }: { seen: boolean; size: number; children: ReactNode }) {
+  return (
+    <span className="grid place-items-center rounded-full p-[2.5px] shrink-0"
+      style={{ width: size, height: size, background: seen ? 'var(--line)' : 'conic-gradient(from 210deg, var(--spark), var(--amber), var(--spark), var(--cobalt), var(--spark))' }}>
+      <span className="grid place-items-center w-full h-full rounded-full bg-surface p-[2px]">{children}</span>
+    </span>
+  )
+}
+
+/** Уменьшает загруженное фото до квадрата 720px в JPEG, чтобы оно поместилось в хранилище браузера. */
+export function readPhoto(file: File, max = 720): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error)
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Не удалось открыть изображение'))
+      img.onload = () => {
+        const side = Math.min(img.width, img.height)
+        const size = Math.min(max, side)
+        const canvas = document.createElement('canvas')
+        canvas.width = canvas.height = size
+        canvas.getContext('2d')!.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size)
+        resolve(canvas.toDataURL('image/jpeg', 0.8))
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}

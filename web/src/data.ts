@@ -164,12 +164,15 @@ const VERIFICATIONS = (now: number): Verification[] => [
 
 export function seedState(now = Date.now()): State {
   return {
-    version: 1,
+    version: 2,
     me: null,
     people: PEOPLE,
     activities: ACTS(now),
     capsules: CAPSULES(now),
     liked: ['a1', 'a6', 'a4'],
+    hearts: ['a1'],
+    saved: [],
+    seenStories: [],
     categories: DEFAULT_CATEGORIES,
     tags: DEFAULT_TAGS,
     reports: REPORTS(now),

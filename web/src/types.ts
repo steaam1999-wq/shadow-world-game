@@ -27,6 +27,7 @@ export interface Me {
   authMethod: 'telegram' | 'google' | 'phone'
   privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean }
   radiusKm: number
+  photo?: string
 }
 
 export interface Activity {
@@ -41,6 +42,7 @@ export interface Activity {
   expiresAt: number
   x: number // координаты на схеме города, 0..100
   y: number
+  photo?: string // data URL загруженного фото; без него рисуется обложка категории
 }
 
 export type CapsuleStatus = 'active' | 'agreed' | 'contacts' | 'met'
@@ -90,6 +92,9 @@ export interface State {
   activities: Activity[]
   capsules: Capsule[]
   liked: string[] // activityId, на которые я откликнулся
+  hearts: string[] // activityId, которые я лайкнул
+  saved: string[]
+  seenStories: string[] // personId
   categories: string[]
   tags: string[]
   reports: Report[]

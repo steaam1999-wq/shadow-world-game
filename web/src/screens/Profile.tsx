@@ -2,12 +2,22 @@ import { useState } from 'react'
 import { DISTRICTS, VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
-import { Avatar, Button, Chip, Field, Icon, Pill, Sheet, Toggle, inputCls } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '../components/ui'
+import { PostArt } from '../components/PostArt'
 
 export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () => void }) {
   const { state, dispatch } = useStore()
   const me = state.me!
   const [editVibe, setEditVibe] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [tab, setTab] = useState<'plans' | 'saved' | 'settings'>('plans')
+  const [copied, setCopied] = useState(false)
+  const myPlans = state.activities.filter((a) => a.authorId === 'me')
+  const share = async () => {
+    try { await navigator.clipboard.writeText(`${me.name} в «Искре»: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1600)
+  }
   const [verifying, setVerifying] = useState(false)
   const lv = level(me.meetings)
   const complete = profileCompleteness(me)
@@ -22,37 +32,89 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
   ]
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Шапка профиля */}
-      <section className="rounded-3xl bg-surface border border-line p-5 flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Avatar name={me.name} hue={me.hue} size={76} verified={me.verified} />
-            <label htmlFor="photo" className="absolute -left-1 -bottom-1 grid place-items-center w-8 h-8 rounded-full bg-fg text-bg cursor-pointer border-2 border-surface" title="Сменить фото">
-              <Icon name="camera" size={15} />
-            </label>
-            <input id="photo" type="file" accept="image/*" className="sr-only" onChange={() => patch({ hue: Math.floor(Math.random() * 360) })} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="font-display font-bold text-xl">{me.name}, {me.age}</h1>
-            <p className="text-[13px] text-muted">{me.district} · вход через {me.authMethod === 'telegram' ? 'Telegram' : me.authMethod === 'google' ? 'Google' : 'телефон'}</p>
-            <div className="mt-1.5"><Pill tone="spark">Ур. {lv.idx} · {lv.name}</Pill></div>
-          </div>
+    <div className="flex flex-col gap-3 pb-4">
+      {/* Шапка в духе Инстаграма: фото, счётчики, имя и био */}
+      <section className="flex flex-col gap-3 px-4 pt-3">
+        <div className="flex items-center gap-6">
+          <label htmlFor="photo" className="relative cursor-pointer shrink-0" title="Сменить фото">
+            <Avatar name={me.name} hue={me.hue} src={me.photo} size={86} />
+            <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-cobalt text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
+          </label>
+          <input id="photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
+            const f = e.target.files?.[0]
+            if (f) try { patch({ photo: await readPhoto(f, 400) }) } catch { /* не изображение */ }
+          }} />
+          <dl className="flex-1 grid grid-cols-3 text-center">
+            {[[myPlans.length, plural(myPlans.length, 'план', 'плана', 'планов')], [me.meetings, plural(me.meetings, 'встреча', 'встречи', 'встреч')], [lv.idx, 'уровень']].map(([v, l]) => (
+              <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></div>
+            ))}
+          </dl>
         </div>
-        <Field id="me-bio" label="О себе">
-          <textarea id="me-bio" className={`${inputCls} h-20 py-2 resize-none`} value={me.bio} onChange={(e) => patch({ bio: e.target.value })} maxLength={200} placeholder="Пара предложений о себе" />
-        </Field>
-        <div>
-          <div className="flex justify-between text-[13px] mb-1.5"><span className="font-semibold">Профиль заполнен</span><span className="font-mono tnum">{complete}%</span></div>
-          <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full bg-ok" style={{ width: `${complete}%` }} /></div>
+        <div className="text-[14px] leading-snug">
+          <div className="flex items-center gap-1 font-semibold">
+            {me.name}, {me.age}
+            {me.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
+          </div>
+          <div className="text-muted">{lv.name} · {me.district}</div>
+          {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
+          <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>
-        {!me.verified && (
-          <button onClick={() => setVerifying(true)} className="flex items-center gap-3 rounded-2xl bg-cobalt-soft text-cobalt p-3 text-left cursor-pointer">
-            <Icon name="shield" size={26} />
-            <span className="flex-1"><span className="block font-semibold">Пройти верификацию</span><span className="block text-[13px] opacity-80">Селфи с жестом. Проверенным отвечают в 3 раза чаще.</span></span>
-          </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => setEditing(true)} className="h-9 rounded-lg bg-surface-2 font-semibold text-[14px] cursor-pointer hover:bg-line">Редактировать</button>
+          <button onClick={share} className="h-9 rounded-lg bg-surface-2 font-semibold text-[14px] cursor-pointer hover:bg-line">{copied ? 'Скопировано' : 'Поделиться'}</button>
+        </div>
+        {complete < 100 && (
+          <div className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3">
+            <div className="flex-1">
+              <div className="flex justify-between text-[13px] mb-1.5"><span className="font-semibold">Профиль заполнен</span><span className="font-mono tnum">{complete}%</span></div>
+              <div className="h-1.5 rounded-full bg-line overflow-hidden"><div className="h-full rounded-full bg-ok" style={{ width: `${complete}%` }} /></div>
+            </div>
+            {!me.verified && <button onClick={() => setVerifying(true)} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[13px] font-semibold cursor-pointer">Верификация</button>}
+          </div>
         )}
+        {/* Значки как «актуальное» */}
+        <div className="flex gap-4 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
+          {badges.map((b) => (
+            <div key={b.id} className={`flex flex-col items-center gap-1 w-[68px] shrink-0 ${b.got ? '' : 'opacity-40'}`} title={b.desc}>
+              <span className="grid place-items-center w-16 h-16 rounded-full border border-line p-1">
+                <span className={`grid place-items-center w-full h-full rounded-full ${b.got ? 'bg-spark text-on-spark' : 'bg-surface-2 text-muted'}`}><Icon name="spark" size={22} fill /></span>
+              </span>
+              <span className="text-[11px] text-center leading-tight">{b.name}</span>
+            </div>
+          ))}
+        </div>
       </section>
+
+      <div className="grid grid-cols-3 border-t border-line" role="tablist">
+        {([['plans', 'grid', 'Мои планы'], ['saved', 'bookmark', 'Сохранённое'], ['settings', 'settings', 'Настройки']] as const).map(([id, icon, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} aria-label={label} onClick={() => setTab(id)}
+            className={`h-11 grid place-items-center border-t -mt-px cursor-pointer ${tab === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
+            <Icon name={icon} size={22} />
+          </button>
+        ))}
+      </div>
+
+      {(tab === 'plans' || tab === 'saved') && (() => {
+        const list = tab === 'plans' ? myPlans : state.activities.filter((a) => state.saved.includes(a.id))
+        return list.length ? (
+          <div className="grid grid-cols-3 gap-0.5">
+            {list.map((a) => (
+              <div key={a.id} className="relative aspect-square max-w-full overflow-hidden">
+                <PostArt activity={a} />
+                <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent text-white text-[11px] font-semibold leading-tight line-clamp-2">{a.title}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 px-6 text-center flex flex-col items-center gap-2">
+            <span className="grid place-items-center w-16 h-16 rounded-full border-2 border-fg"><Icon name={tab === 'plans' ? 'camera' : 'bookmark'} size={28} /></span>
+            <p className="font-display font-bold text-lg">{tab === 'plans' ? 'Пока нет планов' : 'Ничего не сохранено'}</p>
+            <p className="text-[13px] text-muted">{tab === 'plans' ? 'Нажмите «+» внизу, чтобы предложить первый план.' : 'Нажмите на закладку под постом, чтобы вернуться к нему позже.'}</p>
+          </div>
+        )
+      })()}
+
+      {tab === 'settings' && <div className="flex flex-col gap-5 px-4 pt-2">
 
       {/* Уровни и значки */}
       <section className="rounded-3xl bg-fg text-bg p-5 flex flex-col gap-4">
@@ -71,14 +133,6 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
             <div key={l.name} className="flex flex-col gap-1">
               <div className={`h-1.5 rounded-full ${i < lv.idx ? 'bg-spark' : 'bg-white/15'}`} />
               <span className={`text-[10px] truncate ${i < lv.idx ? '' : 'opacity-50'}`}>{l.name}</span>
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {badges.map((b) => (
-            <div key={b.id} className={`flex items-center gap-3 rounded-2xl p-3 ${b.got ? 'bg-white/10' : 'bg-white/5 opacity-50'}`}>
-              <span className={`grid place-items-center w-9 h-9 rounded-full shrink-0 ${b.got ? 'bg-spark text-on-spark' : 'bg-white/10'}`}><Icon name={b.got ? 'spark' : 'x'} size={16} fill={b.got} /></span>
-              <span className="min-w-0"><span className="block font-semibold text-[14px]">{b.name}</span><span className="block text-[12px] opacity-70">{b.desc}</span></span>
             </div>
           ))}
         </div>
@@ -101,14 +155,6 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
             )
           })}
         </dl>
-        <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold text-muted">Интересы</span>
-          <div className="flex flex-wrap gap-2">
-            {state.tags.map((t) => (
-              <Chip key={t} active={me.tags.includes(t)} onClick={() => patch({ tags: me.tags.includes(t) ? me.tags.filter((x) => x !== t) : [...me.tags, t] })}>{t}</Chip>
-            ))}
-          </div>
-        </div>
       </section>
 
       {/* Приватность */}
@@ -131,6 +177,27 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
         <Button variant="ghost" onClick={() => { dispatch({ type: 'reset' }); onSignOut() }} className="text-muted">Сбросить демо-данные</Button>
         <Button variant="danger" onClick={() => { dispatch({ type: 'signOut' }); onSignOut() }}><Icon name="logout" size={18} /> Выйти</Button>
       </div>
+      </div>}
+
+      <Sheet open={editing} onClose={() => setEditing(false)} title="Редактировать профиль">
+        <div className="flex flex-col gap-4">
+          <Field id="me-name" label="Имя">
+            <input id="me-name" className={inputCls} value={me.name} onChange={(e) => patch({ name: e.target.value })} maxLength={30} />
+          </Field>
+          <Field id="me-bio" label="О себе">
+            <textarea id="me-bio" className={`${inputCls} h-24 py-2 resize-none`} value={me.bio} onChange={(e) => patch({ bio: e.target.value })} maxLength={200} placeholder="Пара предложений о себе" />
+          </Field>
+          <div className="flex flex-col gap-2">
+            <span className="text-[13px] font-semibold text-muted">Интересы</span>
+            <div className="flex flex-wrap gap-2">
+              {state.tags.map((t) => (
+                <Chip key={t} active={me.tags.includes(t)} onClick={() => patch({ tags: me.tags.includes(t) ? me.tags.filter((x) => x !== t) : [...me.tags, t] })}>{t}</Chip>
+              ))}
+            </div>
+          </div>
+          <Button onClick={() => setEditing(false)} disabled={!me.name.trim()}>Готово</Button>
+        </div>
+      </Sheet>
 
       <Sheet open={editVibe} onClose={() => setEditVibe(false)} title="Вайб-тест">
         <div className="flex flex-col gap-5">
