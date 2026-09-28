@@ -72,9 +72,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const titles: Record<Tab, string> = { home: '', search: 'Поиск', capsules: 'Сообщения', profile: me.name }
 
   return (
-    <div className="min-h-full mx-auto max-w-[480px] bg-surface sm:border-x sm:border-line flex flex-col">
+    <div className="min-h-full mx-auto max-w-[480px] bg-bg sm:shadow-soft flex flex-col">
       {!inChat && (
-        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/95 backdrop-blur border-b border-line px-4 h-14 flex items-center justify-between gap-3">
+        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/80 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3">
           {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <button onClick={() => setActivityOpen(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
@@ -84,7 +84,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
             {tab !== 'capsules' && (
               <button onClick={() => { setTab('capsules'); setChat(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
                 <Icon name="send" size={24} />
-                {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-surface">{unread}</span>}
+                {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-bg">{unread}</span>}
               </button>
             )}
           </div>
@@ -102,18 +102,18 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {toast && (
-        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-2xl bg-fg text-bg p-3.5 flex items-center gap-3 shadow-xl" role="status">
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
           <Icon name="spark" size={22} className="text-spark shrink-0" fill />
           <div className="flex-1 min-w-0">
             <div className="font-semibold">Капсула открыта</div>
-            <div className="text-[13px] opacity-75">72 часа, чтобы договориться. Точное место уже в чате.</div>
+            <div className="text-[13px] text-muted">72 часа, чтобы договориться. Точное место уже в чате.</div>
           </div>
-          <button onClick={() => openCapsuleByActivity(toast.id)} className="shrink-0 h-9 px-3 rounded-full bg-spark text-on-spark font-semibold text-[14px] cursor-pointer">В чат</button>
+          <button onClick={() => openCapsuleByActivity(toast.id)} className="shrink-0 h-9 px-4 rounded-xl bg-brand text-white font-semibold text-[14px] cursor-pointer">В чат</button>
         </div>
       )}
 
       {!inChat && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-surface border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-bg/85 backdrop-blur-xl border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
           <ul className="grid grid-cols-5">
             {NAV.map((t) => {
               const active = tab === t.id

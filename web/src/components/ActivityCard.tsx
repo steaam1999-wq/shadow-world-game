@@ -18,7 +18,7 @@ export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, 
   const compat = person ? compatibility(me, person) : null
 
   return (
-    <article className="rounded-3xl bg-surface border border-line p-4 flex flex-col gap-3">
+    <article className="rounded-[28px] bg-surface shadow-soft p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3">
         {person ? <Avatar name={person.name} hue={person.hue} size={44} verified={person.verified} /> : <Avatar name={me.name} hue={me.hue} size={44} verified={me.verified} />}
         <div className="min-w-0 flex-1">

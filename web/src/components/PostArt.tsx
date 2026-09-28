@@ -121,12 +121,23 @@ export function PostArt({ activity, className = '' }: { activity: Pick<Activity,
     <svg viewBox="0 0 360 360" className={`w-full h-full block ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={`hsl(${scene.from + shift} 78% 60%)`} />
-          <stop offset="1" stopColor={`hsl(${scene.to + shift} 70% 42%)`} />
+          <stop offset="0" stopColor={`hsl(${scene.from + shift} 70% 70%)`} />
+          <stop offset="1" stopColor={`hsl(${scene.to + shift} 55% 50%)`} />
         </linearGradient>
+        <filter id={`${gid}-n`} x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <radialGradient id={`${gid}-v`} cx=".5" cy=".45" r=".75">
+          <stop offset=".6" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity=".22" />
+        </radialGradient>
       </defs>
       <rect width="360" height="360" fill={`url(#${gid})`} />
-      {scene.draw}
+      <g opacity=".92">{scene.draw}</g>
+      {/* Плёночное зерно и лёгкая виньетка — «живой» кадр вместо стерильной заливки */}
+      <rect width="360" height="360" filter={`url(#${gid}-n)`} opacity=".16" style={{ mixBlendMode: 'overlay' }} />
+      <rect width="360" height="360" fill={`url(#${gid}-v)`} />
     </svg>
   )
 }

@@ -38,7 +38,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
         <div className="flex items-center gap-6">
           <label htmlFor="photo" className="relative cursor-pointer shrink-0" title="Сменить фото">
             <Avatar name={me.name} hue={me.hue} src={me.photo} size={86} />
-            <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-cobalt text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
+            <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
           </label>
           <input id="photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
             const f = e.target.files?.[0]
@@ -60,8 +60,8 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => setEditing(true)} className="h-9 rounded-lg bg-surface-2 font-semibold text-[14px] cursor-pointer hover:bg-line">Редактировать</button>
-          <button onClick={share} className="h-9 rounded-lg bg-surface-2 font-semibold text-[14px] cursor-pointer hover:bg-line">{copied ? 'Скопировано' : 'Поделиться'}</button>
+          <button onClick={() => setEditing(true)} className="h-9 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">Редактировать</button>
+          <button onClick={share} className="h-9 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">{copied ? 'Скопировано' : 'Поделиться'}</button>
         </div>
         {complete < 100 && (
           <div className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3">
@@ -77,7 +77,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
           {badges.map((b) => (
             <div key={b.id} className={`flex flex-col items-center gap-1 w-[68px] shrink-0 ${b.got ? '' : 'opacity-40'}`} title={b.desc}>
               <span className="grid place-items-center w-16 h-16 rounded-full border border-line p-1">
-                <span className={`grid place-items-center w-full h-full rounded-full ${b.got ? 'bg-spark text-on-spark' : 'bg-surface-2 text-muted'}`}><Icon name="spark" size={22} fill /></span>
+                <span className={`grid place-items-center w-full h-full rounded-full ${b.got ? 'bg-brand text-white' : 'bg-surface-2 text-muted'}`}><Icon name="spark" size={22} fill /></span>
               </span>
               <span className="text-[11px] text-center leading-tight">{b.name}</span>
             </div>
@@ -97,9 +97,9 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
       {(tab === 'plans' || tab === 'saved') && (() => {
         const list = tab === 'plans' ? myPlans : state.activities.filter((a) => state.saved.includes(a.id))
         return list.length ? (
-          <div className="grid grid-cols-3 gap-0.5">
+          <div className="grid grid-cols-3 gap-1 px-1">
             {list.map((a) => (
-              <div key={a.id} className="relative aspect-square max-w-full overflow-hidden">
+              <div key={a.id} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg">
                 <PostArt activity={a} />
                 <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent text-white text-[11px] font-semibold leading-tight line-clamp-2">{a.title}</span>
               </div>
@@ -117,13 +117,13 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
       {tab === 'settings' && <div className="flex flex-col gap-5 px-4 pt-2">
 
       {/* Уровни и значки */}
-      <section className="rounded-3xl bg-fg text-bg p-5 flex flex-col gap-4">
+      <section className="rounded-[28px] bg-surface shadow-soft p-5 flex flex-col gap-4">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <span className="eyebrow !text-bg/60">Уровень доверия</span>
+            <span className="eyebrow">Уровень доверия</span>
             <h2 className="font-display font-bold text-xl">{lv.name}</h2>
           </div>
-          <div className="text-right text-[13px] opacity-75">
+          <div className="text-right text-[13px] text-muted">
             {me.meetings} {plural(me.meetings, 'встреча', 'встречи', 'встреч')}
             {lv.next && <><br />до «{lv.next.name}»: {lv.next.min - me.meetings}</>}
           </div>
@@ -131,7 +131,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
         <div className="grid grid-cols-5 gap-1.5" aria-label={`Уровень ${lv.idx} из ${LEVELS.length}`}>
           {LEVELS.map((l, i) => (
             <div key={l.name} className="flex flex-col gap-1">
-              <div className={`h-1.5 rounded-full ${i < lv.idx ? 'bg-spark' : 'bg-white/15'}`} />
+              <div className={`h-1.5 rounded-full ${i < lv.idx ? 'bg-brand' : 'bg-surface-2'}`} />
               <span className={`text-[10px] truncate ${i < lv.idx ? '' : 'opacity-50'}`}>{l.name}</span>
             </div>
           ))}
@@ -139,7 +139,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
       </section>
 
       {/* Вайб-тест и интересы */}
-      <section className="rounded-3xl bg-surface border border-line p-5 flex flex-col gap-4">
+      <section className="rounded-[28px] bg-surface shadow-soft p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display font-bold text-lg">Мой вайб</h2>
           <Button variant="secondary" className="h-9 px-4 text-[14px]" onClick={() => setEditVibe(true)}>Изменить</Button>
@@ -158,7 +158,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
       </section>
 
       {/* Приватность */}
-      <section className="rounded-3xl bg-surface border border-line px-5 py-2 flex flex-col divide-y divide-line">
+      <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
         <h2 className="font-display font-bold text-lg py-3">Приватность и геолокация</h2>
         <div className="py-3">
           <Field id="me-district" label="Мой район">
@@ -234,7 +234,7 @@ function VerifySheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
       ) : (
         <div className="flex flex-col gap-4">
           <div className="rounded-2xl bg-surface-2 p-5 text-center">
-            <div className="font-display font-extrabold text-5xl text-cobalt" aria-hidden="true">✌</div>
+            <div className="font-display font-bold text-5xl text-cobalt" aria-hidden="true">✌</div>
             <p className="mt-2 font-semibold">Сфотографируйтесь, показывая два пальца у виска</p>
             <p className="text-[13px] text-muted">Жест меняется каждый раз, поэтому старое фото не подойдёт.</p>
           </div>

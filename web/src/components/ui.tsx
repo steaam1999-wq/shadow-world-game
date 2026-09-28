@@ -36,7 +36,7 @@ const PATHS: Record<string, string> = {
 export function Icon({ name, size = 20, className = '', fill = false }: { name: keyof typeof PATHS | string; size?: number; className?: string; fill?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={className}
-      fill={fill ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={fill ? 0 : 1.8} strokeLinecap="round" strokeLinejoin="round">
+      fill={fill ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={fill ? 0 : 1.6} strokeLinecap="round" strokeLinejoin="round">
       <path d={PATHS[name]} />
     </svg>
   )
@@ -44,9 +44,9 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
 
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 font-display font-extrabold tracking-tight ${className}`}>
-      <span className="grid place-items-center rounded-[10px] bg-fg text-spark w-8 h-8">
-        <Icon name="spark" size={18} fill />
+    <span className={`inline-flex items-center gap-2 font-display font-semibold tracking-tight ${className}`}>
+      <span className="grid place-items-center rounded-[11px] bg-brand text-white w-8 h-8 shadow-soft">
+        <Icon name="spark" size={17} fill />
       </span>
       искра
     </span>
@@ -61,7 +61,7 @@ export function Avatar({ name, hue, size = 48, verified = false, ring = false, s
         <img src={src} alt="" className={`w-full h-full rounded-full object-cover ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`} />
       ) : <span
         className={`grid place-items-center w-full h-full rounded-full font-display font-bold text-white ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`}
-        style={{ background: `linear-gradient(145deg, hsl(${hue} 70% 58%), hsl(${(hue + 40) % 360} 65% 42%))`, fontSize: size * 0.4 }}
+        style={{ background: `linear-gradient(145deg, hsl(${hue} 62% 68%), hsl(${(hue + 40) % 360} 52% 50%))`, fontSize: size * 0.4 }}
       >
         {name.slice(0, 1)}
       </span>}
@@ -76,18 +76,18 @@ export function Avatar({ name, hue, size = 48, verified = false, ring = false, s
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dark'
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-spark text-on-spark hover:brightness-110',
-  secondary: 'bg-surface-2 text-fg hover:bg-line',
+  primary: 'bg-brand text-white shadow-soft hover:brightness-105 active:scale-[.98]',
+  secondary: 'bg-surface-2 text-fg hover:brightness-95 active:scale-[.98]',
   ghost: 'text-fg hover:bg-surface-2',
   danger: 'bg-danger-soft text-danger hover:brightness-95',
-  dark: 'bg-fg text-bg hover:opacity-90',
+  dark: 'bg-fg text-bg hover:opacity-90 active:scale-[.98]',
 }
 
 export function Button({ variant = 'primary', className = '', children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 h-11 font-semibold transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 h-11 font-semibold transition duration-200 disabled:opacity-40 disabled:pointer-events-none cursor-pointer ${VARIANTS[variant]} ${className}`}
     >
       {children}
     </button>
@@ -95,8 +95,8 @@ export function Button({ variant = 'primary', className = '', children, ...rest 
 }
 
 export function Chip({ active = false, onClick, children, className = '' }: { active?: boolean; onClick?: () => void; children: ReactNode; className?: string }) {
-  const base = `inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 h-8 text-[13px] font-medium border transition ${className}`
-  const look = active ? 'bg-fg text-bg border-fg' : 'bg-surface text-fg border-line hover:border-muted'
+  const base = `inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3.5 h-8 text-[13px] font-medium transition duration-200 ${className}`
+  const look = active ? 'bg-fg text-bg' : 'bg-surface-2 text-fg hover:brightness-95'
   return onClick ? (
     <button type="button" onClick={onClick} aria-pressed={active} className={`${base} ${look} cursor-pointer`}>{children}</button>
   ) : (
@@ -142,8 +142,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
-      <button className="absolute inset-0 bg-black/45 cursor-default" aria-label="Закрыть" onClick={onClose} />
-      <div className="anim-rise relative w-full sm:max-w-md max-h-[90%] overflow-y-auto bg-surface rounded-t-3xl sm:rounded-3xl px-5 pt-4 pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
+      <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px] cursor-default" aria-label="Закрыть" onClick={onClose} />
+      <div className="anim-rise relative w-full sm:max-w-md max-h-[90%] overflow-y-auto bg-surface rounded-t-[28px] sm:rounded-[28px] px-5 pt-3 shadow-soft pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" />
         <div className="flex items-center justify-between gap-3 mb-4">
           <h2 className="font-display text-lg font-bold">{title}</h2>
@@ -166,13 +166,13 @@ export function Field({ id, label, children }: { id: string; label: string; chil
   )
 }
 
-export const inputCls = 'w-full h-11 rounded-xl border border-line bg-bg px-3 text-fg placeholder:text-muted focus:outline-none focus:border-cobalt'
+export const inputCls = 'w-full h-11 rounded-2xl border border-transparent bg-surface-2 px-3.5 text-fg placeholder:text-muted focus:outline-none focus:border-cobalt'
 
 /** Кольцо сторис: градиент, пока не просмотрено, серое — после. */
 export function StoryRing({ seen, size, children }: { seen: boolean; size: number; children: ReactNode }) {
   return (
     <span className="grid place-items-center rounded-full p-[2.5px] shrink-0"
-      style={{ width: size, height: size, background: seen ? 'var(--line)' : 'conic-gradient(from 210deg, var(--spark), var(--amber), var(--spark), var(--cobalt), var(--spark))' }}>
+      style={{ width: size, height: size, background: seen ? 'var(--line)' : 'var(--brand)' }}>
       <span className="grid place-items-center w-full h-full rounded-full bg-surface p-[2px]">{children}</span>
     </span>
   )

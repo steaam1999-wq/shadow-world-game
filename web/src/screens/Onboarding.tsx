@@ -55,14 +55,14 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack: () 
       </div>
       {step > 0 && (
         <div className="h-1 rounded-full bg-surface-2 overflow-hidden mb-6">
-          <div className="h-full bg-spark transition-all duration-300" style={{ width: `${(step / total) * 100}%` }} />
+          <div className="h-full bg-brand transition-all duration-300" style={{ width: `${(step / total) * 100}%` }} />
         </div>
       )}
 
       {step === 0 && (
         <div className="anim-rise flex flex-col gap-6 pt-6 flex-1">
           <div className="flex flex-col gap-2">
-            <h1 className="font-display font-extrabold text-3xl leading-tight">Вход в «Искру»</h1>
+            <h1 className="font-display font-bold text-3xl leading-tight">Вход в «Искру»</h1>
             <p className="text-muted">Займёт минуту. Потом шесть вопросов, чтобы найти людей на одной волне.</p>
           </div>
           <div className="flex flex-col gap-3">
@@ -72,11 +72,11 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack: () 
             <Button variant="secondary" onClick={() => signInWith('google')} className="h-13">
               <span className="font-display font-bold">G</span> Войти через Google
             </Button>
-            <Button variant="ghost" onClick={() => setMethod('phone')} className="h-13 border border-line">По номеру телефона</Button>
+            <Button variant="secondary" onClick={() => setMethod('phone')} className="h-13">По номеру телефона</Button>
           </div>
           {method === 'phone' && (
             <form
-              className="anim-rise flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4"
+              className="anim-rise flex flex-col gap-3 rounded-[24px] bg-surface shadow-soft p-4"
               onSubmit={(e) => {
                 e.preventDefault()
                 if (!codeSent) setCodeSent(true)
@@ -117,7 +117,7 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack: () 
                     setTimeout(() => setStep((s) => s + 1), 180)
                   }}
                   aria-pressed={active}
-                  className={`text-left rounded-3xl p-4 min-h-[150px] flex flex-col justify-between gap-3 border-2 transition cursor-pointer ${active ? 'border-spark bg-spark-soft' : 'border-transparent bg-surface hover:border-line'}`}
+                  className={`text-left rounded-[26px] p-4 min-h-[150px] flex flex-col justify-between gap-3 border-2 transition duration-200 cursor-pointer ${active ? 'border-spark bg-spark-soft' : 'border-transparent bg-surface shadow-soft hover:-translate-y-0.5'}`}
                 >
                   <span className={`font-display text-4xl leading-none ${active ? 'text-spark' : 'text-cobalt'}`} aria-hidden="true">{o.glyph}</span>
                   <span>

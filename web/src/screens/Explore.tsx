@@ -66,7 +66,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
   return (
     <div className="flex flex-col gap-3 pt-2">
       <div className="px-4">
-        <label htmlFor="search" className="flex items-center gap-2 h-10 rounded-xl bg-surface-2 px-3 text-muted">
+        <label htmlFor="search" className="flex items-center gap-2 h-11 rounded-2xl bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={18} />
           <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск: выставка, кофе, Таганка…" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
           {query && <button onClick={() => setQuery('')} aria-label="Очистить поиск" className="cursor-pointer"><Icon name="x" size={16} /></button>}
@@ -101,18 +101,18 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
 
       {mode === 'plans' && (
         items.length ? (
-          <div className="grid grid-cols-3 grid-flow-dense gap-0.5">
+          <div className="grid grid-cols-3 grid-flow-dense gap-1 px-1">
             {items.map((a, i) => {
               const p = state.people.find((x) => x.id === a.authorId)
               const big = i % 10 === 2 // крупная плитка, как в «Интересном»
               return (
-                <button key={a.id} onClick={() => setOpen(a.id)} className={`relative aspect-square max-w-full overflow-hidden cursor-pointer group ${big ? 'col-span-2 row-span-2' : ''}`} aria-label={a.title}>
+                <button key={a.id} onClick={() => setOpen(a.id)} className={`relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer group ${big ? 'col-span-2 row-span-2' : ''}`} aria-label={a.title}>
                   <PostArt activity={a} />
                   <span className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent text-left text-white">
                     {big && <span className="block text-[12px] font-semibold opacity-85">{whenLabel(a.startsAt, now)}</span>}
                     <span className={`block font-semibold leading-tight ${big ? 'text-[16px] line-clamp-3' : 'text-[11px] line-clamp-2'}`}>{a.title}</span>
                   </span>
-                  {p && <span className="absolute right-1.5 top-1.5 rounded-full bg-black/55 text-white px-1.5 text-[11px] font-bold tnum">{compatibility(me, p).score}%</span>}
+                  {p && <span className="absolute right-1.5 top-1.5 rounded-full bg-black/35 backdrop-blur-md text-white px-1.5 text-[11px] font-bold tnum">{compatibility(me, p).score}%</span>}
                   <span className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition" />
                 </button>
               )
@@ -137,7 +137,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       {opened && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="План">
           <button className="absolute inset-0 bg-black/60 cursor-default" aria-label="Закрыть" onClick={() => setOpen(null)} />
-          <div className="anim-rise relative w-full max-w-[480px] max-h-[92%] overflow-y-auto bg-surface rounded-t-3xl sm:rounded-3xl pt-2 pb-[env(safe-area-inset-bottom,0px)]">
+          <div className="anim-rise relative w-full max-w-[480px] max-h-[92%] overflow-y-auto bg-surface rounded-t-[28px] sm:rounded-[28px] pt-2 pb-[env(safe-area-inset-bottom,0px)]">
             <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-line" />
             <Post activity={opened} person={state.people.find((p) => p.id === opened.authorId) ?? null} now={now}
               onRespond={(a, t) => { setOpen(null); onRespond(a, t) }} onOpenCapsule={(id) => { setOpen(null); onOpenCapsule(id) }} />
@@ -162,7 +162,7 @@ function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[];
   const [dx, dy] = DISTRICT_XY[myDistrict] ?? [50, 50]
   const [mx, my] = [dx + 4, dy + 5] // смещение, чтобы метка не совпадала с активностями района
   return (
-    <div className="relative rounded-3xl overflow-hidden border border-line bg-surface-2 aspect-square max-w-full">
+    <div className="relative rounded-[28px] overflow-hidden bg-surface-2 aspect-square max-w-full">
       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" role="img" aria-label="Схема центра Москвы с активностями">
         {/* Садовое кольцо и Бульварное */}
         <ellipse cx="50" cy="52" rx="38" ry="36" fill="none" stroke="var(--line)" strokeWidth="1.6" />

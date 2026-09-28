@@ -15,7 +15,7 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
 
   return (
     <div className="min-h-full bg-bg">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/85 backdrop-blur border-b border-line">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/80 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <Logo className="text-xl" />
           <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-muted">
@@ -31,8 +31,8 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 sm:pt-16 pb-14 grid lg:grid-cols-[1.1fr_1fr] gap-12 items-center">
         <div className="flex flex-col gap-6 min-w-0">
           <Pill tone="spark" className="self-start"><span className="anim-flick">●</span> {state.activities.length} активностей в Москве прямо сейчас</Pill>
-          <h1 className="font-display font-extrabold leading-[1.02] tracking-tight text-[40px] sm:text-[60px] lg:text-[68px]">
-            Хватит просто свайпать. <span className="text-spark">Время встречаться.</span>
+          <h1 className="font-display font-semibold leading-[1.05] tracking-[-0.02em] text-[40px] sm:text-[60px] lg:text-[68px]">
+            Хватит просто свайпать. <span className="text-brand">Время встречаться.</span>
           </h1>
           <p className="text-[17px] sm:text-lg text-muted max-w-[34em]">
             В «Искре» нет бесконечных анкет. Каждый профиль — это конкретный план на ближайшие 48 часов:
@@ -59,7 +59,7 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
           {demo.map(({ a, p }, i) => (
             <article
               key={a.id}
-              className="anim-float absolute w-[88%] rounded-3xl bg-surface border border-line p-5 shadow-[0_18px_40px_-24px_rgba(20,21,42,.45)]"
+              className="anim-float absolute w-[88%] rounded-[28px] bg-surface p-5 shadow-[0_24px_60px_-28px_rgba(17,17,20,.35)] ring-1 ring-line"
               style={{
                 top: 8 + i * 175,
                 left: i === 1 ? '12%' : 0,
@@ -111,17 +111,17 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
 
       {/* Безопасность и геймификация */}
       <section id="safety" className="mx-auto max-w-6xl px-4 sm:px-6 py-16 grid md:grid-cols-2 gap-6">
-        <div className="rounded-3xl bg-fg text-bg p-7 sm:p-9 flex flex-col gap-4">
+        <div className="rounded-[32px] bg-surface shadow-soft p-7 sm:p-9 flex flex-col gap-4">
           <Icon name="shield" size={32} className="text-spark" />
           <h2 className="font-display font-bold text-2xl">Встречи с живыми людьми</h2>
-          <ul className="flex flex-col gap-2.5 opacity-85">
+          <ul className="flex flex-col gap-2.5 text-muted">
             <li>Вход через Telegram, Google или номер телефона — никаких анонимных ботов.</li>
             <li>Верификация селфи с жестом: синяя галочка у проверенных.</li>
             <li>До мэтча видно только район. Точное место открывается в капсуле.</li>
             <li>Жалоба в два тапа, модерация отвечает в течение часа.</li>
           </ul>
         </div>
-        <div className="rounded-3xl border border-line bg-surface p-7 sm:p-9 flex flex-col gap-5">
+        <div className="rounded-[32px] bg-surface shadow-soft p-7 sm:p-9 flex flex-col gap-5">
           <Icon name="spark" size={32} className="text-spark" fill />
           <h2 className="font-display font-bold text-2xl">Уровни за реальные встречи</h2>
           <p className="text-muted">Не за лайки и не за время в приложении. Уровень растёт, только когда оба отметили, что встреча состоялась.</p>
@@ -138,7 +138,7 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
         <h2 className="font-display font-bold text-3xl sm:text-4xl">Они уже встретились</h2>
         <div className="grid md:grid-cols-3 gap-5">
           {STORIES.map((s) => (
-            <figure key={s.names} className="rounded-3xl bg-surface border border-line p-6 flex flex-col gap-4">
+            <figure key={s.names} className="rounded-[28px] bg-surface shadow-soft p-6 flex flex-col gap-4">
               <blockquote className="text-[15px] leading-relaxed flex-1">«{s.text}»</blockquote>
               <figcaption className="flex items-center gap-3">
                 <Avatar name={s.names} hue={s.hue} size={36} />
@@ -153,8 +153,8 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-16">
-        <div className="rounded-[32px] bg-spark text-on-spark px-6 py-12 sm:p-14 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <h2 className="font-display font-extrabold text-3xl sm:text-4xl max-w-xl">Ближайшая встреча может начаться через час</h2>
+        <div className="rounded-[32px] bg-brand text-white px-6 py-12 sm:p-14 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <h2 className="font-display font-bold text-3xl sm:text-4xl max-w-xl">Ближайшая встреча может начаться через час</h2>
           <Button variant="dark" onClick={onStart} className="h-13 px-7 text-[16px] shrink-0">Войти через Telegram</Button>
         </div>
       </section>

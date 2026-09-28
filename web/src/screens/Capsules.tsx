@@ -71,7 +71,7 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
         <h1 className="font-display font-bold text-2xl">Капсулы</h1>
       </div>
       {live.length ? <ul className="flex flex-col gap-1">{live.map(row)}</ul> : (
-        <div className="rounded-3xl bg-surface p-8 text-center text-muted">Откликнитесь на активность в «Идеях», и здесь появится первая капсула.</div>
+        <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">Откликнитесь на активность в «Идеях», и здесь появится первая капсула.</div>
       )}
       {expired.length > 0 && (
         <>
@@ -117,7 +117,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
 
   return (
     <div className="flex flex-col h-full">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-bg/90 backdrop-blur border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-bg/80 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку капсул"><Icon name="back" /></button>
           <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
@@ -144,13 +144,13 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           m.from === 'system' ? (
             <div key={m.id} className="self-center max-w-[90%] text-center text-[12px] text-muted bg-surface-2 rounded-full px-3 py-1">{m.text}</div>
           ) : (
-            <div key={m.id} className={`max-w-[80%] rounded-3xl px-4 py-2.5 ${m.from === 'me' ? 'self-end bg-spark text-on-spark rounded-br-md' : 'self-start bg-surface border border-line rounded-bl-md'}`}>
+            <div key={m.id} className={`max-w-[80%] rounded-3xl px-4 py-2.5 ${m.from === 'me' ? 'self-end bg-brand text-white rounded-br-md' : 'self-start bg-surface-2 rounded-bl-md'}`}>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
               <span className={`block text-right text-[11px] tnum ${m.from === 'me' ? 'opacity-75' : 'text-muted'}`}>{hm(m.at)}</span>
             </div>
           ),
         )}
-        {typing && <div className="self-start bg-surface border border-line rounded-3xl rounded-bl-md px-4 py-2.5 text-muted anim-flick">{p.name} печатает…</div>}
+        {typing && <div className="self-start bg-surface-2 rounded-3xl rounded-bl-md px-4 py-2.5 text-muted anim-flick">{p.name} печатает…</div>}
         <div ref={endRef} />
       </div>
 
@@ -163,15 +163,15 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {actions.map((x) => (
                   <button key={x.status} onClick={() => dispatch({ type: 'setStatus', capsuleId: c.id, status: x.status })}
-                    className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-line bg-surface text-[13px] font-semibold hover:border-cobalt cursor-pointer">
+                    className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-surface-2 text-[13px] font-medium hover:brightness-95 cursor-pointer">
                     <Icon name="check" size={14} /> {x.label}
                   </button>
                 ))}
               </div>
             )}
             <form onSubmit={send} className="flex gap-2">
-              <input id="chat-input" aria-label="Сообщение" className="flex-1 min-w-0 h-11 rounded-full border border-line bg-surface px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение по делу…" autoComplete="off" />
-              <Button type="submit" className="w-11 !px-0" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
+              <input id="chat-input" aria-label="Сообщение" className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение по делу…" autoComplete="off" />
+              <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
             </form>
           </>
         )}

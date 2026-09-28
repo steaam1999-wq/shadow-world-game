@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { compatibility, relative, whenLabel } from '../lib'
+import { compatibility, relative, sharedAnswers, whenLabel } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { ReportSheet } from './Vibe'
@@ -31,11 +31,11 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate }: Props) {
   return (
     <div className="flex flex-col">
       {/* Сторис */}
-      <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4 py-3 border-b border-line">
+      <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4 pt-3 pb-4">
         <button onClick={onCreate} className="flex flex-col items-center gap-1 w-[72px] shrink-0 cursor-pointer">
           <span className="relative">
             <span className="grid place-items-center w-[68px] h-[68px]"><Avatar name={me.name} hue={me.hue} src={me.photo} size={60} /></span>
-            <span className="absolute right-0.5 bottom-0.5 grid place-items-center w-6 h-6 rounded-full bg-cobalt text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
+            <span className="absolute right-0.5 bottom-0.5 grid place-items-center w-6 h-6 rounded-full bg-brand text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
           </span>
           <span className="text-[12px] text-muted truncate w-full text-center">Ваш план</span>
         </button>
@@ -113,6 +113,12 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const [reporting, setReporting] = useState<Person | null>(null)
   const [copied, setCopied] = useState(false)
   const lastTap = useRef(0)
+  const track = useRef<HTMLDivElement>(null)
+  const [slide, setSlide] = useState(0)
+  const onTrackScroll = () => {
+    const el = track.current
+    if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth))
+  }
   const started = a.startsAt <= now
   const compat = person ? compatibility(me, person) : null
   const author = person ?? { name: me.name, hue: me.hue, verified: me.verified }
@@ -132,8 +138,8 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   }
 
   return (
-    <article className="border-b border-line pb-3">
-      <header className="flex items-center gap-3 px-4 py-2.5">
+    <article className="pb-7">
+      <header className="flex items-center gap-3 px-4 pt-1 pb-3">
         <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
           <Avatar name={author.name} hue={author.hue} src={person ? undefined : me.photo} size={32} />
         </StoryRing>
@@ -148,32 +154,59 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <button onClick={() => setMenu(true)} className="grid place-items-center w-9 h-9 -mr-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Ещё"><Icon name="more" size={22} /></button>
       </header>
 
-      <div className="relative aspect-square max-w-full bg-surface-2 select-none overflow-hidden" onClick={onImageTap}>
-        <PostArt activity={a} />
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 text-white backdrop-blur px-2.5 h-7 text-[12px] font-semibold">
-          <Icon name="clock" size={13} /> {started ? 'Уже идёт' : whenLabel(a.startsAt, now)}
-        </span>
-        {compat && (
-          <span className="absolute right-3 top-3 rounded-full bg-white/90 text-[#14152a] px-2.5 h-7 inline-flex items-center text-[12px] font-bold tnum">{compat.score}% вайб</span>
-        )}
-        {pop > 0 && (
-          <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none text-white drop-shadow-lg">
-            <Icon name="heart" size={110} fill />
-          </span>
-        )}
+      {/* Карусель 4:5: кадр плана и карточка с деталями */}
+      <div className="relative mx-3">
+        <div ref={track} onScroll={onTrackScroll} className="flex overflow-x-auto no-scrollbar snap-x-mandatory rounded-[22px] bg-surface-2 select-none">
+          <div className="relative snap-start shrink-0 w-full aspect-[4/5] overflow-hidden" onClick={onImageTap}>
+            <PostArt activity={a} />
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/35 text-white backdrop-blur-md px-3 h-7 text-[12px] font-medium">
+              <Icon name="clock" size={13} /> {started ? 'Уже идёт' : whenLabel(a.startsAt, now)}
+            </span>
+            {compat && (
+              <span className="absolute right-3 top-3 rounded-full bg-white/80 text-[#111114] backdrop-blur-md px-3 h-7 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
+            )}
+            {pop > 0 && (
+              <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none text-white drop-shadow-lg">
+                <Icon name="heart" size={110} fill />
+              </span>
+            )}
+          </div>
+          <div className="relative snap-start shrink-0 w-full aspect-[4/5] overflow-hidden">
+            <div className="absolute inset-0 opacity-25 blur-2xl scale-125"><PostArt activity={a} /></div>
+            <div className="relative h-full flex flex-col justify-between gap-4 p-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium text-muted uppercase tracking-[.12em]">{a.category}</span>
+                <h3 className="font-display font-semibold text-[24px] leading-tight">{a.title}</h3>
+              </div>
+              <dl className="grid grid-cols-2 gap-3 text-[14px]">
+                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Когда</dt><dd className="font-semibold">{started ? 'Уже идёт' : whenLabel(a.startsAt, now)}</dd></div>
+                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Сколько</dt><dd className="font-semibold">{a.durationMin >= 60 ? `${a.durationMin / 60} ч` : `${a.durationMin} мин`}</dd></div>
+                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2"><dt className="text-[12px] text-muted">Где</dt><dd className="font-semibold">{a.area}{person ? ' · точный адрес откроется в капсуле' : ` · ${a.exactPlace}`}</dd></div>
+                {compat && (
+                  <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2">
+                    <dt className="text-[12px] text-muted">Совпало в вайб-тесте</dt>
+                    <dd className="font-semibold">{sharedAnswers(me.answers, person!.answers).join(', ') || 'Пока ничего — тем интереснее'}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          </div>
+        </div>
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-3 flex gap-1.5 rounded-full bg-black/25 backdrop-blur-md px-2 py-1.5" aria-hidden="true">
+          {[0, 1].map((i) => <span key={i} className={`h-1.5 rounded-full bg-white transition-all duration-300 ${slide === i ? 'w-4' : 'w-1.5 opacity-60'}`} />)}
+        </div>
       </div>
 
-      {/* Полоса действия под фото — главное отличие от обычной ленты: отклик на план */}
       {person ? (
-        <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}
-          className={`w-full flex items-center justify-between px-4 h-11 text-[14px] font-semibold cursor-pointer ${responded ? 'bg-surface-2 text-fg' : 'bg-spark text-on-spark'}`}>
-          {responded ? 'Открыть капсулу' : 'Хочу с тобой — откликнуться на план'}
-          <Icon name="arrow" size={18} />
-        </button>
-      ) : (
-        <div className="w-full flex items-center gap-2 px-4 h-11 text-[13px] bg-surface-2 text-muted">
-          <Icon name="pin" size={15} /> Точное место увидят только в капсуле: {a.exactPlace}
+        <div className="px-3 pt-3">
+          <Button variant={responded ? 'secondary' : 'primary'} className="w-full h-12" onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
+            {responded ? 'Открыть капсулу' : 'Хочу с тобой'} <Icon name="arrow" size={18} />
+          </Button>
         </div>
+      ) : (
+        <p className="mx-4 mt-3 flex items-center gap-2 text-[13px] text-muted">
+          <Icon name="pin" size={15} /> Точное место увидят только в капсуле: {a.exactPlace}
+        </p>
       )}
 
       <div className="flex items-center gap-1 px-2.5 pt-1.5">
@@ -193,9 +226,9 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       <div className="px-4 flex flex-col gap-1 text-[14px]">
         <span className="font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')} отметок «Нравится»</span>
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
-        <p className="text-cobalt">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
+        <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}
-        <span className="text-[11px] uppercase tracking-wider text-muted">{started ? 'идёт сейчас' : `начало ${relative(a.startsAt, now)}`}</span>
+        <span className="text-[12px] text-muted">{started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
 
       <Sheet open={menu} onClose={() => setMenu(false)} title="Действия">
@@ -280,7 +313,7 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
         <div className="relative px-4 pb-4 flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <span className="self-start rounded-full bg-white/20 backdrop-blur px-3 h-7 inline-flex items-center text-[12px] font-bold uppercase tracking-wider">{a.category}</span>
-            <h2 className="font-display font-extrabold text-[26px] leading-tight drop-shadow">{a.title}</h2>
+            <h2 className="font-display font-bold text-[26px] leading-tight drop-shadow">{a.title}</h2>
           </div>
           {responded ? (
             <Button onClick={() => onOpenCapsule(a.id)} className="!bg-white !text-[#14152a]">Открыть капсулу</Button>

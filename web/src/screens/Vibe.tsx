@@ -28,7 +28,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
         const shared = sharedAnswers(me.answers, p.answers)
         const responded = act && state.liked.includes(act.id)
         return (
-          <article key={p.id} className={`rounded-3xl border p-5 flex flex-col gap-4 ${i === 0 ? 'bg-fg text-bg border-fg' : 'bg-surface border-line'}`}>
+          <article key={p.id} className={`relative overflow-hidden rounded-[28px] bg-surface shadow-soft p-5 flex flex-col gap-4 `}>
             <div className="flex items-start gap-4">
               <Avatar name={p.name} hue={p.hue} size={64} verified={p.verified} />
               <div className="flex-1 min-w-0">
@@ -36,31 +36,31 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
                   <h2 className="font-display font-bold text-lg">{p.name}, {p.age}</h2>
                   {i === 0 && <Pill tone="spark">Лучший мэтч</Pill>}
                 </div>
-                <p className={`text-[13px] ${i === 0 ? 'opacity-70' : 'text-muted'}`}>{p.district} · {p.distanceKm.toFixed(1).replace('.', ',')} км · встреч: {p.meetings}</p>
+                <p className={`text-[13px] text-muted`}>{p.district} · {p.distanceKm.toFixed(1).replace('.', ',')} км · встреч: {p.meetings}</p>
               </div>
               <div className="text-right shrink-0">
-                <div className="font-display font-extrabold text-3xl text-spark tnum leading-none">{c.score}<span className="text-lg">%</span></div>
+                <div className="font-display font-semibold text-3xl text-brand tnum leading-none">{c.score}<span className="text-lg">%</span></div>
               </div>
             </div>
 
             {/* Шкала совместимости */}
-            <div className={`h-1.5 rounded-full overflow-hidden ${i === 0 ? 'bg-white/15' : 'bg-surface-2'}`}>
-              <div className="h-full rounded-full bg-spark" style={{ width: `${c.score}%` }} />
+            <div className={`h-1.5 rounded-full overflow-hidden bg-surface-2`}>
+              <div className="h-full rounded-full bg-brand" style={{ width: `${c.score}%` }} />
             </div>
 
             <p className="text-[14px] leading-relaxed">{p.bio}</p>
 
             {shared.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
-                <span className={`text-[12px] mr-1 self-center ${i === 0 ? 'opacity-70' : 'text-muted'}`}>Совпало:</span>
+                <span className={`text-[12px] mr-1 self-center text-muted`}>Совпало:</span>
                 {shared.map((s) => (
-                  <span key={s} className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${i === 0 ? 'bg-white/12' : 'bg-surface-2'}`}>{s}</span>
+                  <span key={s} className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium bg-surface-2`}>{s}</span>
                 ))}
               </div>
             )}
 
             {act ? (
-              <div className={`rounded-2xl p-3.5 flex flex-col gap-3 ${i === 0 ? 'bg-white/8' : 'bg-bg'}`}>
+              <div className={`rounded-2xl p-3.5 flex flex-col gap-3 bg-bg`}>
                 <div className="flex items-center gap-2 text-[12px] font-semibold text-spark"><Icon name="spark" size={14} fill /> ПЛАН · {whenLabel(act.startsAt, now)}</div>
                 <p className="font-semibold leading-snug">{act.title}</p>
                 {responded ? (
@@ -70,10 +70,10 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
                 )}
               </div>
             ) : (
-              <p className={`text-[13px] ${i === 0 ? 'opacity-70' : 'text-muted'}`}>Сейчас нет активных планов. Мы сообщим, когда появятся.</p>
+              <p className={`text-[13px] text-muted`}>Сейчас нет активных планов. Мы сообщим, когда появятся.</p>
             )}
 
-            <div className={`flex justify-between text-[13px] ${i === 0 ? 'opacity-70' : 'text-muted'}`}>
+            <div className={`flex justify-between text-[13px] text-muted`}>
               <button onClick={() => setHidden([...hidden, p.id])} className="cursor-pointer hover:underline">Не показывать</button>
               <button onClick={() => setReporting(p)} className="inline-flex items-center gap-1 cursor-pointer hover:underline"><Icon name="flag" size={14} /> Пожаловаться</button>
             </div>
