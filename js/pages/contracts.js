@@ -80,6 +80,7 @@ window.App = window.App || {};
       store.state.stats.contracts++;
       const prize = store.makeItem(entry.skin, entry.wear, false, 'Контракт');
       store.addItems([prize]);
+      store.log('contract', `${items.length} предм. → ${entry.skin.weapon} | ${entry.skin.name} (${entry.wear})`, prize.price);
       store.save();
       sel.clear();
 

@@ -1,7 +1,7 @@
 // Точка входа: роутер, шапка, живая лента дропов, демо-пополнение, промокоды.
 window.App = window.App || {};
 (function (App) {
-  const { CASES, CASE_BY_ID } = App.data;
+  const { CASES } = App.data;
   const { money, skinIcon, rarityOf, toast, modal, esc } = App.ui;
   const store = App.store;
 
@@ -10,13 +10,12 @@ window.App = window.App || {};
     'sn1per', 'Vlad_77', 'Tanya_CS', 'b1t_fan', 'EcoKing', 'Maks_Ak47', 'Karambit_Lover'];
 
   const feed = {
-    push(user, item, caseId, kind = 'case') {
+    push(user, item, caseId, kind = 'case') { // caseId оставлен для совместимости вызовов
       const el = document.getElementById('feed-list');
       if (!el) return;
       const skin = App.data.SKINS[item.skinId];
-      const c = caseId && CASE_BY_ID[caseId];
       const icon = { case: '', upgrade: '⬆', contract: '✎', battle: '⚔' }[kind];
-      const html = `<a class="feed-item ${user === 'Вы' ? 'mine' : ''}" href="${c ? `#/case/${c.id}` : `#/${kind === 'upgrade' ? 'upgrade' : kind === 'contract' ? 'contracts' : 'battles'}`}"
+      const html = `<a class="feed-item ${user === 'Вы' ? 'mine' : ''}" href="#/skin/${skin.id}"
           style="--rc:${rarityOf(skin).color}" title="${esc(user)}: ${esc(skin.weapon)} | ${esc(skin.name)} — ${App.ui.fmt(item.price)}">
         ${skinIcon(skin)}<span class="feed-user">${icon} ${esc(user)}</span></a>`;
       el.insertAdjacentHTML('afterbegin', html);
@@ -43,6 +42,10 @@ window.App = window.App || {};
     document.getElementById('level').innerHTML = `<b>${lv.lvl}</b><i style="width:${Math.round(lv.progress * 100)}%"></i>`;
     document.getElementById('level').title = `Уровень ${lv.lvl} · опыт ${Math.floor(store.state.xp)} / ${lv.next}`;
     document.getElementById('inv-count').textContent = store.state.inventory.length;
+    const u = App.auth.user();
+    document.getElementById('account').innerHTML = u
+      ? `<a class="account-link" href="#/profile" data-nav="profile" title="Личный кабинет">${App.avatarHtml(u)}<span>${App.ui.esc(u.login)}</span></a>`
+      : '<button class="btn ghost small-login" id="login-btn">Войти</button>';
   }
 
   // --- Демо-пополнение ---
@@ -54,6 +57,7 @@ window.App = window.App || {};
       const b = e.target.closest('button');
       if (!b) return;
       store.credit(+b.dataset.n);
+      store.log('deposit', 'Демо-пополнение', +b.dataset.n);
       store.save();
       toast(`Начислено ${money(+b.dataset.n)}`, 'good');
       m.close();
@@ -67,6 +71,7 @@ window.App = window.App || {};
     if (store.state.promoUsed.includes(code)) return toast('Промокод уже активирован', 'bad');
     store.state.promoUsed.push(code);
     store.credit(PROMOS[code]);
+    store.log('deposit', `Промокод ${code}`, PROMOS[code]);
     store.save();
     toast(`Промокод активирован: +${money(PROMOS[code])}`, 'good');
   };
@@ -81,9 +86,12 @@ window.App = window.App || {};
     [/^#\/inventory$/, (v) => App.pages.inventory(v), 'inventory'],
     [/^#\/fair$/, (v) => App.pages.fair(v), 'fair'],
     [/^#\/skins$/, (v) => App.pages.skins(v), 'skins'],
+    [/^#\/skin\/([\w-]+)$/, (v, m) => App.pages.skin(v, m[1]), 'skins'],
+    [/^#\/profile$/, (v) => App.pages.profile(v), 'profile'],
   ];
   let cleanup = null;
 
+  App.route = route;
   function route() {
     const hash = location.hash || '#/';
     const view = document.getElementById('view');
@@ -109,6 +117,9 @@ window.App = window.App || {};
     store.subscribe(renderHeader);
     renderHeader();
     document.getElementById('deposit').addEventListener('click', App.openDeposit);
+    document.getElementById('account').addEventListener('click', (e) => {
+      if (e.target.closest('#login-btn')) App.openAuth('login');
+    });
     window.addEventListener('hashchange', route);
     route();
     for (let i = 0; i < 12; i++) botDrop();

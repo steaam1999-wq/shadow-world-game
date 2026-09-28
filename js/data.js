@@ -169,6 +169,20 @@ window.App = window.App || {};
   }
   CASES.forEach(balanceCase);
 
+  // Где выпадает скин: skinId → [{ case, chance }] по убыванию шанса.
+  const DROPS = {};
+  for (const c of CASES) {
+    for (const it of c.items) (DROPS[it.skin.id] = DROPS[it.skin.id] || []).push({ case: c, chance: it.chance });
+  }
+  for (const list of Object.values(DROPS)) list.sort((a, b) => b.chance - a.chance);
+
+  // Вероятность каждого износа у конкретного скина (только реально существующие износы).
+  function wearOdds(skin) {
+    const ws = WEARS.filter((w) => skin.wears.includes(w.id));
+    const psum = ws.reduce((t, w) => t + w.p, 0);
+    return ws.map((w) => ({ ...w, chance: w.p / psum }));
+  }
+
   const CASE_BY_ID = Object.fromEntries(CASES.map((c) => [c.id, c]));
 
   // Каталог для апгрейда и контрактов: каждый скин во всех степенях износа.
@@ -189,7 +203,7 @@ window.App = window.App || {};
 
   App.data = {
     RARITY, WEARS, SKINS, SKIN_LIST, CASES, CASE_BY_ID, GROUPS, CATALOG,
-    STATTRAK_CHANCE, round2, itemPrice, fullName,
+    STATTRAK_CHANCE, STATTRAK_MULT, round2, itemPrice, fullName, DROPS, wearOdds,
     wear: (id) => WEARS.find((w) => w.id === id),
   };
 })(window.App);

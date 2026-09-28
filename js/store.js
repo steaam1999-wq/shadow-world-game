@@ -1,8 +1,17 @@
-// Состояние игрока (localStorage) и Provably Fair генератор.
+// Состояние игрока (localStorage), аккаунты и Provably Fair генератор.
 window.App = window.App || {};
 (function (App) {
-  const KEY = 'shadowdrop:v1';
+  const GUEST_KEY = 'shadowdrop:v1';
+  const ACCOUNTS_KEY = 'shadowdrop:accounts';
+  const HISTORY_MAX = 150;
   const listeners = new Set();
+
+  function readJSON(key) {
+    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function writeJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* хранилище недоступно */ }
+  }
 
   function freshFair() {
     return { serverSeed: App.crypto.randomHex(32), clientSeed: App.crypto.randomHex(8), nonce: 0, history: [] };
@@ -18,6 +27,8 @@ window.App = window.App || {};
       settings: { fast: false },
       stats: { opened: 0, upgrades: 0, upgradesWon: 0, contracts: 0, battles: 0, battlesWon: 0, best: null },
       fair: freshFair(),
+      history: [],
+      created: Date.now(),
     };
   }
 
@@ -33,24 +44,34 @@ window.App = window.App || {};
     if (saved.stats && saved.stats.best) saved.stats.best = fix(saved.stats.best);
   }
 
-  function load() {
+  function load(key) {
+    const saved = readJSON(key);
+    if (!saved) return defaults();
     try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        const d = defaults();
-        migrate(saved);
-        return { ...d, ...saved, stats: { ...d.stats, ...saved.stats }, settings: { ...d.settings, ...saved.settings } };
-      }
-    } catch (e) { /* приватный режим или повреждённые данные — начинаем заново */ }
-    return defaults();
+      const d = defaults();
+      migrate(saved);
+      return { ...d, ...saved, stats: { ...d.stats, ...saved.stats }, settings: { ...d.settings, ...saved.settings } };
+    } catch (e) {
+      return defaults(); // повреждённые данные — начинаем заново
+    }
   }
 
-  const state = load();
+  // Аккаунты живут только в этом браузере: логин, соль и SHA-256 от пароля.
+  const accounts = readJSON(ACCOUNTS_KEY) || { users: {}, current: null };
+  if (accounts.current && !accounts.users[accounts.current]) accounts.current = null;
+  const keyFor = (id) => (id ? `shadowdrop:user:${id}` : GUEST_KEY);
+
+  const state = load(keyFor(accounts.current));
 
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* хранилище недоступно */ }
+    writeJSON(keyFor(accounts.current), state);
     listeners.forEach((fn) => fn(state));
+  }
+
+  // Подменяет содержимое state, сохраняя сам объект (на него ссылаются все страницы).
+  function replaceState(next) {
+    for (const k of Object.keys(state)) delete state[k];
+    Object.assign(state, next);
   }
 
   let uidCounter = Date.now();
@@ -94,7 +115,14 @@ window.App = window.App || {};
       for (const it of state.inventory) if (set.has(it.uid)) total += it.price;
       store.removeItems(uids);
       store.credit(total);
+      if (uids.length) store.log('sell', `Продано предметов: ${uids.length}`, App.data.round2(total));
       return App.data.round2(total);
+    },
+
+    // Запись в историю действий личного кабинета.
+    log(type, text, price = null) {
+      state.history.unshift({ ts: Date.now(), type, text, price });
+      if (state.history.length > HISTORY_MAX) state.history.length = HISTORY_MAX;
     },
 
     freeReadyIn() {
@@ -152,7 +180,84 @@ window.App = window.App || {};
     return { skin: picked.skin, wear, st };
   }
 
+  // --- Личный кабинет ---
+  const LOGIN_RE = /^[A-Za-zА-Яа-яЁё0-9_.-]{3,16}$/;
+  const hashPassword = (salt, password) => App.crypto.sha256Hex(`${salt}:${password}`);
+
+  const auth = {
+    user() {
+      const u = accounts.current && accounts.users[accounts.current];
+      return u ? { id: accounts.current, ...u } : null;
+    },
+    register(login, password) {
+      login = String(login).trim();
+      if (!LOGIN_RE.test(login)) return 'Логин: 3–16 символов, буквы, цифры, «_», «.» или «-».';
+      if (String(password).length < 6) return 'Пароль должен быть не короче 6 символов.';
+      const id = login.toLowerCase();
+      if (accounts.users[id]) return 'Такой логин уже занят.';
+      const salt = App.crypto.randomHex(16);
+      accounts.users[id] = { login, salt, hash: hashPassword(salt, password), created: Date.now(), hue: Math.floor(Math.random() * 360) };
+      // Прогресс гостя переходит в новый аккаунт, гость начинает с нуля.
+      const wasGuest = !accounts.current;
+      accounts.current = id;
+      writeJSON(ACCOUNTS_KEY, accounts);
+      if (wasGuest) {
+        state.created = Date.now();
+        writeJSON(GUEST_KEY, defaults());
+      } else {
+        replaceState(defaults());
+      }
+      store.log('account', 'Аккаунт создан');
+      save();
+      return null;
+    },
+    login(login, password) {
+      const id = String(login).trim().toLowerCase();
+      const u = accounts.users[id];
+      if (!u || u.hash !== hashPassword(u.salt, password)) return 'Неверный логин или пароль.';
+      accounts.current = id;
+      writeJSON(ACCOUNTS_KEY, accounts);
+      replaceState(load(keyFor(id)));
+      store.log('account', 'Вход в аккаунт');
+      save();
+      return null;
+    },
+    logout() {
+      accounts.current = null;
+      writeJSON(ACCOUNTS_KEY, accounts);
+      replaceState(load(GUEST_KEY));
+      save();
+    },
+    changePassword(oldPass, newPass) {
+      const u = accounts.users[accounts.current];
+      if (!u) return 'Сначала войдите в аккаунт.';
+      if (u.hash !== hashPassword(u.salt, oldPass)) return 'Текущий пароль указан неверно.';
+      if (String(newPass).length < 6) return 'Новый пароль должен быть не короче 6 символов.';
+      u.salt = App.crypto.randomHex(16);
+      u.hash = hashPassword(u.salt, newPass);
+      writeJSON(ACCOUNTS_KEY, accounts);
+      store.log('account', 'Пароль изменён');
+      save();
+      return null;
+    },
+    setHue(hue) {
+      const u = accounts.users[accounts.current];
+      if (!u) return;
+      u.hue = hue;
+      writeJSON(ACCOUNTS_KEY, accounts);
+      save();
+    },
+    resetProgress() {
+      const fresh = defaults();
+      fresh.created = state.created;
+      replaceState(fresh);
+      store.log('account', 'Прогресс сброшен');
+      save();
+    },
+  };
+
   App.store = store;
+  App.auth = auth;
   App.fair = fair;
   App.rollCaseItem = rollCaseItem;
 })(window.App);

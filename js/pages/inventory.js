@@ -38,7 +38,7 @@ window.App = window.App || {};
       if (sort === 'asc') list.sort((a, b) => a.price - b.price);
       const actions = `<button data-a="sell">Продать</button><button data-a="up">Апгрейд</button><button data-a="out">Вывести</button>`;
       $('#grid').innerHTML = list.length
-        ? list.map((it) => itemCard(it, { actions, extra: `<div class="item-src">${esc(it.source || '')}</div>` })).join('')
+        ? list.map((it) => itemCard(it, { view: true, actions, extra: `<div class="item-src">${esc(it.source || '')}</div>` })).join('')
         : '<p class="empty">Пока пусто. <a href="#/">Откройте первый кейс</a>!</p>';
     }
 

@@ -77,6 +77,8 @@ window.App = window.App || {};
         store.state.stats.battlesWon++;
         store.addItems(allItems);
       }
+      store.log('battle', `«${c.name}», ${players} игр., ${rounds} р.: ${winner === 0 ? 'победа' : 'поражение'}`,
+        winner === 0 ? App.data.round2(allItems.reduce((t, it) => t + it.price, 0)) : -cost);
       store.save();
 
       const arena = $('#arena');

@@ -18,6 +18,8 @@ window.App = window.App || {};
   // Открыть апгрейд с выбранной целью (из каталога скинов).
   App.upgradeTo = (skinId) => { preTarget = skinId; location.hash = '#/upgrade'; };
 
+  App.upgradeChance = (stake, price) => (price > stake && stake > 0 ? Math.min(MAX_CHANCE, (stake / price) * HOUSE) : 0);
+
   function chanceFor(stake, target) {
     if (!target || stake <= 0) return 0;
     return Math.min(MAX_CHANCE, (stake / target.price) * HOUSE);
@@ -174,6 +176,7 @@ window.App = window.App || {};
         prize = store.makeItem(tgt.skin, tgt.wear, false, 'Апгрейд');
         store.addItems([prize]);
       }
+      store.log('upgrade', `${win ? 'Удачно' : 'Неудачно'}: ${tgt.skin.weapon} | ${tgt.skin.name} (${tgt.wear}), шанс ${(ch * 100).toFixed(2)}%`, win ? tgt.price : -stake);
       store.save();
       renderCenter();
 

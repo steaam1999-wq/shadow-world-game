@@ -96,7 +96,7 @@ window.App = window.App || {};
         <label class="switch"><input type="checkbox" id="fast" ${store.state.settings.fast ? 'checked' : ''}><span></span>Быстро</label>
       </div>
       <h2 class="section-title">Содержимое кейса</h2>
-      <div class="item-grid">${c.items.map((it) => skinCard(it.skin, { chance: it.chance })).join('')}</div>`;
+      <div class="item-grid">${c.items.map((it) => skinCard(it.skin, { chance: it.chance, view: true })).join('')}</div>`;
 
     const reels = view.querySelector('#reels');
     const openBtn = view.querySelector('#open');
@@ -153,6 +153,10 @@ window.App = window.App || {};
       const items = results.map((r) => store.makeItem(r.skin, r.wear, r.st, `Кейс «${c.name}»`));
       store.state.stats.opened += count;
       store.addItems(items);
+      for (const it of items) {
+        const sk = App.data.SKINS[it.skinId];
+        store.log('case', `«${c.name}»: ${sk.weapon} | ${sk.name} (${it.wear}${it.st ? ', StatTrak™' : ''})`, it.price);
+      }
       store.save();
 
       drawIdleReels();

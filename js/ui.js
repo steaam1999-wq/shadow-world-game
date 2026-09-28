@@ -76,11 +76,14 @@ window.App = window.App || {};
   const rarityOf = (skin) => RARITY[skin.rarity];
   const skinOf = (item) => SKINS[item.skinId];
 
-  function itemCard(item, { selected = false, actions = '', extra = '' } = {}) {
+  const infoLink = (skin) => `<a class="item-info" href="#/skin/${skin.id}" title="Страница скина" aria-label="Страница скина">i</a>`;
+
+  // view: вся карточка ведёт на страницу скина; иначе — только кнопка «i» в углу.
+  function itemCard(item, { selected = false, actions = '', extra = '', view = false } = {}) {
     const skin = skinOf(item);
     const r = rarityOf(skin);
-    return `<div class="item ${selected ? 'selected' : ''}" data-uid="${item.uid}" style="--rc:${r.color}">
-      <div class="item-top"><span class="wear">${item.wear}</span>${item.st ? '<span class="st">ST™</span>' : ''}</div>
+    return `<div class="item ${selected ? 'selected' : ''} ${view ? 'viewable' : ''}" data-uid="${item.uid}" data-skin="${skin.id}" style="--rc:${r.color}">
+      <div class="item-top"><span class="wear">${item.wear}</span>${item.st ? '<span class="st">ST™</span>' : ''}${infoLink(skin)}</div>
       <div class="item-img">${skinIcon(skin)}</div>
       <div class="item-weapon">${esc(skin.weapon)}</div>
       <div class="item-name">${esc(skin.name)}</div>
@@ -89,10 +92,10 @@ window.App = window.App || {};
     </div>`;
   }
 
-  function skinCard(skin, { chance, price, wear, key, selected } = {}) {
+  function skinCard(skin, { chance, price, wear, key, selected, view = false } = {}) {
     const r = rarityOf(skin);
-    return `<div class="item ${selected ? 'selected' : ''}" ${key ? `data-key="${key}"` : ''} style="--rc:${r.color}">
-      <div class="item-top">${wear ? `<span class="wear">${wear}</span>` : ''}${chance != null ? `<span class="chance">${fmtChance(chance)}</span>` : ''}</div>
+    return `<div class="item ${selected ? 'selected' : ''} ${view ? 'viewable' : ''}" ${key ? `data-key="${key}"` : ''} data-skin="${skin.id}" style="--rc:${r.color}">
+      <div class="item-top">${wear ? `<span class="wear">${wear}</span>` : ''}${chance != null ? `<span class="chance" title="Шанс выпадения">${fmtChance(chance)}</span>` : ''}${view ? '' : infoLink(skin)}</div>
       <div class="item-img">${skinIcon(skin)}</div>
       <div class="item-weapon">${esc(skin.weapon)}</div>
       <div class="item-name">${esc(skin.name)}</div>
@@ -106,6 +109,12 @@ window.App = window.App || {};
     if (pct >= 0.1) return pct.toFixed(2) + '%';
     return pct.toFixed(3) + '%';
   }
+
+  document.addEventListener('click', (e) => {
+    const card = e.target.closest('.item.viewable');
+    if (!card || e.target.closest('button, a')) return;
+    location.hash = `#/skin/${card.dataset.skin}`;
+  });
 
   function toast(msg, type = 'info') {
     let wrap = document.getElementById('toasts');
@@ -141,7 +150,7 @@ window.App = window.App || {};
   function showDrops(items, title = 'Ваш дроп') {
     const total = items.reduce((s, it) => s + it.price, 0);
     const m = modal(`<h2>${title}</h2>
-      <div class="drop-grid">${items.map((it) => itemCard(it)).join('')}</div>
+      <div class="drop-grid">${items.map((it) => itemCard(it, { view: true })).join('')}</div>
       <div class="modal-actions">
         <button class="btn ghost" data-act="keep">Забрать в инвентарь</button>
         <button class="btn primary" data-act="sell">Продать за ${money(total)}</button>
