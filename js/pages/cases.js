@@ -1,8 +1,20 @@
 // Главная (список кейсов) и страница открытия кейса.
 window.App = window.App || {};
 (function (App) {
-  const { CASES, CASE_BY_ID, GROUPS } = App.data;
-  const { money, caseArt, skinCard, toast, showDrops, esc } = App.ui;
+  const { CASES, CASE_BY_ID, GROUPS, SKIN_LIST, DROPS, RARITY } = App.data;
+  const { money, caseArt, skinCard, toast, showDrops, esc, skinIcon, fmtChance } = App.ui;
+
+  // Витрина главной: самые дорогие скины, которые реально выпадают из кейсов (по одному на модель).
+  const SHOWCASE = (() => {
+    const seen = new Set(), out = [];
+    for (const s of SKIN_LIST.filter((x) => DROPS[x.id]).sort((a, b) => b.price - a.price)) {
+      if (seen.has(s.weapon)) continue;
+      seen.add(s.weapon);
+      out.push(s);
+      if (out.length === 10) break;
+    }
+    return out;
+  })();
   const store = App.store;
 
   function fmtTimer(ms) {
@@ -28,25 +40,31 @@ window.App = window.App || {};
     view.innerHTML = `
       <section class="hero">
         <div class="hero-text">
+          <div class="eyebrow"><i class="live-dot"></i>${SKIN_LIST.length.toLocaleString('ru-RU')} скинов CS2 · ${CASES.length} кейсов · Provably Fair</div>
           <h1>Открывай кейсы. <span class="grad">Апгрейдь</span> скины.</h1>
-          <p>Симулятор лучших механик CS2-сайтов: рулетка кейсов, апгрейд с колесом шансов, контракты и батлы.
-             Все результаты — <a href="#/fair">Provably Fair</a> и проверяемы вручную.</p>
+          <p>Рулетка кейсов, апгрейд с колесом шансов, контракты и батлы. Каждый результат можно
+             <a href="#/fair">проверить вручную</a>.</p>
           <div class="hero-cta">
             <a class="btn primary big" href="#/case/free">Открыть бесплатный кейс</a>
             <a class="btn ghost big" href="#/upgrade">Попробовать апгрейд</a>
           </div>
-        </div>
-        <div class="hero-side">
-          <form class="promo" id="promo">
-            <div class="promo-title">Промокод</div>
-            <div class="row"><input name="code" placeholder="Например, SHADOW" maxlength="20" autocomplete="off">
-            <button class="btn primary">OK</button></div>
-          </form>
-          <div class="mini-stats">
-            <div><b>${s.opened}</b><span>кейсов открыто</span></div>
-            <div><b>${s.upgradesWon}/${s.upgrades}</b><span>апгрейдов</span></div>
-            <div><b>${s.battlesWon}/${s.battles}</b><span>батлов</span></div>
+          <div class="hero-bottom">
+            <form class="promo" id="promo">
+              <input name="code" id="promo-code" placeholder="Промокод" maxlength="20" autocomplete="off" aria-label="Промокод">
+              <button class="btn primary">Активировать</button>
+            </form>
+            <div class="mini-stats">
+              <div><b>${s.opened}</b><span>кейсов</span></div>
+              <div><b>${s.upgradesWon}/${s.upgrades}</b><span>апгрейдов</span></div>
+              <div><b>${s.battlesWon}/${s.battles}</b><span>батлов</span></div>
+            </div>
           </div>
+        </div>
+        <div class="showcase" id="showcase">
+          <div class="showcase-stage" id="sc-stage">${SHOWCASE.map((sk, i) =>
+            `<a class="showcase-item ${i === 0 ? 'on' : ''}" href="#/skin/${sk.id}" style="--rc:${RARITY[sk.rarity].color}" tabindex="${i === 0 ? 0 : -1}">${skinIcon(sk)}</a>`).join('')}</div>
+          <div class="showcase-info" id="sc-info"></div>
+          <div class="showcase-dots" id="sc-dots">${SHOWCASE.map((_, i) => `<button data-i="${i}" class="${i === 0 ? 'on' : ''}" aria-label="Скин ${i + 1}"></button>`).join('')}</div>
         </div>
       </section>
       ${GROUPS.map((g) => `
@@ -61,7 +79,30 @@ window.App = window.App || {};
       App.redeemPromo(code);
       e.target.reset();
     });
-    return tickFree(view);
+
+    // Витрина: смена скина каждые 4 секунды, точки переключают вручную.
+    let cur = 0;
+    const show = (i) => {
+      cur = (i + SHOWCASE.length) % SHOWCASE.length;
+      const sk = SHOWCASE[cur], best = DROPS[sk.id][0];
+      view.querySelectorAll('.showcase-item').forEach((el, j) => { el.classList.toggle('on', j === cur); el.tabIndex = j === cur ? 0 : -1; });
+      view.querySelectorAll('#sc-dots button').forEach((el, j) => el.classList.toggle('on', j === cur));
+      view.querySelector('#showcase').style.setProperty('--rc', RARITY[sk.rarity].color);
+      view.querySelector('#sc-info').innerHTML = `
+        <div class="muted">${esc(sk.weapon)}</div>
+        <div class="showcase-name">${esc(sk.name)}</div>
+        <div class="showcase-meta">${money(sk.price)} · шанс ${fmtChance(best.chance)} в <a href="#/case/${best.case.id}">«${esc(best.case.name)}»</a></div>`;
+    };
+    view.querySelector('#sc-dots').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (b) { show(+b.dataset.i); restart(); }
+    });
+    let timer;
+    const restart = () => { clearInterval(timer); timer = setInterval(() => show(cur + 1), 4000); };
+    show(0);
+    restart();
+    const stopFree = tickFree(view);
+    return () => { clearInterval(timer); stopFree(); };
   }
 
   // Обновляет таймер бесплатного кейса раз в секунду; возвращает функцию очистки.
@@ -160,14 +201,16 @@ window.App = window.App || {};
       store.save();
 
       drawIdleReels();
+      App.fx.sound.open();
       const fast = store.state.settings.fast;
       await Promise.all([...reels.querySelectorAll('.reel')].map((el, i) => {
         el.classList.remove('idle');
-        return App.reel.spin(el, c, results[i].skin, { fast });
+        return App.reel.spin(el, c, results[i].skin, { fast, sound: i === 0 });
       }));
       items.forEach((it) => App.feed.push('Вы', it, c.id));
       busy = false;
       updateButton();
+      App.fx.celebrate(items);
       showDrops(items);
     });
 

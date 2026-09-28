@@ -29,7 +29,7 @@ window.App = window.App || {};
   const SKIN_LIST = [];
   for (const [id, weapon, name, type, rarity, price, wmask, st, img] of DB.skins) {
     const wears = WEARS.filter((_, i) => wmask & (1 << i)).map((w) => w.id);
-    const skin = { id, weapon, name, type, rarity, price, wears, st: !!st, img: img ? DB.img + img : '' };
+    const skin = { id, weapon, name, type, rarity, price, wears, st: !!st, img: img || '' }; // img — хеш картинки Steam
     // Цвета запасной SVG-иконки: оттенок по имени + цвет редкости.
     let h = 0;
     for (const ch of weapon + name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -52,7 +52,7 @@ window.App = window.App || {};
   // rtp — доля цены кейса, которая в среднем возвращается игроку.
   const CASES = [
     {
-      id: 'free', name: 'Ежедневный', price: 0, free: true, group: 'free', color: '#2ec4b6', alpha: 1.1,
+      id: 'free', name: 'Ежедневный', price: 0, free: true, group: 'cheap', color: '#2ec4b6', alpha: 1.1,
       skins: ['p250-sand', 'nova-pred', 'scar-mesh', 'mag7-ddpat', 'mp9-storm', 'galil-sage', 'ump-urban',
         'ump-expo', 'mp9-ruby', 'deagle-oxide', 'glock-candy', 'ak-elite', 'usp-cortex', 'ak-redline'],
     },
@@ -109,13 +109,12 @@ window.App = window.App || {};
     CASES.push({
       id: 'c' + id, name: name.replace(/ Case$/, ''), fullName: name, date, official: true,
       group: 'official', color: OFFICIAL_COLORS[i % OFFICIAL_COLORS.length], rtp: 0.9,
-      img: img ? DB.img + img : '',
+      img: img || '',
       skins: items.concat(rare).map((idx) => SKIN_BY_INDEX[idx].id),
     });
   });
 
   const GROUPS = [
-    { id: 'free', name: 'Бесплатные' },
     { id: 'cheap', name: 'Бюджетные' },
     { id: 'popular', name: 'Популярные' },
     { id: 'premium', name: 'Премиум' },

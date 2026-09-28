@@ -16,14 +16,50 @@ window.App = window.App || {};
   // Картинки скинов грузятся со Steam CDN. Под картинкой всегда лежит SVG-силуэт:
   // картинка становится видимой только после настоящей загрузки. Так иконка не пропадает,
   // даже если CDN заблокирован без ошибки (как в песочницах) или отдаёт пустую заглушку.
+  // У Steam несколько адресов с одними и теми же картинками. Если один недоступен в сети
+  // пользователя, пробуем следующий и запоминаем тот, что сработал.
+  const IMG_HOSTS = [
+    'https://community.akamai.steamstatic.com',
+    'https://community.cloudflare.steamstatic.com',
+    'https://community.fastly.steamstatic.com',
+    'https://steamcommunity-a.akamaihd.net',
+  ];
+  let hostIdx = 0;
+  try { hostIdx = Math.min(IMG_HOSTS.length - 1, +localStorage.getItem('shadowdrop:imghost') || 0); } catch (e) { /* нет хранилища */ }
+  const imgUrl = (hash, size, h = hostIdx) => `${IMG_HOSTS[h]}/economy/image/${hash}${size ? '/' + size : ''}`;
+
   let imgOk = 0, imgFail = 0;
   const imagesBlocked = () => imgOk === 0 && imgFail >= 3;
   const isReal = (img) => img.naturalWidth > 16 && img.naturalHeight > 16;
+
+  function setImgStatus() {
+    const el = document.getElementById('img-status');
+    if (!el) return;
+    el.textContent = imgOk ? 'Картинки Steam: загружаются' : imagesBlocked()
+      ? 'Картинки Steam недоступны в этом окне или сети — показаны нарисованные изображения' : '';
+    el.className = imgOk ? 'ok' : imagesBlocked() ? 'warn' : '';
+  }
+
+  // Следующий адрес Steam для картинки; false — адреса закончились.
+  function tryNextHost(img) {
+    const next = ((+img.dataset.h || 0) + 1) % IMG_HOSTS.length; // по кругу, начиная с запомненного
+    if (!img.dataset.hash || next === +img.dataset.h0) return false;
+    img.dataset.h = next;
+    img.src = imgUrl(img.dataset.hash, img.dataset.size, next);
+    return true;
+  }
+
   document.addEventListener('load', (e) => {
     const el = e.target;
     if (!el.classList) return;
     if (el.classList.contains('skin-img')) {
-      if (isReal(el)) { imgOk++; el.parentNode.classList.add('loaded'); } else { imgFail++; el.remove(); }
+      if (isReal(el)) {
+        imgOk++;
+        el.parentNode.classList.add('loaded');
+        const h = +el.dataset.h || 0;
+        if (h !== hostIdx) { hostIdx = h; try { localStorage.setItem('shadowdrop:imghost', h); } catch (err) { /* нет хранилища */ } }
+        if (imgOk === 1) setImgStatus();
+      } else if (!tryNextHost(el)) { imgFail++; el.remove(); setImgStatus(); }
     } else if (el.classList.contains('case-photo') && isReal(el)) {
       el.parentNode.classList.add('has-photo');
     }
@@ -31,14 +67,16 @@ window.App = window.App || {};
   document.addEventListener('error', (e) => {
     const el = e.target;
     if (!el.classList) return;
-    if (el.classList.contains('skin-img')) { imgFail++; el.remove(); }
-    else if (el.classList.contains('case-photo')) el.remove();
+    if (el.classList.contains('skin-img')) {
+      if (!tryNextHost(el)) { imgFail++; el.remove(); setImgStatus(); }
+    } else if (el.classList.contains('case-photo')) el.remove();
   }, true);
 
   // size — суффикс размера Steam ('360fx360f'); пустая строка — исходное изображение (для осмотра).
   function skinIcon(skin, cls = '', size = '360fx360f') {
     const img = skin.img && !imagesBlocked()
-      ? `<img class="skin-img" src="${skin.img}${size ? '/' + size : ''}" alt="" loading="lazy" decoding="async" draggable="false">`
+      ? `<img class="skin-img" src="${imgUrl(skin.img, size)}" data-hash="${skin.img}" data-size="${size}" data-h="${hostIdx}" data-h0="${hostIdx}"
+          alt="" loading="lazy" decoding="async" draggable="false">`
       : '';
     return `<span class="skin-pic ${cls}" role="img" aria-label="${esc(skin.weapon)} | ${esc(skin.name)}">${skinSvg(skin)}${img}</span>`;
   }
@@ -46,7 +84,7 @@ window.App = window.App || {};
   function caseArt(c) {
     const col = c.color;
     const photo = c.img && !imagesBlocked()
-      ? `<img class="case-photo" src="${c.img}/256fx256f" alt="" loading="lazy">`
+      ? `<img class="case-photo" src="${imgUrl(c.img, '256fx256f')}" alt="" loading="lazy">`
       : '';
     return `<div class="case-art" style="--cc:${col}">
       <svg class="case-box" viewBox="0 0 160 110" aria-hidden="true">
@@ -71,7 +109,7 @@ window.App = window.App || {};
   function itemCard(item, { selected = false, actions = '', extra = '', view = false } = {}) {
     const skin = skinOf(item);
     const r = rarityOf(skin);
-    return `<div class="item ${selected ? 'selected' : ''} ${view ? 'viewable' : ''}" data-uid="${item.uid}" data-skin="${skin.id}" style="--rc:${r.color}">
+    return `<div class="item r-${skin.rarity} ${selected ? 'selected' : ''} ${view ? 'viewable' : ''}" data-uid="${item.uid}" data-skin="${skin.id}" style="--rc:${r.color}">
       <div class="item-top"><span class="wear">${item.wear}</span>${item.st ? '<span class="st">ST™</span>' : ''}${infoLink(skin, item.wear, item.st)}</div>
       <div class="item-img">${skinIcon(skin)}</div>
       <div class="item-weapon">${esc(skin.weapon)}</div>
@@ -83,7 +121,7 @@ window.App = window.App || {};
 
   function skinCard(skin, { chance, price, wear, key, selected, view = false } = {}) {
     const r = rarityOf(skin);
-    return `<div class="item ${selected ? 'selected' : ''} ${view ? 'viewable' : ''}" ${key ? `data-key="${key}"` : ''} data-skin="${skin.id}" style="--rc:${r.color}">
+    return `<div class="item r-${skin.rarity} ${selected ? 'selected' : ''} ${view ? 'viewable' : ''}" ${key ? `data-key="${key}"` : ''} data-skin="${skin.id}" style="--rc:${r.color}">
       <div class="item-top">${wear ? `<span class="wear">${wear}</span>` : ''}${chance != null ? `<span class="chance" title="Шанс выпадения">${fmtChance(chance)}</span>` : ''}${infoLink(skin, wear || '', false)}</div>
       <div class="item-img">${skinIcon(skin)}</div>
       <div class="item-weapon">${esc(skin.weapon)}</div>

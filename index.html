@@ -23,6 +23,7 @@
     </nav>
     <div class="user">
       <div class="level" id="level"></div>
+      <button class="icon-btn" id="sound-btn" aria-label="Звук"></button>
       <div class="wallet"><span id="balance"></span><button class="plus" id="deposit" title="Демо-пополнение">+</button></div>
       <div class="account" id="account"></div>
       <a class="inv-btn" href="#/inventory" data-nav="inventory" title="Инвентарь">
@@ -39,6 +40,7 @@
   <footer class="footer container">
     <p><b>Shadow Drop</b> — демонстрационный симулятор. Все монеты и предметы виртуальные: пополнение, покупка и вывод
       реальных скинов невозможны. Не связано с Valve Corporation. 18+.</p>
+    <p id="img-status" role="status"></p>
   </footer>
 
   <div id="toasts" class="toasts"></div>
@@ -47,6 +49,7 @@
   <script src="js/cs2-db.js"></script>
   <script src="js/data.js"></script>
   <script src="js/art.js"></script>
+  <script src="js/fx.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/store.js"></script>
   <script src="js/inspect.js"></script>

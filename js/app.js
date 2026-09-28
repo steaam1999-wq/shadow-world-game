@@ -15,7 +15,8 @@ window.App = window.App || {};
       if (!el) return;
       const skin = App.data.SKINS[item.skinId];
       const icon = { case: '', upgrade: '⬆', contract: '✎', battle: '⚔' }[kind];
-      const html = `<a class="feed-item ${user === 'Вы' ? 'mine' : ''}" href="#/skin/${skin.id}"
+      const hot = App.data.RARITY[skin.rarity].order >= 5 ? 'hot' : '';
+      const html = `<a class="feed-item ${user === 'Вы' ? 'mine' : ''} ${hot}" href="#/skin/${skin.id}"
           style="--rc:${rarityOf(skin).color}" title="${esc(user)}: ${esc(skin.weapon)} | ${esc(skin.name)} — ${App.ui.fmt(item.price)}">
         ${skinIcon(skin)}<span class="feed-user">${icon} ${esc(user)}</span></a>`;
       el.insertAdjacentHTML('afterbegin', html);
@@ -36,7 +37,15 @@ window.App = window.App || {};
   }
 
   // --- Шапка ---
+  const SOUND_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const SOUND_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
   function renderHeader() {
+    const on = store.state.settings.sound !== false;
+    const sb = document.getElementById('sound-btn');
+    sb.innerHTML = on ? SOUND_ON : SOUND_OFF;
+    sb.title = on ? 'Выключить звук' : 'Включить звук';
+    sb.classList.toggle('off', !on);
     const lv = store.level();
     document.getElementById('balance').innerHTML = money(store.state.balance);
     document.getElementById('level').innerHTML = `<b>${lv.lvl}</b><i style="width:${Math.round(lv.progress * 100)}%"></i>`;
@@ -99,6 +108,7 @@ window.App = window.App || {};
     document.querySelectorAll('.modal-back').forEach((m) => m.remove());
     // Новый узел на каждую страницу: старые async-обработчики видят view.isConnected === false.
     const fresh = view.cloneNode(false);
+    fresh.classList.add('view-enter');
     view.replaceWith(fresh);
     for (const [re, fn, nav] of ROUTES) {
       const m = hash.match(re);
@@ -117,6 +127,12 @@ window.App = window.App || {};
     store.subscribe(renderHeader);
     renderHeader();
     document.getElementById('deposit').addEventListener('click', App.openDeposit);
+    document.getElementById('sound-btn').addEventListener('click', () => {
+      store.state.settings.sound = store.state.settings.sound === false;
+      store.save();
+      if (store.state.settings.sound) App.fx.sound.coin();
+    });
+    App.fx.startBackground();
     document.getElementById('account').addEventListener('click', (e) => {
       if (e.target.closest('#login-btn')) App.openAuth('login');
     });

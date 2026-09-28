@@ -115,6 +115,7 @@ window.App = window.App || {};
       for (const it of state.inventory) if (set.has(it.uid)) total += it.price;
       store.removeItems(uids);
       store.credit(total);
+      if (uids.length) App.fx?.sound.coin();
       if (uids.length) store.log('sell', `Продано предметов: ${uids.length}`, App.data.round2(total));
       return App.data.round2(total);
     },

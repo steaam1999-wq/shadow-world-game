@@ -92,6 +92,7 @@ window.App = window.App || {};
       busy = false;
       render();
       App.feed.push('Вы', prize, null, 'contract');
+      App.fx.celebrate([prize]);
       showDrops([prize], `Контракт: x${(prize.price / sum).toFixed(2)}`);
     });
 

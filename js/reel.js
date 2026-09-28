@@ -23,7 +23,7 @@ window.App = window.App || {};
    * Рисует ленту в container и прокручивает её до winnerSkin.
    * @returns {Promise<void>} резолвится, когда лента остановилась
    */
-  function spin(container, caseDef, winnerSkin, { fast = false, vertical = false } = {}) {
+  function spin(container, caseDef, winnerSkin, { fast = false, vertical = false, sound = true } = {}) {
     const skins = Array.from({ length: LENGTH }, () => filler(caseDef));
     skins[WIN_INDEX] = winnerSkin;
     container.classList.toggle('vertical', vertical);
@@ -48,6 +48,17 @@ window.App = window.App || {};
         strip.style.transform = vertical ? `translateY(${-offset}px)` : `translateX(${-offset}px)`;
       });
       let done = false;
+      // Щелчок каждый раз, когда под маркер заезжает новая ячейка.
+      let lastCell = -1;
+      const tickLoop = () => {
+        if (done) return;
+        const m = new DOMMatrixReadOnly(getComputedStyle(strip).transform);
+        const pos = -(vertical ? m.m42 : m.m41) + view / 2 - start;
+        const idx = Math.floor(pos / step);
+        if (idx !== lastCell) { if (lastCell >= 0) App.fx.sound.tick(); lastCell = idx; }
+        requestAnimationFrame(tickLoop);
+      };
+      if (sound) requestAnimationFrame(tickLoop);
       const finish = () => {
         if (done) return;
         done = true;

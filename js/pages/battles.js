@@ -94,7 +94,7 @@ window.App = window.App || {};
       const fast = store.state.settings.fast;
       for (let r = 0; r < rounds; r++) {
         if (!view.isConnected) return;
-        await Promise.all(names.map((_, p) => App.reel.spin(arena.querySelector(`#breel${p}`), c, drops[p][r].skin, { fast, vertical: true })));
+        await Promise.all(names.map((_, p) => App.reel.spin(arena.querySelector(`#breel${p}`), c, drops[p][r].skin, { fast, vertical: true, sound: p === 0 })));
         names.forEach((_, p) => {
           const d = drops[p][r];
           running[p] += App.data.itemPrice(d.skin, d.wear, d.st);
@@ -112,8 +112,11 @@ window.App = window.App || {};
       if (winner === 0) {
         const top = allItems.reduce((a, b) => (b.price > a.price ? b : a));
         App.feed.push('Вы', top, c.id, 'battle');
+        App.fx.celebrate(allItems);
+        App.fx.confetti();
         showDrops(allItems, `Победа! Вы забираете ${allItems.length} предметов`);
       } else {
+        App.fx.sound.lose();
         toast(`Победил ${esc(names[winner])} с ${money(totals[winner])}`, 'bad');
       }
     });

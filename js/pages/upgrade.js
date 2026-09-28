@@ -217,8 +217,11 @@ window.App = window.App || {};
       target = null;
       if (win) {
         App.feed.push('Вы', prize, null, 'upgrade');
+        App.fx.sound.win(5);
+        App.fx.confetti({ colors: ['#2bd576', '#ffffff', '#ffc93c'] });
         showDrops([prize], `Апгрейд удался! (выпало ${(roll * 100).toFixed(2)} < ${(ch * 100).toFixed(2)})`);
       } else {
+        App.fx.sound.lose();
         toast(`Неудача: выпало ${(roll * 100).toFixed(2)}, нужно меньше ${(ch * 100).toFixed(2)}`, 'bad');
       }
       renderAll();
