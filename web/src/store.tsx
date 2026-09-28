@@ -43,11 +43,11 @@ function reducer(state: State, action: Action): State {
   const now = Date.now()
   switch (action.type) {
     case 'signIn':
-      return { ...state, me: action.me }
+      return { ...state, me: action.me, savedMe: action.me }
     case 'updateMe':
-      return state.me ? { ...state, me: { ...state.me, ...action.patch } } : state
+      return state.me ? { ...state, me: { ...state.me, ...action.patch }, savedMe: { ...state.me, ...action.patch } } : state
     case 'signOut':
-      return { ...state, me: null }
+      return { ...state, me: null, savedMe: state.me ?? state.savedMe }
     case 'reset':
       return seedState()
     case 'respond': {

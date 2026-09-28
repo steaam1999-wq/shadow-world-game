@@ -101,4 +101,5 @@ export interface State {
   verifications: Verification[]
   announcement: string | null
   dismissedAnnouncement: string | null
+  savedMe?: Me | null // профиль последнего входа: «Войти» без бэкенда возвращает его
 }

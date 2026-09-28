@@ -3,7 +3,8 @@ import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
 import { MusicPage } from './music/MusicPage'
-import { Landing } from './screens/Landing'
+import { DEMO_ME, Landing } from './screens/Landing'
+import { HOUR } from './data'
 import { Onboarding } from './screens/Onboarding'
 import { CreateActivity, Explore } from './screens/Explore'
 import { Feed } from './screens/Feed'
@@ -13,7 +14,7 @@ import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { Avatar, Icon, Logo, Sheet, ThemeToggle } from './components/ui'
 import { isExpired, relative } from './lib'
-import type { Activity } from './types'
+import type { Activity, Me } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin'
 type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
@@ -31,18 +32,39 @@ function readHash(): string {
 }
 
 function Root() {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const [view, setView] = useState<View>(() => (readHash() === 'admin' ? 'admin' : state.me ? 'app' : 'landing'))
+  const [reg, setReg] = useState<{ name: string; method: Me['authMethod'] } | null>(null)
 
   useEffect(() => {
     try { history.replaceState(null, '', view === 'admin' ? '#admin' : view === 'app' ? '#app' : ' ') } catch { /* ignore */ }
     window.scrollTo(0, 0)
   }, [view])
 
+  const enterDemo = () => {
+    dispatch({ type: 'signIn', me: DEMO_ME })
+    if (!state.activities.some((a) => a.authorId === 'me')) {
+      const now = Date.now()
+      const plan = (title: string, category: string, area: string, exactPlace: string, inHours: number, x: number, y: number) =>
+        dispatch({ type: 'createActivity', activity: { title, category, area, exactPlace, startsAt: now + inHours * HOUR, durationMin: 90, expiresAt: now + (inHours + 1.5) * HOUR, x, y } })
+      plan('Утренний кофе у Чистых прудов, расскажу про любимые обжарки', 'Кофе', 'Чистые пруды', 'Кофейня у выхода из метро', 14, 62, 30)
+      plan('Иду в Пушкинский на импрессионистов, ищу компанию', 'Выставка', 'Хамовники', 'Главный вход, Волхонка, 12', 22, 30, 60)
+      plan('Прогулка вдоль Яузы на закате', 'Прогулка', 'Басманный', 'Мост у Андроникова монастыря', 30, 76, 36)
+    }
+    setView('app')
+  }
+
   if (view === 'admin') return <Admin onExit={() => setView(state.me ? 'app' : 'landing')} />
-  if (view === 'onboarding') return <Onboarding onDone={() => setView('app')} onBack={() => setView('landing')} />
+  if (view === 'onboarding') return <Onboarding initialName={reg?.name} method={reg?.method ?? null} onDone={() => setView('app')} onBack={() => setView('landing')} />
   if (view === 'app' && state.me) return <AppShell onSignOut={() => setView('landing')} onAdmin={() => setView('admin')} />
-  return <Landing onStart={() => setView(state.me ? 'app' : 'onboarding')} onAdmin={() => setView('admin')} />
+  return (
+    <Landing
+      onDemo={enterDemo}
+      onLogin={() => { if (state.savedMe) { dispatch({ type: 'signIn', me: state.savedMe }); setView('app') } else enterDemo() }}
+      onRegister={(name, method) => { setReg({ name, method }); setView('onboarding') }}
+      onAdmin={() => setView('admin')}
+    />
+  )
 }
 
 function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () => void }) {

@@ -6,15 +6,15 @@ import type { Me, VibeAnswers } from '../types'
 
 type Method = Me['authMethod']
 
-export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+export function Onboarding({ onDone, onBack, initialName = '', method: initialMethod = null }: { onDone: () => void; onBack: () => void; initialName?: string; method?: Method | null }) {
   const { state, dispatch } = useStore()
-  const [step, setStep] = useState(0) // 0 — вход, 1..6 — вопросы, 7 — профиль
-  const [method, setMethod] = useState<Method | null>(null)
+  const [step, setStep] = useState(initialMethod ? 1 : 0) // 0 — вход, 1..6 — вопросы, 7 — профиль
+  const [method, setMethod] = useState<Method | null>(initialMethod)
   const [phone, setPhone] = useState('+7 ')
   const [code, setCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [answers, setAnswers] = useState<VibeAnswers>({})
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName)
   const [age, setAge] = useState('25')
   const [district, setDistrict] = useState(DISTRICTS[0])
   const [bio, setBio] = useState('')
@@ -47,7 +47,7 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack: () 
   return (
     <div className="min-h-full flex flex-col mx-auto max-w-[480px] px-4 pb-[calc(24px+env(safe-area-inset-bottom,0px))]">
       <div className="h-16 flex items-center justify-between">
-        <button onClick={() => (step === 0 ? onBack() : setStep(step - 1))} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Назад">
+        <button onClick={() => (step === 0 || (initialMethod && step === 1) ? onBack() : setStep(step - 1))} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Назад">
           <Icon name="back" />
         </button>
         <Logo className="text-lg" />
