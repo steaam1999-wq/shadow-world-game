@@ -1,9 +1,11 @@
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 const PATHS: Record<string, string> = {
   spark: 'M13 2 4 14h7l-1 8 9-12h-7z',
   vibe: 'M3 12h3l2-6 4 12 3-9 2 3h4',
   chat: 'M4 5h16v11H9l-5 4z',
+  moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4',
   reels: 'M5 3.5h14A1.5 1.5 0 0 1 20.5 5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM3.5 8.5h17M8 3.5l3 5M13.5 3.5l3 5M10.5 12v5.5l4.5-2.75z',
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c1-4 4-6 8-6s7 2 8 6',
   pin: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
@@ -199,4 +201,31 @@ export function readPhoto(file: File, max = 720): Promise<string> {
     }
     reader.readAsDataURL(file)
   })
+}
+
+const THEME_KEY = 'iskra-theme'
+
+function systemDark() {
+  try { return window.matchMedia('(prefers-color-scheme: dark)').matches } catch { return false }
+}
+
+/** Переключатель светлой/тёмной темы; выбор запоминается в браузере. */
+export function ThemeToggle() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem(THEME_KEY)
+      if (saved === 'light' || saved === 'dark') return saved
+    } catch { /* хранилище недоступно */ }
+    return systemDark() ? 'dark' : 'light'
+  })
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try { localStorage.setItem(THEME_KEY, theme) } catch { /* ignore */ }
+  }, [theme])
+  const next = theme === 'dark' ? 'light' : 'dark'
+  return (
+    <button onClick={() => setTheme(next)} className="grid place-items-center w-10 h-10 rounded-full cursor-pointer hover:bg-surface-2" aria-label={next === 'dark' ? 'Включить тёмную тему' : 'Включить светлую тему'}>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={22} />
+    </button>
+  )
 }

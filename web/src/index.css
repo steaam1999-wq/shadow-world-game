@@ -2,12 +2,15 @@
 
 /* Layout: мобильная колонка 480px, монохромная основа, фирменный градиент только в акцентах (сторис, логотип, главная кнопка). */
 :root {
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --surface-2: #f2f2f5;
-  --fg: #111114;
-  --muted: #74747f;
-  --line: #ececf0;
+  --bg: #f2e1ec;
+  --surface: #fff5fa;
+  --surface-2: #f1e0eb;
+  --fg: #1d1520;
+  --muted: #7a6a7d;
+  --line: #e6d0de;
+  --glow-1: #ffbfa3;
+  --glow-2: #f4a7cc;
+  --glow-3: #c4b2fa;
   --spark: #e8336f;
   --spark-soft: #fde8ef;
   --amber: #ffb938;
@@ -30,7 +33,7 @@
 /* Тёмная тема — глубокий чёрный под OLED, а не инверсия */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #000000; --surface: #0c0c0e; --surface-2: #1c1c20; --fg: #f4f4f6; --muted: #a0a0ab; --line: #232327;
+    --bg: #0b0810; --surface: #16111b; --surface-2: #231b2a; --fg: #f6eff8; --muted: #ab9fb1; --line: #2c2233; --glow-1: #3a1a24; --glow-2: #3a1636; --glow-3: #221a48;
     --spark: #ff4f86; --spark-soft: #3a1422; --amber: #ffc457; --violet: #9a74ff; --on-spark: #ffffff; --cobalt: #4aa8ff; --cobalt-soft: #0f2538;
     --ok: #3fd18f; --ok-soft: #0f2a1e; --warn: #e8b058; --warn-soft: #2e2211; --danger: #ff5c72; --danger-soft: #34141a;
     --shadow: 0 0 0 1px rgb(255 255 255 / .04);
@@ -38,7 +41,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #000000; --surface: #0c0c0e; --surface-2: #1c1c20; --fg: #f4f4f6; --muted: #a0a0ab; --line: #232327;
+  --bg: #0b0810; --surface: #16111b; --surface-2: #231b2a; --fg: #f6eff8; --muted: #ab9fb1; --line: #2c2233; --glow-1: #3a1a24; --glow-2: #3a1636; --glow-3: #221a48;
   --spark: #ff4f86; --spark-soft: #3a1422; --amber: #ffc457; --violet: #9a74ff; --on-spark: #ffffff; --cobalt: #4aa8ff; --cobalt-soft: #0f2538;
   --ok: #3fd18f; --ok-soft: #0f2a1e; --warn: #e8b058; --warn-soft: #2e2211; --danger: #ff5c72; --danger-soft: #34141a;
   --shadow: 0 0 0 1px rgb(255 255 255 / .04);
@@ -73,7 +76,12 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   letter-spacing: -0.005em;
-  background: var(--bg);
+  background:
+    radial-gradient(60vmax 50vmax at 0% 0%, var(--glow-1), transparent 60%),
+    radial-gradient(55vmax 45vmax at 100% 20%, var(--glow-2), transparent 60%),
+    radial-gradient(70vmax 55vmax at 50% 100%, var(--glow-3), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
   font-family: var(--font-body);
   font-size: 15px;

@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { Avatar, Button, Icon, Logo, Pill } from '../components/ui'
+import { Avatar, Button, Icon, Logo, Pill, ThemeToggle } from '../components/ui'
 import { countdown, whenLabel } from '../lib'
 
 const STORIES = [
@@ -14,8 +14,8 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
   const demo = state.activities.slice(0, 3).map((a) => ({ a, p: state.people.find((p) => p.id === a.authorId)! }))
 
   return (
-    <div className="min-h-full bg-bg">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/80 backdrop-blur-xl">
+    <div className="min-h-full">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/55 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <Logo className="text-xl" />
           <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-muted">
@@ -23,7 +23,7 @@ export function Landing({ onStart, onAdmin }: { onStart: () => void; onAdmin: ()
             <a href="#safety" className="hover:text-fg">Безопасность</a>
             <a href="#stories" className="hover:text-fg">Истории</a>
           </nav>
-          <Button onClick={onStart} className="h-10 px-4">Войти</Button>
+          <div className="flex items-center gap-1"><ThemeToggle /><Button onClick={onStart} className="h-10 px-4">Войти</Button></div>
         </div>
       </header>
 

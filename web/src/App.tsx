@@ -8,7 +8,7 @@ import { Reels } from './screens/Reels'
 import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
-import { Avatar, Icon, Logo, Sheet } from './components/ui'
+import { Avatar, Icon, Logo, Sheet, ThemeToggle } from './components/ui'
 import { isExpired, relative } from './lib'
 import type { Activity } from './types'
 
@@ -73,11 +73,12 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name }
 
   return (
-    <div className="min-h-full mx-auto max-w-[480px] bg-bg sm:shadow-soft flex flex-col">
+    <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && tab !== 'reels' && (
-        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-bg/80 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3">
+        <header className="sticky top-[env(safe-area-inset-top,0px)] z-20 bg-surface/55 backdrop-blur-xl px-4 h-14 flex items-center justify-between gap-3">
           {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
+            <ThemeToggle />
             <button onClick={() => setActivityOpen(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
               <Icon name="heart" size={25} />
               {state.announcement && state.announcement !== state.dismissedAnnouncement && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
@@ -85,7 +86,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
             {tab !== 'capsules' && (
               <button onClick={() => { setTab('capsules'); setChat(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
                 <Icon name="send" size={24} />
-                {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-bg">{unread}</span>}
+                {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-surface">{unread}</span>}
               </button>
             )}
           </div>
@@ -115,7 +116,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       )}
 
       {!inChat && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-bg/85 backdrop-blur-xl border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-30 w-full max-w-[480px] bg-surface/65 backdrop-blur-xl border-t border-line pb-[env(safe-area-inset-bottom,0px)]" aria-label="Разделы">
           <ul className="grid grid-cols-5">
             {NAV.map((t) => {
               const active = tab === t.id

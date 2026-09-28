@@ -60,7 +60,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
             )}
 
             {act ? (
-              <div className={`rounded-2xl p-3.5 flex flex-col gap-3 bg-bg`}>
+              <div className={`rounded-2xl p-3.5 flex flex-col gap-3 bg-surface-2`}>
                 <div className="flex items-center gap-2 text-[12px] font-semibold text-spark"><Icon name="spark" size={14} fill /> ПЛАН · {whenLabel(act.startsAt, now)}</div>
                 <p className="font-semibold leading-snug">{act.title}</p>
                 {responded ? (

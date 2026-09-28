@@ -117,7 +117,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
 
   return (
     <div className="flex flex-col h-full">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-bg/80 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-surface/55 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку капсул"><Icon name="back" /></button>
           <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
@@ -154,7 +154,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <div ref={endRef} />
       </div>
 
-      <div className="sticky bottom-0 bg-bg -mx-4 px-4 pt-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] flex flex-col gap-2 border-t border-line">
+      <div className="sticky bottom-0 bg-surface/70 backdrop-blur-xl -mx-4 px-4 pt-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] flex flex-col gap-2 border-t border-line">
         {expired ? (
           <p className="text-center text-[13px] text-muted py-2">Капсула сгорела: за 72 часа вы не договорились. Можно откликнуться на новую активность {p.name}.</p>
         ) : (
