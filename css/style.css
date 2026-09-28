@@ -12,6 +12,7 @@
   --bad: #ff4d5e;
   --radius: 12px;
   --grad: linear-gradient(135deg, var(--accent), var(--accent2));
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -51,7 +52,7 @@ main.container { flex: 1; }
 .coin { display: inline-block; width: .9em; height: .9em; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe08a, #f5a300 60%, #b86b00); box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.25); }
 
 /* ---------- Шапка ---------- */
-.topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 24px; padding: 12px 20px; background: rgba(11,13,20,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; gap: 24px; padding: 12px 20px; background: rgba(11,13,20,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .logo { font-weight: 800; font-size: 20px; letter-spacing: 1px; color: var(--text); display: flex; align-items: center; gap: 8px; }
 .logo:hover { text-decoration: none; }
 .logo b { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
