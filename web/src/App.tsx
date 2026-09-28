@@ -118,7 +118,8 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     <ProfileNav.Provider value={openProfile}>
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && (tab !== 'reels' || person) && (
-        <header className={`sticky top-[env(safe-area-inset-top,0px)] z-20 mx-2 mt-2 rounded-[24px] px-3 h-14 flex items-center justify-between gap-3 transition-[background,box-shadow,backdrop-filter,border-color] duration-300 ${scrolling ? 'glass-off' : 'glass'}`}>
+        <header className={`bar sticky top-0 z-20 -mt-[env(safe-area-inset-top,0px)] pt-[env(safe-area-inset-top,0px)] px-4 flex items-center transition-[background,box-shadow,backdrop-filter,border-color] duration-300 ${scrolling ? 'glass-off' : 'glass'}`}>
+          <div className="w-full h-14 flex items-center justify-between gap-3">
           {tab === 'home' || person ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <ThemeToggle />
@@ -136,6 +137,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                 {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-surface">{unread}</span>}
               </button>
             )}
+          </div>
           </div>
         </header>
       )}

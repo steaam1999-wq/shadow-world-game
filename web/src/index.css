@@ -153,3 +153,7 @@ h1, h2, h3 { text-wrap: balance; }
   box-shadow: none;
 }
 .glass-off > * { filter: drop-shadow(0 1px 2px rgb(0 0 0 / .25)); }
+
+/* Верхняя панель во всю ширину: стекло без скруглений, только нижняя кромка */
+.bar.glass, .bar.glass-off { border-width: 0 0 1px 0; border-radius: 0; }
+.bar.glass { box-shadow: inset 0 -1px 0 var(--glass-edge), 0 10px 30px -18px var(--glass-shade); }
