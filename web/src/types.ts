@@ -1,0 +1,99 @@
+export type VibeAnswers = Record<string, string>
+
+export interface Person {
+  id: string
+  name: string
+  age: number
+  hue: number
+  bio: string
+  district: string
+  distanceKm: number
+  answers: VibeAnswers
+  tags: string[]
+  verified: boolean
+  meetings: number
+}
+
+export interface Me {
+  name: string
+  age: number
+  hue: number
+  bio: string
+  district: string
+  answers: VibeAnswers
+  tags: string[]
+  verified: boolean
+  meetings: number
+  authMethod: 'telegram' | 'google' | 'phone'
+  privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean }
+  radiusKm: number
+}
+
+export interface Activity {
+  id: string
+  authorId: string // 'me' для собственных
+  title: string
+  category: string
+  area: string // публичное, приблизительное место
+  exactPlace: string // открывается только после мэтча
+  startsAt: number
+  durationMin: number
+  expiresAt: number
+  x: number // координаты на схеме города, 0..100
+  y: number
+}
+
+export type CapsuleStatus = 'active' | 'agreed' | 'contacts' | 'met'
+
+export interface Message {
+  id: string
+  from: 'me' | 'them' | 'system'
+  text: string
+  at: number
+}
+
+export interface Capsule {
+  id: string
+  personId: string
+  activityId: string
+  createdAt: number
+  expiresAt: number
+  status: CapsuleStatus
+  messages: Message[]
+  unread: number
+}
+
+export interface Report {
+  id: string
+  personId: string
+  reason: string
+  text: string
+  at: number
+  state: 'open' | 'resolved' | 'banned'
+}
+
+export interface Verification {
+  id: string
+  name: string
+  age: number
+  hue: number
+  method: string
+  gesture: string
+  at: number
+  state: 'pending' | 'approved' | 'rejected'
+}
+
+export interface State {
+  version: number
+  me: Me | null
+  people: Person[]
+  activities: Activity[]
+  capsules: Capsule[]
+  liked: string[] // activityId, на которые я откликнулся
+  categories: string[]
+  tags: string[]
+  reports: Report[]
+  verifications: Verification[]
+  announcement: string | null
+  dismissedAnnouncement: string | null
+}
