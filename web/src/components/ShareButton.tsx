@@ -57,8 +57,8 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
     const t = (target ?? document.querySelector(`[data-share-person="${person.id}"]`))?.getBoundingClientRect()
     if (b && t) setFlights((f) => [...f, { id: Date.now(), from: center(b), to: center(t) }])
     dispatch({ type: 'share', personId: person.id, activityId: activity.id })
-    setTimeout(() => { setReceived(person.id); setToast(`Отправлено: ${person.name}`) }, 560)
-    setTimeout(() => { setReceived(null); if (fan) closeFan() }, 1000)
+    setTimeout(() => { setReceived(person.id); setToast(`Отправлено: ${person.name}`) }, 1000)
+    setTimeout(() => { setReceived(null); if (fan) closeFan() }, 1550)
   }
 
   const personAt = (x: number, y: number) => {
@@ -163,30 +163,69 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
   )
 }
 
-/** Самолётик летит по дуге от кнопки к аватарке получателя. */
+/** Бумажный самолётик: два крыла и киль, окрашен фирменным градиентом. */
+function PaperPlane({ size = 44 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" style={{ overflow: 'visible' }}>
+      <defs>
+        <linearGradient id="plane-grad" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" style={{ stopColor: 'var(--amber)' }} />
+          <stop offset=".55" style={{ stopColor: 'var(--spark)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--violet)' }} />
+        </linearGradient>
+      </defs>
+      <g stroke="#fff" strokeWidth=".7" strokeLinejoin="round">
+        <path d="M21.5 2.5 2.5 7.6l7 3.4z" fill="url(#plane-grad)" />
+        <path d="M21.5 2.5 9.5 11l3.9 10.5z" fill="url(#plane-grad)" />
+        <path d="M9.5 11l.9 5.6 1.9-2.3z" fill="#000" fillOpacity=".25" />
+      </g>
+    </svg>
+  )
+}
+
+// Нос самолётика смотрит вверх-вправо: поправка, чтобы он летел носом вперёд.
+const NOSE_ANGLE = (Math.atan2(-8.5, 12) * 180) / Math.PI
+
+/** Самолётик летит по плавной дуге к аватарке получателя, покачиваясь, со шлейфом. */
 function PlaneFlight({ from, to, onDone }: { from: Point; to: Point; onDone: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
+  const refs = useRef<(HTMLDivElement | null)[]>([])
   const done = useRef(onDone)
   useEffect(() => { done.current = onDone })
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
     const dx = to.x - from.x
     const dy = to.y - from.y
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI + 45 // иконка смотрит вправо-вверх
-    const lift = Math.min(140, Math.abs(dx) * 0.4 + 60)
+    const lift = Math.min(170, Math.abs(dx) * 0.5 + Math.abs(dy) * 0.2 + 80)
+    // Квадратичная кривая Безье: старт → контрольная точка выше середины → цель.
+    const c = { x: dx * 0.35, y: Math.min(0, dy) * 0.5 - lift }
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const anim = el.animate([
-      { transform: 'translate(-50%, -50%) rotate(0deg) scale(.8)', opacity: 1 },
-      { transform: `translate(calc(-50% + ${dx * 0.45}px), calc(-50% + ${dy * 0.45 - lift}px)) rotate(${angle - 25}deg) scale(1.35)`, opacity: 1, offset: 0.5 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${angle}deg) scale(.5)`, opacity: 0 },
-    ], { duration: reduce ? 150 : 620, easing: 'cubic-bezier(.35,.6,.35,1)' })
-    anim.onfinish = () => done.current()
-    return () => anim.cancel()
+    const N = 30
+    const frames: Keyframe[] = []
+    for (let i = 0; i <= N; i++) {
+      const t = i / N
+      const x = 2 * (1 - t) * t * c.x + t * t * dx
+      const y = 2 * (1 - t) * t * c.y + t * t * dy
+      const tx = 2 * (1 - t) * c.x + 2 * t * (dx - c.x)
+      const ty = 2 * (1 - t) * c.y + 2 * t * (dy - c.y)
+      const wobble = Math.sin(t * Math.PI * 3) * 8 * (1 - t)
+      const angle = (Math.atan2(ty, tx) * 180) / Math.PI - NOSE_ANGLE + wobble
+      const scale = 0.85 + Math.sin(t * Math.PI) * 0.45 - t * 0.35
+      frames.push({ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) rotate(${angle}deg) scale(${scale})`, opacity: t > 0.88 ? (1 - t) / 0.12 : 1 })
+    }
+    const anims = refs.current.map((el, i) => el?.animate(frames, {
+      duration: reduce ? 200 : 1100, delay: reduce ? 0 : i * 70, easing: 'cubic-bezier(.4,.1,.3,1)', fill: 'both',
+    }))
+    const last = anims[anims.length - 1]
+    if (last) last.onfinish = () => done.current()
+    return () => anims.forEach((a) => a?.cancel())
   }, [from, to])
   return (
-    <div ref={ref} className="fixed z-[65] pointer-events-none grid place-items-center w-12 h-12 rounded-full bg-brand text-white shadow-soft" style={{ left: from.x, top: from.y }}>
-      <Icon name="send" size={24} fill />
-    </div>
+    <>
+      {[1, 0.35, 0.15].map((o, i) => (
+        <div key={i} ref={(el) => { refs.current[i] = el }} className="fixed pointer-events-none drop-shadow-[0_6px_10px_rgb(0_0_0/.25)]"
+          style={{ left: from.x, top: from.y, zIndex: 65 - i, opacity: o, filter: i ? `blur(${i}px)` : undefined }}>
+          <div style={{ opacity: o }}><PaperPlane size={i ? 36 : 44} /></div>
+        </div>
+      ))}
+    </>
   )
 }
