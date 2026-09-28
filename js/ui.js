@@ -30,32 +30,33 @@ window.App = window.App || {};
     </svg>`;
   }
 
-  // Картинки скинов грузятся со Steam CDN. Если CDN недоступен (например, в песочнице),
-  // картинка заменяется SVG-силуэтом, а после нескольких неудач подряд сразу рисуем силуэты.
+  // Картинки скинов грузятся со Steam CDN. Под картинкой всегда лежит SVG-силуэт:
+  // картинка становится видимой только после настоящей загрузки. Так иконка не пропадает,
+  // даже если CDN заблокирован без ошибки (как в песочницах) или отдаёт пустую заглушку.
   let imgOk = 0, imgFail = 0;
   const imagesBlocked = () => imgOk === 0 && imgFail >= 3;
+  const isReal = (img) => img.naturalWidth > 16 && img.naturalHeight > 16;
   document.addEventListener('load', (e) => {
     const el = e.target;
     if (!el.classList) return;
-    if (el.classList.contains('skin-img')) imgOk++;
-    else if (el.classList.contains('case-photo')) el.parentNode.classList.add('has-photo');
+    if (el.classList.contains('skin-img')) {
+      if (isReal(el)) { imgOk++; el.parentNode.classList.add('loaded'); } else { imgFail++; el.remove(); }
+    } else if (el.classList.contains('case-photo') && isReal(el)) {
+      el.parentNode.classList.add('has-photo');
+    }
   }, true);
   document.addEventListener('error', (e) => {
     const el = e.target;
     if (!el.classList) return;
-    if (el.classList.contains('skin-img')) {
-      imgFail++;
-      const skin = SKINS[el.dataset.skin];
-      if (skin) el.outerHTML = skinSvg(skin, el.dataset.cls || '');
-    } else if (el.classList.contains('case-photo')) {
-      el.remove();
-    }
+    if (el.classList.contains('skin-img')) { imgFail++; el.remove(); }
+    else if (el.classList.contains('case-photo')) el.remove();
   }, true);
 
   function skinIcon(skin, cls = '') {
-    if (!skin.img || imagesBlocked()) return skinSvg(skin, cls);
-    return `<img class="skin-img ${cls}" src="${skin.img}/360fx360f" alt="${esc(skin.weapon)} | ${esc(skin.name)}"
-      loading="lazy" decoding="async" draggable="false" data-skin="${skin.id}" data-cls="${cls}">`;
+    const img = skin.img && !imagesBlocked()
+      ? `<img class="skin-img" src="${skin.img}/360fx360f" alt="" loading="lazy" decoding="async" draggable="false">`
+      : '';
+    return `<span class="skin-pic ${cls}" role="img" aria-label="${esc(skin.weapon)} | ${esc(skin.name)}">${skinSvg(skin)}${img}</span>`;
   }
 
   function caseArt(c) {
