@@ -10,6 +10,7 @@ import { useGame } from '../hooks/useGame';
 import { PageTitle, Tabs } from '../components/ui';
 import { fmt, timeLeft } from '../utils/format';
 import { RARITY_INFO } from '../data/items';
+import { HeroModel } from '../components/HeroModel';
 
 const REFRESH_COST = 30;
 
@@ -102,10 +103,10 @@ export function ArenaPage() {
                   <div className="absolute -right-4 -top-4 text-8xl opacity-10">{cls.icon}</div>
                   <div className="flex items-center gap-3">
                     <div
-                      className="flex h-16 w-16 items-center justify-center rounded-full border-2 text-3xl"
+                      className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2"
                       style={{ borderColor: cls.color, background: `radial-gradient(circle, ${cls.color}44, #000)`, boxShadow: `0 0 16px ${cls.color}55` }}
                     >
-                      {cls.icon}
+                      <HeroModel classId={o.classId} equipment={Object.fromEntries(o.gear.map((g) => [g.slot, g]))} crop="bust" animate={false} className="h-full w-full" />
                     </div>
                     <div className="min-w-0">
                       <div className="truncate font-bold text-zinc-100">{o.name}</div>

@@ -7,6 +7,7 @@ import { xpToNext } from '../game/stats';
 import { useGame } from '../hooks/useGame';
 import { fmt } from '../utils/format';
 import { Bar, Currency } from './ui';
+import { HeroModel } from './HeroModel';
 
 export function TopBar() {
   const { state, setPage, page, setSettingsOpen, play } = useGame();
@@ -21,11 +22,13 @@ export function TopBar() {
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-3 py-2 sm:px-5">
         <button
           onClick={() => setPage('hero')}
-          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 text-2xl"
+          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2"
           style={{ borderColor: cls.color, boxShadow: `0 0 16px ${cls.color}55`, background: `radial-gradient(circle, ${cls.color}33, #000)` }}
           title="Герой"
         >
-          {cls.icon}
+          <span className="block h-full w-full overflow-hidden rounded-[10px]">
+            <HeroModel classId={hero.classId} equipment={state.equipment} crop="bust" animate={false} className="h-full w-full" />
+          </span>
           <span className="absolute -bottom-2 -right-2 rounded-md border border-amber-400/60 bg-black px-1 text-[11px] font-black text-amber-300">
             {hero.level}
           </span>

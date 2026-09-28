@@ -9,6 +9,7 @@ import { useGame, type ActiveBattle } from '../hooks/useGame';
 import type { BattleResult, Combatant, CombatState, CombatStep, FloatKind, PlayerAction } from '../types';
 import { Bar } from '../components/ui';
 import { RewardPanel } from '../components/RewardPanel';
+import { HeroModel } from '../components/HeroModel';
 
 interface FloatNum {
   id: number;
@@ -229,11 +230,29 @@ export function CombatScreen({ battle }: { battle: ActiveBattle }) {
       <div className="relative z-10 flex min-h-0 flex-1">
         <div key={shake} className={`relative flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-3 py-3 lg:flex-row lg:gap-10 ${shake ? 'anim-shake' : ''}`}>
           <div className="order-3 w-full max-w-xs lg:order-1">
-            <Fighter c={p} side="player" anim={anim.player.cls} animKey={anim.player.k} floats={floats.filter((f) => f.side === 'player')} />
+            <Fighter
+              c={p}
+              side="player"
+              anim={anim.player.cls}
+              animKey={anim.player.k}
+              floats={floats.filter((f) => f.side === 'player')}
+              model={<HeroModel classId={p.classId!} equipment={state.equipment} shadows={state.equippedShadows.filter(Boolean).length} crop="bust" className="h-full w-full" />}
+            />
           </div>
           <div className="title anim-vs order-2 text-4xl text-red-500 lg:text-7xl">VS</div>
           <div className="order-1 w-full max-w-xs lg:order-3">
-            <Fighter c={e} side="enemy" anim={anim.enemy.cls} animKey={anim.enemy.k} floats={floats.filter((f) => f.side === 'enemy')} bossDesc={battle.ctx.enemyTemplate?.bossDesc} />
+            <Fighter c={e} side="enemy" anim={anim.enemy.cls} animKey={anim.enemy.k} floats={floats.filter((f) => f.side === 'enemy')} bossDesc={battle.ctx.enemyTemplate?.bossDesc}
+              model={
+                battle.ctx.arenaOpponent ? (
+                  <HeroModel
+                    classId={battle.ctx.arenaOpponent.classId}
+                    equipment={Object.fromEntries(battle.ctx.arenaOpponent.gear.map((g) => [g.slot, g]))}
+                    crop="bust"
+                    className="h-full w-full"
+                  />
+                ) : undefined
+              }
+            />
           </div>
         </div>
 
@@ -388,6 +407,7 @@ function Fighter({
   animKey,
   floats,
   bossDesc,
+  model,
 }: {
   c: Combatant;
   side: 'player' | 'enemy';
@@ -395,6 +415,7 @@ function Fighter({
   animKey: number;
   floats: FloatNum[];
   bossDesc?: string;
+  model?: ReactNode;
 }) {
   const hpPct = c.hp / c.maxHp;
   const isBoss = !!c.boss;
@@ -413,9 +434,13 @@ function Fighter({
             filter: c.hp <= 0 ? 'grayscale(1) brightness(0.4)' : undefined,
           }}
         >
-          <span className="anim-idle text-5xl sm:text-6xl lg:text-8xl" style={{ filter: 'drop-shadow(0 4px 8px #000)' }}>
-            {c.icon}
-          </span>
+          {model ? (
+            <span className="block h-full w-full overflow-hidden rounded-full">{model}</span>
+          ) : (
+            <span className="anim-idle text-5xl sm:text-6xl lg:text-8xl" style={{ filter: 'drop-shadow(0 4px 8px #000)' }}>
+              {c.icon}
+            </span>
+          )}
           {shield && <div className="absolute -inset-2 rounded-full border-2 border-sky-400/70 shadow-[0_0_20px_rgba(56,189,248,0.6)]" />}
           {isBoss && <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md border border-red-500 bg-red-950 px-2 text-[10px] font-black tracking-widest text-red-300">БОСС</div>}
         </div>

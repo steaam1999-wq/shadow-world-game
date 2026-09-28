@@ -5,6 +5,7 @@ import { createHero, heroStats } from '../game/hero';
 import { generateOpponents } from '../game/arena';
 import { useGame } from '../hooks/useGame';
 import type { ClassId } from '../types';
+import { HeroModel } from '../components/HeroModel';
 
 const STARTER_WEAPON: Record<ClassId, string> = {
   berserker: '🪓',
@@ -67,7 +68,9 @@ export function CreateHero() {
               }}
             >
               <div className="absolute -right-6 -top-6 text-8xl opacity-10 transition group-hover:scale-110">{c.icon}</div>
-              <div className="text-5xl drop-shadow-[0_4px_8px_#000]">{c.icon}</div>
+              <div className="h-20 w-20 overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                <HeroModel classId={c.id} crop="bust" animate={active} className="h-full w-full" />
+              </div>
               <div className="title mt-2 text-2xl" style={{ color: c.color }}>
                 {c.name}
               </div>
@@ -78,7 +81,10 @@ export function CreateHero() {
       </div>
 
       <div className="panel anim-fade-in mt-4 w-full p-5" key={cls}>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-[auto_1fr_1fr]">
+          <div className="mx-auto h-56 w-40" style={{ background: `radial-gradient(ellipse at 50% 60%, ${selected.color}33, transparent 65%)` }}>
+            <HeroModel classId={cls} className="h-full w-full drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)]" />
+          </div>
           <div>
             <div className="title text-3xl" style={{ color: selected.color }}>
               {selected.icon} {selected.name}

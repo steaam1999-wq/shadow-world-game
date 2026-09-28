@@ -10,6 +10,7 @@ import { ItemModal } from '../components/ItemModal';
 import { Bar, Confirm, PageTitle } from '../components/ui';
 import type { Attribute } from '../types';
 import { fmt } from '../utils/format';
+import { HeroModel } from '../components/HeroModel';
 
 export function HeroPage() {
   const { state, mutate, play, toast, setPage } = useGame();
@@ -61,11 +62,13 @@ export function HeroPage() {
                 ))}
               </div>
               <div className="flex flex-col items-center">
-                <div
-                  className="anim-idle flex h-36 w-36 items-center justify-center rounded-full border-4 text-7xl sm:h-44 sm:w-44 sm:text-8xl"
-                  style={{ borderColor: cls.color, background: `radial-gradient(circle at 50% 35%, ${cls.color}55, #050407 70%)`, boxShadow: `0 0 40px ${cls.color}77` }}
-                >
-                  {cls.icon}
+                <div className="relative h-60 w-44 sm:h-72 sm:w-52" style={{ background: `radial-gradient(ellipse at 50% 60%, ${cls.color}33, transparent 65%)` }}>
+                  <HeroModel
+                    classId={hero.classId}
+                    equipment={state.equipment}
+                    shadows={state.equippedShadows.filter(Boolean).length}
+                    className="h-full w-full drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)]"
+                  />
                 </div>
                 <div className="mt-3 rounded-xl border border-amber-500/40 bg-black/60 px-4 py-1.5 text-center">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Сила героя</div>
