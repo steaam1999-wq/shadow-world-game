@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
+import { MusicPage } from './music/MusicPage'
 import { Landing } from './screens/Landing'
 import { Onboarding } from './screens/Onboarding'
 import { CreateActivity, Explore } from './screens/Explore'
@@ -15,7 +16,7 @@ import { isExpired, relative } from './lib'
 import type { Activity } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin'
-type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile'
+type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
 
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
   { id: 'home', label: 'Главная', icon: 'home' },
@@ -73,7 +74,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
   const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length
   const inChat = tab === 'capsules' && chat
-  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name }
+  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name, music: 'Музыка' }
 
   return (
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
@@ -82,7 +83,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           {tab === 'home' ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <ThemeToggle />
-            <button onClick={() => player.setExpanded(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Музыка">
+            <button onClick={() => { setTab('music'); setChat(null) }} className={`relative grid place-items-center w-10 h-10 cursor-pointer ${tab === 'music' ? 'text-spark' : ''}`} aria-label="Музыка">
               <Icon name="note" size={23} />
               {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
             </button>
@@ -102,6 +103,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
       <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' ? '' : player.track ? 'pb-[calc(140px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px))]'}`}>
         {tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
+        {tab === 'music' && <MusicPage />}
         {tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}

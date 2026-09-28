@@ -108,18 +108,27 @@ export function FullPlayer() {
                 <h2 className="font-display font-semibold text-[24px] leading-tight truncate">{t.title}</h2>
                 <p className="text-muted truncate">{t.artist} · {GENRE_LABEL[t.genre]}{t.bpm ? ` · ${t.bpm} BPM` : ''}</p>
               </div>
+              <button onClick={() => p.toggleLike(t.id)} className={`grid place-items-center w-11 h-11 rounded-full cursor-pointer shrink-0 ${p.likes.includes(t.id) ? 'text-spark' : 'text-muted'}`} aria-label={p.likes.includes(t.id) ? 'Убрать из любимых' : 'В любимые'} aria-pressed={p.likes.includes(t.id)}>
+                <Icon name="heart" size={26} fill={p.likes.includes(t.id)} />
+              </button>
             </div>
             <div className="mt-4">
               <input id="seek" type="range" min={0} max={Math.max(p.duration, 0.1)} step={0.1} value={Math.min(p.position, p.duration)} onChange={(e) => p.seek(Number(e.target.value))}
                 className="w-full accent-[var(--spark)] cursor-pointer" aria-label="Перемотка" />
               <div className="flex justify-between text-[12px] text-muted font-mono tnum"><span>{formatTime(p.position)}</span><span>{formatTime(p.duration)}</span></div>
             </div>
-            <div className="flex items-center justify-center gap-8 mt-3">
+            <div className="flex items-center justify-between mt-3">
+              <button onClick={p.toggleShuffle} className={`grid place-items-center w-11 h-11 rounded-full cursor-pointer ${p.shuffle ? 'text-spark' : 'text-muted'}`} aria-label="Перемешать" aria-pressed={p.shuffle}><Icon name="shuffle" size={22} /></button>
               <button onClick={p.prev} className="grid place-items-center w-12 h-12 rounded-full cursor-pointer hover:bg-surface-2" aria-label="Предыдущий трек"><Icon name="skip" size={26} fill className="rotate-180" /></button>
               <button onClick={p.toggle} className="grid place-items-center w-18 h-18 rounded-full bg-brand text-white shadow-soft cursor-pointer active:scale-95 transition" aria-label={p.playing ? 'Пауза' : 'Играть'}>
                 <Icon name={p.playing ? 'pause' : 'play'} size={30} fill />
               </button>
               <button onClick={p.next} className="grid place-items-center w-12 h-12 rounded-full cursor-pointer hover:bg-surface-2" aria-label="Следующий трек"><Icon name="skip" size={26} fill /></button>
+              <button onClick={p.cycleRepeat} className={`relative grid place-items-center w-11 h-11 rounded-full cursor-pointer ${p.repeat !== 'off' ? 'text-spark' : 'text-muted'}`}
+                aria-label={p.repeat === 'one' ? 'Повтор трека' : p.repeat === 'all' ? 'Повтор очереди' : 'Без повтора'}>
+                <Icon name="repeat" size={22} />
+                {p.repeat === 'one' && <span className="absolute top-1.5 right-1.5 text-[9px] font-bold">1</span>}
+              </button>
             </div>
             <label htmlFor="volume" className="flex items-center gap-3 mt-5 text-muted">
               <Icon name="volume" size={20} />

@@ -1,7 +1,7 @@
 // Синтезатор треков на Web Audio: у каждого жанра свой ритм, бас и гармония.
 // Внешние аудиофайлы на странице недоступны, поэтому музыка генерируется в браузере.
 
-export type Genre = 'indie' | 'electro' | 'jazz' | 'hiphop'
+export type Genre = 'indie' | 'electro' | 'jazz' | 'hiphop' | 'lofi' | 'synthwave' | 'house' | 'ambient' | 'bossa' | 'dnb' | 'funk'
 
 export interface Track {
   id: string
@@ -23,6 +23,13 @@ const PROGRESSIONS: Record<Genre, number[][]> = {
   electro: [[0, 3, 7], [8, 12, 15], [3, 7, 10], [10, 14, 17]], // i VI III VII
   jazz: [[2, 5, 9, 12], [7, 11, 14, 17], [0, 4, 7, 11], [9, 12, 16, 19]], // ii7 V7 Imaj7 vi7
   hiphop: [[0, 3, 7, 10], [5, 8, 12, 15], [8, 12, 15, 19], [7, 10, 14, 17]],
+  lofi: [[5, 9, 12, 16], [4, 7, 11, 14], [2, 5, 9, 12], [0, 4, 7, 11]], // IVmaj7 iii7 ii7 Imaj7
+  synthwave: [[0, 3, 7], [8, 12, 15], [5, 8, 12], [7, 11, 14]], // i VI iv V
+  house: [[0, 3, 7, 10], [5, 8, 12, 15], [0, 3, 7, 10], [7, 10, 14, 17]],
+  ambient: [[0, 7, 12, 16], [5, 12, 16, 21], [9, 12, 16, 21], [7, 11, 14, 19]],
+  bossa: [[2, 5, 9, 12], [7, 11, 14, 17], [0, 4, 7, 11], [0, 4, 7, 11]],
+  dnb: [[0, 3, 7], [8, 12, 15], [10, 14, 17], [5, 8, 12]],
+  funk: [[0, 4, 7, 10], [0, 4, 7, 10], [5, 9, 12, 15], [7, 11, 14, 17]], // I7 I7 IV7 V7
 }
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12)
@@ -165,7 +172,7 @@ export class Engine {
     const intro = bar < 2
     const outro = bar >= t.bars - 1
     // Свинг для джаза и хип-хопа: слабые шестнадцатые чуть позже.
-    const swing = (t.genre === 'jazz' || t.genre === 'hiphop') && s % 2 === 1 ? sd * 0.28 : 0
+    const swing = ['jazz', 'hiphop', 'lofi'].includes(t.genre) && s % 2 === 1 ? sd * 0.28 : 0
     const at = time + swing
 
     switch (t.genre) {
@@ -200,6 +207,58 @@ export class Engine {
         if (s === 0) chord.forEach((m) => this.note(at, m, sd * 15, 'triangle', 0.05, 1200))
         if (!outro && [3, 6, 9, 14].includes(s)) this.note(at, chord[s % chord.length] + 12, sd * 2, 'sine', 0.06, 2600)
         break
+      case 'lofi':
+        if (!intro && (s === 0 || s === 10)) this.kick(at, 0.6)
+        if (!intro && (s === 4 || s === 12)) this.snare(at, 0.22)
+        if (s % 2 === 0) this.hat(at, 0.05, 0.03)
+        this.noiseHit(at, 0.012 + Math.random() * 0.01, 0.05, 'bandpass', 3000) // треск винила
+        if (s === 0) chord.forEach((m) => this.note(at, m, sd * 15, 'sine', 0.07, 1400, 0.08))
+        if (s === 0 || s === 8) this.note(at, chord[0] - 24, sd * 6, 'sine', 0.35, 250)
+        if (!outro && bar % 2 === 1 && [2, 6, 9].includes(s)) this.note(at, chord[s % chord.length] + 12, sd * 3, 'triangle', 0.04, 1800)
+        break
+      case 'synthwave':
+        if (!intro && (s === 0 || s === 8)) this.kick(at, 0.9)
+        if (!intro && (s === 4 || s === 12)) { this.snare(at, 0.5); this.clap(at, 0.2) }
+        if (s % 2 === 0) this.hat(at, 0.08, 0.05)
+        if (s % 2 === 0) this.note(at, chord[0] - 24 + (s % 4 === 2 ? 12 : 0), sd * 1.6, 'sawtooth', 0.18, 700)
+        if (s === 0) chord.forEach((m) => this.note(at, m, sd * 16, 'sawtooth', 0.035, 1600, 0.3))
+        if (!intro) this.note(at, chord[s % chord.length] + 24, sd * 0.8, 'square', 0.025, 2800)
+        break
+      case 'house':
+        if (s % 4 === 0) this.kick(at, 1)
+        if (s === 4 || s === 12) this.clap(at, 0.3)
+        if (s % 4 === 2) this.hat(at, 0.18, 0.15)
+        if (s % 2 === 1) this.hat(at, 0.05, 0.02)
+        if (s % 4 === 2) this.note(at, chord[0] - 24, sd * 1.4, 'sawtooth', 0.2, 450)
+        if (!intro && [3, 6, 10].includes(s)) chord.forEach((m) => this.note(at, m + 12, sd * 1.2, 'triangle', 0.06, 3200))
+        break
+      case 'ambient':
+        if (s === 0) chord.forEach((m, i) => this.note(at + i * 0.08, m, sd * 18, 'sine', 0.07, 1800, 1.2))
+        if (s === 0) this.note(at, chord[0] - 12, sd * 18, 'triangle', 0.08, 500, 1.5)
+        if ([6, 11].includes(s) && bar % 2 === 0) this.note(at, chord[(s + bar) % chord.length] + 24, sd * 8, 'sine', 0.035, 5000)
+        break
+      case 'bossa':
+        if ([0, 3, 6, 10, 13].includes(s)) this.noiseHit(at, 0.12, 0.03, 'bandpass', 2500) // римшот
+        if (s % 2 === 0) this.hat(at, 0.04, 0.03)
+        if (s === 0 || s === 8) this.note(at, chord[0] - 24, sd * 3, 'triangle', 0.35, 800)
+        if (s === 6 || s === 14) this.note(at, chord[0] - 17, sd * 2, 'triangle', 0.3, 800)
+        if ([2, 5, 8, 11, 14].includes(s)) chord.forEach((m) => this.note(at, m, sd * 1.6, 'triangle', 0.045, 2600))
+        break
+      case 'dnb':
+        if (s === 0 || s === 10) this.kick(at, 1)
+        if (s === 4 || s === 12) this.snare(at, 0.55)
+        if (s === 7 || s === 14) this.snare(at, 0.15)
+        this.hat(at, s % 2 === 0 ? 0.1 : 0.05, 0.03)
+        if (s === 0) this.note(at, chord[0] - 24, sd * 14, 'sine', 0.45, 200)
+        if (s === 0) chord.forEach((m) => this.note(at, m + 12, sd * 16, 'sawtooth', 0.025, 1200, 0.4))
+        break
+      case 'funk':
+        if (!intro && (s === 0 || s === 3 || s === 10)) this.kick(at, 0.95)
+        if (!intro && (s === 4 || s === 12)) this.snare(at, 0.5)
+        this.hat(at, s % 4 === 2 ? 0.12 : 0.05, 0.03)
+        if ([0, 3, 6, 7, 10, 13].includes(s)) this.note(at, chord[0] - 24 + (s === 7 || s === 13 ? 12 : 0), sd * 0.9, 'sawtooth', 0.26, 900)
+        if ([2, 6, 14].includes(s)) chord.forEach((m) => this.note(at, m + 12, sd * 0.6, 'square', 0.03, 2600))
+        break
     }
   }
 
@@ -209,7 +268,7 @@ export class Engine {
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur)
   }
 
-  private note(at: number, midi: number, dur: number, type: OscillatorType, vol: number, cutoff: number) {
+  private note(at: number, midi: number, dur: number, type: OscillatorType, vol: number, cutoff: number, attack = 0) {
     const ctx = this.ctx!
     const o = ctx.createOscillator()
     const f = ctx.createBiquadFilter()
@@ -218,7 +277,11 @@ export class Engine {
     o.frequency.value = mtof(midi)
     f.type = 'lowpass'
     f.frequency.value = cutoff
-    this.env(g, at, vol, dur)
+    if (attack > 0) {
+      g.gain.setValueAtTime(0.0001, at)
+      g.gain.linearRampToValueAtTime(vol, at + attack)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur)
+    } else this.env(g, at, vol, dur)
     o.connect(f).connect(g).connect(this.master)
     o.start(at)
     o.stop(at + dur + 0.05)

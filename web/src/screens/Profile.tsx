@@ -60,7 +60,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
             {me.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
           <div className="text-muted">{lv.name} · {me.district}</div>
-          <button onClick={() => player.play({ id: 't-me', title: 'Мой вайб', artist: me.name, genre: myGenre, hue: me.hue, bpm: myGenre === 'jazz' ? 96 : myGenre === 'hiphop' ? 86 : myGenre === 'electro' ? 124 : 118, root: 57, bars: 24 })}
+          <button onClick={() => player.play({ id: 't-me', title: 'Мой вайб', artist: me.name, genre: myGenre, hue: me.hue, bpm: myGenre === 'jazz' ? 96 : myGenre === 'hiphop' ? 86 : myGenre === 'electro' ? 124 : 118, root: 57, bars: 40 })}
             className="inline-flex items-center gap-1.5 my-1 rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
             <Icon name="note" size={13} /> Моя песня: «Мой вайб» · {GENRE_LABEL[myGenre]}
           </button>
