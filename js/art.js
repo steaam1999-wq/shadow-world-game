@@ -275,21 +275,22 @@ window.App = window.App || {};
   }
 
   let seq = 0;
-  // SVG-изображение скина.
-  function render(skin, cls = '') {
+  // SVG-разметка изображения скина (самостоятельный документ, с тенью внутри).
+  function svgMarkup(skin) {
     const uid = `a${(seq++).toString(36)}`;
     const parts = shapeFor(skin);
     const pat = patternFor(skin, uid);
     const paths = parts.map((d) => `<path d="${d}"/>`).join('');
-    return `<svg class="skin-svg ${cls}" viewBox="0 0 200 80" aria-hidden="true">
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 208 92" width="416" height="184">
       <defs>
+        <filter id="s${uid}" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity=".55"/></filter>
         <clipPath id="c${uid}">${paths}</clipPath>
         <linearGradient id="h${uid}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
           <stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
         ${pat.defs}
       </defs>
-      <g fill="#07080c" stroke="#07080c" stroke-width="3" stroke-linejoin="round">${paths}</g>
+      <g fill="#07080c" stroke="#07080c" stroke-width="3" stroke-linejoin="round" filter="url(#s${uid})">${paths}</g>
       <g clip-path="url(#c${uid})">
         <rect width="200" height="80" fill="${pat.base}"/>${pat.layers}
         <rect width="200" height="80" fill="url(#h${uid})"/>
@@ -297,5 +298,20 @@ window.App = window.App || {};
     </svg>`;
   }
 
-  App.art = { render };
+  // Готовая картинка (data: URL) для каждого скина считается один раз и кешируется:
+  // браузер растеризует её единожды, а не перерисовывает сложный SVG в каждой карточке.
+  const cache = new Map();
+  function url(skin) {
+    let u = cache.get(skin.id);
+    if (!u) {
+      u = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup(skin).replace(/\s*\n\s*/g, ' '));
+      cache.set(skin.id, u);
+    }
+    return u;
+  }
+  function render(skin, cls = '') {
+    return `<img class="skin-svg ${cls}" src="${url(skin)}" alt="" draggable="false" decoding="async">`;
+  }
+
+  App.art = { render, url };
 })(window.App);

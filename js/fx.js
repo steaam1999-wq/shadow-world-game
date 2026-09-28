@@ -19,12 +19,18 @@ window.App = window.App || {};
     ];
     const sparks = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random(), v: 0.00005 + Math.random() * 0.00016, s: 0.6 + Math.random() * 1.8, a: Math.random() * Math.PI * 2 }));
 
+    // Фон рисуется в половинном разрешении и ~30 кадров/с, а при прокрутке ставится на паузу,
+    // чтобы не отнимать время у отрисовки карточек.
     function resize() {
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      w = cv.width = innerWidth * dpr;
-      h = cv.height = innerHeight * dpr;
+      dpr = 0.5;
+      w = cv.width = Math.ceil(innerWidth * dpr);
+      h = cv.height = Math.ceil(innerHeight * dpr);
     }
+    let lastScroll = 0, lastFrame = 0;
+    addEventListener('scroll', () => { lastScroll = performance.now(); }, { passive: true });
     function frame(t) {
+      if (t - lastFrame < 33 || t - lastScroll < 250) { if (!reduced && !document.hidden) requestAnimationFrame(frame); return; }
+      lastFrame = t;
       ctx.clearRect(0, 0, w, h);
       for (const o of orbs) {
         const x = (o.x + Math.sin(t * o.sx * 10) * 0.08) * w, y = (o.y + Math.cos(t * o.sy * 10) * 0.08) * h;
@@ -41,7 +47,7 @@ window.App = window.App || {};
         const x = (p.x + Math.sin(p.a) * 0.004) * w, y = p.y * h;
         ctx.fillStyle = `rgba(${80 + Math.floor(p.s * 30)},${200 + Math.floor(p.s * 20)},255,${0.25 + 0.35 * Math.abs(Math.sin(p.a))})`;
         ctx.beginPath();
-        ctx.arc(x, y, p.s * dpr, 0, Math.PI * 2);
+        ctx.arc(x, y, Math.max(0.6, p.s * dpr), 0, Math.PI * 2);
         ctx.fill();
       }
       if (!reduced && !document.hidden) requestAnimationFrame(frame);
