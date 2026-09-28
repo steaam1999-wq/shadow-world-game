@@ -80,6 +80,7 @@ window.App = window.App || {};
     [/^#\/battles$/, (v) => App.pages.battles(v), 'battles'],
     [/^#\/inventory$/, (v) => App.pages.inventory(v), 'inventory'],
     [/^#\/fair$/, (v) => App.pages.fair(v), 'fair'],
+    [/^#\/skins$/, (v) => App.pages.skins(v), 'skins'],
   ];
   let cleanup = null;
 
@@ -87,6 +88,7 @@ window.App = window.App || {};
     const hash = location.hash || '#/';
     const view = document.getElementById('view');
     if (cleanup) { cleanup(); cleanup = null; }
+    document.querySelectorAll('.modal-back').forEach((m) => m.remove());
     // Новый узел на каждую страницу: старые async-обработчики видят view.isConnected === false.
     const fresh = view.cloneNode(false);
     view.replaceWith(fresh);

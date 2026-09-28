@@ -21,24 +21,55 @@ window.App = window.App || {};
   };
 
   let gradId = 0;
-  function skinIcon(skin, cls = '') {
+  function skinSvg(skin, cls = '') {
     const id = `g${gradId++}`;
     return `<svg class="skin-svg ${cls}" viewBox="0 0 200 80" aria-hidden="true">
       <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="${skin.c1}"/><stop offset="1" stop-color="${skin.c2}"/></linearGradient></defs>
+        <stop offset="0" stop-color="${skin.c1}"/><stop offset="1" stop-color="${RARITY[skin.rarity].color}"/></linearGradient></defs>
       <path d="${SHAPES[skin.type]}" fill="url(#${id})" stroke="rgba(0,0,0,.55)" stroke-width="2" stroke-linejoin="round"/>
     </svg>`;
   }
 
+  // Картинки скинов грузятся со Steam CDN. Если CDN недоступен (например, в песочнице),
+  // картинка заменяется SVG-силуэтом, а после нескольких неудач подряд сразу рисуем силуэты.
+  let imgOk = 0, imgFail = 0;
+  const imagesBlocked = () => imgOk === 0 && imgFail >= 3;
+  document.addEventListener('load', (e) => {
+    const el = e.target;
+    if (!el.classList) return;
+    if (el.classList.contains('skin-img')) imgOk++;
+    else if (el.classList.contains('case-photo')) el.parentNode.classList.add('has-photo');
+  }, true);
+  document.addEventListener('error', (e) => {
+    const el = e.target;
+    if (!el.classList) return;
+    if (el.classList.contains('skin-img')) {
+      imgFail++;
+      const skin = SKINS[el.dataset.skin];
+      if (skin) el.outerHTML = skinSvg(skin, el.dataset.cls || '');
+    } else if (el.classList.contains('case-photo')) {
+      el.remove();
+    }
+  }, true);
+
+  function skinIcon(skin, cls = '') {
+    if (!skin.img || imagesBlocked()) return skinSvg(skin, cls);
+    return `<img class="skin-img ${cls}" src="${skin.img}/360fx360f" alt="${esc(skin.weapon)} | ${esc(skin.name)}"
+      loading="lazy" decoding="async" draggable="false" data-skin="${skin.id}" data-cls="${cls}">`;
+  }
+
   function caseArt(c) {
     const col = c.color;
+    const photo = c.img && !imagesBlocked()
+      ? `<img class="case-photo" src="${c.img}/256fx256f" alt="" loading="lazy">`
+      : '';
     return `<div class="case-art" style="--cc:${col}">
       <svg class="case-box" viewBox="0 0 160 110" aria-hidden="true">
         <path d="M14 34 L80 12 L146 34 L146 88 L80 104 L14 88 Z" fill="${col}" opacity=".22"/>
         <path d="M14 34 L80 52 L146 34 M80 52 L80 104" stroke="${col}" stroke-width="3" fill="none" opacity=".8"/>
         <path d="M14 34 L80 12 L146 34 L146 88 L80 104 L14 88 Z" stroke="${col}" stroke-width="3" fill="none"/>
       </svg>
-      <div class="case-skin">${skinIcon(c.topSkin)}</div>
+      <div class="case-skin">${skinIcon(c.topSkin)}</div>${photo}
     </div>`;
   }
 

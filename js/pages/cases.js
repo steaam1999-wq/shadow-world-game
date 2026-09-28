@@ -51,7 +51,7 @@ window.App = window.App || {};
       </section>
       ${GROUPS.map((g) => `
         <section class="case-group">
-          <h2 class="section-title">${g.name}</h2>
+          <h2 class="section-title">${g.name}${g.note ? `<span class="section-note">${g.note}</span>` : ''}</h2>
           <div class="case-grid">${CASES.filter((c) => c.group === g.id).map(caseTile).join('')}</div>
         </section>`).join('')}`;
 
@@ -85,7 +85,9 @@ window.App = window.App || {};
         <a href="#/" class="back">← Все кейсы</a>
         ${caseArt(c)}
         <h1>${esc(c.name)}</h1>
-        <div class="case-meta">${c.free ? 'Раз в 24 часа' : `RTP ≈ ${Math.round(c.rtp * 100)}% · ${c.items.length} предметов`}</div>
+        <div class="case-meta">${c.free ? 'Раз в 24 часа'
+          : c.official ? `Официальный кейс CS2 · вышел ${esc(c.date)} · шансы Valve · ${c.items.length} предметов`
+          : `RTP ≈ ${Math.round(c.rtp * 100)}% · ${c.items.length} предметов`}</div>
       </div>
       <div class="reels" id="reels"></div>
       <div class="open-bar">

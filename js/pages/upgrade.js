@@ -13,7 +13,10 @@ window.App = window.App || {};
 
   // uid, выбранный заранее (например, из инвентаря по кнопке «Апгрейд»).
   let preselect = null;
+  let preTarget = null;
   App.upgradeWith = (uid) => { preselect = uid; location.hash = '#/upgrade'; };
+  // Открыть апгрейд с выбранной целью (из каталога скинов).
+  App.upgradeTo = (skinId) => { preTarget = skinId; location.hash = '#/upgrade'; };
 
   function chanceFor(stake, target) {
     if (!target || stake <= 0) return 0;
@@ -25,8 +28,12 @@ window.App = window.App || {};
     preselect = null;
     let coins = 0;
     let mult = 2;
-    let target = null;
-    let query = '';
+    const skinT = preTarget && App.data.SKINS[preTarget];
+    let target = skinT
+      ? CATALOG.find((e) => e.skin === skinT && e.wear === 'FT') || CATALOG.find((e) => e.skin === skinT)
+      : null;
+    let query = skinT ? `${skinT.weapon} ${skinT.name}` : '';
+    preTarget = null;
     let busy = false;
     let angle = 0;
 
@@ -60,7 +67,7 @@ window.App = window.App || {};
 
         <div class="panel">
           <div class="panel-head"><span>Цель</span>
-            <input class="search" id="q" placeholder="Поиск скина…"></div>
+            <input class="search" id="q" placeholder="Поиск скина…" value="${esc(query)}"></div>
           <div class="seg wrap" id="mults">${MULTS.map((m) => `<button data-m="${m}" class="${m === mult ? 'on' : ''}">x${m}</button>`).join('')}</div>
           <div class="item-grid small scroll" id="targets"></div>
         </div>
@@ -105,7 +112,7 @@ window.App = window.App || {};
       $('#arc').setAttribute('stroke-dasharray', `${ch * 100} 100`);
       $('#target-view').innerHTML = target
         ? `<div class="target-line">${esc(target.skin.weapon)} | ${esc(target.skin.name)} (${target.wear}) — ${money(target.price)}
-             <span class="muted">x${(target.price / Math.max(stake, 0.01)).toFixed(2)}</span></div>`
+             ${stake > 0 ? `<span class="muted">x${(target.price / stake).toFixed(2)}</span>` : ''}</div>`
         : '<div class="muted">Выберите ставку и предмет справа</div>';
       $('#go').disabled = busy || !target || stake <= 0 || ch < MIN_CHANCE;
     }

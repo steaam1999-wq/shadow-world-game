@@ -81,7 +81,7 @@ main.container { flex: 1; }
 .feed-item { flex: none; width: 110px; border-radius: 8px; background: linear-gradient(180deg, var(--panel), color-mix(in srgb, var(--rc) 25%, var(--panel))); border-bottom: 3px solid var(--rc); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; animation: feedIn .5s ease-out; }
 .feed-item:hover { text-decoration: none; filter: brightness(1.2); }
 .feed-item.mine { outline: 1px solid var(--accent); }
-.feed-item svg { width: 86px; height: 36px; }
+.feed-item svg, .feed-item .skin-img { width: 86px; height: 40px; object-fit: contain; }
 .feed-user { font-size: 11px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes feedIn { from { width: 0; opacity: 0; padding: 0; } }
 
@@ -117,7 +117,11 @@ main.container { flex: 1; }
 .case-box { position: absolute; width: 150px; height: 110px; filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--cc) 50%, transparent)); }
 .case-skin { position: relative; width: 150px; transform: rotate(-12deg) translateY(-6px); transition: transform .3s; }
 .case-tile:hover .case-skin { transform: rotate(-4deg) translateY(-10px) scale(1.06); }
-.skin-svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
+.skin-svg, .skin-img { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
+.skin-img { object-fit: contain; aspect-ratio: 4 / 3; user-select: none; }
+.case-photo { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--cc) 45%, transparent)); transition: transform .3s; }
+.case-art.has-photo .case-box, .case-art.has-photo .case-skin { visibility: hidden; }
+.case-tile:hover .case-photo { transform: translateY(-6px) scale(1.04); }
 
 /* ---------- Карточки предметов ---------- */
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -131,7 +135,7 @@ main.container { flex: 1; }
 .item-top .st { background: #cf6a32; padding: 2px 6px; border-radius: 4px; }
 .item-top .chance { margin-left: auto; color: var(--muted); }
 .item-img { height: 64px; display: grid; place-items: center; margin: 4px 0; }
-.item-img .skin-svg { max-height: 64px; width: auto; max-width: 100%; }
+.item-img .skin-svg, .item-img .skin-img { max-height: 64px; width: auto; max-width: 100%; }
 .item-weapon { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-price { margin-top: 4px; font-size: 13px; }
@@ -157,7 +161,7 @@ main.container { flex: 1; }
 .reel-strip { display: flex; gap: 6px; padding: 8px; height: 100%; will-change: transform; }
 .reel-cell { flex: none; width: 150px; height: 100%; border-radius: 10px; background: linear-gradient(180deg, var(--panel) 30%, color-mix(in srgb, var(--rc) 30%, var(--panel))); border-bottom: 3px solid var(--rc); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px; text-align: center; }
 .reel-img { width: 100%; flex: 1; display: grid; place-items: center; min-height: 0; }
-.reel-img .skin-svg { max-height: 100%; }
+.reel-img .skin-svg, .reel-img .skin-img { max-height: 100%; width: auto; max-width: 100%; }
 .reel-name { font-size: 11px; color: var(--muted); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .reel-name b { color: var(--text); }
 .reel-cell.won { box-shadow: 0 0 0 2px var(--rc), 0 0 30px var(--rc); animation: wonPulse .8s ease-in-out 2; }
@@ -217,7 +221,7 @@ main.container { flex: 1; }
 .contract-slots { display: grid; grid-template-columns: repeat(5, 72px); gap: 8px; transition: transform .6s, filter .6s; }
 .slot { height: 56px; border-radius: 8px; border: 1px dashed var(--line); background: var(--bg2); display: grid; place-items: center; padding: 4px; }
 .slot.filled { border: 1px solid var(--rc); border-bottom-width: 3px; background: color-mix(in srgb, var(--rc) 15%, var(--bg2)); }
-.slot .skin-svg { max-height: 100%; }
+.slot .skin-svg, .slot .skin-img { max-height: 100%; width: auto; max-width: 100%; }
 .contract-slots.merging { transform: scale(.6); filter: blur(2px) brightness(1.8); }
 .contract-info { display: flex; flex-direction: column; gap: 8px; }
 
@@ -242,7 +246,7 @@ main.container { flex: 1; }
 .bdrops { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; }
 .bdrops .item { cursor: default; padding: 6px; }
 .bdrops .item-img { height: 40px; }
-.bdrops .item-img .skin-svg { max-height: 40px; }
+.bdrops .item-img .skin-svg, .bdrops .item-img .skin-img { max-height: 40px; }
 
 /* ---------- Инвентарь ---------- */
 .inv-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -312,3 +316,18 @@ code { background: var(--bg2); padding: 2px 6px; border-radius: 4px; font-size: 
   .fair-grid { grid-template-columns: 1fr; }
   .item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---------- Каталог скинов ---------- */
+.section-note { font-size: 13px; font-weight: 400; color: var(--muted); }
+.catalog-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 16px 0 10px; }
+.catalog-bar .search { max-width: 260px; flex: 1 1 200px; padding: 9px 12px; }
+.catalog-count { margin-bottom: 10px; font-size: 13px; }
+.catalog-more { display: flex; justify-content: center; margin-top: 16px; }
+.skin-detail { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.skin-detail h2 { margin: 0; text-wrap: balance; }
+.skin-detail-img { width: 100%; max-width: 300px; padding: 10px; border-radius: 14px; background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--rc) 35%, transparent), transparent 70%); }
+.rarity-pill { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--rc); border: 1px solid color-mix(in srgb, var(--rc) 60%, transparent); background: color-mix(in srgb, var(--rc) 12%, transparent); }
+.wear-table { width: 100%; max-width: 320px; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.wear-table td:last-child { text-align: right; }
+.case-links { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.case-links a { padding: 4px 10px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--line); font-size: 13px; }

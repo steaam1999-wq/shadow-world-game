@@ -22,75 +22,34 @@ window.App = window.App || {};
   ];
   const STATTRAK_CHANCE = 0.1;
   const STATTRAK_MULT = 1.8;
-  // Средний множитель цены выпавшего предмета относительно базовой (FT, без StatTrak).
-  const AVG_DROP_MULT =
-    WEARS.reduce((s, w) => s + w.p * w.mult, 0) * (1 - STATTRAK_CHANCE + STATTRAK_CHANCE * STATTRAK_MULT);
 
-  // [id, оружие, название, тип иконки, редкость, базовая цена (FT), цвет 1, цвет 2]
-  const RAW_SKINS = [
-    ['p250-sand', 'P250', 'Sand Dune', 'pistol', 'consumer', 0.03, '#c9b27a', '#8a7650'],
-    ['nova-pred', 'Nova', 'Predator', 'rifle', 'consumer', 0.04, '#7f8a5a', '#3b3f2a'],
-    ['scar-mesh', 'SCAR-20', 'Sand Mesh', 'sniper', 'consumer', 0.04, '#b9a57a', '#6f6247'],
-    ['mag7-ddpat', 'MAG-7', 'Metallic DDPAT', 'smg', 'consumer', 0.05, '#9aa3ad', '#555c66'],
-    ['mp9-storm', 'MP9', 'Storm', 'smg', 'industrial', 0.06, '#6e8aa8', '#39485a'],
-    ['galil-sage', 'Galil AR', 'Sage Spray', 'rifle', 'industrial', 0.08, '#8fa37d', '#4e5c43'],
-    ['ump-urban', 'UMP-45', 'Urban DDPAT', 'smg', 'industrial', 0.07, '#8d9299', '#4a4e54'],
-    ['mp9-ruby', 'MP9', 'Ruby Poison Dart', 'smg', 'milspec', 0.3, '#d8334a', '#2a2a2a'],
-    ['ump-expo', 'UMP-45', 'Exposure', 'smg', 'milspec', 0.2, '#f2c14e', '#3a3a3a'],
-    ['deagle-oxide', 'Desert Eagle', 'Oxide Blaze', 'pistol', 'milspec', 0.35, '#e0782f', '#4b4b4b'],
-    ['p250-nova', 'P250', 'Supernova', 'pistol', 'milspec', 0.45, '#4fb7e8', '#1d3557'],
-    ['glock-candy', 'Glock-18', 'Candy Apple', 'pistol', 'milspec', 0.6, '#e63946', '#8d0f1c'],
-    ['awp-capil', 'AWP', 'Capillary', 'sniper', 'milspec', 0.7, '#d65a5a', '#1e1e28'],
-    ['m4a4-daimyo', 'M4A4', 'Evil Daimyo', 'rifle', 'milspec', 0.85, '#e04e39', '#1c1c1c'],
-    ['ak-elite', 'AK-47', 'Elite Build', 'rifle', 'milspec', 0.95, '#3a86ff', '#f1f1f1'],
-    ['famas-roll', 'FAMAS', 'Roll Cage', 'rifle', 'restricted', 1.8, '#4cc9f0', '#f72585'],
-    ['glock-water', 'Glock-18', 'Water Elemental', 'pistol', 'restricted', 2.0, '#48cae4', '#d62828'],
-    ['p90-asii', 'P90', 'Asiimov', 'smg', 'restricted', 2.2, '#f4f4f4', '#ff7b00'],
-    ['usp-cortex', 'USP-S', 'Cortex', 'pistol', 'restricted', 2.5, '#ff70a6', '#70d6ff'],
-    ['awp-atheris', 'AWP', 'Atheris', 'sniper', 'restricted', 4.0, '#2ec4b6', '#e71d36'],
-    ['deagle-kumi', 'Desert Eagle', 'Kumicho Dragon', 'pistol', 'restricted', 5.0, '#c1121f', '#fdf0d5'],
-    ['m4a1-deci', 'M4A1-S', 'Decimator', 'rifle', 'restricted', 6.0, '#f8f9fa', '#0077b6'],
-    ['ak-misty', 'AK-47', 'Frontside Misty', 'rifle', 'restricted', 7.0, '#90e0ef', '#0077b6'],
-    ['glock-bq', 'Glock-18', 'Bullet Queen', 'pistol', 'classified', 9.0, '#ffbe0b', '#8338ec'],
-    ['m4a1-hb', 'M4A1-S', 'Hyper Beast', 'rifle', 'classified', 16.0, '#80ed99', '#ff006e'],
-    ['m4a4-deso', 'M4A4', 'Desolate Space', 'rifle', 'classified', 18.0, '#9d4edd', '#ffd166'],
-    ['ak-redline', 'AK-47', 'Redline', 'rifle', 'classified', 25.0, '#d90429', '#111111'],
-    ['awp-hb', 'AWP', 'Hyper Beast', 'sniper', 'classified', 30.0, '#06d6a0', '#ef476f'],
-    ['usp-kc', 'USP-S', 'Kill Confirmed', 'pistol', 'classified', 45.0, '#f94144', '#2b2d42'],
-    ['deagle-print', 'Desert Eagle', 'Printstream', 'pistol', 'classified', 55.0, '#ffffff', '#1b1b1b'],
-    ['awp-neo', 'AWP', 'Neo-Noir', 'sniper', 'covert', 65.0, '#ff5d8f', '#1b263b'],
-    ['ak-asii', 'AK-47', 'Asiimov', 'rifle', 'covert', 70.0, '#fdfdfd', '#ff6d00'],
-    ['ak-blood', 'AK-47', 'Bloodsport', 'rifle', 'covert', 110.0, '#e5383b', '#0b090a'],
-    ['awp-asii', 'AWP', 'Asiimov', 'sniper', 'covert', 130.0, '#ffffff', '#ff7a00'],
-    ['m4a1-print', 'M4A1-S', 'Printstream', 'rifle', 'covert', 170.0, '#f5f5f5', '#101010'],
-    ['ak-serpent', 'AK-47', 'Fire Serpent', 'rifle', 'covert', 700.0, '#2d6a4f', '#d4a373'],
-    ['m4a1-jungle', 'M4A1-S', 'Welcome to the Jungle', 'rifle', 'covert', 1500.0, '#38b000', '#ffba08'],
-    ['m4a4-howl', 'M4A4', 'Howl', 'rifle', 'contraband', 4500.0, '#ff4800', '#ffd000'],
-    ['ak-lotus', 'AK-47', 'Wild Lotus', 'rifle', 'covert', 9000.0, '#2a9d8f', '#e9c46a'],
-    ['awp-gungnir', 'AWP', 'Gungnir', 'sniper', 'covert', 11000.0, '#219ebc', '#ffb703'],
-    ['awp-dlore', 'AWP', 'Dragon Lore', 'sniper', 'covert', 12000.0, '#e9c46a', '#6a994e'],
-    ['daggers-web', '★ Shadow Daggers', 'Crimson Web', 'knife', 'rare', 140.0, '#9b2226', '#1a1a1a'],
-    ['wraps-cobalt', '★ Hand Wraps', 'Cobalt Skulls', 'gloves', 'rare', 160.0, '#1d4ed8', '#e5e7eb'],
-    ['gut-auto', '★ Gut Knife', 'Autotronic', 'knife', 'rare', 180.0, '#ef233c', '#2b2d42'],
-    ['flip-lore', '★ Flip Knife', 'Lore', 'knife', 'rare', 350.0, '#e9c46a', '#8d6e3f'],
-    ['driver-snake', '★ Driver Gloves', 'King Snake', 'gloves', 'rare', 450.0, '#d9d9d9', '#3a3a3a'],
-    ['bayo-marble', '★ Bayonet', 'Marble Fade', 'knife', 'rare', 600.0, '#ffbe0b', '#3a86ff'],
-    ['skel-ch', '★ Skeleton Knife', 'Case Hardened', 'knife', 'rare', 900.0, '#4361ee', '#c9a227'],
-    ['m9-tiger', '★ M9 Bayonet', 'Tiger Tooth', 'knife', 'rare', 950.0, '#ffb703', '#fb8500'],
-    ['kara-doppler', '★ Karambit', 'Doppler', 'knife', 'rare', 1100.0, '#7209b7', '#f72585'],
-    ['spec-kimono', '★ Specialist Gloves', 'Crimson Kimono', 'gloves', 'rare', 1200.0, '#9d0208', '#370617'],
-    ['kara-fade', '★ Karambit', 'Fade', 'knife', 'rare', 1600.0, '#ff006e', '#ffbe0b'],
-    ['bfly-doppler', '★ Butterfly Knife', 'Doppler', 'knife', 'rare', 1800.0, '#3a0ca3', '#4cc9f0'],
-    ['bfly-fade', '★ Butterfly Knife', 'Fade', 'knife', 'rare', 2500.0, '#f15bb5', '#fee440'],
-    ['sport-pandora', '★ Sport Gloves', "Pandora's Box", 'gloves', 'rare', 3200.0, '#7b2cbf', '#ff0054'],
-  ];
-
+  // Все скины CS2 из сгенерированной базы (js/cs2-db.js).
+  const DB = App.CS2_DB;
   const SKINS = {};
-  for (const [id, weapon, name, type, rarity, price, c1, c2] of RAW_SKINS) {
-    SKINS[id] = { id, weapon, name, type, rarity, price, c1, c2 };
+  const SKIN_LIST = [];
+  for (const [id, weapon, name, type, rarity, price, wmask, st, img] of DB.skins) {
+    const wears = WEARS.filter((_, i) => wmask & (1 << i)).map((w) => w.id);
+    const skin = { id, weapon, name, type, rarity, price, wears, st: !!st, img: img ? DB.img + img : '' };
+    // Цвета запасной SVG-иконки: оттенок по имени + цвет редкости.
+    let h = 0;
+    for (const ch of weapon + name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    skin.c1 = `hsl(${h % 360} 65% 62%)`;
+    SKIN_LIST.push(skin);
+    SKINS[id] = skin;
+  }
+  const SKIN_BY_INDEX = SKIN_LIST;
+  const fullName = (skin) => `${skin.weapon} | ${skin.name}`;
+
+  // Средний множитель цены выпавшего предмета: учитывает, какие износы и StatTrak есть у скина.
+  function dropMult(skin) {
+    const ws = WEARS.filter((w) => skin.wears.includes(w.id));
+    const psum = ws.reduce((s, w) => s + w.p, 0);
+    const wear = ws.reduce((s, w) => s + (w.p / psum) * w.mult, 0);
+    return wear * (skin.st ? 1 - STATTRAK_CHANCE + STATTRAK_CHANCE * STATTRAK_MULT : 1);
   }
 
-  // Кейсы. rtp — доля цены кейса, которая в среднем возвращается игроку.
+  // Тематические кейсы сайта (скины указаны старыми id, см. legacy в cs2-db.js).
+  // rtp — доля цены кейса, которая в среднем возвращается игроку.
   const CASES = [
     {
       id: 'free', name: 'Ежедневный', price: 0, free: true, group: 'free', color: '#2ec4b6', alpha: 1.1,
@@ -141,11 +100,26 @@ window.App = window.App || {};
     },
   ];
 
+  for (const c of CASES) c.skins = c.skins.map((old) => DB.legacy[old]).filter(Boolean);
+
+  // Официальные кейсы CS2: реальное содержимое и шансы Valve по редкостям.
+  const VALVE_ODDS = { milspec: 0.7992, restricted: 0.1598, classified: 0.032, covert: 0.0064, rare: 0.0026 };
+  const OFFICIAL_COLORS = ['#4b69ff', '#8847ff', '#d32ce6', '#eb4b4b', '#ffb703', '#2ec4b6', '#ff7a18'];
+  DB.cases.forEach(([id, name, date, items, rare, img], i) => {
+    CASES.push({
+      id: 'c' + id, name: name.replace(/ Case$/, ''), fullName: name, date, official: true,
+      group: 'official', color: OFFICIAL_COLORS[i % OFFICIAL_COLORS.length], rtp: 0.9,
+      img: img ? DB.img + img : '',
+      skins: items.concat(rare).map((idx) => SKIN_BY_INDEX[idx].id),
+    });
+  });
+
   const GROUPS = [
     { id: 'free', name: 'Бесплатные' },
     { id: 'cheap', name: 'Бюджетные' },
     { id: 'popular', name: 'Популярные' },
     { id: 'premium', name: 'Премиум' },
+    { id: 'official', name: 'Официальные кейсы CS2', note: 'Реальное содержимое и шансы Valve' },
   ];
 
   // Веса предметов: w = цена^(-alpha). Для платных кейсов alpha подбирается
@@ -159,22 +133,36 @@ window.App = window.App || {};
     return sv / sw;
   }
 
+  function officialWeights(skins) {
+    const byTier = {};
+    for (const sk of skins) (byTier[sk.rarity] = byTier[sk.rarity] || []).push(sk);
+    const total = Object.keys(byTier).reduce((t, r) => t + (VALVE_ODDS[r] || 0), 0);
+    return skins.map((sk) => (VALVE_ODDS[sk.rarity] || 0) / total / byTier[sk.rarity].length);
+  }
+
   function balanceCase(c) {
-    const values = c.skins.map((id) => SKINS[id].price * AVG_DROP_MULT);
-    let alpha = c.alpha ?? 1;
-    if (!c.free) {
-      const target = c.price * c.rtp;
-      let lo = 0, hi = 30;
-      for (let i = 0; i < 80; i++) {
-        const mid = (lo + hi) / 2;
-        if (expected(values, weightsFor(values, mid)) > target) lo = mid; else hi = mid;
+    const skins = c.skins.map((id) => SKINS[id]);
+    const values = skins.map((sk) => sk.price * dropMult(sk));
+    let w;
+    if (c.official) {
+      w = officialWeights(skins);
+      c.price = round2(expected(values, w) / c.rtp);
+    } else {
+      let alpha = c.alpha ?? 1;
+      if (!c.free) {
+        const target = c.price * c.rtp;
+        let lo = 0, hi = 30;
+        for (let i = 0; i < 80; i++) {
+          const mid = (lo + hi) / 2;
+          if (expected(values, weightsFor(values, mid)) > target) lo = mid; else hi = mid;
+        }
+        alpha = (lo + hi) / 2;
       }
-      alpha = (lo + hi) / 2;
+      w = weightsFor(values, alpha);
     }
-    const w = weightsFor(values, alpha);
     const sum = w.reduce((a, b) => a + b, 0);
-    c.items = c.skins
-      .map((id, i) => ({ skin: SKINS[id], chance: w[i] / sum }))
+    c.items = skins
+      .map((skin, i) => ({ skin, chance: w[i] / sum }))
       .sort((a, b) => b.skin.price - a.skin.price);
     c.ev = expected(values, w);
     c.topSkin = c.items[0].skin;
@@ -185,8 +173,8 @@ window.App = window.App || {};
 
   // Каталог для апгрейда и контрактов: каждый скин во всех степенях износа.
   const CATALOG = [];
-  for (const skin of Object.values(SKINS)) {
-    for (const w of WEARS) {
+  for (const skin of SKIN_LIST) {
+    for (const w of WEARS.filter((x) => skin.wears.includes(x.id))) {
       CATALOG.push({ key: `${skin.id}|${w.id}`, skin, wear: w.id, price: round2(skin.price * w.mult) });
     }
   }
@@ -200,8 +188,8 @@ window.App = window.App || {};
   }
 
   App.data = {
-    RARITY, WEARS, SKINS, CASES, CASE_BY_ID, GROUPS, CATALOG,
-    STATTRAK_CHANCE, AVG_DROP_MULT, round2, itemPrice,
+    RARITY, WEARS, SKINS, SKIN_LIST, CASES, CASE_BY_ID, GROUPS, CATALOG,
+    STATTRAK_CHANCE, round2, itemPrice, fullName,
     wear: (id) => WEARS.find((w) => w.id === id),
   };
 })(window.App);

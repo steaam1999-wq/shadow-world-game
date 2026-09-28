@@ -21,12 +21,25 @@ window.App = window.App || {};
     };
   }
 
+  // Предметы из старой версии сайта (до базы CS2) переводим на новые id скинов.
+  function migrate(saved) {
+    const { SKINS } = App.data;
+    const legacy = App.CS2_DB.legacy;
+    const fix = (it) => {
+      if (it && !SKINS[it.skinId] && legacy[it.skinId]) it.skinId = legacy[it.skinId];
+      return it && SKINS[it.skinId] ? it : null;
+    };
+    if (Array.isArray(saved.inventory)) saved.inventory = saved.inventory.map(fix).filter(Boolean);
+    if (saved.stats && saved.stats.best) saved.stats.best = fix(saved.stats.best);
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const saved = JSON.parse(raw);
         const d = defaults();
+        migrate(saved);
         return { ...d, ...saved, stats: { ...d.stats, ...saved.stats }, settings: { ...d.settings, ...saved.settings } };
       }
     } catch (e) { /* приватный режим или повреждённые данные — начинаем заново */ }
@@ -129,10 +142,13 @@ window.App = window.App || {};
       acc += caseDef.items[i].chance;
       if (r < acc) { picked = caseDef.items[i]; break; }
     }
-    const wr = roll();
-    let wacc = 0, wear = 'FT';
-    for (const w of App.data.WEARS) { wacc += w.p; if (wr < wacc) { wear = w.id; break; } }
-    const st = roll() < App.data.STATTRAK_CHANCE;
+    // Износ выбирается только среди тех, что реально бывают у скина.
+    const wears = App.data.WEARS.filter((w) => picked.skin.wears.includes(w.id));
+    const psum = wears.reduce((t, w) => t + w.p, 0);
+    const wr = roll() * psum;
+    let wacc = 0, wear = wears[wears.length - 1].id;
+    for (const w of wears) { wacc += w.p; if (wr < wacc) { wear = w.id; break; } }
+    const st = roll() < App.data.STATTRAK_CHANCE && picked.skin.st;
     return { skin: picked.skin, wear, st };
   }
 
