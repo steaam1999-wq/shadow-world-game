@@ -55,12 +55,37 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
   )
 }
 
+/** Знак «Искры»: облачко сообщения с огоньком внутри — глянцевый, в тёплом градиенте. */
+export function LogoMark({ size = 34 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className="shrink-0 drop-shadow-[0_4px_10px_rgb(200_60_40/.35)]">
+      <defs>
+        <linearGradient id="logo-bubble" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f68a60" />
+          <stop offset=".55" stopColor="#d9503b" />
+          <stop offset="1" stopColor="#a8292b" />
+        </linearGradient>
+        <radialGradient id="logo-flame" cx=".5" cy=".75" r=".7">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#ffe9d6" />
+        </radialGradient>
+      </defs>
+      {/* облачко с хвостиком снизу слева */}
+      <path d="M12.5 2.5h15a10 10 0 0 1 10 10v8a10 10 0 0 1-10 10H16.8l-9.3 7.2 1.6-7.8A10 10 0 0 1 2.5 20.5v-8a10 10 0 0 1 10-10z"
+        fill="url(#logo-bubble)" stroke="#fff" strokeOpacity=".35" strokeWidth=".8" />
+      {/* глянцевый блик */}
+      <path d="M6.6 12.2a6.4 6.4 0 0 1 5.4-5.6" fill="none" stroke="#fff" strokeOpacity=".85" strokeWidth="1.6" strokeLinecap="round" />
+      {/* огонёк и красная капля внутри */}
+      <path d="M20.3 6.8c1.3 3.4 5.9 5.9 5.9 10.6a6.2 6.2 0 0 1-12.4 0c0-2.8 1.5-4.5 2.8-5.6.2 1.7 1 2.6 2 3.1-.1-3.3.7-5.6 1.7-8.1z" fill="url(#logo-flame)" />
+      <path d="M20 14.3c1.1 1.7 2.7 2.9 2.7 5a2.7 2.7 0 0 1-5.4 0c0-2.1 1.6-3.3 2.7-5z" fill="#e2462f" />
+    </svg>
+  )
+}
+
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 font-display font-semibold tracking-tight ${className}`}>
-      <span className="grid place-items-center rounded-[11px] bg-brand text-white w-8 h-8 shadow-soft">
-        <Icon name="spark" size={17} fill />
-      </span>
+    <span className={`inline-flex items-center gap-2 font-display font-bold tracking-tight logo-word ${className}`}>
+      <LogoMark size={className.includes('text-xl') ? 36 : 32} />
       искра
     </span>
   )

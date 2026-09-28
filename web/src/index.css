@@ -29,6 +29,8 @@
   --glass-bottom: rgb(255 255 255 / .16);
   --glass-edge: rgb(255 255 255 / .85);
   --glass-shade: rgb(60 20 60 / .10);
+  --logo-word: #2a1418;
+  --logo-glow: transparent;
   --brand: linear-gradient(45deg, var(--amber) 0%, #ff7a45 28%, var(--spark) 58%, var(--violet) 100%);
   --font-display: "Rubik", "Onest", system-ui, sans-serif;
   --font-body: "Onest", "Segoe UI", system-ui, sans-serif;
@@ -41,7 +43,7 @@
     --spark: #ff4f86; --spark-soft: #3a1422; --amber: #ffc457; --violet: #9a74ff; --on-spark: #ffffff; --cobalt: #4aa8ff; --cobalt-soft: #0f2538;
     --ok: #3fd18f; --ok-soft: #0f2a1e; --warn: #e8b058; --warn-soft: #2e2211; --danger: #ff5c72; --danger-soft: #34141a;
     --shadow: 0 0 0 1px rgb(255 255 255 / .04);
-  --glass-top: rgb(255 255 255 / .16); --glass-bottom: rgb(255 255 255 / .05); --glass-edge: rgb(255 255 255 / .28); --glass-shade: rgb(0 0 0 / .45);
+  --glass-top: rgb(255 255 255 / .16); --glass-bottom: rgb(255 255 255 / .05); --glass-edge: rgb(255 255 255 / .28); --logo-word: #fff1e4; --logo-glow: rgb(255 170 110 / .45); --glass-shade: rgb(0 0 0 / .45);
     color-scheme: dark;
   }
 }
@@ -50,7 +52,7 @@
   --spark: #ff4f86; --spark-soft: #3a1422; --amber: #ffc457; --violet: #9a74ff; --on-spark: #ffffff; --cobalt: #4aa8ff; --cobalt-soft: #0f2538;
   --ok: #3fd18f; --ok-soft: #0f2a1e; --warn: #e8b058; --warn-soft: #2e2211; --danger: #ff5c72; --danger-soft: #34141a;
   --shadow: 0 0 0 1px rgb(255 255 255 / .04);
-  --glass-top: rgb(255 255 255 / .16); --glass-bottom: rgb(255 255 255 / .05); --glass-edge: rgb(255 255 255 / .28); --glass-shade: rgb(0 0 0 / .45);
+  --glass-top: rgb(255 255 255 / .16); --glass-bottom: rgb(255 255 255 / .05); --glass-edge: rgb(255 255 255 / .28); --logo-word: #fff1e4; --logo-glow: rgb(255 170 110 / .45); --glass-shade: rgb(0 0 0 / .45);
   color-scheme: dark;
 }
 
@@ -183,3 +185,6 @@ h1, h2, h3 { text-wrap: balance; }
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
 }
+
+/* Надпись логотипа: тёплый тёмный в светлой теме, кремовая со свечением в тёмной */
+.logo-word { color: var(--logo-word); text-shadow: 0 0 14px var(--logo-glow); }
