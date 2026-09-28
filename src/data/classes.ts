@@ -69,6 +69,22 @@ export const CLASSES: Record<ClassId, ClassDef> = {
       { id: 'voidPrison', name: 'Темница пустоты', description: 'Магия 260%, оглушение на 1 ход и похищение 20% урона в HP.', cost: 75, unlockLevel: 12, cooldown: 4 },
     ],
   },
+  monk: {
+    id: 'monk',
+    name: 'Монах клинков',
+    icon: '🔱',
+    tagline: 'Дух, закалённый сталью',
+    description: 'Закалённый в боях монах с племенными татуировками. Его парные клинки горят синим пламенем духа: быстрые серии ударов, лечение от урона и контроль.',
+    color: '#38bdf8',
+    mods: { hpMul: 1.1, atkMul: 1.12, defMul: 0.95, critChance: 4, critDmg: 20, speed: 3, dodge: 6, block: 5, bleedChance: 0, magicPct: 15 },
+    perks: ['+12% атаки', '+15% магии', '+3 скорости', '6% уклонения'],
+    recommended: ['str', 'dark'],
+    abilities: [
+      { id: 'spiritBlades', name: 'Духовные клинки', description: 'Два удара по 110% магии. 25% нанесённого урона возвращается здоровьем.', cost: 50, unlockLevel: 1, cooldown: 2 },
+      { id: 'innerFocus', name: 'Внутренний фокус', description: '+35% атаки и +20% уклонения на 3 хода, лечит 12% HP.', cost: 40, unlockLevel: 5, cooldown: 4 },
+      { id: 'stormDance', name: 'Танец бури', description: 'Четыре удара по 75% магии, последний оглушает врага на 1 ход.', cost: 75, unlockLevel: 12, cooldown: 4 },
+    ],
+  },
 };
 
 export const CLASS_LIST = Object.values(CLASSES);

@@ -115,6 +115,7 @@ const ARENA_AI: Record<ClassId, EnemyAbilityId[]> = {
   guardian: ['guard', 'stunBash', 'heavyBlow'],
   assassin: ['shadowStrike', 'bleedStrike', 'poisonBite'],
   shadowmage: ['fireBolt', 'weakenCurse', 'drainLife'],
+  monk: ['shadowStrike', 'frenzy', 'drainLife'],
 };
 
 export function createArenaCombatant(o: ArenaOpponent): Combatant {
@@ -624,6 +625,25 @@ function useClassAbility(ctx: Ctx, id: string) {
       log(ctx, `${e.name} проклят: −30% атаки, −40% защиты.`, 'status');
       step(ctx, 'enemy', { float: { text: 'ПРОКЛЯТИЕ', kind: 'status' }, anim: 'hit', sound: 'magic' });
       break;
+    // ---- Monk
+    case 'spiritBlades': {
+      let total = 0;
+      for (let i = 0; i < 2 && !ctx.cs.over; i++) total += hit(ctx, p, e, { mult: 1.1, magic: true, label: `клинок ${i + 1}` }).dmg;
+      if (total > 0 && !ctx.cs.over) heal(ctx, p, total * 0.25, 'Сила духа лечит вас: +{n} HP');
+      break;
+    }
+    case 'innerFocus':
+      addStatus(p, 'atkUp', 3, 35);
+      addStatus(p, 'evasive', 3, 20);
+      log(ctx, 'Внутренний фокус: +35% атаки и +20% уклонения на 3 хода.', 'status');
+      heal(ctx, p, p.maxHp * 0.12, 'Дыхание духа: +{n} HP');
+      break;
+    case 'stormDance': {
+      let landed = false;
+      for (let i = 0; i < 4 && !ctx.cs.over; i++) landed = !hit(ctx, p, e, { mult: 0.75, magic: true, label: `танец ${i + 1}` }).missed || landed;
+      if (landed && !ctx.cs.over) applyDebuff(ctx, e, 'stun', 1, 0, `${e.name} оглушён вихрем клинков!`, 'ОГЛУШЕНИЕ');
+      break;
+    }
     case 'voidPrison': {
       const r = hit(ctx, p, e, { mult: 2.6, magic: true, defPen: 1, canDodge: false, label: ab.name });
       if (!ctx.cs.over) {

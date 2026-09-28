@@ -12,6 +12,7 @@ const STARTER_WEAPON: Record<ClassId, string> = {
   guardian: '🔨',
   assassin: '🔪',
   shadowmage: '🪄',
+  monk: '⚔️',
 };
 
 export function CreateHero() {
@@ -50,7 +51,7 @@ export function CreateHero() {
         </p>
       </div>
 
-      <div className="mt-8 grid w-full grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {CLASS_LIST.map((c, i) => {
           const active = c.id === cls;
           return (

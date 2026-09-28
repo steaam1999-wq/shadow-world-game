@@ -40,6 +40,7 @@ const CLASS_ATTRS: Record<ClassId, Attribute[]> = {
   guardian: ['vit', 'vit', 'str', 'str'],
   assassin: ['agi', 'agi', 'str', 'vit'],
   shadowmage: ['dark', 'dark', 'vit', 'str'],
+  monk: ['str', 'dark', 'agi', 'vit'],
 };
 
 export function buildOpponent(name: string, classId: ClassId, level: number, rating: number): ArenaOpponent {

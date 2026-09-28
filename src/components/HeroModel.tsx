@@ -58,6 +58,20 @@ export function HeroModel({
           <stop offset="60%" stopColor="#d8d2c4" />
           <stop offset="100%" stopColor="#a9a192" />
         </linearGradient>
+        <linearGradient id={id('skin')} x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#a47d62" />
+          <stop offset="55%" stopColor="#7a5a45" />
+          <stop offset="100%" stopColor="#4a352a" />
+        </linearGradient>
+        <radialGradient id={id('spirit')} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={id('blade')} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#e0f2fe" />
+          <stop offset="45%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#0c4a6e" />
+        </linearGradient>
         <filter id={id('glow')} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="3" result="b" />
           <feMerge>
@@ -71,7 +85,9 @@ export function HeroModel({
       {shadows > 0 && <ellipse cx="100" cy="150" rx="95" ry="120" fill={`url(#${id('aura')})`} className={animate ? 'model-aura' : ''} />}
       <ellipse cx="100" cy="244" rx="46" ry="7" fill="#000" opacity="0.6" />
 
-      {classId === 'assassin' ? (
+      {classId === 'monk' ? (
+        <MonkBody id={id} trim={trim} has={has} animate={animate} />
+      ) : classId === 'assassin' ? (
         <AssassinBody id={id} trim={trim} has={has} animate={animate} weaponGlow={weaponGlow} />
       ) : (
       <>
@@ -377,6 +393,130 @@ function AssassinBody({
       <path d="M88 66 Q100 55 112 66 L100 80 Z" fill={robe} stroke={IVORY_DARK} strokeWidth="0.8" />
       <path d="M100 48 Q98 60 100 70" fill="none" stroke={IVORY_DARK} strokeWidth="0.8" />
       <path d="M94 80 L96 80 M104 80 L106 80" stroke="#6b6358" strokeWidth="1.2" opacity="0.7" />
+    </g>
+  );
+}
+
+const TATTOO = '#1b2433';
+const SPIRIT = '#38bdf8';
+
+/** Mirrors an SVG path horizontally around x = 100 (the model's centre line). */
+const mirror = (d: string) => d.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (_, x, y) => `${200 - Number(x)} ${y}`);
+
+/** Tattooed monk warrior with spiked pauldrons and twin spirit blades. */
+function MonkBody({
+  id,
+  trim,
+  has,
+  animate,
+}: {
+  id: (n: string) => string;
+  trim: (slot: Slot, fallback?: string) => string;
+  has: (slot: Slot) => boolean;
+  animate: boolean;
+}) {
+  const skin = `url(#${id('skin')})`;
+  const metal = `url(#${id('metal')})`;
+  const glow = `url(#${id('glow')})`;
+  const bladeFill = `url(#${id('blade')})`;
+  const leather = '#2a2226';
+  const plate = '#3a3540';
+  const hilt = trim('weapon', '#9ca3af');
+
+  // One blade + hilt held in the left hand (viewer side); the right one is mirrored.
+  const bladeL = 'M44 167 L59 171 L38 236 L23 247 L23 229 Z';
+  const coreL = 'M51 172 L31 232';
+  const guardL = 'M40 160 L60 168';
+  const armUpL = 'M73 104 L57 132';
+  const armLowL = 'M57 132 L49 158';
+  const bracerL = 'M55 139 L50 154';
+  const spikesL = 'M62 98 L52 84 L68 94 Z M70 94 L66 78 L76 92 Z M79 93 L81 79 L85 94 Z';
+
+  return (
+    <g className={animate ? 'model-breathe' : ''}>
+      {/* Spirit light behind the blades */}
+      <ellipse cx="38" cy="205" rx="30" ry="48" fill={`url(#${id('spirit')})`} className={animate ? 'model-aura' : ''} />
+      <ellipse cx="162" cy="205" rx="30" ry="48" fill={`url(#${id('spirit')})`} className={animate ? 'model-aura' : ''} />
+
+      {/* Legs in a wide heroic stance, wrapped shins, boots */}
+      <path d="M86 170 L72 232 L88 234 L99 172 Z" fill="#1f1a1f" />
+      <path d="M114 170 L128 232 L112 234 L101 172 Z" fill="#1f1a1f" />
+      <path d="M76 208 L90 211 M75 216 L89 219 M74 224 L88 227" stroke="#4a3f3a" strokeWidth="2" />
+      <path d="M124 208 L110 211 M125 216 L111 219 M126 224 L112 227" stroke="#4a3f3a" strokeWidth="2" />
+      <path d="M69 230 L90 232 L92 242 L64 242 Z" fill={leather} stroke={trim('boots', '#4a3f3a')} strokeWidth={has('boots') ? 1.6 : 0.8} />
+      <path d="M131 230 L110 232 L108 242 L136 242 Z" fill={leather} stroke={trim('boots', '#4a3f3a')} strokeWidth={has('boots') ? 1.6 : 0.8} />
+
+      {/* Leather tassets with studs */}
+      <path d="M77 158 L123 158 L130 198 L111 191 L100 202 L89 191 L70 198 Z" fill={leather} stroke={trim('armor', '#4a3f3a')} strokeWidth={has('armor') ? 1.8 : 0.8} />
+      <path d="M89 162 L89 190 M111 162 L111 190" stroke="#1a1418" strokeWidth="1.5" />
+      <circle cx="80" cy="172" r="1.4" fill={metal} />
+      <circle cx="120" cy="172" r="1.4" fill={metal} />
+      <circle cx="100" cy="180" r="1.4" fill={metal} />
+
+      {/* Muscular bare torso */}
+      <path d="M71 98 Q100 88 129 98 L123 158 Q100 165 77 158 Z" fill={skin} />
+      <path d="M79 110 Q90 104 99 110 Q99 122 88 124 Q80 122 79 110 Z M121 110 Q110 104 101 110 Q101 122 112 124 Q120 122 121 110 Z" fill="#000" opacity="0.14" />
+      <path d="M100 126 L100 156 M91 132 L109 132 M92 141 L108 141 M93 150 L107 150" stroke="#3b2a20" strokeWidth="0.9" opacity="0.7" />
+      {/* Tribal tattoos on chest and shoulders */}
+      <path d="M78 104 Q86 112 84 122 Q80 116 76 118 M84 106 Q92 108 96 116 M72 128 Q78 132 80 142" fill="none" stroke={TATTOO} strokeWidth="2" strokeLinecap="round" />
+      <path d={mirror('M78 104 Q86 112 84 122 Q80 116 76 118 M84 106 Q92 108 96 116 M72 128 Q78 132 80 142')} fill="none" stroke={TATTOO} strokeWidth="2" strokeLinecap="round" />
+      <path d="M100 112 L104 118 L100 124 L96 118 Z" fill="none" stroke={SPIRIT} strokeWidth="1" opacity="0.8" filter={glow} />
+
+      {/* Chest harness and belt */}
+      <path d="M76 100 L124 156" stroke={leather} strokeWidth="5" strokeLinecap="round" />
+      <circle cx="100" cy="128" r="3" fill={metal} />
+      <rect x="76" y="154" width="48" height="8" rx="2" fill="#1a1418" />
+      <rect x="95" y="152" width="10" height="12" rx="2" fill={plate} stroke={metal} strokeWidth="1" />
+
+      {/* Arms: muscles, tattoo bands, bracers */}
+      <path d={armUpL} stroke={skin} strokeWidth="14" strokeLinecap="round" />
+      <path d={armLowL} stroke={skin} strokeWidth="11" strokeLinecap="round" />
+      <path d={mirror(armUpL)} stroke={skin} strokeWidth="14" strokeLinecap="round" />
+      <path d={mirror(armLowL)} stroke={skin} strokeWidth="11" strokeLinecap="round" />
+      <path d="M62 114 L72 119 M60 119 L70 124" stroke={TATTOO} strokeWidth="1.8" />
+      <path d={mirror('M62 114 L72 119 M60 119 L70 124')} stroke={TATTOO} strokeWidth="1.8" />
+      <path d={bracerL} stroke={leather} strokeWidth="12" strokeLinecap="round" />
+      <path d={mirror(bracerL)} stroke={leather} strokeWidth="12" strokeLinecap="round" />
+      <path d={bracerL} stroke={trim('gloves', '#4a3f3a')} strokeWidth="12" strokeOpacity={has('gloves') ? 0.5 : 0.15} strokeLinecap="round" fill="none" />
+      <path d={mirror(bracerL)} stroke={trim('gloves', '#4a3f3a')} strokeWidth="12" strokeOpacity={has('gloves') ? 0.5 : 0.15} strokeLinecap="round" fill="none" />
+
+      {/* Twin spirit blades */}
+      {[false, true].map((m) => (
+        <g key={String(m)}>
+          <path d={m ? mirror(bladeL) : bladeL} fill={bladeFill} stroke={SPIRIT} strokeWidth="1.2" filter={glow} />
+          <path d={m ? mirror(coreL) : coreL} stroke="#e0f2fe" strokeWidth="1.6" strokeLinecap="round" filter={glow} className={animate ? 'model-orb' : ''} />
+          <path d={m ? mirror(guardL) : guardL} stroke={hilt} strokeWidth="4" strokeLinecap="round" />
+        </g>
+      ))}
+      <circle cx="49" cy="161" r="6.5" fill={skin} stroke="#3b2a20" strokeWidth="0.8" />
+      <circle cx="151" cy="161" r="6.5" fill={skin} stroke="#3b2a20" strokeWidth="0.8" />
+      {has('ring') && <circle cx="45" cy="163" r="2" fill={trim('ring')} filter={glow} />}
+      <circle cx="30" cy="190" r="1.6" fill="#bae6fd" filter={glow} className={animate ? 'model-orb' : ''} />
+      <circle cx="170" cy="200" r="1.4" fill="#bae6fd" filter={glow} className={animate ? 'model-orb' : ''} />
+
+      {/* Spiked pauldrons */}
+      <ellipse cx="72" cy="101" rx="14" ry="10" fill={plate} stroke={trim('armor', '#57505e')} strokeWidth="1.4" />
+      <ellipse cx="128" cy="101" rx="14" ry="10" fill={plate} stroke={trim('armor', '#57505e')} strokeWidth="1.4" />
+      <path d={spikesL} fill={metal} />
+      <path d={mirror(spikesL)} fill={metal} />
+
+      {/* Neck, prayer beads, head */}
+      <path d="M91 82 L109 82 L113 97 L87 97 Z" fill={skin} />
+      <path d="M84 98 Q100 112 116 98" fill="none" stroke="#3b2a20" strokeWidth="2.5" strokeDasharray="0.1 4.5" strokeLinecap="round" />
+      <circle cx="100" cy="107" r="3" fill={trim('amulet', '#7c5a3a')} filter={has('amulet') ? glow : undefined} />
+      <ellipse cx="100" cy="68" rx="15" ry="18" fill={skin} />
+      <path d="M86 76 Q88 88 100 90 Q112 88 114 76 Q112 84 100 85 Q88 84 86 76 Z" fill="#2a1f1a" />
+      <ellipse cx="85" cy="70" rx="2.5" ry="4" fill="#6b4e3c" />
+      <ellipse cx="115" cy="70" rx="2.5" ry="4" fill="#6b4e3c" />
+      {/* Scalp tattoo */}
+      <path d="M100 51 L100 60 M92 54 Q96 58 94 64 M108 54 Q104 58 106 64 M88 60 Q90 64 88 68 M112 60 Q110 64 112 68" fill="none" stroke={TATTOO} strokeWidth="1.8" strokeLinecap="round" />
+      {has('helmet') && <path d="M86 62 Q100 56 114 62" fill="none" stroke={trim('helmet')} strokeWidth="2.5" />}
+      {/* Brow and glowing eyes */}
+      <path d="M90 67 L97 69 M110 67 L103 69" stroke="#2a1f1a" strokeWidth="2" strokeLinecap="round" />
+      <g filter={glow}>
+        <ellipse cx="94" cy="71.5" rx="2.4" ry="1.2" fill={SPIRIT} />
+        <ellipse cx="106" cy="71.5" rx="2.4" ry="1.2" fill={SPIRIT} />
+      </g>
     </g>
   );
 }

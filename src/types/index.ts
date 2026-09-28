@@ -1,5 +1,5 @@
 // ---------- Core enums ----------
-export type ClassId = 'berserker' | 'guardian' | 'assassin' | 'shadowmage';
+export type ClassId = 'berserker' | 'guardian' | 'assassin' | 'shadowmage' | 'monk';
 
 export type Attribute = 'str' | 'agi' | 'vit' | 'dark';
 
