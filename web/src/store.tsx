@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Me, Person, PlanComment, Report, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Me, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
@@ -46,7 +46,7 @@ export type Action =
   | { type: 'deleteComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[] }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shorts?: Short[] }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -58,9 +58,9 @@ const PARTNER_NO = ['p3', 'p8']
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 const STATUS_TEXT: Record<CapsuleStatus, string> = {
-  active: 'Капсула снова в режиме переписки.',
-  agreed: 'Вы договорились о встрече. Таймер остановлен, капсула не сгорит.',
-  contacts: 'Вы обменялись контактами. Капсула сохранится.',
+  active: 'Статус встречи сброшен.',
+  agreed: 'Вы договорились о встрече.',
+  contacts: 'Вы обменялись контактами.',
   met: 'Встреча состоялась. +1 к уровню доверия у обоих.',
 }
 
@@ -96,7 +96,7 @@ function reducer(state: State, action: Action): State {
         status: 'active' as const,
         unread: 1,
         messages: [
-          { id: uid(), from: 'system' as const, text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now },
+          { id: uid(), from: 'system' as const, text: 'Чат открыт. Договоритесь о встрече — точное место уже здесь.', at: now },
           { id: uid(), from: 'system' as const, text: `Точное место: ${activity.exactPlace}`, at: now },
           ...(isGroup ? [{ id: uid(), from: 'system' as const, text: `Вы в компании: ${[author, ...others, 'вы'].join(', ')}. Пока переписка с организатором, общий чат компании — в рабочей версии.`, at: now }] : []),
           ...(action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now + 1 }] : []),
@@ -114,7 +114,7 @@ function reducer(state: State, action: Action): State {
       const partnerWants = !state.cloud && !PARTNER_NO.includes(c.personId)
       const both = action.want && partnerWants
       const text = both
-        ? 'Совпало: вы оба хотите встретиться ещё! Капсула открыта заново на 72 часа — договоритесь о второй встрече.'
+        ? 'Совпало: вы оба хотите встретиться ещё! Договоритесь о второй встрече.'
         : action.want ? 'Ответ записан. Если собеседник тоже захочет — мы сразу скажем. Отказы никому не показываем.' : 'Ответ записан. Собеседник об этом не узнает.'
       return {
         ...state,
@@ -194,7 +194,7 @@ function reducer(state: State, action: Action): State {
       const capsule = {
         id: uid(), personId: action.personId, activityId: activity.id, createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 0,
         messages: [
-          { id: uid(), from: 'system' as const, text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now },
+          { id: uid(), from: 'system' as const, text: 'Чат открыт. Договоритесь о встрече — точное место уже здесь.', at: now },
           { id: uid(), from: 'me' as const, text, at: now + 1 },
         ],
       }
@@ -211,7 +211,7 @@ function reducer(state: State, action: Action): State {
       const capsule = {
         id: uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 1,
         messages: [
-          { id: uid(), from: 'system' as const, text: 'Спонтанная капсула: вы оба свободны прямо сейчас.', at: now },
+          { id: uid(), from: 'system' as const, text: 'Вы оба свободны прямо сейчас.', at: now },
           { id: uid(), from: 'me' as const, text: action.text, at: now + 1 },
           { id: uid(), from: 'them' as const, text: 'О, давай! Я минутах в 15 от тебя. Где встречаемся?', at: now + 2 },
         ],
@@ -251,7 +251,7 @@ function reducer(state: State, action: Action): State {
       if (existing) return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, ...msg] } : c)) }
       const capsule = {
         id: action.capsuleId ?? uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 0,
-        messages: [{ id: uid(), from: 'system' as const, text: 'Личная переписка. У вас 72 часа, чтобы договориться о встрече.', at: now }, ...msg],
+        messages: [{ id: uid(), from: 'system' as const, text: 'Личная переписка.', at: now }, ...msg],
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
     }
@@ -276,7 +276,7 @@ function reducer(state: State, action: Action): State {
       return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {
@@ -285,6 +285,7 @@ function reducer(state: State, action: Action): State {
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),
+        ...(action.shorts ? { shorts: action.shorts } : {}),
         liked: action.capsules.map((c) => c.activityId),
         ...(action.me ? { me: action.me, savedMe: action.me } : {}),
       }

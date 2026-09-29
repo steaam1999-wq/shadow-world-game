@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatKm } from '../places'
 import { useStore } from '../store'
 import { countdown, freeUntil, hm, meetingCode, reliability } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls } from './ui'
@@ -199,7 +200,7 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
             <div key={p.id} className="shrink-0 w-[132px] rounded-2xl bg-surface-2 p-2.5 flex flex-col items-center gap-1.5 text-center">
               <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} /><span className="absolute right-0 bottom-0 w-3.5 h-3.5 rounded-full bg-ok border-2 border-surface-2" /></span>
               <span className="text-[13px] font-semibold leading-tight">{p.name}, {p.age}</span>
-              <span className="text-[11px] text-muted leading-tight">{p.distanceKm.toFixed(1).replace('.', ',')} км · до {hm(until)}</span>
+              <span className="text-[11px] text-muted leading-tight">{formatKm(p.distanceKm)} · до {hm(until)}</span>
               <ReliabilityBadge person={p} compact />
               <button disabled={invited.includes(p.id)} onClick={() => { setInvited([...invited, p.id]); onInvite(p.id) }}
                 className="mt-0.5 w-full h-8 rounded-xl bg-brand text-white text-[12px] font-semibold cursor-pointer disabled:opacity-50">
@@ -212,7 +213,7 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
 
       <Sheet open={choosing} onClose={() => setChoosing(false)} title="Свободен(на) сейчас">
         <div className="flex flex-col gap-4">
-          <p className="text-[14px] text-muted">Люди рядом увидят зелёную точку и смогут позвать вас на кофе или прогулку прямо сейчас. Точное место — только в капсуле.</p>
+          <p className="text-[14px] text-muted">Люди рядом увидят зелёную точку и смогут позвать вас на кофе или прогулку прямо сейчас. Точное место — только в чате.</p>
           <div className="grid grid-cols-3 gap-2">
             {FREE_DURATIONS.map((m) => (
               <Button key={m} variant="secondary" onClick={() => { dispatch({ type: 'setFree', until: Date.now() + m * 60_000 }); setChoosing(false) }}>
@@ -260,7 +261,7 @@ export function groupFull(a: Activity) {
 
 /** Текст главной кнопки плана с учётом компании. */
 export function joinLabel(a: Activity, responded: boolean) {
-  if (responded) return 'Открыть капсулу'
+  if (responded) return 'Открыть чат'
   if (a.groupSize) return groupFull(a) ? 'Мест нет' : 'Присоединиться к компании'
   return 'Хочу с тобой'
 }
@@ -276,7 +277,7 @@ export function AgainCard({ capsule, person }: { capsule: Capsule; person: Perso
       <span className="mx-auto grid place-items-center w-11 h-11 rounded-full bg-brand text-white"><Icon name="heart" size={20} fill /></span>
       <div>
         <div className="font-display font-semibold text-[17px]">{person.name} — хотите встретиться ещё?</div>
-        <p className="text-[13px] text-muted">Ответ тайный. Если вы оба скажете «да» — мы откроем капсулу снова. Отказ собеседник не увидит.</p>
+        <p className="text-[13px] text-muted">Ответ тайный. Если вы оба скажете «да» — мы напомним вам друг о друге. Отказ собеседник не увидит.</p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={() => dispatch({ type: 'wantAgain', capsuleId: capsule.id, want: false })}>Пожалуй, нет</Button>

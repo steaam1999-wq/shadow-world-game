@@ -167,8 +167,8 @@ function Analytics() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: 'Регистрации за 14 дней', value: total.toLocaleString('ru-RU'), note: `${growth > 0 ? '+' : ''}${growth}% неделя к неделе`, tone: growth >= 0 ? 'text-ok' : 'text-danger' },
-          { label: 'Активные капсулы', value: liveCapsules.toLocaleString('ru-RU'), note: 'сейчас, с таймером или договорённостью', tone: 'text-muted' },
-          { label: 'Капсула → встреча', value: `${conv}%`, note: 'цель MVP: 20%', tone: conv >= 20 ? 'text-ok' : 'text-warn' },
+          { label: 'Активные чаты', value: liveCapsules.toLocaleString('ru-RU'), note: 'сейчас, с таймером или договорённостью', tone: 'text-muted' },
+          { label: 'Чат → встреча', value: `${conv}%`, note: 'цель MVP: 20%', tone: conv >= 20 ? 'text-ok' : 'text-warn' },
         ].map((k) => (
           <div key={k.label} className="rounded-2xl bg-surface border border-line p-4">
             <div className="text-[13px] text-muted">{k.label}</div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { DISTRICTS, VIBE_QUESTIONS } from '../data'
+import { PlaceOptions } from '../places'
+import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { Button, Chip, Field, Icon, Logo, inputCls } from '../components/ui'
 import type { Me, VibeAnswers } from '../types'
@@ -17,7 +18,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
   const [answers, setAnswers] = useState<VibeAnswers>({})
   const [name, setName] = useState(initialName)
   const [age, setAge] = useState('25')
-  const [district, setDistrict] = useState(DISTRICTS[0])
+  const [district, setDistrict] = useState('Минск')
   const [bio, setBio] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [rules, setRules] = useState(false)
@@ -40,7 +41,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
         name: name.trim(), age: Number(age) || 25, hue: 12, bio: bio.trim(), district, answers, tags,
         verified: method === 'telegram', meetings: 0, authMethod: method ?? 'phone',
         privacy: { showExactAge: true, hideFromContacts: true, approxLocation: true },
-        radiusKm: 5,
+        radiusKm: 10,
       },
     })
     onDone()
@@ -150,9 +151,9 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
               <input id="age" className={`${inputCls} tnum`} type="number" min={18} max={99} value={age} onChange={(e) => setAge(e.target.value)} required />
             </Field>
           </div>
-          <Field id="district" label="Район (другие увидят только его)">
+          <Field id="district" label="Город или район (другие увидят только его)">
             <select id="district" className={inputCls} value={district} onChange={(e) => setDistrict(e.target.value)}>
-              {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
+              <PlaceOptions />
             </select>
           </Field>
           <Field id="bio" label="О себе">

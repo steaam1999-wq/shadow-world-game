@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { CAPSULE_TTL } from '../data'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
-import { countdown, hm, isBurning, isExpired, planWhen } from '../lib'
-import { Avatar, Button, Icon, Pill, type Tone } from '../components/ui'
+import { hm, planWhen } from '../lib'
+import { Avatar, Button, Icon, Pill, Sheet, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
@@ -15,82 +14,60 @@ export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   met: { label: 'Встреча состоялась', tone: 'ok' },
 }
 
-function Timer({ c, now, big = false }: { c: Capsule; now: number; big?: boolean }) {
-  if (!isBurning(c)) return <span className={`font-mono text-muted ${big ? 'text-sm' : 'text-[12px]'}`}>таймер остановлен</span>
-  const left = c.expiresAt - now
-  const urgent = left < 6 * 3600_000
-  return (
-    <span className={`font-mono font-bold tnum ${urgent ? 'text-danger' : 'text-spark'} ${big ? 'text-sm' : 'text-[13px]'}`}>
-      {left > 0 ? countdown(left) : 'сгорела'}
-    </span>
-  )
+/** Время последнего сообщения: сегодня — часы, раньше — дата. */
+function when(ts: number, now: number) {
+  const d = new Date(ts), n = new Date(now)
+  if (d.toDateString() === n.toDateString()) return hm(ts)
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
-
-const HINT_KEY = 'iskra-capsule-hint'
 
 export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string) => void }) {
   const { state } = useStore()
-  const [hintSeen, setHintSeen] = useState(() => { try { return localStorage.getItem(HINT_KEY) === '1' } catch { return false } })
-  const live = state.capsules.filter((c) => !isExpired(c, now))
-  const expired = state.capsules.filter((c) => isExpired(c, now))
-
-  const row = (c: Capsule) => {
-    const p = state.people.find((x) => x.id === c.personId)!
-    const a = state.activities.find((x) => x.id === c.activityId)
-    const last = c.messages[c.messages.length - 1]
-    const burning = isBurning(c) && !isExpired(c, now)
-    const fraction = Math.max(0, Math.min(1, (c.expiresAt - now) / CAPSULE_TTL))
-    return (
-      <li key={c.id}>
-        <button onClick={() => onOpen(c.id)} className="w-full text-left flex gap-3 p-3 -mx-3 rounded-2xl hover:bg-surface cursor-pointer">
-          <Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} ring={c.unread > 0} />
-          <div className="flex-1 min-w-0 flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold truncate">{p.name}</span>
-              <Timer c={c} now={now} />
-            </div>
-            <div className="text-[13px] text-muted truncate">{a?.title ?? (c.activityId ? 'Активность завершена' : 'Личные сообщения')}</div>
-            <div className="flex items-center justify-between gap-2">
-              <span className={`text-[13px] truncate ${c.unread ? 'text-fg font-semibold' : 'text-muted'}`}>
-                {last.from === 'me' ? 'Вы: ' : ''}{last.text}
-              </span>
-              {c.unread > 0 && <span className="grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold">{c.unread}</span>}
-            </div>
-            {burning ? (
-              <div className="h-1 rounded-full bg-surface-2 overflow-hidden mt-0.5" aria-hidden="true">
-                <div className={`h-full rounded-full ${fraction < 1 / 12 ? 'bg-danger' : 'bg-spark'}`} style={{ width: `${fraction * 100}%` }} />
-              </div>
-            ) : (
-              <Pill tone={STATUS[c.status].tone} className="self-start">{STATUS[c.status].label}</Pill>
-            )}
-          </div>
-        </button>
-      </li>
-    )
-  }
+  const [query, setQuery] = useState('')
+  const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
+  const q = query.trim().toLowerCase()
+  const list = state.capsules
+    .filter((c) => state.people.some((x) => x.id === c.personId))
+    .filter((c) => !q || state.people.find((x) => x.id === c.personId)!.name.toLowerCase().includes(q))
+    .sort((a, b) => lastAt(b) - lastAt(a))
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <span className="eyebrow">72 часа на договорённость</span>
-        <h1 className="font-display font-bold text-2xl">Капсулы</h1>
-      </div>
-      {!hintSeen && (
-        <div className="relative rounded-[24px] bg-surface shadow-soft p-4 pr-11 text-[14px] leading-snug">
-          <p className="font-semibold mb-1">Что такое капсула</p>
-          <p className="text-muted">Это чат с человеком, на чей план вы откликнулись. На договорённость — 72 часа: не успели условиться о встрече — капсула сгорает. Точное место встречи видно только здесь.</p>
-          <button onClick={() => { setHintSeen(true); try { localStorage.setItem(HINT_KEY, '1') } catch { /* ignore */ } }}
-            className="absolute right-2 top-2 grid place-items-center w-9 h-9 rounded-full text-muted hover:text-fg cursor-pointer" aria-label="Понятно, скрыть подсказку"><Icon name="x" size={16} /></button>
-        </div>
+    <div className="flex flex-col gap-3">
+      <h1 className="font-display font-bold text-2xl">Чаты</h1>
+      {state.capsules.length > 3 && (
+        <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
+          <Icon name="search" size={16} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск по имени" aria-label="Поиск по чатам" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
+        </label>
       )}
-      {live.length ? <ul className="flex flex-col gap-1">{live.map(row)}</ul> : (
-        <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">Откликнитесь на план в ленте или в «Поиске», и здесь появится первая капсула.</div>
-      )}
-      {expired.length > 0 && (
-        <>
-          <h2 className="eyebrow mt-4">Сгоревшие</h2>
-          <ul className="flex flex-col gap-1 opacity-60">{expired.map(row)}</ul>
-        </>
+      {list.length ? (
+        <ul className="flex flex-col">
+          {list.map((c) => {
+            const p = state.people.find((x) => x.id === c.personId)!
+            const last = [...c.messages].reverse().find((m) => m.from !== 'system') ?? c.messages[c.messages.length - 1]
+            return (
+              <li key={c.id}>
+                <button onClick={() => onOpen(c.id)} className="w-full text-left flex items-center gap-3 py-2.5 px-3 -mx-3 rounded-2xl hover:bg-surface cursor-pointer">
+                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />
+                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold truncate">{p.name}</span>
+                      <span className={`shrink-0 text-[12px] tnum ${c.unread ? 'text-spark font-semibold' : 'text-muted'}`}>{when(lastAt(c), now)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-[14px] truncate ${c.unread ? 'text-fg font-semibold' : 'text-muted'}`}>
+                        {last ? `${last.from === 'me' ? 'Вы: ' : ''}${last.text}` : 'Нет сообщений'}
+                      </span>
+                      {c.unread > 0 && <span className="shrink-0 grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold">{c.unread}</span>}
+                    </div>
+                  </div>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">{q ? 'Никого не нашли.' : 'Здесь будут ваши переписки. Напишите человеку из его профиля или откликнитесь на план.'}</div>
       )}
     </div>
   )
@@ -105,6 +82,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [checkin, setCheckin] = useState(false)
   const [safety, setSafety] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
+  const [menu, setMenu] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { dispatch({ type: 'readCapsule', capsuleId: id }) }, [id, dispatch])
@@ -113,8 +91,6 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   if (!c) return null
   const p = state.people.find((x) => x.id === c.personId)!
   const a = state.activities.find((x) => x.id === c.activityId)
-  const expired = isExpired(c, now)
-  const fraction = Math.max(0, Math.min(1, (c.expiresAt - now) / CAPSULE_TTL))
 
   const send = (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,25 +114,15 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
     <div className="flex flex-col h-full">
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-surface/55 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку капсул"><Icon name="back" /></button>
+          <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer" aria-label={`Профиль ${p.name}`}>
           <Avatar name={p.name} hue={p.hue} src={p.photo} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{p.name}, {p.age}</div>
-            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.activityId ? 'Активность завершена' : 'Личные сообщения'}</div>
+            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в ISKRA'}</div>
           </div>
           </button>
-          <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="flag" size={18} /></button>
-        </div>
-        <div className="flex items-center gap-3">
-          {isBurning(c) ? (
-            <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden" aria-hidden="true">
-              <div className={`h-full rounded-full ${fraction < 1 / 12 ? 'bg-danger' : 'bg-spark'}`} style={{ width: `${fraction * 100}%` }} />
-            </div>
-          ) : (
-            <Pill tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Pill>
-          )}
-          <span className="ml-auto"><Timer c={c} now={now} big /></span>
+          <button onClick={() => setMenu(true)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Встреча и безопасность"><Icon name="more" size={20} /></button>
         </div>
       </header>
 
@@ -177,37 +143,24 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
       </div>
 
       <div className="sticky bottom-0 bg-surface/70 backdrop-blur-xl -mx-4 px-4 pt-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] flex flex-col gap-2 border-t border-line">
-        {expired ? (
-          <p className="text-center text-[13px] text-muted py-2">Капсула сгорела: за 72 часа вы не договорились. Можно откликнуться на новую активность {p.name}.</p>
-        ) : (
-          <>
-            {(actions.length > 0 || canMeet) && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                {canMeet && (
-                  <button onClick={() => setCheckin(true)} className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-brand text-white text-[13px] font-semibold cursor-pointer">
-                    <Icon name="check" size={14} /> Отметить встречу
-                  </button>
-                )}
-                {canMeet && !safetyHere && (
-                  <button onClick={() => setSafety(true)} className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-ok-soft text-ok text-[13px] font-semibold cursor-pointer">
-                    <Icon name="shield" size={14} /> Я на встрече
-                  </button>
-                )}
-                {actions.map((x) => (
-                  <button key={x.status} onClick={() => dispatch({ type: 'setStatus', capsuleId: c.id, status: x.status })}
-                    className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-surface-2 text-[13px] font-medium hover:brightness-95 cursor-pointer">
-                    <Icon name="check" size={14} /> {x.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            <form onSubmit={send} className="flex gap-2">
-              <input id="chat-input" aria-label="Сообщение" className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение по делу…" autoComplete="off" />
+        <form onSubmit={send} className="flex gap-2">
+              <input id="chat-input" aria-label="Сообщение" className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение…" autoComplete="off" />
               <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
             </form>
-          </>
-        )}
       </div>
+      <Sheet open={menu} onClose={() => setMenu(false)} title={p.name}>
+        <div className="flex flex-col gap-2">
+          {c.status !== 'active' && <Pill tone={STATUS[c.status].tone} className="self-start">{STATUS[c.status].label}</Pill>}
+          {a && <p className="text-[13px] text-muted">План: {a.title}. Место: {place}</p>}
+          {actions.map((x) => (
+            <Button key={x.status} variant="secondary" onClick={() => { dispatch({ type: 'setStatus', capsuleId: c.id, status: x.status }); setMenu(false) }}><Icon name="check" size={18} /> {x.label}</Button>
+          ))}
+          {canMeet && <Button variant="secondary" onClick={() => { setMenu(false); setCheckin(true) }}><Icon name="check" size={18} /> Отметить встречу</Button>}
+          {canMeet && !safetyHere && <Button variant="secondary" onClick={() => { setMenu(false); setSafety(true) }}><Icon name="shield" size={18} /> Я на встрече</Button>}
+          <Button variant="secondary" onClick={() => { setMenu(false); openProfile(p.id) }}><Icon name="user" size={18} /> Профиль</Button>
+          <Button variant="ghost" className="text-danger" onClick={() => { setMenu(false); setReporting(p) }}><Icon name="flag" size={18} /> Пожаловаться или заблокировать</Button>
+        </div>
+      </Sheet>
       <ReportSheet person={reporting} onClose={() => setReporting(null)} onBlocked={onBack} />
       <CheckinSheet capsule={c} person={p} open={checkin} onClose={() => setCheckin(false)} />
       <SafetySheet capsule={c} person={p} place={place} open={safety} onClose={() => setSafety(false)} />

@@ -214,7 +214,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
               <dl className="grid grid-cols-2 gap-3 text-[14px]">
                 <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Когда</dt><dd className="font-semibold">{planWhen(a, now)}</dd></div>
                 <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Сколько</dt><dd className="font-semibold">{a.timeHidden ? 'По договорённости' : a.durationMin >= 60 ? `${a.durationMin / 60} ч` : `${a.durationMin} мин`}</dd></div>
-                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2"><dt className="text-[12px] text-muted">Где</dt><dd className="font-semibold">{a.area}{person ? ' · точный адрес откроется в капсуле' : ` · ${a.exactPlace}`}</dd></div>
+                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2"><dt className="text-[12px] text-muted">Где</dt><dd className="font-semibold">{a.area}{person ? ' · точный адрес откроется в чате' : ` · ${a.exactPlace}`}</dd></div>
                 {compat && (
                   <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2">
                     <dt className="text-[12px] text-muted">Совпало в вайб-тесте</dt>
@@ -240,7 +240,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       ) : (
         <div className="mx-4 mt-3 flex flex-col gap-2">
           {a.groupSize && <GroupStack activity={a} />}
-          <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в капсуле: {a.exactPlace}</p>
+          <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в чате: {a.exactPlace}</p>
         </div>
       )}
 
@@ -261,7 +261,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}
         <CommentsPreview activity={a} onOpen={() => setComments(true)} />
-        <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в капсуле' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
+        <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в чате' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
 
       <Sheet open={menu} onClose={() => setMenu(false)} title="Действия">
@@ -352,7 +352,7 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
             <h2 className="font-display font-bold text-[26px] leading-tight drop-shadow">{a.title}</h2>
           </div>
           {responded ? (
-            <Button onClick={() => onOpenCapsule(a.id)} className="!bg-white !text-[#14152a]">Открыть капсулу</Button>
+            <Button onClick={() => onOpenCapsule(a.id)} className="!bg-white !text-[#14152a]">Открыть чат</Button>
           ) : (
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); onReply(a, text.trim() || 'Хочу с тобой!') }}>
               <input id="story-reply" aria-label="Ответить на план" value={text} onChange={(e) => setText(e.target.value)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}

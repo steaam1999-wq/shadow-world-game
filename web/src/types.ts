@@ -1,3 +1,5 @@
+import type { Track } from './music/engine'
+
 export type VibeAnswers = Record<string, string>
 
 export interface Person {
@@ -13,6 +15,7 @@ export interface Person {
   verified: boolean
   meetings: number
   photo?: string
+  songs?: Track[] // сохранённые онлайн-песни, которые видят другие
 }
 
 export interface Me {
@@ -26,9 +29,10 @@ export interface Me {
   verified: boolean
   meetings: number
   authMethod: 'telegram' | 'google' | 'phone' | 'email'
-  privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean }
+  privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean; hideSongs?: boolean }
   radiusKm: number
   photo?: string
+  songs?: Track[]
   freeUntil?: number // «Свободен сейчас» до этого времени
   trustedContact?: string // кому сообщить, если встреча пошла не так
 }
@@ -70,6 +74,16 @@ export interface Capsule {
   messages: Message[]
   unread: number
   again?: 'yes' | 'no' // мой тайный ответ «хочу встретиться ещё»
+}
+
+/** Шортс: короткое вертикальное видео. */
+export interface Short {
+  id: string
+  authorId: string // personId или 'me'
+  url: string
+  path?: string // путь файла в хранилище (облако)
+  caption: string
+  at: number
 }
 
 export interface PlanComment {
@@ -127,6 +141,7 @@ export interface State {
   isAdmin?: boolean
   comments?: PlanComment[] // комментарии под планами
   verification?: 'pending' | 'approved' | 'rejected' | null // моя заявка на верификацию
+  shorts?: Short[] // шортсы из облака (демо хранит свои в браузере)
 }
 
 export interface Safety {

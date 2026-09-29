@@ -94,7 +94,7 @@ export function plural(n: number, one: string, few: string, many: string) {
 
 /** Таймер тикает, только пока капсула в режиме переписки. */
 export const isBurning = (c: Capsule) => c.status === 'active'
-export const isExpired = (c: Capsule, now: number) => isBurning(c) && now >= c.expiresAt
+export const isExpired = (_c: Capsule, _now: number) => false // чаты больше не сгорают
 
 /** Подпись времени плана: скрытое время, «уже идёт» или «Сегодня, 19:30». */
 export function planWhen(a: Pick<Activity, 'startsAt' | 'timeHidden'>, now = Date.now()) {

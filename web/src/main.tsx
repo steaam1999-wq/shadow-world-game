@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { registerAlertsWorker } from './components/Alerts'
 
 // Сохранённую тему применяем до первого кадра: переключатель теперь живёт в настройках профиля.
 try {
@@ -14,3 +15,5 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+registerAlertsWorker()

@@ -1,4 +1,5 @@
 import { useStore } from '../store'
+import { formatKm } from '../places'
 import { compatibility, planWhen, relative } from '../lib'
 import type { Activity, Person } from '../types'
 import { joinLabel } from './Meet'
@@ -25,7 +26,7 @@ export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, 
         <div className="min-w-0 flex-1">
           <div className="font-semibold truncate">{person ? `${person.name}, ${person.age}` : 'Ваша активность'}</div>
           <div className="text-[12px] text-muted flex items-center gap-1">
-            <Icon name="pin" size={12} /> {activity.area}{person && <> · {person.distanceKm.toFixed(1).replace('.', ',')} км</>}
+            <Icon name="pin" size={12} /> {activity.area}{person && <> · {formatKm(person.distanceKm)}</>}
           </div>
         </div>
         {compat && (
@@ -53,7 +54,7 @@ export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, 
       {person ? (
         responded ? (
           <Button variant="secondary" onClick={() => onOpenCapsule(activity.id)}>
-            <Icon name="chat" size={18} /> Открыть капсулу
+            <Icon name="chat" size={18} /> Открыть чат
           </Button>
         ) : (
           <Button onClick={() => onRespond(activity)}>

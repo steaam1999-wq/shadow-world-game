@@ -65,8 +65,14 @@ interface PlayerApi {
 
 const Ctx = createContext<PlayerApi | null>(null)
 
+/** Что из трека уходит в профиль: без лишнего, чтобы список помещался в базу. */
+export function slimTrack(t: Track): Track {
+  const { id, title, artist, genre, hue, bpm, root, bars, url, source, cover, seconds } = t
+  return { id, title: title.slice(0, 120), artist: artist.slice(0, 80), genre, hue, bpm, root, bars, url, source, cover, seconds }
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const [track, setTrack] = useState<Track | null>(null)
   const [uploads, setUploads] = useState<Track[]>([])
   const songs = useRef(new Map<string, StoredSong>())
@@ -103,6 +109,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     try { return JSON.parse(localStorage.getItem(ONLINE_KEY) ?? '[]') as Track[] } catch { return [] }
   })
   useEffect(() => { try { localStorage.setItem(ONLINE_KEY, JSON.stringify(online)) } catch { /* ignore */ } }, [online])
+  // Песни, сохранённые на другом устройстве, приходят с профилем — добавляем их в «Любимые».
+  const serverSongs = state.cloud ? state.me?.songs : undefined
+  useEffect(() => {
+    if (!serverSongs?.length) return
+    setOnline((o) => { const add = serverSongs.filter((t) => !o.some((x) => x.id === t.id)); return add.length ? [...o, ...add] : o })
+    setLikes((l) => { const add = serverSongs.filter((t) => !l.includes(t.id)).map((t) => t.id); return add.length ? [...l, ...add] : l })
+  }, [serverSongs])
 
   const me = state.me
   const baseQueue = useMemo(() => {
@@ -225,7 +238,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     toggleLike: (id, t) => {
       const on = !likes.includes(id)
       setLikes((l) => (on ? [...l, id] : l.filter((x) => x !== id)))
-      if (t?.source) setOnline((o) => (on ? [t, ...o.filter((x) => x.id !== id)] : o.filter((x) => x.id !== id)))
+      const known = t ?? online.find((x) => x.id === id)
+      if (known?.source) {
+        const nextOnline = on ? [known, ...online.filter((x) => x.id !== id)] : online.filter((x) => x.id !== id)
+        setOnline(nextOnline)
+        // Любимые онлайн-песни видны в профиле другим людям.
+        if (state.me) dispatch({ type: 'updateMe', patch: { songs: nextOnline.slice(0, 40).map(slimTrack) } })
+      }
     },
   }
 

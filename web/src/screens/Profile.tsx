@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { DISTRICTS, VIBE_QUESTIONS } from '../data'
+import { PlaceOptions } from '../places'
+import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
@@ -9,6 +10,7 @@ import type { Activity } from '../types'
 import { GENRE_LABEL, usePlayer } from '../music/player'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
+import { AlertSettings } from '../components/Alerts'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
 import type { Genre } from '../music/engine'
 
@@ -189,16 +191,19 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
       <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
         <h2 className="font-display font-bold text-lg py-3">Приватность и геолокация</h2>
         <div className="py-3">
-          <Field id="me-district" label="Мой район">
+          <Field id="me-district" label="Мой город или район">
             <select id="me-district" className={inputCls} value={me.district} onChange={(e) => patch({ district: e.target.value })}>
-              {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
+              <PlaceOptions />
             </select>
           </Field>
         </div>
         <Toggle id="pv-approx" checked={me.privacy.approxLocation} onChange={(v) => patch({ privacy: { ...me.privacy, approxLocation: v } })} label="Только приблизительное местоположение" hint="Другие видят район, а не точку на карте" />
         <Toggle id="pv-age" checked={me.privacy.showExactAge} onChange={(v) => patch({ privacy: { ...me.privacy, showExactAge: v } })} label="Показывать точный возраст" hint="Иначе — диапазон, например 25–29" />
+        <Toggle id="pv-songs" checked={!me.privacy.hideSongs} onChange={(v) => patch({ privacy: { ...me.privacy, hideSongs: !v } })} label="Показывать мои любимые песни" hint="Другие видят их во вкладке «Песни» вашего профиля" />
         <Toggle id="pv-contacts" checked={me.privacy.hideFromContacts} onChange={(v) => patch({ privacy: { ...me.privacy, hideFromContacts: v } })} label="Скрыть от контактов телефона" hint="Коллеги и родственники вас не увидят" />
       </section>
+
+      <AlertSettings />
 
       <SafetySection onSignOut={onSignOut} />
 

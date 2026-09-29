@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { formatKm } from '../places'
 import { useStore } from '../store'
 import { compatibility, level, planWhen, plural, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
+import { PersonSongs, songsOf } from '../music/PersonSongs'
 import { Post } from './Feed'
 import { ReportSheet } from './Vibe'
 import { ReliabilityBadge } from '../components/Meet'
@@ -27,6 +29,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const p = state.people.find((x) => x.id === personId)
   const [open, setOpen] = useState<Activity | null>(null)
   const [reporting, setReporting] = useState<Person | null>(null)
+  const [tab, setTab] = useState<'plans' | 'songs'>('plans')
   if (!p) return null
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)
@@ -36,6 +39,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const lv = level(p.meetings)
   const followers = followerBase(p) + (following ? 1 : 0)
   const capsule = state.capsules.find((c) => c.personId === p.id)
+  const songCount = songsOf(p, !!state.cloud).length
 
   const message = () => {
     if (capsule) { onOpenChat(capsule.id); return }
@@ -69,7 +73,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             {p.name}, {p.age}
             {p.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
-          <div className="text-muted">{lv.name} · {p.district} · {p.distanceKm.toFixed(1).replace('.', ',')} км</div>
+          <div className="text-muted">{lv.name} · {p.district} · {formatKm(p.distanceKm)}</div>
           <ReliabilityBadge person={p} />
           <TrackChip track={personTrack(p)} />
           <p className="mt-1">{p.bio}</p>
@@ -91,10 +95,15 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         </div>
       </section>
 
-      <div className="grid grid-cols-3 border-t border-line mt-1">
-        <div className="h-11 col-span-3 grid place-items-center border-t border-fg -mt-px text-[13px] font-semibold gap-1"><span className="inline-flex items-center gap-1.5"><Icon name="grid" size={18} /> Планы</span></div>
+      <div className="grid grid-cols-2 border-t border-line mt-1" role="tablist">
+        {([['plans', 'grid', 'Планы'], ['songs', 'note', 'Песни']] as const).map(([id, icon, label]) => (
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={`h-11 grid place-items-center -mt-px text-[13px] font-semibold cursor-pointer ${tab === id ? 'border-t border-fg' : 'text-muted'}`}>
+            <span className="inline-flex items-center gap-1.5"><Icon name={icon} size={18} /> {label}{id === 'songs' && songCount ? ` · ${songCount}` : ''}</span>
+          </button>
+        ))}
       </div>
-      {plans.length ? (
+      {tab === 'songs' ? <PersonSongs person={p} /> : plans.length ? (
         <div className="grid grid-cols-3 gap-1 px-1">
           {plans.map((a) => (
             <button key={a.id} onClick={() => setOpen(a)} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer" aria-label={a.title}>

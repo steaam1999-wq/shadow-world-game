@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { CAPSULE_TTL, DISTRICT_XY } from '../data'
-import type { Activity, Capsule, CapsuleStatus, Me, Message, Person, PlanComment } from '../types'
+import { CAPSULE_TTL } from '../data'
+import { placeDistanceKm } from '../places'
+import type { Activity, Capsule, CapsuleStatus, Me, Message, Person, PlanComment, Short } from '../types'
+import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
 
 let client: SupabaseClient | null = null
@@ -10,12 +12,45 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; verified: boolean; meetings: number }
+interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; verified: boolean; meetings: number; songs?: Track[] | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; time_hidden: boolean; group_size: number | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string }
 
 const ms = (iso: string) => new Date(iso).getTime()
+
+interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; created_at: string }
+
+// Ссылки на закрытые видео выдаются на время. Кэшируем их, иначе при каждом обновлении
+// ссылка менялась бы и видео начиналось заново.
+const signed = new Map<string, { url: string; until: number }>()
+async function signShorts(paths: string[]) {
+  const now = Date.now()
+  const need = paths.filter((p) => (signed.get(p)?.until ?? 0) < now + 10 * 60_000)
+  if (need.length) {
+    const { data, error } = await sb().storage.from('shorts').createSignedUrls(need, 6 * 3600)
+    if (error) throw error
+    for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(d.path, { url: d.signedUrl, until: now + 6 * 3600_000 })
+  }
+  return new Map(paths.flatMap((p) => { const s = signed.get(p); return s ? [[p, s.url] as const] : [] }))
+}
+
+/** Загружает видео в хранилище и публикует шортс. */
+export async function uploadShort(userId: string, file: File, caption: string, duration: number) {
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4'
+  const path = `${userId}/${crypto.randomUUID()}.${ext}`
+  const type = file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
+  const up = await sb().storage.from('shorts').upload(path, file, { contentType: type, upsert: false })
+  if (up.error) throw up.error
+  const { error } = await sb().from('shorts').insert({ path, caption, duration })
+  if (error) { await sb().storage.from('shorts').remove([path]); throw error }
+}
+
+export async function deleteShort(id: string, path?: string) {
+  const { error } = await sb().from('shorts').delete().eq('id', id)
+  if (error) throw error
+  if (path) await sb().storage.from('shorts').remove([path])
+}
 
 /** Перевод ошибок Supabase на понятный язык. */
 export function humanError(e: unknown): string {
@@ -55,19 +90,13 @@ export async function currentUser() {
   return data.session?.user ?? null
 }
 
-function distanceKm(from: string, to: string) {
-  const a = DISTRICT_XY[from], b = DISTRICT_XY[to]
-  if (!a || !b) return 3
-  // Схема центра ≈ 12 км в поперечнике.
-  return Math.max(0.5, Math.round(Math.hypot(a[0] - b[0], a[1] - b[1]) * 1.2) / 10)
-}
-
 export function profileToMe(p: ProfileRow, local: Me | null): Me {
   return {
     privacy: { showExactAge: true, hideFromContacts: true, approxLocation: true }, radiusKm: 10,
     ...local,
     name: p.name, age: p.age, bio: p.bio, district: p.district, hue: p.hue, tags: p.tags, answers: p.answers,
     photo: p.photo ?? undefined, verified: p.verified, meetings: p.meetings, authMethod: 'email',
+    songs: local?.privacy?.hideSongs ? local.songs : (p.songs ?? []),
   }
 }
 
@@ -75,6 +104,7 @@ export async function saveProfile(userId: string, me: Me) {
   const { error } = await sb().from('profiles').upsert({
     id: userId, name: me.name, age: me.age, bio: me.bio, district: me.district, hue: me.hue,
     tags: me.tags, answers: me.answers, photo: me.photo ?? null, meetings: me.meetings,
+    songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50),
   })
   if (error) throw error
 }
@@ -86,8 +116,8 @@ export async function fetchMyProfile(userId: string) {
 }
 
 const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
-  agreed: 'Вы договорились о встрече. Таймер остановлен, капсула не сгорит.',
-  contacts: 'Вы обменялись контактами. Капсула сохранится.',
+  agreed: 'Вы договорились о встрече.',
+  contacts: 'Вы обменялись контактами.',
   met: 'Встреча состоялась. +1 к уровню доверия у обоих.',
 }
 
@@ -95,7 +125,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows] = await Promise.all([
     db.from('profiles').select('*').limit(500).returns<ProfileRow[]>(),
     db.from('plans').select('*').gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -103,8 +133,9 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.from('blocks').select('blocked').returns<{ blocked: string }[]>(),
     db.from('admins').select('user_id').returns<{ user_id: string }[]>(),
     db.from('verification_requests').select('status').eq('user_id', userId).maybeSingle<{ status: 'pending' | 'approved' | 'rejected' }>(),
+    db.from('shorts').select('*').order('created_at', { ascending: false }).limit(200).returns<ShortRow[]>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows]) if (r.error) throw r.error
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
   const blocked = (profiles.data ?? []).filter((p) => hidden.has(p.id)).map((p) => ({ id: p.id, name: p.name }))
@@ -131,8 +162,8 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
-    distanceKm: distanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
-    photo: p.photo ?? undefined,
+    distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
+    photo: p.photo ?? undefined, songs: Array.isArray(p.songs) ? p.songs : [],
   }))
 
   const activities: Activity[] = (plans.data ?? []).map((p) => ({
@@ -149,7 +180,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     const exact = c.plan_id ? place.get(c.plan_id) : undefined
     const rows = byCapsule.get(c.id) ?? []
     const msgs: Message[] = [
-      { id: `${c.id}-open`, from: 'system', text: c.plan_id ? 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.' : 'Личная переписка. У вас 72 часа, чтобы договориться о встрече.', at: created },
+      { id: `${c.id}-open`, from: 'system', text: c.plan_id ? 'Чат открыт. Договоритесь о встрече — точное место уже здесь.' : 'Личная переписка.', at: created },
       ...(exact ? [{ id: `${c.id}-place`, from: 'system' as const, text: `Точное место: ${exact}`, at: created }] : []),
       ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at) })),
       ...(c.status !== 'active' ? [{ id: `${c.id}-status`, from: 'system' as const, text: STATUS_NOTE[c.status], at: Date.now() }] : []),
@@ -161,7 +192,12 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
   })
-  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null }
+  const visibleShorts = (shortRows.data ?? []).filter((s) => !hidden.has(s.author))
+  const urls = await signShorts(visibleShorts.map((s) => s.path))
+  const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
+    id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, caption: s.caption, at: ms(s.created_at),
+  }))
+  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts }
 }
 
 export async function createPlan(userId: string, id: string, a: Omit<Activity, 'id' | 'authorId'>) {
@@ -216,6 +252,12 @@ export async function unblock(userId: string, personId: string) {
 }
 
 export async function deleteAccount() {
+  // Видео лежат в хранилище отдельно от базы — убираем свои файлы до удаления аккаунта.
+  const user = await currentUser()
+  if (user) {
+    const { data } = await sb().storage.from('shorts').list(user.id, { limit: 1000 })
+    if (data?.length) await sb().storage.from('shorts').remove(data.map((f) => `${user.id}/${f.name}`))
+  }
   const { error } = await sb().rpc('delete_my_account')
   if (error) throw error
   await sb().auth.signOut({ scope: 'local' })
@@ -307,7 +349,7 @@ export async function sendReport(target: string, reason: string, body: string) {
 /** Любое изменение в чате, капсулах, планах или профилях — повод перечитать данные. */
 export function subscribe(onChange: () => void) {
   const ch = sb().channel('iskra-live')
-  for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+  for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
   ch.subscribe()
   return () => { void sb().removeChannel(ch) }
 }

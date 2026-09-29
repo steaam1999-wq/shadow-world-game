@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { DISTRICTS, DISTRICT_XY, HOUR } from '../data'
+import { PlaceOptions, placeDistanceKm, placeInfo, placeXY } from '../places'
+import { HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
 import { PostArt } from '../components/PostArt'
@@ -9,7 +10,7 @@ import { Post } from './Feed'
 import { Vibe } from './Vibe'
 import type { Activity } from '../types'
 
-const RADII = [1, 3, 5, 10]
+const RADII = [3, 10, 50, 500]
 const TIMES = [
   { id: 'all', label: 'Любое время' },
   { id: 'now', label: 'Ближайшие 3 ч' },
@@ -39,7 +40,8 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       .filter((a) => a.expiresAt > now)
       .filter((a) => {
         const p = state.people.find((x) => x.id === a.authorId)
-        return a.authorId === 'me' || (p && p.distanceKm <= me.radiusKm)
+        const km = placeInfo(a.area) && placeInfo(me.district) ? placeDistanceKm(me.district, a.area) : p?.distanceKm
+        return a.authorId === 'me' || (p && km !== undefined && km <= me.radiusKm)
       })
       .filter((a) => !cats.length || cats.includes(a.category))
       .filter((a) => !groupsOnly || !!a.groupSize)
@@ -85,7 +87,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
         <div className="flex flex-col gap-2">
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
             {RADII.map((r) => (
-              <Chip key={r} active={me.radiusKm === r} onClick={() => dispatch({ type: 'updateMe', patch: { radiusKm: r } })}>до {r} км</Chip>
+              <Chip key={r} active={me.radiusKm === r} onClick={() => dispatch({ type: 'updateMe', patch: { radiusKm: r } })}>{r === 500 ? 'Вся страна' : `до ${r} км`}</Chip>
             ))}
             <span className="w-px bg-line shrink-0 mx-1" />
             {TIMES.map((t) => <Chip key={t.id} active={time === t.id} onClick={() => setTime(t.id)}>{t.label}</Chip>)}
@@ -158,21 +160,42 @@ function EmptyResults({ onReset }: { onReset: () => void }) {
   )
 }
 
+// Грубый контур Беларуси (широта, долгота) — только чтобы было понятно, где точки.
+const BY_BORDER: [number, number][] = [[56.17, 28.15], [55.8, 30.9], [55.3, 30.95], [54.9, 30.8], [54.4, 31.3], [53.8, 32.0], [53.3, 32.7], [52.9, 32.1], [52.3, 31.6],
+  [52.1, 31.8], [51.6, 30.6], [51.3, 30.5], [51.5, 29.3], [51.4, 28.0], [51.6, 26.0], [51.5, 25.0], [51.6, 23.6], [52.2, 23.2], [52.7, 23.9], [53.4, 23.6],
+  [53.9, 23.5], [54.15, 25.8], [54.9, 25.8], [55.6, 26.6], [55.8, 27.6]]
+const BY_CITIES = ['Минск', 'Брест', 'Гродно', 'Витебск', 'Могилёв', 'Гомель']
+const byXY = (lat: number, lon: number): [number, number] => [((lon - 23.0) / 10.2) * 90 + 5, ((56.3 - lat) / 5.2) * 90 + 5]
+
 function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[]; selected: string | null; onSelect: (id: string) => void; myDistrict: string }) {
-  const [dx, dy] = DISTRICT_XY[myDistrict] ?? [50, 50]
-  const [mx, my] = [dx + 4, dy + 5] // смещение, чтобы метка не совпадала с активностями района
+  const belarus = (placeInfo(myDistrict)?.country ?? 'by') === 'by'
+  const [dx, dy] = placeXY(myDistrict)
+  const [mx, my] = belarus ? [dx, dy] : [dx + 4, dy + 5] // в Москве смещаем, чтобы метка не совпадала с активностями района
+  const shown = items.filter((a) => (placeInfo(a.area)?.country ?? 'ru') === (belarus ? 'by' : 'ru'))
   return (
     <div className="relative rounded-[28px] overflow-hidden bg-surface-2 aspect-square max-w-full">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" role="img" aria-label="Схема центра Москвы с активностями">
-        {/* Садовое кольцо и Бульварное */}
-        <ellipse cx="50" cy="52" rx="38" ry="36" fill="none" stroke="var(--line)" strokeWidth="1.6" />
-        <ellipse cx="50" cy="48" rx="20" ry="18" fill="none" stroke="var(--line)" strokeWidth="1" strokeDasharray="2 1.5" />
-        {/* Москва-река */}
-        <path d="M-2 62 C 14 58, 22 92, 40 90 S 52 66, 50 58 S 66 50, 78 70 S 94 76, 102 70" fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth="4" strokeLinecap="round" />
+      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" role="img" aria-label={belarus ? 'Карта Беларуси с активностями' : 'Схема центра Москвы с активностями'}>
+        {belarus ? (
+          <>
+            <polygon points={BY_BORDER.map(([la, lo]) => byXY(la, lo).map((v) => v.toFixed(1)).join(',')).join(' ')} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.2" strokeLinejoin="round" />
+            {BY_CITIES.map((c) => {
+              const [x, y] = placeXY(c)
+              return <g key={c} aria-hidden="true"><circle cx={x} cy={y} r=".9" fill="var(--muted)" /><text x={x} y={y - 2.2} textAnchor="middle" fontSize="3.4" fill="var(--muted)">{c}</text></g>
+            })}
+          </>
+        ) : (
+          <>
+            {/* Садовое кольцо и Бульварное */}
+            <ellipse cx="50" cy="52" rx="38" ry="36" fill="none" stroke="var(--line)" strokeWidth="1.6" />
+            <ellipse cx="50" cy="48" rx="20" ry="18" fill="none" stroke="var(--line)" strokeWidth="1" strokeDasharray="2 1.5" />
+            {/* Москва-река */}
+            <path d="M-2 62 C 14 58, 22 92, 40 90 S 52 66, 50 58 S 66 50, 78 70 S 94 76, 102 70" fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth="4" strokeLinecap="round" />
+          </>
+        )}
         {/* Моё положение — приблизительно */}
-        <circle cx={mx} cy={my} r="9" fill="var(--cobalt)" fillOpacity=".12" />
+        <circle cx={mx} cy={my} r={belarus ? 5 : 9} fill="var(--cobalt)" fillOpacity=".12" />
         <circle cx={mx} cy={my} r="1.8" fill="var(--cobalt)" stroke="var(--surface)" strokeWidth=".8" />
-        {items.map((a) => {
+        {shown.map((a) => {
           const on = a.id === selected
           return (
             <g key={a.id} onClick={() => onSelect(a.id)} className="cursor-pointer" role="button" aria-label={a.title}>
@@ -185,7 +208,7 @@ function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[];
       </svg>
       <div className="absolute left-3 bottom-3 flex gap-3 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-spark" /> активность</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы (район)</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы ({belarus ? 'город' : 'район'})</span>
       </div>
     </div>
   )
@@ -195,7 +218,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const { state, dispatch } = useStore()
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState(state.categories[0])
-  const [area, setArea] = useState(state.me?.district ?? DISTRICTS[0])
+  const [area, setArea] = useState(state.me?.district ?? 'Минск')
   const [exactPlace, setExactPlace] = useState('')
   const [day, setDay] = useState<'today' | 'tomorrow'>('today')
   const [clock, setClock] = useState('19:00')
@@ -214,14 +237,14 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
     if (startsAt < now) startsAt = now + 0.5 * HOUR
     // Время скрыто: план висит стандартные 48 часов, о времени договариваются в капсуле.
     if (hideTime) startsAt = now
-    const [x, y] = DISTRICT_XY[area] ?? [50, 50]
+    const [x, y] = placeXY(area)
     dispatch({
       type: 'createActivity',
       activity: {
-        title: title.trim(), category, area, exactPlace: exactPlace.trim() || 'Уточню в капсуле', startsAt,
+        title: title.trim(), category, area, exactPlace: exactPlace.trim() || 'Уточню в чате', startsAt,
         durationMin: hideTime ? 0 : duration, timeHidden: hideTime || undefined,
         ...(groupSize ? { groupSize, members: [] } : {}),
-        expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 6 - 3), y: y + (Math.random() * 6 - 3), photo,
+        expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 3 - 1.5), y: y + (Math.random() * 3 - 1.5), photo,
       },
     })
     setTitle(''); setExactPlace(''); setPhoto(undefined)
@@ -265,7 +288,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         </div>
         <div className="rounded-2xl bg-surface-2 px-3.5">
           <Toggle id="act-hide-time" checked={hideTime} onChange={setHideTime} label="Не показывать время"
-            hint={hideTime ? 'В посте будет «Время обсудим» — договоритесь в капсуле' : 'Скрыть «когда», «во сколько» и длительность'} />
+            hint={hideTime ? 'В посте будет «Время обсудим» — договоритесь в чате' : 'Скрыть «когда», «во сколько» и длительность'} />
         </div>
         {!hideTime && <>
         <div className="grid grid-cols-2 gap-3">
@@ -285,12 +308,12 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
           </select>
         </Field>
         </>}
-        <Field id="act-area" label="Район (виден всем)">
+        <Field id="act-area" label="Город или район (виден всем)">
           <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
-            {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
+            <PlaceOptions />
           </select>
         </Field>
-        <Field id="act-place" label="Точное место (увидит только тот, с кем откроется капсула)">
+        <Field id="act-place" label="Точное место (увидит только тот, с кем откроется чат)">
           <input id="act-place" className={inputCls} value={exactPlace} onChange={(e) => setExactPlace(e.target.value)} placeholder="Кофейня у выхода из метро" maxLength={80} />
         </Field>
         <Button type="submit" disabled={!title.trim()} className="h-12">Опубликовать на 48 часов</Button>

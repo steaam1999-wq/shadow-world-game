@@ -130,10 +130,10 @@ const CAPSULES = (now: number): Capsule[] => [
     id: 'c1', personId: 'p1', activityId: 'a1', createdAt: now - 14 * HOUR, expiresAt: now - 14 * HOUR + CAPSULE_TTL,
     status: 'agreed', unread: 1,
     messages: [
-      { id: 'm1', from: 'system', text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now - 14 * HOUR },
+      { id: 'm1', from: 'system', text: 'Чат открыт. Договоритесь о встрече — точное место уже здесь.', at: now - 14 * HOUR },
       { id: 'm2', from: 'me', text: 'Привет! Дейнека — любовь. Во сколько идёшь?', at: now - 13.9 * HOUR },
       { id: 'm3', from: 'them', text: 'Думаю к шести. Потом можно на Крымскую набережную.', at: now - 13 * HOUR },
-      { id: 'm4', from: 'system', text: 'Вы договорились о встрече. Таймер остановлен, капсула не сгорит.', at: now - 12.8 * HOUR },
+      { id: 'm4', from: 'system', text: 'Вы договорились о встрече.', at: now - 12.8 * HOUR },
       { id: 'm5', from: 'them', text: 'Я буду в зелёной куртке у главного входа.', at: now - 1 * HOUR },
     ],
   },
@@ -141,7 +141,7 @@ const CAPSULES = (now: number): Capsule[] => [
     id: 'c2', personId: 'p6', activityId: 'a6', createdAt: now - 67 * HOUR, expiresAt: now - 67 * HOUR + CAPSULE_TTL,
     status: 'active', unread: 0,
     messages: [
-      { id: 'm1', from: 'system', text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now - 67 * HOUR },
+      { id: 'm1', from: 'system', text: 'Чат открыт. Договоритесь о встрече — точное место уже здесь.', at: now - 67 * HOUR },
       { id: 'm2', from: 'them', text: 'Привет! Зерно из Кении приехало, заходи попробовать.', at: now - 66 * HOUR },
       { id: 'm3', from: 'me', text: 'Звучит отлично. Какие дни у тебя свободны?', at: now - 40 * HOUR },
     ],
@@ -150,7 +150,7 @@ const CAPSULES = (now: number): Capsule[] => [
     id: 'c3', personId: 'p4', activityId: 'a4', createdAt: now - 80 * HOUR, expiresAt: now - 8 * HOUR,
     status: 'active', unread: 0,
     messages: [
-      { id: 'm1', from: 'system', text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now - 80 * HOUR },
+      { id: 'm1', from: 'system', text: 'Чат открыт. Договоритесь о встрече — точное место уже здесь.', at: now - 80 * HOUR },
       { id: 'm2', from: 'me', text: 'Привет! Давно хочу научиться снимать на плёнку.', at: now - 79 * HOUR },
     ],
   },
@@ -196,7 +196,7 @@ export const ANALYTICS = {
   registrations: [42, 38, 51, 47, 63, 88, 94, 55, 49, 58, 61, 79, 112, 97],
   funnel: [
     { label: 'Отклики на активности', value: 1840 },
-    { label: 'Открытые капсулы', value: 1126 },
+    { label: 'Открытые чаты', value: 1126 },
     { label: 'Договорились о встрече', value: 412 },
     { label: 'Встреча состоялась', value: 268 },
   ],

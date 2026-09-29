@@ -9,10 +9,18 @@ import { GroupStack, groupFull, joinLabel } from '../components/Meet'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import type { Activity, Person } from '../types'
+import { ShortsFeed } from './Shorts'
 
 /** Вертикальная лента на весь экран: один план — один экран, листается свайпом вверх. */
-export function Reels({ now, onRespond, onOpenCapsule }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void }) {
+export function Reels({ now, onRespond, onOpenCapsule, onMessage }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void; onMessage: (personId: string) => void }) {
   const { state } = useStore()
+  const [mode, setMode] = useState<'plans' | 'shorts'>(() => { try { return sessionStorage.getItem('iskra-reels-mode') === 'shorts' ? 'shorts' : 'plans' } catch { return 'plans' } })
+  const scroller = useRef<HTMLDivElement>(null)
+  const pick = (m: 'plans' | 'shorts') => {
+    setMode(m)
+    scroller.current?.scrollTo({ top: 0 })
+    try { sessionStorage.setItem('iskra-reels-mode', m) } catch { /* ignore */ }
+  }
   const items = state.activities
     .filter((a) => a.expiresAt > now && a.authorId !== 'me')
     .map((a) => ({ a, p: state.people.find((p) => p.id === a.authorId)! }))
@@ -20,11 +28,23 @@ export function Reels({ now, onRespond, onOpenCapsule }: { now: number; onRespon
     .sort((x, y) => compatibility(state.me!, y.p).score - compatibility(state.me!, x.p).score)
 
   return (
-    <div className="h-[calc(100dvh-env(safe-area-inset-top,0px))] overflow-y-auto no-scrollbar snap-y snap-mandatory bg-black">
-      {items.map(({ a, p }) => (
-        <Reel key={a.id} a={a} p={p} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />
-      ))}
-      {!items.length && <div className="h-full grid place-items-center text-white/70 p-8 text-center">Новых планов пока нет. Загляните через час.</div>}
+    <div className="relative">
+      <div className="fixed z-20 left-1/2 -translate-x-1/2 top-[calc(10px+env(safe-area-inset-top,0px))] flex rounded-full bg-black/30 backdrop-blur-md p-1 text-white text-[14px] font-semibold" role="tablist" aria-label="Что смотреть">
+        {([['plans', 'Планы'], ['shorts', 'Шортсы']] as const).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={mode === id} onClick={() => pick(id)}
+            className={`h-8 px-4 rounded-full cursor-pointer transition ${mode === id ? 'bg-white text-black' : 'text-white/85'}`}>{label}</button>
+        ))}
+      </div>
+      <div ref={scroller} className="h-[calc(100dvh-env(safe-area-inset-top,0px))] overflow-y-auto no-scrollbar snap-y snap-mandatory bg-black">
+        {mode === 'shorts' ? <ShortsFeed onMessage={onMessage} /> : (
+          <>
+            {items.map(({ a, p }) => (
+              <Reel key={a.id} a={a} p={p} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />
+            ))}
+            {!items.length && <div className="h-full grid place-items-center text-white/70 p-8 text-center">Новых планов пока нет. Загляните через час.</div>}
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -55,7 +75,6 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
     <section className="relative h-full snap-start snap-always overflow-hidden text-white" aria-label={a.title}>
       <div className="absolute inset-0 scale-110" onClick={onTap}><PostArt activity={a} /></div>
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/35 via-transparent to-black/70" />
-      <div className="absolute left-4 top-3 font-display font-semibold text-[20px] drop-shadow pointer-events-none">Планы</div>
       {pop > 0 && (
         <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none drop-shadow-lg"><Icon name="heart" size={120} fill /></span>
       )}

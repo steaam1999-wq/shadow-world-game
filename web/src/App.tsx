@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
@@ -16,6 +16,7 @@ import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { CloudSync } from './cloud/CloudSync'
+import { MessageAlerts } from './components/Alerts'
 import { fetchMyProfile, profileToMe } from './cloud/api'
 import { cloudEnabled } from './cloud/config'
 import { NewPassword } from './screens/NewPassword'
@@ -146,6 +147,16 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     if (c) { setPendingInvite(null); setPerson(null); setTab('capsules'); setChat(c.id) }
   }, [pendingInvite, state.capsules])
 
+  // Написать человеку: есть переписка — открываем её, нет — создаём личный чат.
+  const messagePerson = (personId: string) => {
+    const c = state.capsules.find((x) => x.personId === personId)
+    if (c) { openChatById(c.id); return }
+    const id = crypto.randomUUID()
+    dispatch({ type: 'directMessage', personId, capsuleId: id })
+    openChatById(id)
+  }
+  const openChatById = useCallback((id: string) => { setPerson(null); setTab('capsules'); setChat(id) }, [])
+
   const respond = (a: Activity, text?: string) => {
     dispatch({ type: 'respond', activityId: a.id, text })
     setToast(a)
@@ -188,7 +199,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
         {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} onInvite={invite} />}
         {!person && tab === 'music' && <MusicPage />}
-        {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
+        {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onMessage={messagePerson} />}
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
         {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
@@ -197,6 +208,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       {!inChat && (tab !== 'reels' || person) && <MiniPlayer />}
       <SafetyBanner now={now} top={inChat ? 104 : 64} />
       <FullPlayer />
+      <MessageAlerts openChat={tab === 'capsules' && !person ? chat : null} onOpen={openChatById} />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
@@ -211,8 +223,8 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(160px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
           <Icon name="spark" size={22} className="text-spark shrink-0" fill />
           <div className="flex-1 min-w-0">
-            <div className="font-semibold">Капсула открыта</div>
-            <div className="text-[13px] text-muted">72 часа, чтобы договориться. Точное место уже в чате.</div>
+            <div className="font-semibold">Чат открыт</div>
+            <div className="text-[13px] text-muted">Напишите первым — точное место уже в чате.</div>
           </div>
           <button onClick={() => openCapsuleByActivity(toast.id)} className="shrink-0 h-9 px-4 rounded-xl bg-brand text-white font-semibold text-[14px] cursor-pointer">В чат</button>
         </div>
@@ -255,7 +267,7 @@ function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; o
     ...state.capsules.filter((c) => !isExpired(c, now) && state.people.some((x) => x.id === c.personId)).map((c) => {
       const p = state.people.find((x) => x.id === c.personId)!
       const last = [...c.messages].reverse().find((m) => m.from === 'them')
-      return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Капсула с ${p.name} открыта`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }
+      return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Чат с ${p.name}`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }
     }),
     // Отметки планов в демо выдуманы; с сервером таких данных пока нет — не показываем.
     ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i) => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { PlaceOptions } from '../places'
 import { useStore } from '../store'
-import { DISTRICTS } from '../data'
 import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls } from './ui'
 import type { Me } from '../types'
 
@@ -147,9 +147,9 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
               <input id="me-age" className={`${inputCls} tnum`} type="number" inputMode="numeric" min={18} max={99} value={age} onChange={(e) => setAge(e.target.value)} />
             </Field>
           </div>
-          <Field id="me-district" label="Район (другие видят только его)">
+          <Field id="me-district" label="Город или район (другие видят только его)">
             <select id="me-district" className={inputCls} value={draft.district} onChange={(e) => set({ district: e.target.value })}>
-              {DISTRICTS.map((d) => <option key={d}>{d}</option>)}
+              <PlaceOptions />
             </select>
           </Field>
           <Field id="me-bio" label="О себе">

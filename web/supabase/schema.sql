@@ -17,6 +17,12 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Сохранённые песни в профиле: другие видят, что человек слушает (только ссылки на онлайн-треки).
+alter table public.profiles add column if not exists songs jsonb not null default '[]';
+alter table public.profiles drop constraint if exists profiles_songs_check;
+alter table public.profiles add constraint profiles_songs_check
+  check (jsonb_typeof(songs) = 'array' and jsonb_array_length(songs) <= 50 and octet_length(songs::text) <= 60000);
+
 -- Планы: видны всем вошедшим. Точное место хранится отдельно (plan_secrets).
 create table if not exists public.plans (
   id uuid primary key default gen_random_uuid(),
@@ -158,8 +164,8 @@ create policy "reports: send" on public.reports for insert to authenticated with
 
 -- Профиль: менять можно только свои «анкетные» поля. verified ставит только сервер/админ.
 revoke insert, update on public.profiles from authenticated;
-grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings) on public.profiles to authenticated;
-grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings) on public.profiles to authenticated;
+grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs) on public.profiles to authenticated;
+grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs) on public.profiles to authenticated;
 
 create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade
@@ -316,6 +322,47 @@ create policy "comments: delete" on public.plan_comments for delete to authentic
   or exists (select 1 from plans p where p.id = plan_id and p.author = (select auth.uid()))
 );
 
+-- Шортсы: короткие вертикальные видео. Файл лежит в закрытом хранилище shorts/<автор>/<файл>,
+-- смотреть могут только вошедшие пользователи.
+create table if not exists public.shorts (
+  id uuid primary key default gen_random_uuid(),
+  author uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  path text not null check (char_length(path) <= 200),
+  caption text not null default '' check (char_length(caption) <= 200),
+  duration real,
+  created_at timestamptz not null default now()
+);
+create index if not exists shorts_author_idx on public.shorts (author);
+create index if not exists shorts_created_idx on public.shorts (created_at desc);
+alter table public.shorts enable row level security;
+revoke all on public.shorts from anon, authenticated;
+grant select, delete on public.shorts to authenticated;
+grant insert (path, caption, duration) on public.shorts to authenticated;
+drop policy if exists "shorts: read" on public.shorts;
+create policy "shorts: read" on public.shorts for select to authenticated
+  using (author = (select auth.uid()) or private.is_admin() or (not private.is_banned(author) and not private.blocked_between(author, (select auth.uid()))));
+drop policy if exists "shorts: add own" on public.shorts;
+create policy "shorts: add own" on public.shorts for insert to authenticated with check (
+  author = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and path like (select auth.uid())::text || '/%'
+);
+drop policy if exists "shorts: delete" on public.shorts;
+create policy "shorts: delete" on public.shorts for delete to authenticated using (author = (select auth.uid()) or private.is_admin());
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('shorts', 'shorts', false, 52428800, array['video/mp4', 'video/quicktime', 'video/webm'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "shorts files: read" on storage.objects;
+create policy "shorts files: read" on storage.objects for select to authenticated using (bucket_id = 'shorts');
+drop policy if exists "shorts files: upload own" on storage.objects;
+create policy "shorts files: upload own" on storage.objects for insert to authenticated with check (
+  bucket_id = 'shorts' and (storage.foldername(name))[1] = (select auth.uid())::text and not private.is_banned((select auth.uid()))
+);
+drop policy if exists "shorts files: delete own" on storage.objects;
+create policy "shorts files: delete own" on storage.objects for delete to authenticated using (
+  bucket_id = 'shorts' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
+);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
@@ -332,4 +379,5 @@ begin
   begin alter publication supabase_realtime add table public.plans; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.plan_comments; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.shorts; exception when duplicate_object then null; end;
 end $$;
