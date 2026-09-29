@@ -8,6 +8,7 @@ import { PostsViewer } from '../components/PostsViewer'
 import type { Activity } from '../types'
 import { GENRE_LABEL, usePlayer } from '../music/player'
 import { RulesSheet } from '../components/Rules'
+import { ProfileEditor } from '../components/ProfileEditor'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
 import type { Genre } from '../music/engine'
 
@@ -51,14 +52,10 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
       {/* Шапка в духе Инстаграма: фото, счётчики, имя и био */}
       <section className="flex flex-col gap-3 px-4 pt-3">
         <div className="flex items-center gap-6">
-          <label htmlFor="photo" className="relative cursor-pointer shrink-0" title="Сменить фото">
+          <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
             <Avatar name={me.name} hue={me.hue} src={me.photo} size={86} />
-            <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
-          </label>
-          <input id="photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
-            const f = e.target.files?.[0]
-            if (f) try { patch({ photo: await readPhoto(f, 400) }) } catch { /* не изображение */ }
-          }} />
+            <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
+          </button>
           <dl className="flex-1 grid grid-cols-3 text-center">
             {[[myPlans.length, plural(myPlans.length, 'план', 'плана', 'планов')], [me.meetings, plural(me.meetings, 'встреча', 'встречи', 'встреч')], [lv.idx, 'уровень']].map(([v, l]) => (
               <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></div>
@@ -212,25 +209,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
       </div>
       </div>}
 
-      <Sheet open={editing} onClose={() => setEditing(false)} title="Редактировать профиль">
-        <div className="flex flex-col gap-4">
-          <Field id="me-name" label="Имя">
-            <input id="me-name" className={inputCls} value={me.name} onChange={(e) => patch({ name: e.target.value })} maxLength={30} />
-          </Field>
-          <Field id="me-bio" label="О себе">
-            <textarea id="me-bio" className={`${inputCls} h-24 py-2 resize-none`} value={me.bio} onChange={(e) => patch({ bio: e.target.value })} maxLength={200} placeholder="Пара предложений о себе" />
-          </Field>
-          <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-semibold text-muted">Интересы</span>
-            <div className="flex flex-wrap gap-2">
-              {state.tags.map((t) => (
-                <Chip key={t} active={me.tags.includes(t)} onClick={() => patch({ tags: me.tags.includes(t) ? me.tags.filter((x) => x !== t) : [...me.tags, t] })}>{t}</Chip>
-              ))}
-            </div>
-          </div>
-          <Button onClick={() => setEditing(false)} disabled={!me.name.trim()}>Готово</Button>
-        </div>
-      </Sheet>
+      <ProfileEditor open={editing} onClose={() => setEditing(false)} />
 
       <Sheet open={editVibe} onClose={() => setEditVibe(false)} title="Вайб-тест">
         <div className="flex flex-col gap-5">
