@@ -68,19 +68,19 @@ export function Explore({ now, onRespond, onOpenCapsule, onContact }: { now: num
 
   return (
     <div className="flex flex-col gap-3 pt-2">
-      <div className="px-4">
+      {mode !== 'market' && <div className="px-4">
         <label htmlFor="search" className="flex items-center gap-2 h-11 rounded-2xl bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={18} />
           <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск: выставка, кофе, Таганка…" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
           {query && <button onClick={() => setQuery('')} aria-label="Очистить поиск" className="cursor-pointer"><Icon name="x" size={16} /></button>}
         </label>
-      </div>
+      </div>}
 
-      <div className="overflow-x-auto no-scrollbar">
-        <div className="grid grid-cols-4 border-b border-line min-w-max" role="tablist">
+      <div>
+        <div className="grid grid-cols-4 border-b border-line" role="tablist">
           {([['plans', 'grid', 'Планы'], ['people', 'people', 'Люди'], ['map', 'map', 'Карта'], ['market', 'bag', 'Маркет']] as const).map(([id, icon, label]) => (
             <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
-              className={`h-11 flex items-center justify-center gap-1.5 text-[13px] font-semibold border-b-2 -mb-px cursor-pointer whitespace-nowrap px-3 ${mode === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
+              className={`h-11 flex items-center justify-center gap-1.5 text-[13px] font-semibold border-b-2 -mb-px cursor-pointer whitespace-nowrap min-w-0 ${mode === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
               <Icon name={icon} size={17} /> {label}
             </button>
           ))}
