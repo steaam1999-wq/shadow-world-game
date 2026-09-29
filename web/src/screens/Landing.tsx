@@ -3,6 +3,8 @@ import { useStore } from '../store'
 import { Avatar, Button, Field, Icon, Logo, ThemeToggle, inputCls } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import type { Me } from '../types'
+import { cloudEnabled } from '../cloud/config'
+import { humanError, signIn, signUp } from '../cloud/api'
 
 // Пример аккаунта: открывается одной кнопкой, чтобы посмотреть приложение без регистрации.
 export const DEMO_ME: Me = {
@@ -22,10 +24,11 @@ const DEMO_PLANS = [
 type Mode = 'login' | 'register'
 const LOGIN_KEY = 'iskra-last-login'
 
-export function Landing({ onDemo, onLogin, onRegister }: {
+export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   onDemo: (remember: boolean) => void
   onLogin: (remember: boolean) => void
   onRegister: (name: string, method: Me['authMethod'], remember: boolean) => void
+  onCloudAuth: (userId: string, email: string, name: string, remember: boolean) => Promise<void>
 }) {
   const { state, dispatch } = useStore()
   const [mode, setMode] = useState<Mode>('login')
@@ -44,9 +47,36 @@ export function Landing({ onDemo, onLogin, onRegister }: {
   const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  // С сервером: настоящий вход по почте и паролю через Supabase.
+  const cloudSubmit = async () => {
+    const email = login.trim().toLowerCase()
+    if (!email.includes('@')) return setError('Введите почту — вход по телефону появится позже')
+    if (password.length < 6) return setError('Пароль должен быть не короче 6 символов')
+    if (mode === 'register' && !name.trim()) return setError('Как вас зовут?')
+    setError(''); setInfo(''); setBusy(true)
+    try {
+      keepLogin()
+      if (mode === 'login') {
+        const user = await signIn(email, password)
+        await onCloudAuth(user.id, email, '', remember)
+      } else {
+        const user = await signUp(email, password)
+        if (user) await onCloudAuth(user.id, email, name.trim(), remember)
+        else { setMode('login'); setPassword(''); setInfo(`Мы отправили письмо на ${email}. Откройте его, нажмите ссылку для подтверждения и войдите.`) }
+      }
+    } catch (err) {
+      setError(humanError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (cloudEnabled) { void cloudSubmit(); return }
     if (!login.trim()) return setError('Введите телефон или почту')
     if (password.length < 6) return setError('Пароль должен быть не короче 6 символов')
     if (mode === 'register') {
@@ -81,7 +111,7 @@ export function Landing({ onDemo, onLogin, onRegister }: {
 
               {quick && (
                 <div className="flex flex-col gap-2">
-                  <button onClick={() => onLogin(true)} className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3 text-left cursor-pointer hover:brightness-95">
+                  <button onClick={() => (cloudEnabled ? setOtherAccount(true) : onLogin(true))} className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3 text-left cursor-pointer hover:brightness-95">
                     <Avatar name={quick.name} hue={quick.hue} src={quick.photo} size={44} verified={quick.verified} />
                     <span className="flex-1 min-w-0">
                       <span className="block font-semibold truncate">Продолжить как {quick.name}</span>
@@ -101,8 +131,8 @@ export function Landing({ onDemo, onLogin, onRegister }: {
                     <input id="reg-name" name="name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" placeholder="Как вас называть" />
                   </Field>
                 )}
-                <Field id="auth-login" label="Телефон или почта">
-                  <input id="auth-login" name="username" className={inputCls} value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" placeholder="+7 900 000-00-00" />
+                <Field id="auth-login" label={cloudEnabled ? 'Почта' : 'Телефон или почта'}>
+                  <input id="auth-login" name="username" type={cloudEnabled ? 'email' : 'text'} className={inputCls} value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" placeholder={cloudEnabled ? 'you@mail.ru' : '+7 900 000-00-00'} />
                 </Field>
                 <Field id="auth-password" label="Пароль">
                   <div className="relative">
@@ -121,9 +151,11 @@ export function Landing({ onDemo, onLogin, onRegister }: {
                   </span>
                 </label>
                 {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-                <Button type="submit" className="h-12 mt-1">{mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
+                {info && <p className="text-[13px] text-ok" role="status">{info}</p>}
+                <Button type="submit" className="h-12 mt-1" disabled={busy}>{busy ? 'Минутку…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
               </form>}
 
+              {!cloudEnabled && <>
               <div className="flex items-center gap-3 text-[12px] text-muted"><span className="flex-1 h-px bg-line" />или<span className="flex-1 h-px bg-line" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => social('telegram')} className="h-11 rounded-2xl bg-[#2AABEE] text-white font-semibold text-[14px] inline-flex items-center justify-center gap-2 cursor-pointer">
@@ -133,6 +165,7 @@ export function Landing({ onDemo, onLogin, onRegister }: {
                   <span className="font-display font-bold">G</span> Google
                 </button>
               </div>
+              </>}
             </div>
 
             <p className="text-center text-[13px] text-muted">

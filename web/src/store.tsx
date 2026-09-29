@@ -1,18 +1,19 @@
-import { createContext, useContext, useEffect, useReducer, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, CapsuleStatus, Me, Report, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Me, Person, Report, Safety, State, Verification } from './types'
+import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
 const SESSION_KEY = 'iskra-session'
 
-type Action =
+export type Action =
   | { type: 'signIn'; me: Me }
   | { type: 'updateMe'; patch: Partial<Me> }
   | { type: 'signOut' }
   | { type: 'forgetSaved' }
   | { type: 'reset' }
-  | { type: 'respond'; activityId: string; text?: string }
-  | { type: 'createActivity'; activity: Omit<Activity, 'id' | 'authorId'> }
+  | { type: 'respond'; activityId: string; text?: string; capsuleId?: string }
+  | { type: 'createActivity'; activity: Omit<Activity, 'id' | 'authorId'>; id?: string }
   | { type: 'deleteActivity'; activityId: string }
   | { type: 'send'; capsuleId: string; text: string }
   | { type: 'reply'; capsuleId: string }
@@ -39,6 +40,9 @@ type Action =
   | { type: 'endSafety' }
   | { type: 'checkIn'; capsuleId: string }
   | { type: 'wantAgain'; capsuleId: string; want: boolean }
+  | { type: 'cloudSignIn'; userId: string; email: string }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[] }
+  | { type: 'cloudError'; message: string | null }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
@@ -62,6 +66,7 @@ function reducer(state: State, action: Action): State {
     case 'updateMe':
       return state.me ? { ...state, me: { ...state.me, ...action.patch }, savedMe: { ...state.me, ...action.patch } } : state
     case 'signOut':
+      if (state.cloud) return { ...seedState(), remember: state.remember, savedMe: state.me ?? state.savedMe, cloud: null }
       return { ...state, me: null, savedMe: state.me ?? state.savedMe }
     case 'reset':
       // Демо-данные сбрасываем, но последний вход оставляем — чтобы предложить его на экране входа.
@@ -77,7 +82,7 @@ function reducer(state: State, action: Action): State {
       const others = (activity.members ?? []).map((id) => state.people.find((p) => p.id === id)?.name).filter(Boolean)
       const author = state.people.find((p) => p.id === activity.authorId)?.name ?? 'организатор'
       const capsule = {
-        id: uid(),
+        id: action.capsuleId ?? uid(),
         personId: activity.authorId,
         activityId: activity.id,
         createdAt: now,
@@ -89,8 +94,9 @@ function reducer(state: State, action: Action): State {
           { id: uid(), from: 'system' as const, text: `Точное место: ${activity.exactPlace}`, at: now },
           ...(isGroup ? [{ id: uid(), from: 'system' as const, text: `Вы в компании: ${[author, ...others, 'вы'].join(', ')}. Пока переписка с организатором, общий чат компании — в рабочей версии.`, at: now }] : []),
           ...(action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now + 1 }] : []),
-          { id: uid(), from: 'them' as const, text: 'Привет! План в силе. Во сколько тебе удобно подойти?', at: now + 2 },
-        ],
+          // В демо собеседник отвечает сам; на сервере ответит живой человек.
+          ...(state.cloud ? [] : [{ id: uid(), from: 'them' as const, text: 'Привет! План в силе. Во сколько тебе удобно подойти?', at: now + 2 }]),
+        ].filter((m) => !(state.cloud && m.text.startsWith('Точное место: ') && !activity.exactPlace)),
       }
       const activities = isGroup ? state.activities.map((a) => (a.id === activity.id ? { ...a, members: [...(a.members ?? []), 'me'] } : a)) : state.activities
       return { ...state, activities, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
@@ -99,7 +105,7 @@ function reducer(state: State, action: Action): State {
       // Ответ тайный: собеседник узнает о «да» только при взаимности, об отказе — никогда.
       const c = state.capsules.find((x) => x.id === action.capsuleId)
       if (!c || c.again) return state
-      const partnerWants = !PARTNER_NO.includes(c.personId)
+      const partnerWants = !state.cloud && !PARTNER_NO.includes(c.personId)
       const both = action.want && partnerWants
       const text = both
         ? 'Совпало: вы оба хотите встретиться ещё! Капсула открыта заново на 72 часа — договоритесь о второй встрече.'
@@ -114,7 +120,7 @@ function reducer(state: State, action: Action): State {
       }
     }
     case 'createActivity':
-      return { ...state, activities: [{ ...action.activity, id: uid(), authorId: 'me' }, ...state.activities] }
+      return { ...state, activities: [{ ...action.activity, id: action.id ?? uid(), authorId: 'me' }, ...state.activities] }
     case 'deleteActivity':
       return { ...state, activities: state.activities.filter((a) => a.id !== action.activityId) }
     case 'send':
@@ -144,7 +150,11 @@ function reducer(state: State, action: Action): State {
         ),
       }
     case 'readCapsule':
-      return { ...state, capsules: state.capsules.map((c) => (c.id === action.capsuleId ? { ...c, unread: 0 } : c)) }
+      return {
+        ...state,
+        capsules: state.capsules.map((c) => (c.id === action.capsuleId ? { ...c, unread: 0 } : c)),
+        ...(state.cloud ? { cloudRead: { ...state.cloudRead, [action.capsuleId]: now } } : {}),
+      }
     case 'report':
       return { ...state, reports: [{ id: uid(), personId: action.personId, reason: action.reason, text: action.text, at: now, state: 'open' }, ...state.reports] }
     case 'resolveReport':
@@ -171,6 +181,7 @@ function reducer(state: State, action: Action): State {
       if (!activity) return state
       const text = `Смотри, какой план: «${activity.title}» — ${activity.area}`
       const existing = state.capsules.find((c) => c.personId === action.personId)
+      if (!existing && state.cloud) return state // на сервере капсула открывается только откликом на план
       if (existing) {
         return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text, at: now }] } : c)) }
       }
@@ -227,6 +238,19 @@ function reducer(state: State, action: Action): State {
       return { ...state, following: toggle(state.following ?? [], action.personId) }
     case 'seeStory':
       return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }
+    case 'cloudSignIn':
+      // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], cloudError: null }
+    case 'cloudLoad':
+      if (!state.cloud) return state
+      return {
+        ...state,
+        people: action.people, activities: action.activities, capsules: action.capsules,
+        liked: action.capsules.map((c) => c.activityId),
+        ...(action.me ? { me: action.me, savedMe: action.me } : {}),
+      }
+    case 'cloudError':
+      return { ...state, cloudError: action.message }
   }
 }
 
@@ -253,7 +277,23 @@ function load(): State {
 const Ctx = createContext<{ state: State; dispatch: (a: Action) => void } | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, load)
+  const [state, baseDispatch] = useReducer(reducer, undefined, load)
+  const ref = useRef(state)
+  useEffect(() => { ref.current = state })
+  // При входе через сервер действие сначала меняет экран (оптимистично), затем уходит в базу;
+  // после записи данные перечитываются, и на экране остаётся то, что реально сохранилось.
+  const dispatch = useCallback((a: Action) => {
+    const before = ref.current
+    if (before.cloud) {
+      if (a.type === 'createActivity' && !a.id) a = { ...a, id: crypto.randomUUID() }
+      if (a.type === 'respond' && !a.capsuleId) a = { ...a, capsuleId: crypto.randomUUID() }
+      const job = cloudEffect(a, before)
+      if (job) job.then(requestReload, (e: Error) => { baseDispatch({ type: 'cloudError', message: e.message }); requestReload() })
+    }
+    // Следующее действие в том же обработчике должно видеть результат этого (например, выход, потом демо).
+    ref.current = reducer(before, a)
+    baseDispatch(a)
+  }, [])
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state))

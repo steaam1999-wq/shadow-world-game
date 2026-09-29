@@ -122,6 +122,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
     if (!t) return
     dispatch({ type: 'send', capsuleId: c.id, text: t })
     setText('')
+    if (state.cloud) return // на сервере отвечает живой человек
     setTyping(true)
     setTimeout(() => { dispatch({ type: 'reply', capsuleId: c.id }); setTyping(false) }, 1400 + Math.random() * 1200)
   }

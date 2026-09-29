@@ -24,7 +24,7 @@ export interface Me {
   tags: string[]
   verified: boolean
   meetings: number
-  authMethod: 'telegram' | 'google' | 'phone'
+  authMethod: 'telegram' | 'google' | 'phone' | 'email'
   privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean }
   radiusKm: number
   photo?: string
@@ -111,6 +111,9 @@ export interface State {
   safety?: Safety | null // идёт встреча с таймером безопасности
   remember?: boolean // «Запомнить меня»: false — выход при закрытии браузера
   savedMe?: Me | null // профиль последнего входа: «Войти» без бэкенда возвращает его
+  cloud?: { userId: string; email: string } | null // вход через сервер (Supabase); null — локальное демо
+  cloudError?: string | null
+  cloudRead?: Record<string, number> // capsuleId → когда я последний раз открывал переписку
 }
 
 export interface Safety {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { DISTRICTS, HOUR } from '../data'
+import { DISTRICTS, DISTRICT_XY, HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
 import { PostArt } from '../components/PostArt'
@@ -17,11 +17,6 @@ const TIMES = [
   { id: 'tomorrow', label: 'Завтра' },
 ] as const
 
-// Координаты районов на схеме города (0..100).
-const DISTRICT_XY: Record<string, [number, number]> = {
-  'Чистые пруды': [62, 30], 'Патриаршие': [28, 38], 'Китай-город': [58, 42], 'Хамовники': [22, 78],
-  'Замоскворечье': [52, 64], 'Басманный': [74, 34], 'Таганка': [72, 58], 'Парк Горького': [38, 84],
-}
 
 type Mode = 'plans' | 'people' | 'map'
 

@@ -162,11 +162,13 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
   const [choosing, setChoosing] = useState(false)
   const [invited, setInvited] = useState<string[]>([])
   const iAmFree = !!me.freeUntil && me.freeUntil > now
+  // Статус «свободен» пока не хранится на сервере — в режиме с сервером блок не показываем, чтобы не обманывать.
   const free = state.people
     .map((p) => ({ p, until: freeUntil(p.id, now) }))
     .filter((x): x is { p: Person; until: number } => !!x.until && x.p.distanceKm <= me.radiusKm + 2)
     .sort((a, b) => a.p.distanceKm - b.p.distanceKm)
 
+  if (state.cloud) return null
   return (
     <section className="mx-4 mb-4 rounded-[24px] bg-surface shadow-soft p-3.5 flex flex-col gap-3" aria-label="Свободны сейчас">
       {iAmFree ? (

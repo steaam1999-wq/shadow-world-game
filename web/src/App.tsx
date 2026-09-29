@@ -15,6 +15,8 @@ import { Reels } from './screens/Reels'
 import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
+import { CloudSync } from './cloud/CloudSync'
+import { fetchMyProfile, profileToMe } from './cloud/api'
 import { Avatar, Icon, Logo, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
 import type { Activity, Me } from './types'
@@ -45,6 +47,7 @@ function Root() {
   }, [view])
 
   const enterDemo = () => {
+    if (state.cloud) dispatch({ type: 'signOut' }) // демо — только локально, на сервер ничего не уходит
     dispatch({ type: 'signIn', me: DEMO_ME })
     if (!state.activities.some((a) => a.authorId === 'me')) {
       const now = Date.now()
@@ -57,6 +60,19 @@ function Root() {
     setView('app')
   }
 
+  // Вход через сервер: есть профиль — сразу в приложение, нет — анкета.
+  const onCloudAuth = async (userId: string, email: string, name: string) => {
+    dispatch({ type: 'cloudSignIn', userId, email })
+    const profile = await fetchMyProfile(userId)
+    if (profile) {
+      dispatch({ type: 'cloudLoad', me: profileToMe(profile, null), people: [], activities: [], capsules: [] })
+      setView('app')
+    } else {
+      setReg({ name, method: 'email' })
+      setView('onboarding')
+    }
+  }
+
   if (view === 'admin') return <Admin onExit={() => setView(state.me ? 'app' : 'landing')} />
   if (view === 'onboarding') return <Onboarding initialName={reg?.name} method={reg?.method ?? null} onDone={() => setView('app')} onBack={() => setView('landing')} />
   if (view === 'app' && state.me) return <AppShell onSignOut={() => setView('landing')} onAdmin={() => setView('admin')} />
@@ -65,6 +81,7 @@ function Root() {
       onDemo={(remember) => { dispatch({ type: 'setRemember', remember }); enterDemo() }}
       onLogin={(remember) => { dispatch({ type: 'setRemember', remember }); if (state.savedMe) { dispatch({ type: 'signIn', me: state.savedMe }); setView('app') } else enterDemo() }}
       onRegister={(name, method, remember) => { dispatch({ type: 'setRemember', remember }); setReg({ name, method }); setView('onboarding') }}
+      onCloudAuth={(userId, email, name, remember) => { dispatch({ type: 'setRemember', remember }); return onCloudAuth(userId, email, name) }}
     />
   )
 }
@@ -175,6 +192,13 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
+      {state.cloudError && (
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[18px] bg-danger-soft text-danger p-3 pr-11 text-[14px] shadow-soft" role="alert">
+          {state.cloudError}
+          <button onClick={() => dispatch({ type: 'cloudError', message: null })} className="absolute right-2 top-2 grid place-items-center w-8 h-8 rounded-full cursor-pointer" aria-label="Скрыть ошибку"><Icon name="x" size={16} /></button>
+        </div>
+      )}
+
       {toast && (
         <div className="anim-rise fixed left-1/2 -translate-x-1/2 bottom-[calc(160px+env(safe-area-inset-bottom,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[22px] bg-surface text-fg p-3.5 flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
           <Icon name="spark" size={22} className="text-spark shrink-0" fill />
@@ -220,12 +244,13 @@ function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; o
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const items = [
     ...(state.announcement ? [{ key: 'ann', person: null, text: state.announcement, at: now, onClick: () => dispatch({ type: 'dismissAnnouncement' }) }] : []),
-    ...state.capsules.filter((c) => !isExpired(c, now)).map((c) => {
+    ...state.capsules.filter((c) => !isExpired(c, now) && state.people.some((x) => x.id === c.personId)).map((c) => {
       const p = state.people.find((x) => x.id === c.personId)!
       const last = [...c.messages].reverse().find((m) => m.from === 'them')
       return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Капсула с ${p.name} открыта`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }
     }),
-    ...myPlans.map((a, i) => {
+    // Отметки планов в демо выдуманы; с сервером таких данных пока нет — не показываем.
+    ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i) => {
       const p = state.people[(i * 3 + 1) % state.people.length]
       return { key: `like-${a.id}`, person: p, text: `${p.name} и ещё ${4 + i} человек отметили ваш план «${a.title}»`, at: now - 25 * 60_000 * (i + 1), onClick: onClose }
     }),
@@ -252,6 +277,7 @@ export default function App() {
   return (
     <StoreProvider>
       <PlayerProvider>
+        <CloudSync />
         <Root />
       </PlayerProvider>
     </StoreProvider>
