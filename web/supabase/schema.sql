@@ -290,6 +290,32 @@ drop trigger if exists verification_decided on public.verification_requests;
 create trigger verification_decided before update on public.verification_requests
   for each row execute function private.on_verification_decided();
 
+-- Комментарии под планами: видны всем вошедшим; пишет только сам автор, если не забанен
+-- и автор плана его не блокировал. Удалить может автор комментария, автор плана или модератор.
+create table if not exists public.plan_comments (
+  id bigint generated always as identity primary key,
+  plan_id uuid not null references public.plans (id) on delete cascade,
+  author uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+create index if not exists plan_comments_plan_idx on public.plan_comments (plan_id, created_at);
+create index if not exists plan_comments_author_idx on public.plan_comments (author);
+alter table public.plan_comments enable row level security;
+drop policy if exists "comments: read" on public.plan_comments;
+create policy "comments: read" on public.plan_comments for select to authenticated
+  using (author = (select auth.uid()) or not private.is_banned(author) or private.is_admin());
+drop policy if exists "comments: write" on public.plan_comments;
+create policy "comments: write" on public.plan_comments for insert to authenticated with check (
+  author = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (select 1 from plans p where p.id = plan_id and not private.blocked_between(p.author, (select auth.uid())))
+);
+drop policy if exists "comments: delete" on public.plan_comments;
+create policy "comments: delete" on public.plan_comments for delete to authenticated using (
+  author = (select auth.uid()) or private.is_admin()
+  or exists (select 1 from plans p where p.id = plan_id and p.author = (select auth.uid()))
+);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
@@ -305,4 +331,5 @@ begin
   begin alter publication supabase_realtime add table public.capsules; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.plans; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.plan_comments; exception when duplicate_object then null; end;
 end $$;

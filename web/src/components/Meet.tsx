@@ -197,7 +197,7 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
         <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
           {free.map(({ p, until }) => (
             <div key={p.id} className="shrink-0 w-[132px] rounded-2xl bg-surface-2 p-2.5 flex flex-col items-center gap-1.5 text-center">
-              <span className="relative"><Avatar name={p.name} hue={p.hue} size={48} verified={p.verified} /><span className="absolute right-0 bottom-0 w-3.5 h-3.5 rounded-full bg-ok border-2 border-surface-2" /></span>
+              <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} /><span className="absolute right-0 bottom-0 w-3.5 h-3.5 rounded-full bg-ok border-2 border-surface-2" /></span>
               <span className="text-[13px] font-semibold leading-tight">{p.name}, {p.age}</span>
               <span className="text-[11px] text-muted leading-tight">{p.distanceKm.toFixed(1).replace('.', ',')} км · до {hm(until)}</span>
               <ReliabilityBadge person={p} compact />
@@ -237,7 +237,7 @@ export function GroupStack({ activity, light = false }: { activity: Activity; li
   const face = (id: string) => {
     if (id === 'me') return state.me ? <Avatar name={state.me.name} hue={state.me.hue} src={state.me.photo} size={28} /> : null
     const p = state.people.find((x) => x.id === id)
-    return p ? <Avatar name={p.name} hue={p.hue} size={28} /> : null
+    return p ? <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} /> : null
   }
   return (
     <div className="flex items-center gap-2.5">

@@ -10,6 +10,7 @@ import { FreeNow, GroupStack, groupFull, joinLabel } from '../components/Meet'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
+import { CommentsPreview, CommentsSheet } from '../components/Comments'
 import type { Activity, Person } from '../types'
 
 interface Props {
@@ -54,7 +55,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
         {stories.map(({ p }, i) => (
           <button key={p.id} onClick={() => setViewer({ items: stories, index: i })} className="flex flex-col items-center gap-1 w-[72px] shrink-0 cursor-pointer">
             <StoryRing seen={state.seenStories.includes(p.id)} size={68}>
-              <Avatar name={p.name} hue={p.hue} size={58} />
+              <Avatar name={p.name} hue={p.hue} src={p.photo} size={58} />
             </StoryRing>
             <span className="text-[12px] truncate w-full text-center">{p.name}</span>
           </button>
@@ -138,6 +139,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const responded = state.liked.includes(a.id)
   const [pop, setPop] = useState(0)
   const [menu, setMenu] = useState(false)
+  const [comments, setComments] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
   const openProfile = useOpenProfile()
   const lastTap = useRef(0)
@@ -165,7 +167,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       <header className="flex items-center gap-3 px-4 pt-1 pb-3">
         <button onClick={() => person && openProfile(person.id)} className={person ? 'cursor-pointer' : 'cursor-default'} aria-label={person ? `Профиль ${person.name}` : undefined} tabIndex={person ? 0 : -1}>
           <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
-            <Avatar name={author.name} hue={author.hue} src={person ? undefined : me.photo} size={32} />
+            <Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={32} />
           </StoryRing>
         </button>
         <div className="flex-1 min-w-0 leading-tight">
@@ -244,9 +246,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
 
       <div className="flex items-center gap-1 px-2.5 pt-1.5">
         <LikeButton liked={hearted} onToggle={() => dispatch({ type: 'toggleHeart', activityId: a.id })} className="w-10 h-10" />
-        {person && (
-          <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Написать"><Icon name="comment" size={25} /></button>
-        )}
+        <button onClick={() => setComments(true)} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Комментарии"><Icon name="comment" size={25} /></button>
         <ShareButton activity={a} now={now} />
         <button onClick={() => dispatch({ type: 'toggleSave', activityId: a.id })} className="ml-auto grid place-items-center w-10 h-10 cursor-pointer" aria-label={saved ? 'Убрать из сохранённого' : 'Сохранить'} aria-pressed={saved}>
           <Icon name="bookmark" size={24} fill={saved} />
@@ -260,6 +260,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}
+        <CommentsPreview activity={a} onOpen={() => setComments(true)} />
         <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в капсуле' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
 
@@ -272,6 +273,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         </div>
       </Sheet>
       <ReportSheet person={reporting} onClose={() => setReporting(null)} />
+      <CommentsSheet activity={a} open={comments} onClose={() => setComments(false)} />
     </article>
   )
 }
@@ -329,7 +331,7 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
           ))}
         </div>
         <div className="relative flex items-center gap-3 px-3 py-3">
-          <button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} size={36} verified={p.verified} /></button>
+          <button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={36} verified={p.verified} /></button>
           <div className="flex-1 min-w-0 leading-tight">
             <div className="font-semibold text-[14px]"><button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer">{p.name}</button> <span className="font-normal opacity-75">· {compat.score}% вайб</span></div>
             <div className="text-[12px] opacity-75">{a.area} · {planWhen(a, now)}</div>

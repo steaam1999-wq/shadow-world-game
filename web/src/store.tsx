@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Me, Person, Report, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Me, Person, PlanComment, Report, Safety, State, Verification } from './types'
 import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
@@ -42,9 +42,11 @@ export type Action =
   | { type: 'wantAgain'; capsuleId: string; want: boolean }
   | { type: 'directMessage'; personId: string; capsuleId?: string; text?: string }
   | { type: 'block'; personId: string; name: string }
+  | { type: 'addComment'; planId: string; text: string }
+  | { type: 'deleteComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification'] }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[] }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -260,16 +262,21 @@ function reducer(state: State, action: Action): State {
         people: state.people.filter((p) => !gone(p.id)),
         activities: state.activities.filter((a) => !gone(a.authorId)),
         capsules: state.capsules.filter((c) => !gone(c.personId)),
+        comments: (state.comments ?? []).filter((c) => !gone(c.authorId)),
         blocked: [...(state.blocked ?? []).filter((b) => !gone(b.id)), { id: action.personId, name: action.name }],
       }
     }
+    case 'addComment':
+      return { ...state, comments: [...(state.comments ?? []), { id: `tmp-${uid()}`, planId: action.planId, authorId: 'me', text: action.text, at: now }] }
+    case 'deleteComment':
+      return { ...state, comments: (state.comments ?? []).filter((c) => c.id !== action.id) }
     case 'verificationSent':
       return { ...state, verification: 'pending' }
     case 'unblock':
       return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {
@@ -277,6 +284,7 @@ function reducer(state: State, action: Action): State {
         people: action.people, activities: action.activities, capsules: action.capsules,
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
+        ...(action.comments ? { comments: action.comments } : {}),
         liked: action.capsules.map((c) => c.activityId),
         ...(action.me ? { me: action.me, savedMe: action.me } : {}),
       }

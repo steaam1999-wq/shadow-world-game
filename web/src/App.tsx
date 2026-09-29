@@ -270,7 +270,7 @@ function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; o
         {items.map((it) => (
           <li key={it.key}>
             <button onClick={it.onClick} className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-surface-2 cursor-pointer">
-              {it.person ? <Avatar name={it.person.name} hue={it.person.hue} size={44} /> : <span className="grid place-items-center w-11 h-11 rounded-full bg-cobalt-soft text-cobalt shrink-0"><Icon name="bell" /></span>}
+              {it.person ? <Avatar name={it.person.name} hue={it.person.hue} src={it.person.photo} size={44} /> : <span className="grid place-items-center w-11 h-11 rounded-full bg-cobalt-soft text-cobalt shrink-0"><Icon name="bell" /></span>}
               <span className="flex-1 min-w-0 text-[14px]">{it.text} <span className="text-muted">{relative(it.at, now)}</span></span>
             </button>
           </li>

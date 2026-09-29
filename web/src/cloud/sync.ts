@@ -40,6 +40,11 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     }
     case 'setStatus':
       return run(api.setCapsuleStatus(a.capsuleId, a.status).then(() => (a.status === 'met' && s.me ? api.saveProfile(uid, { ...s.me, meetings: s.me.meetings + 1 }) : undefined)))
+    case 'addComment':
+      return run(api.addComment(a.planId, a.text))
+    case 'deleteComment':
+      // Ещё не сохранённый комментарий (временный id) удалять на сервере нечего.
+      return a.id.startsWith('tmp-') ? null : run(api.deleteComment(a.id))
     case 'block':
       return run(api.block(a.personId))
     case 'unblock':

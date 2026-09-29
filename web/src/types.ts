@@ -72,6 +72,14 @@ export interface Capsule {
   again?: 'yes' | 'no' // мой тайный ответ «хочу встретиться ещё»
 }
 
+export interface PlanComment {
+  id: string
+  planId: string
+  authorId: string // personId или 'me'
+  text: string
+  at: number
+}
+
 export interface Report {
   id: string
   personId: string
@@ -117,6 +125,7 @@ export interface State {
   cloudRead?: Record<string, number> // capsuleId → когда я последний раз открывал переписку
   blocked?: { id: string; name: string }[] // кого я заблокировал
   isAdmin?: boolean
+  comments?: PlanComment[] // комментарии под планами
   verification?: 'pending' | 'approved' | 'rejected' | null // моя заявка на верификацию
 }
 

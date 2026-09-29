@@ -43,7 +43,7 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
     return (
       <li key={c.id}>
         <button onClick={() => onOpen(c.id)} className="w-full text-left flex gap-3 p-3 -mx-3 rounded-2xl hover:bg-surface cursor-pointer">
-          <Avatar name={p.name} hue={p.hue} size={52} verified={p.verified} ring={c.unread > 0} />
+          <Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} ring={c.unread > 0} />
           <div className="flex-1 min-w-0 flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold truncate">{p.name}</span>
@@ -140,7 +140,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку капсул"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer" aria-label={`Профиль ${p.name}`}>
-          <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
+          <Avatar name={p.name} hue={p.hue} src={p.photo} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{p.name}, {p.age}</div>
             <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.activityId ? 'Активность завершена' : 'Личные сообщения'}</div>

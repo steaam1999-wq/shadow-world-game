@@ -124,7 +124,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
                 aria-label={`Отправить ${p.name}`}>
                 <span className={`rounded-full bg-surface/95 backdrop-blur px-3 h-8 inline-flex items-center text-[13px] shadow-soft transition ${on ? 'font-semibold scale-105' : 'opacity-90'}`}>{p.name}</span>
                 <span className={`rounded-full p-[2.5px] transition duration-150 ${on ? 'bg-brand scale-[1.18]' : 'bg-surface'} ${received === p.id ? 'anim-received' : ''}`}>
-                  <span className="block rounded-full bg-surface p-[2px]"><Avatar name={p.name} hue={p.hue} size={50} /></span>
+                  <span className="block rounded-full bg-surface p-[2px]"><Avatar name={p.name} hue={p.hue} src={p.photo} size={50} /></span>
                 </span>
               </button>
             )
@@ -147,7 +147,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
           <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5">
             {top.map((p) => (
               <button key={p.id} data-share-person={p.id} onClick={(e) => send(p, e.currentTarget.querySelector('[data-avatar]'))} className="flex flex-col items-center gap-1 w-16 shrink-0 cursor-pointer" aria-label={`Отправить ${p.name}`}>
-                <span data-avatar className={`rounded-full ${received === p.id ? 'anim-received' : ''}`}><Avatar name={p.name} hue={p.hue} size={56} /></span>
+                <span data-avatar className={`rounded-full ${received === p.id ? 'anim-received' : ''}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={56} /></span>
                 <span className="text-[12px] truncate w-full text-center">{p.name}</span>
               </button>
             ))}

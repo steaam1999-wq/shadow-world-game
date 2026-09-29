@@ -33,7 +33,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
         return (
           <article key={p.id} className={`relative overflow-hidden rounded-[28px] bg-surface shadow-soft p-5 flex flex-col gap-4 `}>
             <div className="flex items-start gap-4">
-              <button onClick={() => openProfile(p.id)} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} size={64} verified={p.verified} /></button>
+              <button onClick={() => openProfile(p.id)} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={64} verified={p.verified} /></button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-display font-bold text-lg"><button onClick={() => openProfile(p.id)} className="cursor-pointer hover:underline">{p.name}, {p.age}</button></h2>

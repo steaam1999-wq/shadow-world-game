@@ -111,7 +111,7 @@ function Moderation() {
                 const p = state.people.find((x) => x.id === r.personId)
                 return (
                   <tr key={r.id} className="border-t border-line align-top">
-                    <td className="p-3"><div className="flex items-center gap-2">{p && <Avatar name={p.name} hue={p.hue} size={28} />}<span className="font-medium">{p?.name ?? '—'}</span></div></td>
+                    <td className="p-3"><div className="flex items-center gap-2">{p && <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />}<span className="font-medium">{p?.name ?? '—'}</span></div></td>
                     <td className="p-3"><Pill tone={r.state === 'open' ? 'warn' : 'muted'}>{r.reason}</Pill></td>
                     <td className="p-3 text-muted max-w-[260px]">{r.text}</td>
                     <td className="p-3 text-muted whitespace-nowrap">{relative(r.at, now)}</td>

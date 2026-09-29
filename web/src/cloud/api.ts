@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL, DISTRICT_XY } from '../data'
-import type { Activity, Capsule, CapsuleStatus, Me, Message, Person } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Me, Message, Person, PlanComment } from '../types'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
 
 let client: SupabaseClient | null = null
@@ -111,6 +111,14 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   profiles.data = (profiles.data ?? []).filter((p) => !hidden.has(p.id))
   plans.data = (plans.data ?? []).filter((p) => !hidden.has(p.author))
   capsules.data = (capsules.data ?? []).filter((c) => !hidden.has(c.author) && !hidden.has(c.responder))
+  const planIds = (plans.data ?? []).map((p) => p.id)
+  const commentRows = planIds.length
+    ? await db.from('plan_comments').select('*').in('plan_id', planIds).order('created_at').limit(2000).returns<{ id: number; plan_id: string; author: string; body: string; created_at: string }[]>()
+    : { data: [], error: null }
+  if (commentRows.error) throw commentRows.error
+  const comments: PlanComment[] = (commentRows.data ?? []).filter((c) => !hidden.has(c.author)).map((c) => ({
+    id: String(c.id), planId: c.plan_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at),
+  }))
   const capsuleIds = (capsules.data ?? []).map((c) => c.id)
   const messages = capsuleIds.length
     ? await db.from('messages').select('*').in('capsule_id', capsuleIds).order('created_at').returns<MessageRow[]>()
@@ -153,7 +161,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
   })
-  return { me, people, activities, capsules: caps, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null }
+  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null }
 }
 
 export async function createPlan(userId: string, id: string, a: Omit<Activity, 'id' | 'authorId'>) {
@@ -224,6 +232,16 @@ export async function updatePassword(password: string) {
   return data.user
 }
 
+export async function addComment(planId: string, body: string) {
+  const { error } = await sb().from('plan_comments').insert({ plan_id: planId, body })
+  if (error) throw error
+}
+
+export async function deleteComment(id: string) {
+  const { error } = await sb().from('plan_comments').delete().eq('id', Number(id))
+  if (error) throw error
+}
+
 export async function submitVerification(userId: string, photo: string, gesture: string) {
   const { error } = await sb().from('verification_requests').upsert({ user_id: userId, photo, gesture, status: 'pending' })
   if (error) throw error
@@ -289,7 +307,7 @@ export async function sendReport(target: string, reason: string, body: string) {
 /** Любое изменение в чате, капсулах, планах или профилях — повод перечитать данные. */
 export function subscribe(onChange: () => void) {
   const ch = sb().channel('iskra-live')
-  for (const table of ['messages', 'capsules', 'plans', 'profiles']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+  for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
   ch.subscribe()
   return () => { void sb().removeChannel(ch) }
 }

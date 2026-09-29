@@ -77,7 +77,7 @@ export function MusicPage() {
                 return (
                   <button key={person.id} onClick={() => (cur ? p.toggle() : p.play(track, people.map((x) => x.track)))} className="flex flex-col items-center gap-1 w-[76px] shrink-0 cursor-pointer" aria-label={`Песня ${person.name}: ${track.title}`}>
                     <span className="relative">
-                      <Avatar name={person.name} hue={person.hue} size={64} />
+                      <Avatar name={person.name} hue={person.hue} src={person.photo} size={64} />
                       <span className="absolute -right-1 -bottom-1 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name={cur ? 'pause' : 'play'} size={12} fill /></span>
                     </span>
                     <span className="text-[12px] font-medium truncate w-full text-center">{person.name}</span>
