@@ -253,6 +253,43 @@ drop policy if exists "messages: participants send" on public.messages;
 create policy "messages: participants send" on public.messages for insert to authenticated
   with check (sender = (select auth.uid()) and private.can_write(capsule_id));
 
+-- Верификация: селфи с жестом видит только модератор; решение ставит галочку в профиле,
+-- а фото сразу удаляется. Одобрить может только администратор.
+create table if not exists public.verification_requests (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  photo text check (photo is null or char_length(photo) <= 600000),
+  gesture text not null default '',
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz
+);
+alter table public.verification_requests enable row level security;
+drop policy if exists "verif: read" on public.verification_requests;
+create policy "verif: read" on public.verification_requests for select to authenticated
+  using (user_id = (select auth.uid()) or private.is_admin());
+drop policy if exists "verif: submit" on public.verification_requests;
+create policy "verif: submit" on public.verification_requests for insert to authenticated
+  with check (user_id = (select auth.uid()) and status = 'pending');
+drop policy if exists "verif: update" on public.verification_requests;
+create policy "verif: update" on public.verification_requests for update to authenticated
+  using (user_id = (select auth.uid()) or private.is_admin())
+  with check ((user_id = (select auth.uid()) and status = 'pending') or private.is_admin());
+
+create or replace function private.on_verification_decided() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.status is distinct from old.status and new.status in ('approved', 'rejected') then
+    update public.profiles set verified = (new.status = 'approved') where id = new.user_id;
+    new.photo := null;
+    new.decided_at := now();
+  end if;
+  return new;
+end $$;
+revoke all on function private.on_verification_decided() from public, anon, authenticated;
+drop trigger if exists verification_decided on public.verification_requests;
+create trigger verification_decided before update on public.verification_requests
+  for each row execute function private.on_verification_decided();
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

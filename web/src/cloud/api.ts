@@ -95,15 +95,16 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif] = await Promise.all([
     db.from('profiles').select('*').limit(500).returns<ProfileRow[]>(),
     db.from('plans').select('*').gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
     db.from('plan_secrets').select('*').returns<{ plan_id: string; exact_place: string }[]>(),
     db.from('blocks').select('blocked').returns<{ blocked: string }[]>(),
     db.from('admins').select('user_id').returns<{ user_id: string }[]>(),
+    db.from('verification_requests').select('status').eq('user_id', userId).maybeSingle<{ status: 'pending' | 'approved' | 'rejected' }>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif]) if (r.error) throw r.error
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
   const blocked = (profiles.data ?? []).filter((p) => hidden.has(p.id)).map((p) => ({ id: p.id, name: p.name }))
@@ -152,7 +153,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
   })
-  return { me, people, activities, capsules: caps, blocked, isAdmin: (admins.data ?? []).length > 0 }
+  return { me, people, activities, capsules: caps, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null }
 }
 
 export async function createPlan(userId: string, id: string, a: Omit<Activity, 'id' | 'authorId'>) {
@@ -223,7 +224,33 @@ export async function updatePassword(password: string) {
   return data.user
 }
 
+export async function submitVerification(userId: string, photo: string, gesture: string) {
+  const { error } = await sb().from('verification_requests').upsert({ user_id: userId, photo, gesture, status: 'pending' })
+  if (error) throw error
+}
+
 // ===== Админка =====
+export interface AdminVerification { userId: string; name: string; age: number; photo: string; gesture: string; createdAt: number }
+
+export async function adminVerifications(): Promise<AdminVerification[]> {
+  const db = sb()
+  const [reqs, profiles] = await Promise.all([
+    db.from('verification_requests').select('*').eq('status', 'pending').order('created_at').returns<{ user_id: string; photo: string | null; gesture: string; created_at: string }[]>(),
+    db.from('profiles').select('id,name,age').returns<{ id: string; name: string; age: number }[]>(),
+  ])
+  for (const r of [reqs, profiles]) if (r.error) throw r.error
+  const who = new Map((profiles.data ?? []).map((p) => [p.id, p]))
+  return (reqs.data ?? []).map((r) => ({
+    userId: r.user_id, name: who.get(r.user_id)?.name ?? 'удалён', age: who.get(r.user_id)?.age ?? 0,
+    photo: r.photo ?? '', gesture: r.gesture, createdAt: ms(r.created_at),
+  }))
+}
+
+/** Решение модератора: триггер в базе ставит или снимает галочку и удаляет селфи. */
+export async function decideVerification(userId: string, approve: boolean) {
+  const { error } = await sb().from('verification_requests').update({ status: approve ? 'approved' : 'rejected' }).eq('user_id', userId)
+  if (error) throw error
+}
 export interface AdminReport { id: number; reason: string; body: string; status: 'open' | 'resolved'; createdAt: number; reporter: { id: string; name: string }; target: { id: string; name: string; banned: boolean } }
 
 export async function adminReports(): Promise<AdminReport[]> {

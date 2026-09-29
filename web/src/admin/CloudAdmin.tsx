@@ -2,18 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { relative } from '../lib'
 import { Button, Icon, Logo, Pill } from '../components/ui'
-import { adminReports, humanError, setBan, setReportStatus, type AdminReport } from '../cloud/api'
+import { adminReports, adminVerifications, decideVerification, humanError, setBan, setReportStatus, type AdminReport, type AdminVerification } from '../cloud/api'
 
 /** Модерация на сервере: жалобы пользователей и баны. Открывается только администраторам (таблица admins). */
 export function CloudAdmin({ onExit }: { onExit: () => void }) {
   const { state } = useStore()
   const [reports, setReports] = useState<AdminReport[] | null>(null)
+  const [verifs, setVerifs] = useState<AdminVerification[]>([])
+  const [deciding, setDeciding] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState<number | null>(null)
   const [showResolved, setShowResolved] = useState(false)
 
   const load = useCallback(() => {
     adminReports().then(setReports, (e) => setError(humanError(e)))
+    adminVerifications().then(setVerifs, (e) => setError(humanError(e)))
   }, [])
   useEffect(() => { if (state.isAdmin) load() }, [state.isAdmin, load])
 
@@ -40,6 +43,29 @@ export function CloudAdmin({ onExit }: { onExit: () => void }) {
         </div>
       ) : (
         <>
+          {verifs.length > 0 && (
+            <section className="flex flex-col gap-3">
+              <h1 className="font-display font-bold text-xl">Верификация <span className="text-cobalt tnum">· {verifs.length}</span></h1>
+              <ul className="flex flex-col gap-3">
+                {verifs.map((v) => (
+                  <li key={v.userId} className="rounded-[24px] bg-surface shadow-soft p-4 flex gap-4">
+                    {v.photo ? <img src={v.photo} alt={`Селфи ${v.name}`} className="w-28 h-28 rounded-2xl object-cover shrink-0" /> : <span className="w-28 h-28 rounded-2xl bg-surface-2 shrink-0" />}
+                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                      <span className="font-semibold">{v.name}, {v.age}</span>
+                      <span className="text-[13px] text-muted">Задание: {v.gesture}</span>
+                      <span className="text-[12px] text-muted">{relative(v.createdAt, now)}</span>
+                      <div className="flex flex-wrap gap-2 mt-auto">
+                        <Button className="h-9 text-[13px]" disabled={deciding === v.userId} onClick={async () => { setDeciding(v.userId); try { await decideVerification(v.userId, true); load() } catch (e) { setError(humanError(e)) } finally { setDeciding(null) } }}><Icon name="check" size={15} /> Одобрить</Button>
+                        <Button variant="secondary" className="h-9 text-[13px]" disabled={deciding === v.userId} onClick={async () => { setDeciding(v.userId); try { await decideVerification(v.userId, false); load() } catch (e) { setError(humanError(e)) } finally { setDeciding(null) } }}>Отклонить</Button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[12px] text-muted">Одобряйте, если лицо хорошо видно, совпадает с фото профиля и жест соответствует заданию. После решения селфи удаляется.</p>
+            </section>
+          )}
+
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display font-bold text-xl">Жалобы {open.length > 0 && <span className="text-spark tnum">· {open.length}</span>}</h1>
             <div className="flex gap-2">

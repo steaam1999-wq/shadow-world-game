@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DISTRICTS, VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
@@ -8,7 +8,7 @@ import { PostsViewer } from '../components/PostsViewer'
 import type { Activity } from '../types'
 import { GENRE_LABEL, usePlayer } from '../music/player'
 import { RulesSheet } from '../components/Rules'
-import { deleteAccount, humanError } from '../cloud/api'
+import { deleteAccount, humanError, submitVerification } from '../cloud/api'
 import type { Genre } from '../music/engine'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
@@ -89,7 +89,9 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
               <div className="flex justify-between text-[13px] mb-1.5"><span className="font-semibold">Профиль заполнен</span><span className="font-mono tnum">{complete}%</span></div>
               <div className="h-1.5 rounded-full bg-line overflow-hidden"><div className="h-full rounded-full bg-ok" style={{ width: `${complete}%` }} /></div>
             </div>
-            {!me.verified && <button onClick={() => setVerifying(true)} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[13px] font-semibold cursor-pointer">Верификация</button>}
+            {!me.verified && (state.cloud && state.verification === 'pending'
+              ? <span className="shrink-0 h-8 px-3 rounded-full bg-cobalt-soft text-cobalt text-[13px] font-semibold grid place-items-center">На проверке</span>
+              : <button onClick={() => setVerifying(true)} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[13px] font-semibold cursor-pointer">{state.cloud && state.verification === 'rejected' ? 'Ещё раз' : 'Верификация'}</button>)}
           </div>
         )}
         {/* Значки как «актуальное» */}
@@ -256,29 +258,67 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   )
 }
 
+const GESTURES = [
+  { glyph: '✌', text: 'два пальца у виска' },
+  { glyph: '👍', text: 'большой палец вверх у щеки' },
+  { glyph: '👌', text: 'знак «ок» у подбородка' },
+  { glyph: '✋', text: 'ладонь у подбородка' },
+  { glyph: '☝', text: 'указательный палец у носа' },
+]
+
 function VerifySheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
-  const [file, setFile] = useState<string | null>(null)
+  const { state, dispatch } = useStore()
+  const [photo, setPhoto] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
-  const close = () => { setFile(null); setSent(false); onClose() }
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  // Жест выбирается заново при каждом открытии — старое фото не подойдёт.
+  const [gesture, setGesture] = useState(() => GESTURES[Math.floor(Math.random() * GESTURES.length)])
+  useEffect(() => { if (open) setGesture(GESTURES[Math.floor(Math.random() * GESTURES.length)]) }, [open])
+  const close = () => { setPhoto(null); setSent(false); setError(''); onClose() }
+
+  const send = async () => {
+    if (!photo) return
+    if (!state.cloud) { onDone(); setSent(true); return }
+    setBusy(true); setError('')
+    try {
+      await submitVerification(state.cloud.userId, photo, `${gesture.glyph} ${gesture.text}`)
+      dispatch({ type: 'verificationSent' })
+      setSent(true)
+    } catch (e) {
+      setError(humanError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <Sheet open={open} onClose={close} title="Верификация">
       {sent ? (
         <div className="flex flex-col gap-4">
-          <p className="text-muted">Селфи отправлено модератору. В демо проверка проходит сразу: синяя галочка уже в профиле.</p>
+          <p className="text-muted">{state.cloud
+            ? 'Селфи отправлено модератору. Синяя галочка появится в профиле, как только его проверят. Фото удаляется сразу после проверки.'
+            : 'Селфи отправлено модератору. В демо проверка проходит сразу: синяя галочка уже в профиле.'}</p>
           <Button onClick={close}>Отлично</Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
+          {state.cloud && state.verification === 'rejected' && <p className="text-[13px] text-danger">Прошлое селфи не подошло: лицо должно быть хорошо видно, а жест — совпадать с заданием.</p>}
           <div className="rounded-2xl bg-surface-2 p-5 text-center">
-            <div className="font-display font-bold text-5xl text-cobalt" aria-hidden="true">✌</div>
-            <p className="mt-2 font-semibold">Сфотографируйтесь, показывая два пальца у виска</p>
+            <div className="font-display font-bold text-5xl text-cobalt" aria-hidden="true">{gesture.glyph}</div>
+            <p className="mt-2 font-semibold">Сфотографируйтесь: {gesture.text}</p>
             <p className="text-[13px] text-muted">Жест меняется каждый раз, поэтому старое фото не подойдёт.</p>
           </div>
-          <label htmlFor="selfie" className="flex items-center justify-center gap-2 h-12 rounded-full border-2 border-dashed border-line cursor-pointer hover:border-cobalt font-semibold">
-            <Icon name="camera" size={18} /> {file ? file : 'Загрузить селфи'}
+          <label htmlFor="selfie" className="relative flex items-center justify-center gap-2 h-12 rounded-full border-2 border-dashed border-line cursor-pointer hover:border-cobalt font-semibold overflow-hidden">
+            {photo ? <><img src={photo} alt="" className="w-8 h-8 rounded-full object-cover" /> Селфи выбрано — заменить</> : <><Icon name="camera" size={18} /> Загрузить селфи</>}
           </label>
-          <input id="selfie" type="file" accept="image/*" className="sr-only" onChange={(e) => setFile(e.target.files?.[0]?.name ?? null)} />
-          <Button disabled={!file} onClick={() => { onDone(); setSent(true) }}>Отправить на проверку</Button>
+          <input id="selfie" type="file" accept="image/*" capture="user" className="sr-only" onChange={async (e) => {
+            const f = e.target.files?.[0]
+            if (!f) return
+            try { setPhoto(await readPhoto(f)); setError('') } catch { setError('Не получилось открыть фото. Выберите JPG или PNG.') }
+          }} />
+          {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+          <Button disabled={!photo || busy} onClick={send}>{busy ? 'Отправляем…' : 'Отправить на проверку'}</Button>
           <p className="text-[12px] text-muted">Фото видит только модератор и удаляет после проверки. Биометрические данные мы не храним.</p>
         </div>
       )}

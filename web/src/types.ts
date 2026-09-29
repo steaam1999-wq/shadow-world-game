@@ -117,6 +117,7 @@ export interface State {
   cloudRead?: Record<string, number> // capsuleId → когда я последний раз открывал переписку
   blocked?: { id: string; name: string }[] // кого я заблокировал
   isAdmin?: boolean
+  verification?: 'pending' | 'approved' | 'rejected' | null // моя заявка на верификацию
 }
 
 export interface Safety {

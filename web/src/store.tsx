@@ -44,7 +44,8 @@ export type Action =
   | { type: 'block'; personId: string; name: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification'] }
+  | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
@@ -262,17 +263,20 @@ function reducer(state: State, action: Action): State {
         blocked: [...(state.blocked ?? []).filter((b) => !gone(b.id)), { id: action.personId, name: action.name }],
       }
     }
+    case 'verificationSent':
+      return { ...state, verification: 'pending' }
     case 'unblock':
       return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {
         ...state,
         people: action.people, activities: action.activities, capsules: action.capsules,
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
+        ...(action.verification !== undefined ? { verification: action.verification } : {}),
         liked: action.capsules.map((c) => c.activityId),
         ...(action.me ? { me: action.me, savedMe: action.me } : {}),
       }
