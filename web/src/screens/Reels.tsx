@@ -5,6 +5,7 @@ import { Avatar, Button, Icon } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { Plate } from './Feed'
 import { LikeButton } from '../components/LikeButton'
+import { GroupStack, groupFull, joinLabel } from '../components/Meet'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import type { Activity, Person } from '../types'
@@ -78,8 +79,9 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
         <div className="flex items-center gap-2 text-[13px] text-white/85">
           <Icon name="clock" size={14} /> {planWhen(a, now)} · <Icon name="pin" size={14} /> {a.area}
         </div>
-        <Button variant={responded ? 'secondary' : 'primary'} className="h-12" onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
-          {responded ? 'Открыть капсулу' : 'Хочу с тобой'} <Icon name="arrow" size={18} />
+        {a.groupSize && <GroupStack activity={a} light />}
+        <Button variant={responded ? 'secondary' : 'primary'} className="h-12" disabled={!responded && groupFull(a)} onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
+          {joinLabel(a, responded)} <Icon name="arrow" size={18} />
         </Button>
       </div>
     </section>

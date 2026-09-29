@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 import { compatibility, planWhen, relative } from '../lib'
 import type { Activity, Person } from '../types'
+import { joinLabel } from './Meet'
 import { Avatar, Button, Icon, Pill } from './ui'
 
 export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, compact = false }: {
@@ -56,7 +57,7 @@ export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, 
           </Button>
         ) : (
           <Button onClick={() => onRespond(activity)}>
-            <Icon name="spark" size={18} fill /> Хочу с тобой
+            <Icon name="spark" size={18} fill /> {joinLabel(activity, false)}
           </Button>
         )
       ) : (

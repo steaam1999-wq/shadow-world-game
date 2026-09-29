@@ -37,8 +37,12 @@ type Action =
   | { type: 'extendSafety'; minutes: number }
   | { type: 'endSafety' }
   | { type: 'checkIn'; capsuleId: string }
+  | { type: 'wantAgain'; capsuleId: string; want: boolean }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
+
+// Демо: кто из собеседников втайне не захочет второй встречи.
+const PARTNER_NO = ['p3', 'p8']
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -64,6 +68,10 @@ function reducer(state: State, action: Action): State {
       if (state.liked.includes(action.activityId)) return state
       const activity = state.activities.find((a) => a.id === action.activityId)
       if (!activity) return state
+      const isGroup = !!activity.groupSize
+      if (isGroup && (activity.members?.length ?? 0) + 1 >= activity.groupSize!) return state // мест нет
+      const others = (activity.members ?? []).map((id) => state.people.find((p) => p.id === id)?.name).filter(Boolean)
+      const author = state.people.find((p) => p.id === activity.authorId)?.name ?? 'организатор'
       const capsule = {
         id: uid(),
         personId: activity.authorId,
@@ -75,11 +83,31 @@ function reducer(state: State, action: Action): State {
         messages: [
           { id: uid(), from: 'system' as const, text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: now },
           { id: uid(), from: 'system' as const, text: `Точное место: ${activity.exactPlace}`, at: now },
+          ...(isGroup ? [{ id: uid(), from: 'system' as const, text: `Вы в компании: ${[author, ...others, 'вы'].join(', ')}. Пока переписка с организатором, общий чат компании — в рабочей версии.`, at: now }] : []),
           ...(action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now + 1 }] : []),
           { id: uid(), from: 'them' as const, text: 'Привет! План в силе. Во сколько тебе удобно подойти?', at: now + 2 },
         ],
       }
-      return { ...state, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
+      const activities = isGroup ? state.activities.map((a) => (a.id === activity.id ? { ...a, members: [...(a.members ?? []), 'me'] } : a)) : state.activities
+      return { ...state, activities, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
+    }
+    case 'wantAgain': {
+      // Ответ тайный: собеседник узнает о «да» только при взаимности, об отказе — никогда.
+      const c = state.capsules.find((x) => x.id === action.capsuleId)
+      if (!c || c.again) return state
+      const partnerWants = !PARTNER_NO.includes(c.personId)
+      const both = action.want && partnerWants
+      const text = both
+        ? 'Совпало: вы оба хотите встретиться ещё! Капсула открыта заново на 72 часа — договоритесь о второй встрече.'
+        : action.want ? 'Ответ записан. Если собеседник тоже захочет — мы сразу скажем. Отказы никому не показываем.' : 'Ответ записан. Собеседник об этом не узнает.'
+      return {
+        ...state,
+        capsules: state.capsules.map((x) => (x.id === c.id ? {
+          ...x, again: action.want ? 'yes' : 'no',
+          ...(both ? { status: 'active' as const, createdAt: now, expiresAt: now + CAPSULE_TTL } : {}),
+          messages: [...x.messages, { id: uid(), from: 'system' as const, text, at: now }, ...(both ? [{ id: uid(), from: 'them' as const, text: 'Ура! Мне тоже было очень классно. Куда пойдём в этот раз?', at: now + 1 }] : [])],
+        } : x)),
+      }
     }
     case 'createActivity':
       return { ...state, activities: [{ ...action.activity, id: uid(), authorId: 'me' }, ...state.activities] }

@@ -5,7 +5,7 @@ import { useOpenProfile } from '../nav'
 import { countdown, hm, isBurning, isExpired, planWhen } from '../lib'
 import { Avatar, Button, Icon, Pill, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
-import { CheckinSheet, SafetySheet } from '../components/Meet'
+import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
@@ -159,6 +159,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             </div>
           ),
         )}
+        <AgainCard capsule={c} person={p} />
         {typing && <div className="self-start bg-surface-2 rounded-3xl rounded-bl-md px-4 py-2.5 text-muted anim-flick">{p.name} печатает…</div>}
         <div ref={endRef} />
       </div>

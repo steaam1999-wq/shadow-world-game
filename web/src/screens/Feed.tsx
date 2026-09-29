@@ -6,7 +6,7 @@ import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
-import { FreeNow } from '../components/Meet'
+import { FreeNow, GroupStack, groupFull, joinLabel } from '../components/Meet'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
@@ -213,14 +213,16 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
 
       {person ? (
         <div className="px-3 pt-3">
-          <Button variant={responded ? 'secondary' : 'primary'} className="w-full h-12" onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
-            {responded ? 'Открыть капсулу' : 'Хочу с тобой'} <Icon name="arrow" size={18} />
+          {a.groupSize && <div className="pb-2.5 px-1"><GroupStack activity={a} /></div>}
+          <Button variant={responded ? 'secondary' : 'primary'} className="w-full h-12" disabled={!responded && groupFull(a)} onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
+            {joinLabel(a, responded)} <Icon name="arrow" size={18} />
           </Button>
         </div>
       ) : (
-        <p className="mx-4 mt-3 flex items-center gap-2 text-[13px] text-muted">
-          <Icon name="pin" size={15} /> Точное место увидят только в капсуле: {a.exactPlace}
-        </p>
+        <div className="mx-4 mt-3 flex flex-col gap-2">
+          {a.groupSize && <GroupStack activity={a} />}
+          <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в капсуле: {a.exactPlace}</p>
+        </div>
       )}
 
       <div className="flex items-center gap-1 px-2.5 pt-1.5">

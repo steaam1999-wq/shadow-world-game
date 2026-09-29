@@ -32,6 +32,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
   const [query, setQuery] = useState('')
   const [time, setTime] = useState<(typeof TIMES)[number]['id']>('all')
   const [cats, setCats] = useState<string[]>([])
+  const [groupsOnly, setGroupsOnly] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
 
@@ -46,6 +47,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
         return a.authorId === 'me' || (p && p.distanceKm <= me.radiusKm)
       })
       .filter((a) => !cats.length || cats.includes(a.category))
+      .filter((a) => !groupsOnly || !!a.groupSize)
       .filter((a) => {
         if (!q) return true
         const p = state.people.find((x) => x.id === a.authorId)
@@ -58,7 +60,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
         return true
       })
       .sort((a, b) => a.startsAt - b.startsAt)
-  }, [state.activities, state.people, me.radiusKm, cats, time, now, query])
+  }, [state.activities, state.people, me.radiusKm, cats, time, now, query, groupsOnly])
 
   const selectedItem = items.find((a) => a.id === selected) ?? null
   const opened = state.activities.find((a) => a.id === open) ?? null
@@ -92,6 +94,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
             {TIMES.map((t) => <Chip key={t.id} active={time === t.id} onClick={() => setTime(t.id)}>{t.label}</Chip>)}
           </div>
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
+            <Chip active={groupsOnly} onClick={() => setGroupsOnly(!groupsOnly)}>Компании 3–4</Chip>
             {state.categories.map((c) => (
               <Chip key={c} active={cats.includes(c)} onClick={() => setCats(cats.includes(c) ? cats.filter((x) => x !== c) : [...cats, c])}>{c}</Chip>
             ))}
@@ -201,6 +204,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const [clock, setClock] = useState('19:00')
   const [duration, setDuration] = useState(120)
   const [hideTime, setHideTime] = useState(false)
+  const [groupSize, setGroupSize] = useState(0) // 0 — вдвоём
   const [photo, setPhoto] = useState<string | undefined>()
   const [photoError, setPhotoError] = useState('')
 
@@ -219,6 +223,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
       activity: {
         title: title.trim(), category, area, exactPlace: exactPlace.trim() || 'Уточню в капсуле', startsAt,
         durationMin: hideTime ? 0 : duration, timeHidden: hideTime || undefined,
+        ...(groupSize ? { groupSize, members: [] } : {}),
         expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 6 - 3), y: y + (Math.random() * 6 - 3), photo,
       },
     })
@@ -251,6 +256,15 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         </Field>
         <div className="flex flex-wrap gap-2">
           {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-muted">Формат</span>
+          <div className="flex flex-wrap gap-2">
+            {[[0, 'Вдвоём'], [3, 'Компания на 3'], [4, 'Компания на 4']].map(([n, label]) => (
+              <Chip key={n} active={groupSize === n} onClick={() => setGroupSize(Number(n))}>{label}</Chip>
+            ))}
+          </div>
+          {groupSize > 0 && <p className="text-[12px] text-muted">Вы и ещё {groupSize - 1} {groupSize - 1 === 2 ? 'человека' : 'человека'}: меньше неловкости, чем один на один. План исчезнет из ленты, когда наберётся компания.</p>}
         </div>
         <div className="rounded-2xl bg-surface-2 px-3.5">
           <Toggle id="act-hide-time" checked={hideTime} onChange={setHideTime} label="Не показывать время"

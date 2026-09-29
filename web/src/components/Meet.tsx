@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { countdown, freeUntil, hm, meetingCode, reliability } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls } from './ui'
-import type { Capsule, Person } from '../types'
+import type { Activity, Capsule, Person } from '../types'
 
 /* ───────── Отметка встречи кодами ───────── */
 
@@ -221,5 +221,65 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
         </div>
       </Sheet>
     </section>
+  )
+}
+
+/* ───────── Групповые планы ───────── */
+
+/** Кто уже идёт компанией: аватарки организатора и участников, пустые места пунктиром. */
+export function GroupStack({ activity, light = false }: { activity: Activity; light?: boolean }) {
+  const { state } = useStore()
+  if (!activity.groupSize) return null
+  const ids = [activity.authorId, ...(activity.members ?? [])]
+  const free = Math.max(0, activity.groupSize - ids.length)
+  const face = (id: string) => {
+    if (id === 'me') return state.me ? <Avatar name={state.me.name} hue={state.me.hue} src={state.me.photo} size={28} /> : null
+    const p = state.people.find((x) => x.id === id)
+    return p ? <Avatar name={p.name} hue={p.hue} size={28} /> : null
+  }
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex -space-x-2">
+        {ids.map((id) => <span key={id} className={`rounded-full ring-2 ${light ? 'ring-black/30' : 'ring-surface'}`}>{face(id)}</span>)}
+        {Array.from({ length: free }).map((_, i) => (
+          <span key={i} className={`grid place-items-center w-7 h-7 rounded-full border-2 border-dashed ${light ? 'border-white/60 text-white/80' : 'border-line text-muted'} text-[13px] bg-transparent`}>+</span>
+        ))}
+      </div>
+      <span className={`text-[13px] ${light ? 'text-white/90' : 'text-muted'}`}>
+        <b className={light ? 'text-white' : 'text-fg'}>Компания {ids.length} из {activity.groupSize}</b> · {free ? `${free} ${free === 1 ? 'место' : 'места'}` : 'мест нет'}
+      </span>
+    </div>
+  )
+}
+
+export function groupFull(a: Activity) {
+  return !!a.groupSize && [a.authorId, ...(a.members ?? [])].length >= a.groupSize
+}
+
+/** Текст главной кнопки плана с учётом компании. */
+export function joinLabel(a: Activity, responded: boolean) {
+  if (responded) return 'Открыть капсулу'
+  if (a.groupSize) return groupFull(a) ? 'Мест нет' : 'Присоединиться к компании'
+  return 'Хочу с тобой'
+}
+
+/* ───────── Взаимное «хочу ещё» ───────── */
+
+/** После подтверждённой встречи — тайный вопрос. Совпало «да» у обоих — капсула открывается снова. */
+export function AgainCard({ capsule, person }: { capsule: Capsule; person: Person }) {
+  const { dispatch } = useStore()
+  if (capsule.status !== 'met' || capsule.again) return null
+  return (
+    <div className="self-stretch rounded-[22px] bg-surface shadow-soft p-4 flex flex-col gap-3 text-center">
+      <span className="mx-auto grid place-items-center w-11 h-11 rounded-full bg-brand text-white"><Icon name="heart" size={20} fill /></span>
+      <div>
+        <div className="font-display font-semibold text-[17px]">{person.name} — хотите встретиться ещё?</div>
+        <p className="text-[13px] text-muted">Ответ тайный. Если вы оба скажете «да» — мы откроем капсулу снова. Отказ собеседник не увидит.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="secondary" onClick={() => dispatch({ type: 'wantAgain', capsuleId: capsule.id, want: false })}>Пожалуй, нет</Button>
+        <Button onClick={() => dispatch({ type: 'wantAgain', capsuleId: capsule.id, want: true })}>Да, хочу ещё</Button>
+      </div>
+    </div>
   )
 }

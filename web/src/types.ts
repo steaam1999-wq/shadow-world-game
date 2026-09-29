@@ -46,6 +46,8 @@ export interface Activity {
   y: number
   photo?: string // data URL загруженного фото; без него рисуется обложка категории
   timeHidden?: boolean // автор не показывает время — договорятся в капсуле
+  groupSize?: number // групповой план: сколько всего человек, включая автора (3–4)
+  members?: string[] // кто уже присоединился (personId или 'me'), без автора
 }
 
 export type CapsuleStatus = 'active' | 'agreed' | 'contacts' | 'met'
@@ -66,6 +68,7 @@ export interface Capsule {
   status: CapsuleStatus
   messages: Message[]
   unread: number
+  again?: 'yes' | 'no' // мой тайный ответ «хочу встретиться ещё»
 }
 
 export interface Report {
