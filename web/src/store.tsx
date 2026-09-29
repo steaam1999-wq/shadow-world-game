@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useReducer, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, CapsuleStatus, Me, Report, Safety, State, Verification } from './types'
+import type { Activity, CapsuleStatus, Listing, Me, Report, Safety, State, Verification } from './types'
+import { seedListings } from './market/data'
 
 const STORAGE_KEY = 'iskra-state'
 const SESSION_KEY = 'iskra-session'
@@ -38,6 +39,11 @@ type Action =
   | { type: 'endSafety' }
   | { type: 'checkIn'; capsuleId: string }
   | { type: 'wantAgain'; capsuleId: string; want: boolean }
+  | { type: 'addListing'; listing: Omit<Listing, 'id' | 'sellerId' | 'createdAt' | 'views'> }
+  | { type: 'toggleFavListing'; id: string }
+  | { type: 'setListingSold'; id: string; sold: boolean }
+  | { type: 'deleteListing'; id: string }
+  | { type: 'contactSeller'; listingId: string }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
@@ -90,6 +96,28 @@ function reducer(state: State, action: Action): State {
       }
       const activities = isGroup ? state.activities.map((a) => (a.id === activity.id ? { ...a, members: [...(a.members ?? []), 'me'] } : a)) : state.activities
       return { ...state, activities, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
+    }
+    case 'addListing':
+      return { ...state, listings: [{ ...action.listing, id: uid(), sellerId: 'me', createdAt: now, views: 0 }, ...(state.listings ?? [])] }
+    case 'toggleFavListing':
+      return { ...state, favListings: toggle(state.favListings ?? [], action.id) }
+    case 'setListingSold':
+      return { ...state, listings: (state.listings ?? []).map((l) => (l.id === action.id ? { ...l, sold: action.sold } : l)) }
+    case 'deleteListing':
+      return { ...state, listings: (state.listings ?? []).filter((l) => l.id !== action.id), favListings: (state.favListings ?? []).filter((x) => x !== action.id) }
+    case 'contactSeller': {
+      // Вопрос продавцу попадает в капсулу с ним (новую или существующую).
+      const l = (state.listings ?? []).find((x) => x.id === action.listingId)
+      if (!l || l.sellerId === 'me') return state
+      const q = { id: uid(), from: 'me' as const, text: `Здравствуйте! «${l.title}» ещё продаётся?`, at: now }
+      const a = { id: uid(), from: 'them' as const, text: l.sold ? 'Увы, уже продано.' : 'Да, ещё в продаже! Когда удобно посмотреть?', at: now + 1 }
+      const existing = state.capsules.find((c) => c.personId === l.sellerId && c.status !== 'met')
+      if (existing) return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, q, a] } : c)) }
+      const capsule = {
+        id: uid(), personId: l.sellerId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 1,
+        messages: [{ id: uid(), from: 'system' as const, text: `Маркет: «${l.title}» — ${l.price ? `${l.price.toLocaleString('ru-RU')} ₽` : 'бесплатно'}. Встречайтесь в людном месте и не переводите предоплату.`, at: now }, q, a],
+      }
+      return { ...state, capsules: [capsule, ...state.capsules] }
     }
     case 'wantAgain': {
       // Ответ тайный: собеседник узнает о «да» только при взаимности, об отказе — никогда.
@@ -236,6 +264,8 @@ function load(): State {
         // Без «Запомнить меня» вход живёт до закрытия браузера: новая сессия — снова экран входа.
         let sameSession = false
         try { sameSession = sessionStorage.getItem(SESSION_KEY) === '1'; sessionStorage.setItem(SESSION_KEY, '1') } catch { /* нет sessionStorage */ }
+        // Маркет появился позже — старым сохранениям досыпаем демо-объявления.
+        if (!parsed.listings) { parsed.listings = seedListings(); parsed.favListings = [] }
         if (parsed.remember === false && !sameSession && parsed.me) return { ...parsed, savedMe: parsed.me, me: null }
         return parsed
       }

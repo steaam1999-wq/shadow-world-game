@@ -3,6 +3,7 @@ import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
 import { MusicPage } from './music/MusicPage'
+import { Market } from './market/Market'
 import { SafetyBanner } from './components/Meet'
 import { PersonProfile } from './screens/PersonProfile'
 import { ProfileNav } from './nav'
@@ -20,7 +21,7 @@ import { isExpired, relative } from './lib'
 import type { Activity, Me } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin'
-type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
+type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music' | 'market'
 
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
   { id: 'home', label: 'Главная', icon: 'home' },
@@ -129,7 +130,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
   const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length
   const inChat = tab === 'capsules' && chat
-  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name, music: 'Музыка' }
+  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name, music: 'Музыка', market: 'Маркет' }
 
   return (
     <ProfileNav.Provider value={openProfile}>
@@ -140,6 +141,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           {tab === 'home' || person ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
             <ThemeToggle />
+            <button onClick={() => { setTab('market'); setChat(null); setPerson(null) }} className={`grid place-items-center w-10 h-10 cursor-pointer ${tab === 'market' ? 'text-spark' : ''}`} aria-label="Маркет">
+              <Icon name="bag" size={24} />
+            </button>
             <button onClick={() => { setTab('music'); setChat(null); setPerson(null) }} className={`relative grid place-items-center w-10 h-10 cursor-pointer ${tab === 'music' ? 'text-spark' : ''}`} aria-label="Музыка">
               <Icon name="note" size={23} />
               {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
@@ -165,6 +169,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
         {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} onInvite={invite} />}
         {!person && tab === 'music' && <MusicPage />}
+        {!person && tab === 'market' && <Market now={now} onContact={(sellerId) => setPendingInvite(sellerId)} />}
         {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
