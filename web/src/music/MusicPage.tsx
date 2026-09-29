@@ -58,7 +58,7 @@ export function MusicPage() {
   const liked = p.library.filter((x) => p.likes.includes(x.id))
   const genres = Array.from(new Set(CATALOG.map((x) => x.genre))) as Genre[]
   const q = query.trim().toLowerCase()
-  const spotify = parseSpotify(query)
+  const spotify = parseEmbed(query)
   const all = p.library.filter((x) => (!genre || x.genre === genre) && (!q || `${x.title} ${x.artist} ${GENRE_LABEL[x.genre]}`.toLowerCase().includes(q)))
 
   if (open) {
@@ -96,8 +96,14 @@ export function MusicPage() {
         <input ref={fileRef} id="music-file" type="file" accept="audio/*" multiple className="sr-only" onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) void p.addFiles(f); e.target.value = '' }} />
       </div>
 
-      {spotify && <SpotifyEmbed type={spotify.type} id={spotify.id} />}
+      {spotify && <EmbedPlayer embed={spotify} />}
       {!spotify && q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
+      {!spotify && q.length >= 2 && (
+        <a href={`https://music.yandex.ru/search?text=${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
+          className="mx-4 h-11 rounded-2xl bg-[#FFDB4D] text-black font-semibold text-[14px] inline-flex items-center justify-center gap-2">
+          Найти «{query.trim()}» в Яндекс Музыке <Icon name="arrow" size={16} />
+        </a>
+      )}
       {!spotify && q.length >= 2 && (
         <a href={`https://open.spotify.com/search/${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
           className="mx-4 h-11 rounded-2xl bg-[#1DB954] text-black font-semibold text-[14px] inline-flex items-center justify-center gap-2">
@@ -114,7 +120,7 @@ export function MusicPage() {
       {!q && (
         <>
           <MySongs />
-          <p className="-mt-3 px-4 text-[12px] text-muted">Есть ссылка на Spotify? Вставьте её в поиск — откроется плеер Spotify.</p>
+          <p className="-mt-3 px-4 text-[12px] text-muted">Есть ссылка на Яндекс Музыку или Spotify? Вставьте её в поиск — откроется их плеер.</p>
           <OnlineSection title="Сейчас в интернете" load={trendingOnline} fullLabel="В тренде · Audius, целиком" previewLabel="Топ-чарт · iTunes, отрывки по 30 секунд" radioLabel="Популярное радио · прямой эфир" />
           <section className="flex flex-col gap-3">
             <div className="px-4 flex items-end justify-between">
@@ -246,21 +252,42 @@ function OnlineList({ label, tracks }: { label: string; tracks: Track[] }) {
 }
 
 const SPOTIFY_RE = /open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]{22})/
+const YANDEX_RE = /(music\.yandex\.[a-z]+)\/(?:album\/(\d+)(?:\/track\/(\d+))?|users\/([^/?#]+)\/playlists\/(\d+)|track\/(\d+))/
 
-function parseSpotify(text: string) {
-  const m = SPOTIFY_RE.exec(text)
-  return m ? { type: m[1], id: m[2] } : null
+interface Embed { name: string; src?: string; height: number; link: string }
+
+function parseEmbed(text: string): Embed | null {
+  const sp = SPOTIFY_RE.exec(text)
+  if (sp) {
+    const small = sp[1] === 'track' || sp[1] === 'episode'
+    return { name: 'Spotify', src: `https://open.spotify.com/embed/${sp[1]}/${sp[2]}?utm_source=generator`, height: small ? 152 : 380, link: `https://open.spotify.com/${sp[1]}/${sp[2]}` }
+  }
+  const ya = YANDEX_RE.exec(text)
+  if (ya) {
+    const [, host, album, track, user, kind, bareTrack] = ya
+    const base = `https://${host}`
+    if (album && track) return { name: 'Яндекс Музыка', src: `${base}/iframe/track/${track}/${album}`, height: 180, link: `${base}/album/${album}/track/${track}` }
+    if (album) return { name: 'Яндекс Музыка', src: `${base}/iframe/album/${album}`, height: 450, link: `${base}/album/${album}` }
+    if (user && kind) return { name: 'Яндекс Музыка', src: `${base}/iframe/playlist/${user}/${kind}`, height: 450, link: `${base}/users/${user}/playlists/${kind}` }
+    // Для ссылки вида /track/ID плеер Яндекса требует ещё и номер альбома — открываем песню на их сайте.
+    return { name: 'Яндекс Музыка', height: 0, link: `${base}/track/${bareTrack}` }
+  }
+  return null
 }
 
-/** Официальный плеер Spotify: целиком для Premium после входа, остальным — отрывок. */
-function SpotifyEmbed({ type, id }: { type: string; id: string }) {
+/** Официальные встраиваемые плееры: целиком песни играют по подписке сервиса, иначе — отрывок. */
+function EmbedPlayer({ embed }: { embed: Embed }) {
   return (
     <section className="flex flex-col gap-2 px-4">
-      <h2 className="font-display font-semibold text-xl">Spotify</h2>
-      <iframe title="Плеер Spotify" src={`https://open.spotify.com/embed/${type}/${id}?utm_source=generator`}
-        className="w-full rounded-2xl border-0" height={type === 'track' || type === 'episode' ? 152 : 380} loading="lazy"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
-      <p className="text-[12px] text-muted">Полностью песни играют, если вы вошли в Spotify с подпиской Premium; иначе — отрывок. В приложении Claude плеер может не загрузиться — откройте сайт в браузере.</p>
+      <h2 className="font-display font-semibold text-xl">{embed.name}</h2>
+      {embed.src ? (
+        <iframe title={`Плеер: ${embed.name}`} src={embed.src} className="w-full rounded-2xl border-0" height={embed.height} loading="lazy"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
+      ) : (
+        <p className="text-muted">Эту ссылку нельзя открыть во встроенном плеере. Скопируйте ссылку на песню из альбома — или откройте её на сайте.</p>
+      )}
+      <a href={embed.link} target="_blank" rel="noopener noreferrer" className="self-start inline-flex items-center gap-1 text-[14px] font-semibold">Открыть в {embed.name === 'Spotify' ? 'Spotify' : 'Яндекс Музыке'} <Icon name="arrow" size={15} /></a>
+      <p className="text-[12px] text-muted">Целиком песни играют, если вы вошли в {embed.name === 'Spotify' ? 'Spotify' : 'Яндекс Музыку'} с подпиской; иначе — отрывок. В приложении Claude плеер может не загрузиться — откройте сайт в браузере.</p>
     </section>
   )
 }
