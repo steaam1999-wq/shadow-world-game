@@ -13,6 +13,7 @@ export interface Track {
   root: number // MIDI-нота тоники
   bars: number
   url?: string // для загруженного файла
+  seconds?: number // длительность загруженного файла, если известна
 }
 
 const STEPS_PER_BAR = 16

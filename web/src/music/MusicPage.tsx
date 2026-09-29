@@ -5,6 +5,7 @@ import { Plate } from '../screens/Feed'
 import { CATALOG, PLAYLISTS, playlistTracks, type Playlist } from './catalog'
 import { GENRE_LABEL, formatTime, genreOf, personTrack, usePlayer } from './player'
 import { Disc } from './PlayerUI'
+import { MySongs } from './MySongs'
 import { trackDuration, type Genre, type Track } from './engine'
 
 function Cover({ hue, children, className = '' }: { hue: number; children?: React.ReactNode; className?: string }) {
@@ -28,7 +29,7 @@ export function TrackRow({ track, queue, index }: { track: Track; queue: Track[]
         <Disc track={track} size={42} spinning={cur && p.playing} />
         <span className="min-w-0 flex-1">
           <span className={`block font-semibold text-[14px] truncate ${cur ? 'text-spark' : ''}`}>{track.title}</span>
-          <span className="block text-[12px] text-muted truncate">{track.artist} · {GENRE_LABEL[track.genre]}{track.genre !== 'file' ? ` · ${formatTime(trackDuration(track))}` : ''}</span>
+          <span className="block text-[12px] text-muted truncate">{track.artist} · {GENRE_LABEL[track.genre]}{track.genre !== 'file' ? ` · ${formatTime(trackDuration(track))}` : track.seconds ? ` · ${formatTime(track.seconds)}` : ''}</span>
         </span>
       </button>
       <button onClick={() => p.toggleLike(track.id)} className={`grid place-items-center w-9 h-9 rounded-full cursor-pointer shrink-0 ${liked ? 'text-spark' : 'text-muted'}`} aria-label={liked ? 'Убрать из любимых' : 'В любимые'} aria-pressed={liked}>
@@ -90,11 +91,12 @@ export function MusicPage() {
           <input id="music-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Трек, исполнитель, жанр" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
         </label>
         <button onClick={() => fileRef.current?.click()} className="grid place-items-center w-11 h-11 rounded-2xl bg-surface-2 cursor-pointer" aria-label="Загрузить свой трек"><Icon name="upload" size={20} /></button>
-        <input ref={fileRef} id="music-file" type="file" accept="audio/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.addFile(f); e.target.value = '' }} />
+        <input ref={fileRef} id="music-file" type="file" accept="audio/*" multiple className="sr-only" onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) void p.addFiles(f); e.target.value = '' }} />
       </div>
 
       {!q && (
         <>
+          <MySongs />
           <section className="flex flex-col gap-3">
             <div className="px-4 flex items-end justify-between">
               <div>

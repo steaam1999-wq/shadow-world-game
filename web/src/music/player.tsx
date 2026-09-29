@@ -4,10 +4,13 @@ import { useStore } from '../store'
 import type { Person, VibeAnswers } from '../types'
 
 import { CATALOG, GENRE_BPM, GENRE_LABEL } from './catalog'
+import { deleteSong, loadSongs, parseFileName, readDuration, saveSong, type StoredSong } from './library'
 
 export { GENRE_LABEL }
 const MUSIC_TO_GENRE: Record<string, Genre> = { indie: 'indie', electro: 'electro', jazz: 'jazz', hiphop: 'hiphop' }
 const LIKES_KEY = 'iskra-music-likes'
+const MY_SONG_KEY = 'iskra-my-song'
+const MAX_MB = 60
 export type Repeat = 'off' | 'all' | 'one'
 
 // Название трека — отсылка к плану или району человека.
@@ -41,6 +44,12 @@ interface PlayerApi {
   setVolume: (v: number) => void
   setExpanded: (v: boolean) => void
   addFile: (file: File) => void
+  /** Загружает песни; возвращает, сколько сохранено навсегда, сколько только до перезагрузки и что отклонено. */
+  addFiles: (files: File[], opts?: { play?: boolean }) => Promise<{ saved: number; temporary: number; rejected: string[] }>
+  removeUpload: (id: string) => void
+  renameUpload: (id: string, title: string, artist: string) => void
+  mySongId: string | null
+  setMySong: (id: string | null) => void
   close: () => void
   library: Track[]
   uploads: Track[]
@@ -58,6 +67,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const { state } = useStore()
   const [track, setTrack] = useState<Track | null>(null)
   const [uploads, setUploads] = useState<Track[]>([])
+  const songs = useRef(new Map<string, StoredSong>())
+  const [mySongId, setMySongId] = useState<string | null>(() => {
+    try { return localStorage.getItem(MY_SONG_KEY) } catch { return null }
+  })
+  useEffect(() => {
+    try { if (mySongId) localStorage.setItem(MY_SONG_KEY, mySongId); else localStorage.removeItem(MY_SONG_KEY) } catch { /* ignore */ }
+  }, [mySongId])
+  // Песни, загруженные раньше в этом браузере.
+  useEffect(() => {
+    let alive = true
+    loadSongs().then((list) => {
+      if (!alive) return
+      list.forEach((s) => songs.current.set(s.id, s))
+      setUploads((cur) => [...cur, ...list.filter((s) => !cur.some((c) => c.id === s.id)).map(songTrack)])
+    })
+    return () => { alive = false }
+  }, [])
   const [custom, setCustom] = useState<Track[] | null>(null)
   const [playing, setPlaying] = useState(false)
   const [position, setPosition] = useState(0)
@@ -120,6 +146,27 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t)
   }, [playing])
 
+  const addFiles = async (files: File[], opts: { play?: boolean } = {}) => {
+    const rejected: string[] = []
+    const added: Track[] = []
+    let saved = 0
+    let temporary = 0
+    for (const file of files) {
+      if (!file.type.startsWith('audio/') && !/\.(mp3|m4a|aac|wav|ogg|oga|flac|opus|webm)$/i.test(file.name)) { rejected.push(`${file.name}: это не аудиофайл`); continue }
+      if (file.size > MAX_MB * 1024 * 1024) { rejected.push(`${file.name}: больше ${MAX_MB} МБ`); continue }
+      const { title, artist } = parseFileName(file.name)
+      const song: StoredSong = { id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title, artist, duration: await readDuration(file), addedAt: Date.now(), blob: file }
+      songs.current.set(song.id, song)
+      if (await saveSong(song)) saved++; else temporary++
+      added.push(songTrack(song))
+    }
+    if (added.length) {
+      setUploads((u) => [...added, ...u])
+      if (opts.play !== false) { setCustom(null); start(added[0]) }
+    }
+    return { saved, temporary, rejected }
+  }
+
   const api: PlayerApi = {
     track, queue, playing, position, duration, volume, expanded,
     play: (t, q) => {
@@ -140,12 +187,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     seek: (sec) => { engine.seek(sec); setPosition(sec) },
     setVolume: (v) => { engine.setVolume(v); setVol(v) },
     setExpanded,
-    addFile: (file) => {
-      const t: Track = { id: `f-${Date.now()}`, title: file.name.replace(/\.[^.]+$/, ''), artist: 'Загружено вами', genre: 'file', hue: 280, bpm: 0, root: 0, bars: 0, url: URL.createObjectURL(file) }
-      setUploads((u) => [t, ...u])
-      setCustom(null)
-      start(t)
+    addFile: (file) => { void addFiles([file]) },
+    addFiles,
+    removeUpload: (id) => {
+      const t = uploads.find((x) => x.id === id)
+      if (track?.id === id) { engine.stop(); setTrack(null); setPlaying(false) }
+      if (t?.url) URL.revokeObjectURL(t.url)
+      setUploads((u) => u.filter((x) => x.id !== id))
+      songs.current.delete(id)
+      if (mySongId === id) setMySongId(null)
+      void deleteSong(id)
     },
+    renameUpload: (id, title, artist) => {
+      const clean = { title: title.trim() || 'Без названия', artist: artist.trim() }
+      setUploads((u) => u.map((x) => (x.id === id ? { ...x, title: clean.title, artist: clean.artist || 'Моя песня' } : x)))
+      if (track?.id === id) setTrack((t) => (t ? { ...t, title: clean.title, artist: clean.artist || 'Моя песня' } : t))
+      const stored = songs.current.get(id)
+      if (stored) { const upd = { ...stored, ...clean }; songs.current.set(id, upd); void saveSong(upd) }
+    },
+    mySongId,
+    setMySong: setMySongId,
     close: () => { engine.stop(); setTrack(null); setPlaying(false); setExpanded(false) },
     library: baseQueue,
     uploads,
@@ -158,6 +219,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
+}
+
+function songTrack(s: StoredSong): Track {
+  let h = 0
+  for (const ch of s.id) h = (h * 31 + ch.charCodeAt(0)) | 0
+  return { id: s.id, title: s.title, artist: s.artist || 'Моя песня', genre: 'file', hue: Math.abs(h) % 360, bpm: 0, root: 0, bars: 0, url: URL.createObjectURL(s.blob), seconds: s.duration }
 }
 
 export function usePlayer() {
