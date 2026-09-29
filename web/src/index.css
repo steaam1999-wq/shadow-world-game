@@ -200,3 +200,16 @@ h1, h2, h3 { text-wrap: balance; }
   background: color-mix(in srgb, var(--fg) 9%, var(--surface));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 70%, transparent), 0 2px 8px -4px var(--glass-shade);
 }
+
+/* Лайк: пружинящее сердце, кольцо-вспышка и разлетающиеся сердечки */
+@keyframes like-pop { 0% { transform: scale(1) } 25% { transform: scale(.72) } 55% { transform: scale(1.32) } 80% { transform: scale(.94) } 100% { transform: scale(1) } }
+@keyframes like-ring { 0% { transform: translate(-50%, -50%) scale(.2); opacity: .9 } 100% { transform: translate(-50%, -50%) scale(1.9); opacity: 0 } }
+@keyframes like-fly {
+  0% { transform: translate(-50%, -50%) rotate(var(--a)) translateX(4px) rotate(calc(-1 * var(--a))) scale(.3); opacity: 0 }
+  25% { opacity: 1 }
+  100% { transform: translate(-50%, -50%) rotate(var(--a)) translateX(26px) rotate(calc(-1 * var(--a))) scale(1); opacity: 0 }
+}
+.anim-like { animation: like-pop .55s cubic-bezier(.3, .7, .4, 1.4); }
+.like-ring { position: absolute; left: 50%; top: 50%; width: 100%; height: 100%; border-radius: 9999px; border: 2px solid var(--spark); animation: like-ring .5s ease-out forwards; }
+.like-particle { position: absolute; left: 50%; top: 50%; animation: like-fly .7s cubic-bezier(.2, .7, .3, 1) forwards; }
+@media (prefers-reduced-motion: reduce) { .anim-like, .like-ring, .like-particle { animation: none; opacity: 0; } }

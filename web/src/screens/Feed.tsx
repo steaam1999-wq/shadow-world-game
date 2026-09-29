@@ -5,6 +5,7 @@ import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { ShareButton } from '../components/ShareButton'
+import { LikeButton } from '../components/LikeButton'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
@@ -219,9 +220,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       )}
 
       <div className="flex items-center gap-1 px-2.5 pt-1.5">
-        <button onClick={() => dispatch({ type: 'toggleHeart', activityId: a.id })} className={`grid place-items-center w-10 h-10 cursor-pointer ${hearted ? 'text-danger' : ''}`} aria-label={hearted ? 'Убрать лайк' : 'Нравится'} aria-pressed={hearted}>
-          <Icon key={String(hearted)} name="heart" size={26} fill={hearted} className={hearted ? 'anim-bump' : ''} />
-        </button>
+        <LikeButton liked={hearted} onToggle={() => dispatch({ type: 'toggleHeart', activityId: a.id })} className="w-10 h-10" />
         {person && (
           <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Написать"><Icon name="comment" size={25} /></button>
         )}

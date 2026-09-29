@@ -4,6 +4,7 @@ import { compatibility, planWhen } from '../lib'
 import { Avatar, Button, Icon } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { Plate } from './Feed'
+import { LikeButton } from '../components/LikeButton'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import type { Activity, Person } from '../types'
@@ -59,7 +60,9 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
       )}
 
       <div className="absolute right-3 bottom-44 flex flex-col items-center gap-5 drop-shadow">
-        {action('heart', hearted ? 'Убрать лайк' : 'Нравится', () => dispatch({ type: 'toggleHeart', activityId: a.id }), hearted, likeCount(a.id, hearted).toLocaleString('ru-RU'))}
+        <LikeButton liked={hearted} onToggle={() => dispatch({ type: 'toggleHeart', activityId: a.id })} size={30} className="gap-1">
+          <span className="text-[12px] font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')}</span>
+        </LikeButton>
         {action('comment', 'Написать', () => (responded ? onOpenCapsule(a.id) : onRespond(a)), false, responded ? 'чат' : undefined)}
         {action('bookmark', saved ? 'Убрать из сохранённого' : 'Сохранить', () => dispatch({ type: 'toggleSave', activityId: a.id }), saved)}
       </div>
