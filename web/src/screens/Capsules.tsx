@@ -208,7 +208,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           </>
         )}
       </div>
-      <ReportSheet person={reporting} onClose={() => setReporting(null)} />
+      <ReportSheet person={reporting} onClose={() => setReporting(null)} onBlocked={onBack} />
       <CheckinSheet capsule={c} person={p} open={checkin} onClose={() => setCheckin(false)} />
       <SafetySheet capsule={c} person={p} place={place} open={safety} onClose={() => setSafety(false)} />
     </div>

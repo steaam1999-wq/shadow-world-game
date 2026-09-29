@@ -154,6 +154,113 @@ create policy "messages: participants send" on public.messages for insert to aut
 drop policy if exists "reports: send" on public.reports;
 create policy "reports: send" on public.reports for insert to authenticated with check (reporter = (select auth.uid()));
 
+-- ===== Безопасность сообщества: администраторы, баны, блокировки, удаление аккаунта =====
+
+-- Профиль: менять можно только свои «анкетные» поля. verified ставит только сервер/админ.
+revoke insert, update on public.profiles from authenticated;
+grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings) on public.profiles to authenticated;
+grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings) on public.profiles to authenticated;
+
+create table if not exists public.admins (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+alter table public.admins enable row level security;
+drop policy if exists "admins: self read" on public.admins;
+create policy "admins: self read" on public.admins for select to authenticated using (user_id = (select auth.uid()));
+
+create table if not exists public.bans (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  reason text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.bans enable row level security;
+
+-- Блокировка: заблокированный не может написать и не виден тому, кто заблокировал.
+create table if not exists public.blocks (
+  blocker uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  blocked uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker, blocked),
+  check (blocker <> blocked)
+);
+create index if not exists blocks_blocked_idx on public.blocks (blocked);
+alter table public.blocks enable row level security;
+drop policy if exists "blocks: own read" on public.blocks;
+create policy "blocks: own read" on public.blocks for select to authenticated using (blocker = (select auth.uid()));
+drop policy if exists "blocks: own add" on public.blocks;
+create policy "blocks: own add" on public.blocks for insert to authenticated with check (blocker = (select auth.uid()));
+drop policy if exists "blocks: own remove" on public.blocks;
+create policy "blocks: own remove" on public.blocks for delete to authenticated using (blocker = (select auth.uid()));
+
+alter table public.reports add column if not exists status text not null default 'open' check (status in ('open', 'resolved'));
+
+create or replace function private.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.admins where user_id = (select auth.uid()))
+$$;
+create or replace function private.is_banned(u uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.bans where user_id = u)
+$$;
+create or replace function private.blocked_between(a uuid, b uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.blocks where (blocker = a and blocked = b) or (blocker = b and blocked = a))
+$$;
+-- Писать в капсулу: участник, не забанен, никто из двоих не заблокировал другого.
+create or replace function private.can_write(c uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.capsules x
+    where x.id = c and (select auth.uid()) in (x.author, x.responder)
+      and not exists (select 1 from public.blocks b where (b.blocker = x.author and b.blocked = x.responder) or (b.blocker = x.responder and b.blocked = x.author))
+      and not exists (select 1 from public.bans where user_id = (select auth.uid()))
+  )
+$$;
+revoke all on function private.is_admin(), private.is_banned(uuid), private.blocked_between(uuid, uuid), private.can_write(uuid) from public, anon;
+grant execute on function private.is_admin(), private.is_banned(uuid), private.blocked_between(uuid, uuid), private.can_write(uuid) to authenticated;
+
+drop policy if exists "bans: admin read" on public.bans;
+create policy "bans: admin read" on public.bans for select to authenticated using (private.is_admin());
+drop policy if exists "bans: admin add" on public.bans;
+create policy "bans: admin add" on public.bans for insert to authenticated with check (private.is_admin());
+drop policy if exists "bans: admin remove" on public.bans;
+create policy "bans: admin remove" on public.bans for delete to authenticated using (private.is_admin());
+
+drop policy if exists "reports: admin read" on public.reports;
+create policy "reports: admin read" on public.reports for select to authenticated using (private.is_admin());
+drop policy if exists "reports: admin update" on public.reports;
+create policy "reports: admin update" on public.reports for update to authenticated using (private.is_admin()) with check (private.is_admin());
+
+-- Забаненных не видно (кроме себя и админа); писать и публиковать им нельзя.
+drop policy if exists "profiles: read" on public.profiles;
+create policy "profiles: read" on public.profiles for select to authenticated
+  using (id = (select auth.uid()) or not private.is_banned(id) or private.is_admin());
+drop policy if exists "plans: read" on public.plans;
+create policy "plans: read" on public.plans for select to authenticated
+  using (author = (select auth.uid()) or not private.is_banned(author) or private.is_admin());
+drop policy if exists "plans: own insert" on public.plans;
+create policy "plans: own insert" on public.plans for insert to authenticated
+  with check (author = (select auth.uid()) and not private.is_banned((select auth.uid())));
+drop policy if exists "capsules: open" on public.capsules;
+create policy "capsules: open" on public.capsules for insert to authenticated with check (
+  responder = (select auth.uid()) and author <> responder
+  and not private.is_banned((select auth.uid())) and not private.blocked_between(author, responder) and (
+    (plan_id is not null and author = (select p.author from plans p where p.id = plan_id and p.expires_at > now()))
+    or (plan_id is null and exists (select 1 from profiles pr where pr.id = author))
+  )
+);
+drop policy if exists "messages: participants send" on public.messages;
+create policy "messages: participants send" on public.messages for insert to authenticated
+  with check (sender = (select auth.uid()) and private.can_write(capsule_id));
+
+-- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
+create or replace function public.delete_my_account() returns void
+language sql security definer set search_path = public as $$
+  delete from auth.users where id = (select auth.uid())
+$$;
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
+
 -- Живые обновления чата, капсул, ленты и новых людей.
 do $$
 begin

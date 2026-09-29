@@ -4,7 +4,8 @@ import { Avatar, Button, Field, Icon, Logo, ThemeToggle, inputCls } from '../com
 import { PostArt } from '../components/PostArt'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { humanError, signIn, signUp } from '../cloud/api'
+import { humanError, requestPasswordReset, signIn, signUp } from '../cloud/api'
+import { RulesSheet } from '../components/Rules'
 
 // Пример аккаунта: открывается одной кнопкой, чтобы посмотреть приложение без регистрации.
 export const DEMO_ME: Me = {
@@ -35,6 +36,8 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const [login, setLogin] = useState(() => { try { return localStorage.getItem(LOGIN_KEY) ?? '' } catch { return '' } })
   const [remember, setRemember] = useState(state.remember !== false)
   const [otherAccount, setOtherAccount] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [rules, setRules] = useState(false)
   const quick = mode === 'login' && !otherAccount ? state.savedMe : null
   // Логин последнего входа подставляем в форму; пароль не храним — его предложит менеджер паролей браузера.
   const keepLogin = () => { try { if (login.trim()) localStorage.setItem(LOGIN_KEY, login.trim()) } catch { /* ignore */ } }
@@ -74,6 +77,21 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     }
   }
 
+  const sendReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const email = login.trim().toLowerCase()
+    if (!email.includes('@')) return setError('Введите почту, на которую зарегистрирован аккаунт')
+    setError(''); setInfo(''); setBusy(true)
+    try {
+      await requestPasswordReset(email)
+      setInfo(`Если аккаунт с почтой ${email} есть, мы отправили на неё ссылку для нового пароля. Проверьте и папку «Спам».`)
+    } catch (err) {
+      setError(humanError(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (cloudEnabled) { void cloudSubmit(); return }
@@ -85,7 +103,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       onRegister(name.trim(), login.includes('@') ? 'google' : 'phone', remember)
     } else { keepLogin(); onLogin(remember) }
   }
-  const switchMode = (m: Mode) => { setMode(m); setError('') }
+  const switchMode = (m: Mode) => { setMode(m); setError(''); setResetting(false) }
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
   return (
@@ -125,7 +143,19 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                   </div>
                 </div>
               )}
-              {!quick && <form onSubmit={submit} method="post" action="#"  className="flex flex-col gap-3" noValidate>
+              {resetting && !quick && (
+                <form onSubmit={sendReset} className="flex flex-col gap-3" noValidate>
+                  <p className="text-[14px] text-muted">Пришлём на почту ссылку, по которой можно задать новый пароль.</p>
+                  <Field id="reset-email" label="Почта">
+                    <input id="reset-email" type="email" className={inputCls} value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" placeholder="you@mail.ru" />
+                  </Field>
+                  {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+                  {info && <p className="text-[13px] text-ok" role="status">{info}</p>}
+                  <Button type="submit" className="h-12" disabled={busy}>{busy ? 'Минутку…' : 'Прислать ссылку'}</Button>
+                  <button type="button" onClick={() => { setResetting(false); setError(''); setInfo('') }} className="self-center text-[13px] text-muted hover:text-fg cursor-pointer">Назад ко входу</button>
+                </form>
+              )}
+              {!quick && !resetting && <form onSubmit={submit} method="post" action="#"  className="flex flex-col gap-3" noValidate>
                 {mode === 'register' && (
                   <Field id="reg-name" label="Имя">
                     <input id="reg-name" name="name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" placeholder="Как вас называть" />
@@ -152,6 +182,9 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 </label>
                 {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
                 {info && <p className="text-[13px] text-ok" role="status">{info}</p>}
+                {cloudEnabled && mode === 'login' && (
+                  <button type="button" onClick={() => { setResetting(true); setError(''); setInfo('') }} className="self-start -mt-1 text-[13px] font-semibold text-muted hover:text-fg cursor-pointer">Забыли пароль?</button>
+                )}
                 <Button type="submit" className="h-12 mt-1" disabled={busy}>{busy ? 'Минутку…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
               </form>}
 
@@ -196,8 +229,10 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       </main>
 
       <footer className="px-4 py-5 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[12px] text-muted">
-        <span>© 2026 «Искра» · демо-версия</span>
+        <span>© 2026 «Искра»{cloudEnabled ? '' : ' · демо-версия'}</span>
+        <button onClick={() => setRules(true)} className="hover:text-fg cursor-pointer">Правила и конфиденциальность</button>
       </footer>
+      <RulesSheet open={rules} onClose={() => setRules(false)} />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { DISTRICTS, VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { Button, Chip, Field, Icon, Logo, inputCls } from '../components/ui'
 import type { Me, VibeAnswers } from '../types'
+import { RulesSheet } from '../components/Rules'
 
 type Method = Me['authMethod']
 
@@ -19,6 +20,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
   const [district, setDistrict] = useState(DISTRICTS[0])
   const [bio, setBio] = useState('')
   const [tags, setTags] = useState<string[]>([])
+  const [rules, setRules] = useState(false)
 
   const total = VIBE_QUESTIONS.length + 1
   const q = step >= 1 && step <= VIBE_QUESTIONS.length ? VIBE_QUESTIONS[step - 1] : null
@@ -96,7 +98,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
               </Button>
             </form>
           )}
-          <p className="mt-auto text-[12px] text-muted">Продолжая, вы соглашаетесь с правилами сервиса и подтверждаете, что вам есть 18 лет.</p>
+          <p className="mt-auto text-[12px] text-muted">Продолжая, вы соглашаетесь с <button type="button" onClick={() => setRules(true)} className="underline hover:text-fg cursor-pointer">правилами и политикой конфиденциальности</button> и подтверждаете, что вам есть 18 лет.</p>
         </div>
       )}
 
@@ -164,11 +166,13 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
               ))}
             </div>
           </div>
-          <Button type="submit" className="mt-auto h-13" disabled={!name.trim() || tags.length < 3 || Number(age) < 18}>
+          <p className="mt-auto text-[12px] text-muted">Нажимая кнопку, вы соглашаетесь с <button type="button" onClick={() => setRules(true)} className="underline hover:text-fg cursor-pointer">правилами и политикой конфиденциальности</button> и подтверждаете, что вам есть 18 лет.</p>
+          <Button type="submit" className="h-13" disabled={!name.trim() || tags.length < 3 || Number(age) < 18}>
             Смотреть активности
           </Button>
         </form>
       )}
+      <RulesSheet open={rules} onClose={() => setRules(false)} />
     </div>
   )
 }

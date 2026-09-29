@@ -41,8 +41,10 @@ export type Action =
   | { type: 'checkIn'; capsuleId: string }
   | { type: 'wantAgain'; capsuleId: string; want: boolean }
   | { type: 'directMessage'; personId: string; capsuleId?: string; text?: string }
+  | { type: 'block'; personId: string; name: string }
+  | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[] }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean }
   | { type: 'cloudError'; message: string | null }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
@@ -250,14 +252,27 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
     }
+    case 'block': {
+      const gone = (id: string) => id === action.personId
+      return {
+        ...state,
+        people: state.people.filter((p) => !gone(p.id)),
+        activities: state.activities.filter((a) => !gone(a.authorId)),
+        capsules: state.capsules.filter((c) => !gone(c.personId)),
+        blocked: [...(state.blocked ?? []).filter((b) => !gone(b.id)), { id: action.personId, name: action.name }],
+      }
+    }
+    case 'unblock':
+      return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {
         ...state,
         people: action.people, activities: action.activities, capsules: action.capsules,
+        ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         liked: action.capsules.map((c) => c.activityId),
         ...(action.me ? { me: action.me, savedMe: action.me } : {}),
       }

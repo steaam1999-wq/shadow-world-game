@@ -115,6 +115,8 @@ export interface State {
   cloud?: { userId: string; email: string } | null // вход через сервер (Supabase); null — локальное демо
   cloudError?: string | null
   cloudRead?: Record<string, number> // capsuleId → когда я последний раз открывал переписку
+  blocked?: { id: string; name: string }[] // кого я заблокировал
+  isAdmin?: boolean
 }
 
 export interface Safety {

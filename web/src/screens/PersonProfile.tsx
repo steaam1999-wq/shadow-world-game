@@ -119,7 +119,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           </div>
         </div>
       )}
-      <ReportSheet person={reporting} onClose={() => setReporting(null)} />
+      <ReportSheet person={reporting} onClose={() => setReporting(null)} onBlocked={onBack} />
     </div>
   )
 }

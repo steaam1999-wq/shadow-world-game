@@ -17,11 +17,13 @@ import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { CloudSync } from './cloud/CloudSync'
 import { fetchMyProfile, profileToMe } from './cloud/api'
+import { cloudEnabled } from './cloud/config'
+import { NewPassword } from './screens/NewPassword'
 import { Avatar, Icon, Logo, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
 import type { Activity, Me } from './types'
 
-type View = 'landing' | 'onboarding' | 'app' | 'admin'
+type View = 'landing' | 'onboarding' | 'app' | 'admin' | 'recovery'
 type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
 
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
@@ -38,10 +40,15 @@ function readHash(): string {
 
 function Root() {
   const { state, dispatch } = useStore()
-  const [view, setView] = useState<View>(() => (readHash() === 'admin' ? 'admin' : state.me ? 'app' : 'landing'))
+  const [view, setView] = useState<View>(() => {
+    const hash = readHash()
+    if (cloudEnabled && /type=recovery|error_code=/.test(hash)) return 'recovery' // ссылка «новый пароль» из письма
+    return hash === 'admin' ? 'admin' : state.me ? 'app' : 'landing'
+  })
   const [reg, setReg] = useState<{ name: string; method: Me['authMethod'] } | null>(null)
 
   useEffect(() => {
+    if (view === 'recovery') return // токен восстановления из адреса ещё нужен экрану нового пароля
     try { history.replaceState(null, '', view === 'admin' ? '#admin' : view === 'app' ? '#app' : ' ') } catch { /* ignore */ }
     window.scrollTo(0, 0)
   }, [view])
@@ -73,6 +80,7 @@ function Root() {
     }
   }
 
+  if (view === 'recovery') return <NewPassword onDone={(userId, email) => onCloudAuth(userId, email, '')} onCancel={() => setView('landing')} />
   if (view === 'admin') return <Admin onExit={() => setView(state.me ? 'app' : 'landing')} />
   if (view === 'onboarding') return <Onboarding initialName={reg?.name} method={reg?.method ?? null} onDone={() => setView('app')} onBack={() => setView('landing')} />
   if (view === 'app' && state.me) return <AppShell onSignOut={() => setView('landing')} onAdmin={() => setView('admin')} />

@@ -5,7 +5,8 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
 
 let client: SupabaseClient | null = null
 export function sb() {
-  client ??= createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  // implicit: ссылка из письма (восстановление пароля) приносит сессию прямо в адресе страницы.
+  client ??= createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { flowType: 'implicit' } })
   return client
 }
 
@@ -25,6 +26,10 @@ export function humanError(e: unknown): string {
   if (/Password should be/i.test(m)) return 'Пароль слишком простой: нужно минимум 6 символов.'
   if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Нет связи с сервером. Проверьте интернет.'
+  // Отказ правил доступа: блокировка между людьми или бан модератором.
+  if (/row-level security.*"(capsules|messages)"/i.test(m)) return 'Написать нельзя: переписка заблокирована или аккаунт ограничен модератором.'
+  if (/row-level security.*"plans"/i.test(m)) return 'Публиковать планы нельзя: аккаунт ограничен модератором.'
+  if (/row-level security/i.test(m)) return 'Это действие запрещено.'
   return 'Ошибка сервера: ' + m
 }
 
@@ -90,13 +95,21 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins] = await Promise.all([
     db.from('profiles').select('*').limit(500).returns<ProfileRow[]>(),
     db.from('plans').select('*').gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
     db.from('plan_secrets').select('*').returns<{ plan_id: string; exact_place: string }[]>(),
+    db.from('blocks').select('blocked').returns<{ blocked: string }[]>(),
+    db.from('admins').select('user_id').returns<{ user_id: string }[]>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins]) if (r.error) throw r.error
+  // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
+  const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
+  const blocked = (profiles.data ?? []).filter((p) => hidden.has(p.id)).map((p) => ({ id: p.id, name: p.name }))
+  profiles.data = (profiles.data ?? []).filter((p) => !hidden.has(p.id))
+  plans.data = (plans.data ?? []).filter((p) => !hidden.has(p.author))
+  capsules.data = (capsules.data ?? []).filter((c) => !hidden.has(c.author) && !hidden.has(c.responder))
   const capsuleIds = (capsules.data ?? []).map((c) => c.id)
   const messages = capsuleIds.length
     ? await db.from('messages').select('*').in('capsule_id', capsuleIds).order('created_at').returns<MessageRow[]>()
@@ -139,7 +152,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
   })
-  return { me, people, activities, capsules: caps }
+  return { me, people, activities, capsules: caps, blocked, isAdmin: (admins.data ?? []).length > 0 }
 }
 
 export async function createPlan(userId: string, id: string, a: Omit<Activity, 'id' | 'authorId'>) {
@@ -181,6 +194,64 @@ export async function sendMessage(userId: string, capsuleId: string, body: strin
 export async function setCapsuleStatus(id: string, status: CapsuleStatus) {
   const { error } = await sb().from('capsules').update({ status }).eq('id', id)
   if (error) throw error
+}
+
+export async function block(personId: string) {
+  const { error } = await sb().from('blocks').insert({ blocked: personId })
+  if (error && error.code !== '23505') throw error
+}
+
+export async function unblock(userId: string, personId: string) {
+  const { error } = await sb().from('blocks').delete().eq('blocker', userId).eq('blocked', personId)
+  if (error) throw error
+}
+
+export async function deleteAccount() {
+  const { error } = await sb().rpc('delete_my_account')
+  if (error) throw error
+  await sb().auth.signOut({ scope: 'local' })
+}
+
+export async function requestPasswordReset(email: string) {
+  const { error } = await sb().auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname })
+  if (error) throw error
+}
+
+export async function updatePassword(password: string) {
+  const { data, error } = await sb().auth.updateUser({ password })
+  if (error) throw error
+  return data.user
+}
+
+// ===== Админка =====
+export interface AdminReport { id: number; reason: string; body: string; status: 'open' | 'resolved'; createdAt: number; reporter: { id: string; name: string }; target: { id: string; name: string; banned: boolean } }
+
+export async function adminReports(): Promise<AdminReport[]> {
+  const db = sb()
+  const [reports, profiles, bans] = await Promise.all([
+    db.from('reports').select('*').order('created_at', { ascending: false }).limit(200).returns<{ id: number; reporter: string; target: string; reason: string; body: string; status: 'open' | 'resolved'; created_at: string }[]>(),
+    db.from('profiles').select('id,name').returns<{ id: string; name: string }[]>(),
+    db.from('bans').select('user_id').returns<{ user_id: string }[]>(),
+  ])
+  for (const r of [reports, profiles, bans]) if (r.error) throw r.error
+  const name = new Map((profiles.data ?? []).map((p) => [p.id, p.name]))
+  const banned = new Set((bans.data ?? []).map((b) => b.user_id))
+  return (reports.data ?? []).map((r) => ({
+    id: r.id, reason: r.reason, body: r.body, status: r.status, createdAt: ms(r.created_at),
+    reporter: { id: r.reporter, name: name.get(r.reporter) ?? 'удалён' },
+    target: { id: r.target, name: name.get(r.target) ?? 'удалён', banned: banned.has(r.target) },
+  }))
+}
+
+export async function setReportStatus(id: number, status: 'open' | 'resolved') {
+  const { error } = await sb().from('reports').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+export async function setBan(userId: string, ban: boolean, reason = '') {
+  const q = ban ? sb().from('bans').insert({ user_id: userId, reason }) : sb().from('bans').delete().eq('user_id', userId)
+  const { error } = await q
+  if (error && error.code !== '23505') throw error
 }
 
 export async function sendReport(target: string, reason: string, body: string) {

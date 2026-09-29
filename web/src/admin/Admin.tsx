@@ -3,6 +3,8 @@ import { ANALYTICS } from '../data'
 import { useStore } from '../store'
 import { isExpired, relative } from '../lib'
 import { Avatar, Button, Icon, Logo, Pill, inputCls } from '../components/ui'
+import { CloudAdmin } from './CloudAdmin'
+import { cloudEnabled } from '../cloud/config'
 
 type Tab = 'moderation' | 'analytics' | 'content'
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -12,6 +14,13 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 export function Admin({ onExit }: { onExit: () => void }) {
+  const { state } = useStore()
+  // С сервером демо-админку видит только тот, кто сейчас в демо-аккаунте; без входа — «Нет доступа».
+  if (state.cloud || (cloudEnabled && !state.me)) return <CloudAdmin onExit={onExit} />
+  return <DemoAdmin onExit={onExit} />
+}
+
+function DemoAdmin({ onExit }: { onExit: () => void }) {
   const { state } = useStore()
   const [tab, setTab] = useState<Tab>('moderation')
   const pending = state.verifications.filter((v) => v.state === 'pending').length + state.reports.filter((r) => r.state === 'open').length

@@ -90,18 +90,25 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
   )
 }
 
-export function ReportSheet({ person, onClose }: { person: Person | null; onClose: () => void }) {
+export function ReportSheet({ person, onClose, onBlocked }: { person: Person | null; onClose: () => void; onBlocked?: () => void }) {
   const { dispatch } = useStore()
   const [reason, setReason] = useState(REASONS[0])
   const [text, setText] = useState('')
   const [sent, setSent] = useState(false)
   const close = () => { setSent(false); setText(''); onClose() }
+  const block = () => {
+    if (!person) return
+    dispatch({ type: 'block', personId: person.id, name: person.name })
+    close()
+    onBlocked?.()
+  }
   return (
     <Sheet open={!!person} onClose={close} title={sent ? 'Жалоба отправлена' : `Жалоба на ${person?.name ?? ''}`}>
       {sent ? (
         <div className="flex flex-col gap-4">
-          <p className="text-muted">Модератор проверит профиль в течение часа. Этот человек больше не увидит ваши активности.</p>
-          <Button onClick={close}>Понятно</Button>
+          <p className="text-muted">Спасибо. Модератор проверит жалобу и, если правила нарушены, заблокирует аккаунт. Чтобы {person?.name} не мог(ла) вам писать и пропал(а) из вашей ленты — заблокируйте.</p>
+          <Button variant="danger" onClick={block}>Заблокировать {person?.name}</Button>
+          <Button variant="secondary" onClick={close}>Готово</Button>
         </div>
       ) : (
         <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); if (person) dispatch({ type: 'report', personId: person.id, reason, text: text.trim() || '—' }); setSent(true) }}>
@@ -113,6 +120,7 @@ export function ReportSheet({ person, onClose }: { person: Person | null; onClos
           ))}
           <textarea id="report-text" aria-label="Подробности" className={`${inputCls} h-20 py-2 resize-none`} placeholder="Что случилось (необязательно)" value={text} onChange={(e) => setText(e.target.value)} />
           <Button type="submit" variant="danger">Отправить жалобу</Button>
+          <button type="button" onClick={block} className="self-center text-[14px] font-semibold text-muted hover:text-danger cursor-pointer">Просто заблокировать, без жалобы</button>
         </form>
       )}
     </Sheet>

@@ -7,6 +7,8 @@ import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
 import type { Activity } from '../types'
 import { GENRE_LABEL, usePlayer } from '../music/player'
+import { RulesSheet } from '../components/Rules'
+import { deleteAccount, humanError } from '../cloud/api'
 import type { Genre } from '../music/engine'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
@@ -199,9 +201,11 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
         <Toggle id="pv-contacts" checked={me.privacy.hideFromContacts} onChange={(v) => patch({ privacy: { ...me.privacy, hideFromContacts: v } })} label="Скрыть от контактов телефона" hint="Коллеги и родственники вас не увидят" />
       </section>
 
+      <SafetySection onSignOut={onSignOut} />
+
       <div className="flex flex-col gap-2">
-        <Button variant="ghost" onClick={onAdmin} className="border border-line"><Icon name="settings" size={18} /> Админ-панель (демо)</Button>
-        <Button variant="ghost" onClick={() => { dispatch({ type: 'reset' }); onSignOut() }} className="text-muted">Сбросить демо-данные</Button>
+        {(!state.cloud || state.isAdmin) && <Button variant="ghost" onClick={onAdmin} className="border border-line"><Icon name="settings" size={18} /> Админ-панель{state.cloud ? '' : ' (демо)'}</Button>}
+        {!state.cloud && <Button variant="ghost" onClick={() => { dispatch({ type: 'reset' }); onSignOut() }} className="text-muted">Сбросить демо-данные</Button>}
         <Button variant="danger" onClick={() => { dispatch({ type: 'signOut' }); onSignOut() }}><Icon name="logout" size={18} /> Выйти</Button>
       </div>
       </div>}
@@ -279,5 +283,58 @@ function VerifySheet({ open, onClose, onDone }: { open: boolean; onClose: () => 
         </div>
       )}
     </Sheet>
+  )
+}
+
+/** Заблокированные, правила, удаление аккаунта. */
+function SafetySection({ onSignOut }: { onSignOut: () => void }) {
+  const { state, dispatch } = useStore()
+  const [rules, setRules] = useState(false)
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const blocked = state.blocked ?? []
+
+  const remove = async () => {
+    setBusy(true); setError('')
+    try {
+      await deleteAccount()
+      dispatch({ type: 'signOut' })
+      dispatch({ type: 'forgetSaved' }) // после выхода: иначе экран входа предложит удалённый аккаунт
+      try { localStorage.removeItem('iskra-last-login') } catch { /* ignore */ }
+      onSignOut()
+    } catch (e) {
+      setError(humanError(e)); setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
+      <h2 className="font-display font-bold text-lg py-3">Безопасность</h2>
+      <div className="py-3 flex flex-col gap-2">
+        <span className="text-[14px] font-semibold">Заблокированные</span>
+        {blocked.length ? blocked.map((b) => (
+          <div key={b.id} className="flex items-center justify-between gap-3">
+            <span className="truncate">{b.name}</span>
+            <button onClick={() => dispatch({ type: 'unblock', personId: b.id })} className="shrink-0 h-8 px-3 rounded-full bg-surface-2 text-[13px] font-semibold cursor-pointer">Разблокировать</button>
+          </div>
+        )) : <p className="text-[13px] text-muted">Никого. Заблокировать можно в профиле человека или в чате — меню «…».</p>}
+      </div>
+      <button onClick={() => setRules(true)} className="py-3 flex items-center justify-between text-left cursor-pointer">
+        <span className="text-[14px] font-semibold">Правила и конфиденциальность</span><Icon name="arrow" size={16} />
+      </button>
+      {state.cloud && (
+        <button onClick={() => setConfirm(true)} className="py-3 text-left text-[14px] font-semibold text-danger cursor-pointer">Удалить аккаунт</button>
+      )}
+      <RulesSheet open={rules} onClose={() => setRules(false)} />
+      <Sheet open={confirm} onClose={() => !busy && setConfirm(false)} title="Удалить аккаунт?">
+        <div className="flex flex-col gap-3">
+          <p className="text-muted">Профиль, планы и вся переписка удалятся сразу и навсегда. Восстановить их будет нельзя.</p>
+          {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+          <Button variant="danger" onClick={remove} disabled={busy}>{busy ? 'Удаляем…' : 'Удалить навсегда'}</Button>
+          <Button variant="secondary" onClick={() => setConfirm(false)} disabled={busy}>Отмена</Button>
+        </div>
+      </Sheet>
+    </section>
   )
 }
