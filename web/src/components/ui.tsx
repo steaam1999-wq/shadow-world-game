@@ -86,7 +86,7 @@ export function Logo({ className = '' }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Искра">
       <LogoMark size={className.includes('text-xl') ? 36 : 32} />
-      <span aria-hidden="true">iskra</span>
+      <span aria-hidden="true">Iskra</span>
     </span>
   )
 }
