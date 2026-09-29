@@ -84,9 +84,9 @@ export function LogoMark({ size = 34 }: { size?: number }) {
 
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 font-display font-bold tracking-tight logo-word ${className}`}>
+    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Искра">
       <LogoMark size={className.includes('text-xl') ? 36 : 32} />
-      искра
+      <span aria-hidden="true">iskra</span>
     </span>
   )
 }

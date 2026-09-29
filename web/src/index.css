@@ -187,4 +187,5 @@ h1, h2, h3 { text-wrap: balance; }
 }
 
 /* Надпись логотипа: тёплый тёмный в светлой теме, кремовая со свечением в тёмной */
-.logo-word { color: var(--logo-word); text-shadow: 0 0 14px var(--logo-glow); }
+.logo-word { color: var(--logo-word); text-shadow: 0 0 14px var(--logo-glow); font-family: "Fredoka", "Rubik", "Nunito", system-ui, sans-serif; font-weight: 700; letter-spacing: -0.01em; }
+.logo-word > span:last-child { font-size: 1.25em; line-height: 1; }
