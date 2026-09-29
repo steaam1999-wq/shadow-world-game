@@ -11,7 +11,7 @@ export function sb() {
 
 interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; verified: boolean; meetings: number }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; time_hidden: boolean; group_size: number | null }
-interface CapsuleRow { id: string; plan_id: string; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string }
+interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string }
 
 const ms = (iso: string) => new Date(iso).getTime()
@@ -124,17 +124,17 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
 
   const caps: Capsule[] = (capsules.data ?? []).map((c) => {
     const created = ms(c.created_at)
-    const exact = place.get(c.plan_id)
+    const exact = c.plan_id ? place.get(c.plan_id) : undefined
     const rows = byCapsule.get(c.id) ?? []
     const msgs: Message[] = [
-      { id: `${c.id}-open`, from: 'system', text: 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.', at: created },
+      { id: `${c.id}-open`, from: 'system', text: c.plan_id ? 'Капсула открыта. У вас 72 часа, чтобы договориться о встрече.' : 'Личная переписка. У вас 72 часа, чтобы договориться о встрече.', at: created },
       ...(exact ? [{ id: `${c.id}-place`, from: 'system' as const, text: `Точное место: ${exact}`, at: created }] : []),
       ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at) })),
       ...(c.status !== 'active' ? [{ id: `${c.id}-status`, from: 'system' as const, text: STATUS_NOTE[c.status], at: Date.now() }] : []),
     ]
     const seen = read[c.id] ?? 0
     return {
-      id: c.id, personId: c.author === userId ? c.responder : c.author, activityId: c.plan_id,
+      id: c.id, personId: c.author === userId ? c.responder : c.author, activityId: c.plan_id ?? '',
       createdAt: created, expiresAt: ms(c.expires_at), status: c.status, messages: msgs,
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
@@ -162,6 +162,13 @@ export async function deletePlan(id: string) {
 export async function respond(userId: string, capsuleId: string, plan: Activity, text?: string) {
   const db = sb()
   const { error } = await db.from('capsules').insert({ id: capsuleId, plan_id: plan.id, author: plan.authorId, responder: userId, expires_at: new Date(Date.now() + CAPSULE_TTL).toISOString() })
+  if (error) throw error
+  if (text) await sendMessage(userId, capsuleId, text)
+}
+
+/** Личная переписка без плана: открывает её тот, кто пишет первым. */
+export async function openDirect(userId: string, capsuleId: string, otherId: string, text?: string) {
+  const { error } = await sb().from('capsules').insert({ id: capsuleId, author: otherId, responder: userId, expires_at: new Date(Date.now() + CAPSULE_TTL).toISOString() })
   if (error) throw error
   if (text) await sendMessage(userId, capsuleId, text)
 }

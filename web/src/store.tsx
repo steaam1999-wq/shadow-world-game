@@ -40,6 +40,7 @@ export type Action =
   | { type: 'endSafety' }
   | { type: 'checkIn'; capsuleId: string }
   | { type: 'wantAgain'; capsuleId: string; want: boolean }
+  | { type: 'directMessage'; personId: string; capsuleId?: string; text?: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
   | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[] }
   | { type: 'cloudError'; message: string | null }
@@ -238,6 +239,17 @@ function reducer(state: State, action: Action): State {
       return { ...state, following: toggle(state.following ?? [], action.personId) }
     case 'seeStory':
       return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }
+    case 'directMessage': {
+      // Личная переписка из профиля: одна на пару людей, без привязки к плану.
+      const msg = action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now }] : []
+      const existing = state.capsules.find((c) => c.personId === action.personId)
+      if (existing) return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, ...msg] } : c)) }
+      const capsule = {
+        id: action.capsuleId ?? uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 0,
+        messages: [{ id: uid(), from: 'system' as const, text: 'Личная переписка. У вас 72 часа, чтобы договориться о встрече.', at: now }, ...msg],
+      }
+      return { ...state, capsules: [capsule, ...state.capsules] }
+    }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
       return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], cloudError: null }
@@ -286,7 +298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const before = ref.current
     if (before.cloud) {
       if (a.type === 'createActivity' && !a.id) a = { ...a, id: crypto.randomUUID() }
-      if (a.type === 'respond' && !a.capsuleId) a = { ...a, capsuleId: crypto.randomUUID() }
+      if ((a.type === 'respond' || a.type === 'directMessage') && !a.capsuleId) a = { ...a, capsuleId: crypto.randomUUID() }
       const job = cloudEffect(a, before)
       if (job) job.then(requestReload, (e: Error) => { baseDispatch({ type: 'cloudError', message: e.message }); requestReload() })
     }

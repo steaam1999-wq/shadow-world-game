@@ -26,6 +26,11 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       if (!plan || plan.authorId === 'me' || s.liked.includes(plan.id)) return null
       return run(api.respond(uid, a.capsuleId!, plan, a.text))
     }
+    case 'directMessage': {
+      const c = s.capsules.find((x) => x.personId === a.personId)
+      if (c) return a.text ? run(api.sendMessage(uid, c.id, a.text)) : null
+      return run(api.openDirect(uid, a.capsuleId!, a.personId, a.text))
+    }
     case 'send':
       return run(api.sendMessage(uid, a.capsuleId, a.text))
     case 'share': {

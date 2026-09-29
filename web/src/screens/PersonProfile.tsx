@@ -38,8 +38,10 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const capsule = state.capsules.find((c) => c.personId === p.id)
 
   const message = () => {
-    if (capsule) onOpenChat(capsule.id)
-    else if (plans[0]) onRespond(plans[0], 'Привет! Увидел(а) твой профиль — давай встретимся?')
+    if (capsule) { onOpenChat(capsule.id); return }
+    const id = crypto.randomUUID()
+    dispatch({ type: 'directMessage', personId: p.id, capsuleId: id })
+    onOpenChat(id)
   }
 
   return (
@@ -83,11 +85,10 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           <Button variant={following ? "secondary" : "primary"} className="h-10 text-[14px] whitespace-nowrap" onClick={() => dispatch({ type: 'toggleFollow', personId: p.id })} aria-pressed={following}>
             {following ? <><Icon name="check" size={16} /> Вы подписаны</> : 'Подписаться'}
           </Button>
-          <Button variant="secondary" className="h-10 text-[14px] whitespace-nowrap" onClick={message} disabled={!capsule && !plans.length}>
+          <Button variant="secondary" className="h-10 text-[14px] whitespace-nowrap" onClick={message}>
             <Icon name="chat" size={16} /> Написать
           </Button>
         </div>
-        {!capsule && !plans.length && <p className="text-[12px] text-muted -mt-1">Написать можно, когда у {p.name} появится план — подпишитесь, чтобы не пропустить.</p>}
       </section>
 
       <div className="grid grid-cols-3 border-t border-line mt-1">

@@ -62,7 +62,7 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
 
       <div className="absolute right-3 bottom-44 flex flex-col items-center gap-5 drop-shadow">
         <LikeButton liked={hearted} onToggle={() => dispatch({ type: 'toggleHeart', activityId: a.id })} size={30} className="gap-1">
-          <span className="text-[12px] font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')}</span>
+          {!state.cloud && <span className="text-[12px] font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')}</span>}
         </LikeButton>
         {action('comment', 'Написать', () => (responded ? onOpenCapsule(a.id) : onRespond(a)), false, responded ? 'чат' : undefined)}
         {action('bookmark', saved ? 'Убрать из сохранённого' : 'Сохранить', () => dispatch({ type: 'toggleSave', activityId: a.id }), saved)}

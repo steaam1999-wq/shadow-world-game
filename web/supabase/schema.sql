@@ -37,10 +37,11 @@ create table if not exists public.plans (
 create index if not exists plans_expires_idx on public.plans (expires_at);
 create index if not exists plans_author_idx on public.plans (author);
 
--- Капсула: переписка автора плана и откликнувшегося, 72 часа на договорённость.
+-- Капсула: переписка двух людей, 72 часа на договорённость. С планом — отклик на него,
+-- без плана (plan_id null) — личное сообщение из профиля.
 create table if not exists public.capsules (
   id uuid primary key default gen_random_uuid(),
-  plan_id uuid not null references public.plans (id) on delete cascade,
+  plan_id uuid references public.plans (id) on delete cascade,
   author uuid not null references public.profiles (id) on delete cascade,
   responder uuid not null references public.profiles (id) on delete cascade,
   status text not null default 'active' check (status in ('active', 'agreed', 'contacts', 'met')),
@@ -49,6 +50,10 @@ create table if not exists public.capsules (
   unique (plan_id, responder),
   check (author <> responder)
 );
+-- Для баз, созданных до личных сообщений.
+alter table public.capsules alter column plan_id drop not null;
+-- Одна личная переписка на пару людей, кто бы ни написал первым.
+create unique index if not exists capsules_direct_pair on public.capsules (least(author, responder), greatest(author, responder)) where plan_id is null;
 create index if not exists capsules_author_idx on public.capsules (author);
 create index if not exists capsules_responder_idx on public.capsules (responder);
 
@@ -126,9 +131,12 @@ create policy "secrets: author insert" on public.plan_secrets for insert to auth
 drop policy if exists "capsules: participants read" on public.capsules;
 create policy "capsules: participants read" on public.capsules for select to authenticated using ((select auth.uid()) in (author, responder));
 drop policy if exists "capsules: respond" on public.capsules;
-create policy "capsules: respond" on public.capsules for insert to authenticated with check (
-  responder = (select auth.uid())
-  and author = (select p.author from plans p where p.id = plan_id and p.expires_at > now())
+drop policy if exists "capsules: open" on public.capsules;
+create policy "capsules: open" on public.capsules for insert to authenticated with check (
+  responder = (select auth.uid()) and author <> responder and (
+    (plan_id is not null and author = (select p.author from plans p where p.id = plan_id and p.expires_at > now()))
+    or (plan_id is null and exists (select 1 from profiles pr where pr.id = author))
+  )
 );
 drop policy if exists "capsules: participants update" on public.capsules;
 create policy "capsules: participants update" on public.capsules for update to authenticated

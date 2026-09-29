@@ -254,7 +254,9 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       </div>
 
       <div className="px-4 flex flex-col gap-1 text-[14px]">
-        <span className="font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')} отметок «Нравится»</span>
+        {/* Чужие лайки на сервере пока не хранятся — там показываем только свой. */}
+        {state.cloud ? hearted && <span className="font-semibold">Вам нравится</span>
+          : <span className="font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')} отметок «Нравится»</span>}
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}

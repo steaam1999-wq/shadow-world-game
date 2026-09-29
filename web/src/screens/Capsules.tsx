@@ -49,7 +49,7 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
               <span className="font-semibold truncate">{p.name}</span>
               <Timer c={c} now={now} />
             </div>
-            <div className="text-[13px] text-muted truncate">{a?.title ?? (c.activityId ? 'Активность завершена' : 'Спонтанная встреча')}</div>
+            <div className="text-[13px] text-muted truncate">{a?.title ?? (c.activityId ? 'Активность завершена' : 'Личные сообщения')}</div>
             <div className="flex items-center justify-between gap-2">
               <span className={`text-[13px] truncate ${c.unread ? 'text-fg font-semibold' : 'text-muted'}`}>
                 {last.from === 'me' ? 'Вы: ' : ''}{last.text}
@@ -143,7 +143,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{p.name}, {p.age}</div>
-            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.activityId ? 'Активность завершена' : 'Спонтанная встреча'}</div>
+            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.activityId ? 'Активность завершена' : 'Личные сообщения'}</div>
           </div>
           </button>
           <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="flag" size={18} /></button>
