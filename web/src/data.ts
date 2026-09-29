@@ -1,4 +1,3 @@
-import { seedListings } from './market/data'
 import type { Activity, Capsule, Person, Report, State, Verification } from './types'
 
 export const HOUR = 3_600_000
@@ -166,8 +165,6 @@ const VERIFICATIONS = (now: number): Verification[] => [
 export function seedState(now = Date.now()): State {
   return {
     version: 2,
-    listings: seedListings(now),
-    favListings: [],
     me: null,
     people: PEOPLE,
     activities: ACTS(now),

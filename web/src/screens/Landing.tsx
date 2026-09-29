@@ -22,11 +22,10 @@ const DEMO_PLANS = [
 type Mode = 'login' | 'register'
 const LOGIN_KEY = 'iskra-last-login'
 
-export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
+export function Landing({ onDemo, onLogin, onRegister }: {
   onDemo: (remember: boolean) => void
   onLogin: (remember: boolean) => void
   onRegister: (name: string, method: Me['authMethod'], remember: boolean) => void
-  onAdmin: () => void
 }) {
   const { state, dispatch } = useStore()
   const [mode, setMode] = useState<Mode>('login')
@@ -165,7 +164,6 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
 
       <footer className="px-4 py-5 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[12px] text-muted">
         <span>© 2026 «Искра» · демо-версия</span>
-        <button onClick={onAdmin} className="hover:text-fg cursor-pointer">Админ-панель</button>
       </footer>
     </div>
   )

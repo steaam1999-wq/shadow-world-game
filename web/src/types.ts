@@ -108,8 +108,6 @@ export interface State {
   announcement: string | null
   dismissedAnnouncement: string | null
   following?: string[] // personId, на кого я подписан
-  listings?: Listing[] // Маркет: объявления
-  favListings?: string[]
   safety?: Safety | null // идёт встреча с таймером безопасности
   remember?: boolean // «Запомнить меня»: false — выход при закрытии браузера
   savedMe?: Me | null // профиль последнего входа: «Войти» без бэкенда возвращает его
@@ -122,20 +120,4 @@ export interface Safety {
   contact: string
   startedAt: number
   until: number
-}
-
-export interface Listing {
-  id: string
-  sellerId: string // personId или 'me'
-  title: string
-  price: number // 0 — бесплатно
-  exchange?: boolean
-  category: string
-  condition: 'new' | 'used'
-  district: string
-  description: string
-  createdAt: number
-  views: number
-  photo?: string
-  sold?: boolean
 }

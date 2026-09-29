@@ -3,7 +3,7 @@ import { engine, type Genre, type Track } from './engine'
 import { useStore } from '../store'
 import type { Person, VibeAnswers } from '../types'
 
-import { CATALOG, GENRE_BPM, GENRE_LABEL } from './catalog'
+import { GENRE_BPM, GENRE_LABEL } from './catalog'
 import { deleteSong, loadSongs, parseFileName, readDuration, saveSong, type StoredSong } from './library'
 
 export { GENRE_LABEL }
@@ -107,7 +107,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const me = state.me
   const baseQueue = useMemo(() => {
     const mine: Track[] = me ? [{ id: 't-me', title: 'Мой вайб', artist: me.name, genre: genreOf(me.answers), hue: me.hue, bpm: GENRE_BPM[genreOf(me.answers)], root: 57, bars: 40 }] : []
-    return [...uploads, ...online, ...mine, ...state.people.map(personTrack), ...CATALOG]
+    return [...uploads, ...online, ...mine, ...state.people.map(personTrack)]
   }, [me, uploads, online, state.people])
   const queue = custom ?? baseQueue
 

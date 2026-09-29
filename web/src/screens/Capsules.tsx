@@ -26,8 +26,11 @@ function Timer({ c, now, big = false }: { c: Capsule; now: number; big?: boolean
   )
 }
 
+const HINT_KEY = 'iskra-capsule-hint'
+
 export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string) => void }) {
   const { state } = useStore()
+  const [hintSeen, setHintSeen] = useState(() => { try { return localStorage.getItem(HINT_KEY) === '1' } catch { return false } })
   const live = state.capsules.filter((c) => !isExpired(c, now))
   const expired = state.capsules.filter((c) => isExpired(c, now))
 
@@ -72,8 +75,16 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
         <span className="eyebrow">72 часа на договорённость</span>
         <h1 className="font-display font-bold text-2xl">Капсулы</h1>
       </div>
+      {!hintSeen && (
+        <div className="relative rounded-[24px] bg-surface shadow-soft p-4 pr-11 text-[14px] leading-snug">
+          <p className="font-semibold mb-1">Что такое капсула</p>
+          <p className="text-muted">Это чат с человеком, на чей план вы откликнулись. На договорённость — 72 часа: не успели условиться о встрече — капсула сгорает. Точное место встречи видно только здесь.</p>
+          <button onClick={() => { setHintSeen(true); try { localStorage.setItem(HINT_KEY, '1') } catch { /* ignore */ } }}
+            className="absolute right-2 top-2 grid place-items-center w-9 h-9 rounded-full text-muted hover:text-fg cursor-pointer" aria-label="Понятно, скрыть подсказку"><Icon name="x" size={16} /></button>
+        </div>
+      )}
       {live.length ? <ul className="flex flex-col gap-1">{live.map(row)}</ul> : (
-        <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">Откликнитесь на активность в «Идеях», и здесь появится первая капсула.</div>
+        <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">Откликнитесь на план в ленте или в «Поиске», и здесь появится первая капсула.</div>
       )}
       {expired.length > 0 && (
         <>

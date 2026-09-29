@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DISTRICTS, VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
-import { Avatar, Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
 import type { Activity } from '../types'
@@ -73,7 +73,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
             className="inline-flex items-center gap-1.5 my-1 max-w-full rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
             <Icon name="note" size={13} /> <span className="truncate">Моя песня: {mySong ? `«${mySong.title}»${mySong.artist !== 'Моя песня' ? ` · ${mySong.artist}` : ''}` : `«Мой вайб» · ${GENRE_LABEL[myGenre]}`}</span>
           </button>
-          {me.meetings > 0 && <span className="inline-flex items-center gap-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
+          {me.meetings > 0 && <span className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>
@@ -174,6 +174,14 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
             )
           })}
         </dl>
+      </section>
+
+      <section className="rounded-[28px] bg-surface shadow-soft px-5 py-3 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display font-bold text-lg">Оформление</h2>
+          <p className="text-[13px] text-muted">Светлая или тёмная тема</p>
+        </div>
+        <ThemeToggle />
       </section>
 
       {/* Приватность */}

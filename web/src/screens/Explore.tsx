@@ -7,7 +7,6 @@ import { Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '.
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
-import { Market } from '../market/Market'
 import type { Activity } from '../types'
 
 const RADII = [1, 3, 5, 10]
@@ -24,9 +23,9 @@ const DISTRICT_XY: Record<string, [number, number]> = {
   'Замоскворечье': [52, 64], 'Басманный': [74, 34], 'Таганка': [72, 58], 'Парк Горького': [38, 84],
 }
 
-type Mode = 'plans' | 'people' | 'map' | 'market'
+type Mode = 'plans' | 'people' | 'map'
 
-export function Explore({ now, onRespond, onOpenCapsule, onContact }: { now: number; onRespond: (a: Activity, text?: string) => void; onOpenCapsule: (activityId: string) => void; onContact?: (sellerId: string) => void }) {
+export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onRespond: (a: Activity, text?: string) => void; onOpenCapsule: (activityId: string) => void }) {
   const { state, dispatch } = useStore()
   const me = state.me!
   const [mode, setMode] = useState<Mode>('plans')
@@ -68,17 +67,17 @@ export function Explore({ now, onRespond, onOpenCapsule, onContact }: { now: num
 
   return (
     <div className="flex flex-col gap-3 pt-2">
-      {mode !== 'market' && <div className="px-4">
+      <div className="px-4">
         <label htmlFor="search" className="flex items-center gap-2 h-11 rounded-2xl bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={18} />
           <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск: выставка, кофе, Таганка…" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
           {query && <button onClick={() => setQuery('')} aria-label="Очистить поиск" className="cursor-pointer"><Icon name="x" size={16} /></button>}
         </label>
-      </div>}
+      </div>
 
       <div>
-        <div className="grid grid-cols-4 border-b border-line" role="tablist">
-          {([['plans', 'grid', 'Планы'], ['people', 'people', 'Люди'], ['map', 'map', 'Карта'], ['market', 'bag', 'Маркет']] as const).map(([id, icon, label]) => (
+        <div className="grid grid-cols-3 border-b border-line" role="tablist">
+          {([['plans', 'grid', 'Планы'], ['people', 'people', 'Люди'], ['map', 'map', 'Карта']] as const).map(([id, icon, label]) => (
             <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
               className={`h-11 flex items-center justify-center gap-1.5 text-[13px] font-semibold border-b-2 -mb-px cursor-pointer whitespace-nowrap min-w-0 ${mode === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
               <Icon name={icon} size={17} /> {label}
@@ -87,7 +86,7 @@ export function Explore({ now, onRespond, onOpenCapsule, onContact }: { now: num
         </div>
       </div>
 
-      {mode !== 'people' && mode !== 'market' && (
+      {mode !== 'people' && (
         <div className="flex flex-col gap-2">
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
             {RADII.map((r) => (
@@ -139,8 +138,6 @@ export function Explore({ now, onRespond, onOpenCapsule, onContact }: { now: num
           )}
         </div>
       )}
-
-      {mode === 'market' && <Market now={now} onContact={onContact} />}
 
       {opened && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="План">

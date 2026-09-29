@@ -15,7 +15,7 @@ import { Reels } from './screens/Reels'
 import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
-import { Avatar, Icon, Logo, Sheet, ThemeToggle } from './components/ui'
+import { Avatar, Icon, Logo, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
 import type { Activity, Me } from './types'
 
@@ -65,7 +65,6 @@ function Root() {
       onDemo={(remember) => { dispatch({ type: 'setRemember', remember }); enterDemo() }}
       onLogin={(remember) => { dispatch({ type: 'setRemember', remember }); if (state.savedMe) { dispatch({ type: 'signIn', me: state.savedMe }); setView('app') } else enterDemo() }}
       onRegister={(name, method, remember) => { dispatch({ type: 'setRemember', remember }); setReg({ name, method }); setView('onboarding') }}
-      onAdmin={() => setView('admin')}
     />
   )
 }
@@ -139,7 +138,6 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           <div className="w-full h-14 flex items-center justify-between gap-3">
           {tab === 'home' || person ? <Logo className="text-xl" /> : <h1 className="font-display font-bold text-lg truncate">{titles[tab]}</h1>}
           <div className="flex items-center gap-1 -mr-2">
-            <ThemeToggle />
             <button onClick={() => { setTab('music'); setChat(null); setPerson(null) }} className={`relative grid place-items-center w-10 h-10 cursor-pointer ${tab === 'music' ? 'text-spark' : ''}`} aria-label="Музыка">
               <Icon name="note" size={23} />
               {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
@@ -166,7 +164,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} onInvite={invite} />}
         {!person && tab === 'music' && <MusicPage />}
         {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
-        {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onContact={(sellerId) => setPendingInvite(sellerId)} />}
+        {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} /></div>)}
         {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
       </main>

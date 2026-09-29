@@ -1,23 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { Avatar, Chip, Icon } from '../components/ui'
-import { Plate } from '../screens/Feed'
-import { CATALOG, PLAYLISTS, playlistTracks, type Playlist } from './catalog'
-import { GENRE_LABEL, formatTime, genreOf, personTrack, trackLabel, usePlayer } from './player'
+import { Avatar, Icon } from '../components/ui'
+import { GENRE_LABEL, formatTime, personTrack, trackLabel, usePlayer } from './player'
 import { searchOnline, trendingOnline, type OnlineLists } from './online'
 import { Disc } from './PlayerUI'
 import { MySongs } from './MySongs'
-import { trackDuration, type Genre, type Track } from './engine'
-
-function Cover({ hue, children, className = '' }: { hue: number; children?: React.ReactNode; className?: string }) {
-  return (
-    <div className={`relative overflow-hidden ${className}`}
-      style={{ background: `radial-gradient(90% 80% at 20% 15%, hsl(${(hue + 40) % 360} 85% 72%), transparent 60%), radial-gradient(90% 90% at 90% 90%, hsl(${(hue + 320) % 360} 70% 50%), transparent 65%), hsl(${hue} 65% 58%)` }}>
-      <div className="grain" />
-      {children}
-    </div>
-  )
-}
+import { trackDuration, type Track } from './engine'
 
 export function TrackRow({ track, queue, index }: { track: Track; queue: Track[]; index?: number }) {
   const p = usePlayer()
@@ -43,47 +31,14 @@ export function TrackRow({ track, queue, index }: { track: Track; queue: Track[]
 export function MusicPage() {
   const { state } = useStore()
   const p = usePlayer()
-  const me = state.me!
   const [query, setQuery] = useState('')
-  const [genre, setGenre] = useState<Genre | null>(null)
-  const [open, setOpen] = useState<Playlist | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const myGenre = genreOf(me.answers)
   const people = state.people.map((x) => ({ person: x, track: personTrack(x) }))
-  const forYou = useMemo(() => {
-    const same = people.filter((x) => x.track.genre === myGenre).map((x) => x.track)
-    return [...same, ...CATALOG.filter((x) => x.genre === myGenre || (myGenre === 'indie' && x.genre === 'lofi'))].slice(0, 8)
-  }, [people, myGenre])
   const liked = p.library.filter((x) => p.likes.includes(x.id))
-  const genres = Array.from(new Set(CATALOG.map((x) => x.genre))) as Genre[]
   const q = query.trim().toLowerCase()
   const spotify = parseEmbed(query)
-  const all = p.library.filter((x) => (!genre || x.genre === genre) && (!q || `${x.title} ${x.artist} ${GENRE_LABEL[x.genre]}`.toLowerCase().includes(q)))
-
-  if (open) {
-    const tracks = playlistTracks(open, p.library)
-    const total = tracks.reduce((a, x) => a + trackDuration(x), 0)
-    return (
-      <div className="flex flex-col gap-4 px-4 pt-2">
-        <button onClick={() => setOpen(null)} className="self-start inline-flex items-center gap-1 h-9 -ml-2 px-2 rounded-full text-muted hover:text-fg cursor-pointer"><Icon name="back" size={18} /> Музыка</button>
-        <Cover hue={open.hue} className="rounded-[28px] aspect-square max-w-full shadow-soft">
-          <div className="absolute left-4 right-4 bottom-4 flex flex-col items-start gap-1">
-            <Plate size="lg">{open.title}</Plate>
-          </div>
-        </Cover>
-        <div>
-          <p className="text-muted">{open.subtitle}</p>
-          <p className="text-[13px] text-muted">{tracks.length} треков · {Math.round(total / 60)} мин · {open.genres.map((g) => GENRE_LABEL[g]).join(', ')}</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => tracks[0] && p.play(tracks[0], tracks)} className="flex-1 h-12 rounded-2xl bg-brand text-white font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-soft"><Icon name="play" size={18} fill /> Слушать</button>
-          <button onClick={() => { if (!p.shuffle) p.toggleShuffle(); const r = tracks[Math.floor(Math.random() * tracks.length)]; if (r) p.play(r, tracks) }} className="flex-1 h-12 rounded-2xl bg-surface-2 font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"><Icon name="shuffle" size={18} /> Вперемешку</button>
-        </div>
-        <ul className="flex flex-col -mx-2">{tracks.map((x, i) => <TrackRow key={x.id} track={x} queue={tracks} index={i} />)}</ul>
-      </div>
-    )
-  }
+  const all = q ? p.library.filter((x) => `${x.title} ${x.artist} ${GENRE_LABEL[x.genre]}`.toLowerCase().includes(q)) : []
 
   return (
     <div className="flex flex-col gap-6 pt-2">
@@ -99,22 +54,14 @@ export function MusicPage() {
       {spotify && <EmbedPlayer embed={spotify} />}
       {!spotify && q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
       {!spotify && q.length >= 2 && (
-        <a href={`https://music.yandex.ru/search?text=${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
-          className="mx-4 h-11 rounded-2xl bg-[#FFDB4D] text-black font-semibold text-[14px] inline-flex items-center justify-center gap-2">
-          Найти «{query.trim()}» в Яндекс Музыке <Icon name="arrow" size={16} />
-        </a>
-      )}
-      {!spotify && q.length >= 2 && (
-        <a href={`https://open.spotify.com/search/${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
-          className="mx-4 h-11 rounded-2xl bg-[#1DB954] text-black font-semibold text-[14px] inline-flex items-center justify-center gap-2">
-          Найти «{query.trim()}» в Spotify <Icon name="arrow" size={16} />
-        </a>
-      )}
-      {!spotify && q.length >= 2 && (
-        <a href={`https://zaycev.net/search?query_search=${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
-          className="mx-4 h-11 rounded-2xl bg-surface-2 font-semibold text-[14px] inline-flex items-center justify-center gap-2">
-          <Icon name="search" size={17} /> Найти «{query.trim()}» на Зайцев.нет <Icon name="arrow" size={16} />
-        </a>
+        <div className="px-4 flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="text-muted">Искать также:</span>
+          {[['Яндекс Музыка', `https://music.yandex.ru/search?text=${encodeURIComponent(query.trim())}`],
+            ['Зайцев.нет', `https://zaycev.net/search?query_search=${encodeURIComponent(query.trim())}`],
+            ['Spotify', `https://open.spotify.com/search/${encodeURIComponent(query.trim())}`]].map(([name, href]) => (
+            <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-surface-2 font-semibold">{name} <Icon name="arrow" size={13} /></a>
+          ))}
+        </div>
       )}
 
       {!q && (
@@ -122,42 +69,6 @@ export function MusicPage() {
           <MySongs />
           <p className="-mt-3 px-4 text-[12px] text-muted">Есть ссылка на Яндекс Музыку или Spotify? Вставьте её в поиск — откроется их плеер.</p>
           <OnlineSection title="Сейчас в интернете" load={trendingOnline} fullLabel="В тренде · Audius, целиком" previewLabel="Топ-чарт · iTunes, отрывки по 30 секунд" radioLabel="Популярное радио · прямой эфир" />
-          <section className="flex flex-col gap-3">
-            <div className="px-4 flex items-end justify-between">
-              <div>
-                <h2 className="font-display font-semibold text-xl">Для вас</h2>
-                <p className="text-[13px] text-muted">По вашему вайбу: {GENRE_LABEL[myGenre].toLowerCase()} и люди с похожим вкусом</p>
-              </div>
-            </div>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 scroll-px-4 snap-x-mandatory">
-              {forYou.map((x) => (
-                <button key={x.id} onClick={() => p.play(x, forYou)} className="snap-start shrink-0 w-36 flex flex-col text-left cursor-pointer group">
-                  <Cover hue={x.hue} className="rounded-[22px] aspect-square max-w-full shadow-soft">
-                    <span className="absolute right-2 bottom-2 grid place-items-center w-10 h-10 rounded-full bg-white/90 text-[#111114] shadow-soft transition group-hover:scale-105">
-                      <Icon name={p.track?.id === x.id && p.playing ? 'pause' : 'play'} size={16} fill />
-                    </span>
-                  </Cover>
-                  <span className="block mt-2 font-semibold text-[14px] truncate">{x.title}</span>
-                  <span className="block text-[12px] text-muted truncate">{x.artist}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-3 px-4">
-            <h2 className="font-display font-semibold text-xl">Плейлисты</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {PLAYLISTS.map((pl) => (
-                <button key={pl.id} onClick={() => setOpen(pl)} className="flex flex-col text-left cursor-pointer" aria-label={`Плейлист «${pl.title}»`}>
-                  <Cover hue={pl.hue} className="rounded-[22px] aspect-square max-w-full shadow-soft">
-                    <span className="absolute left-2.5 right-2.5 bottom-2.5"><Plate>{pl.title}</Plate></span>
-                  </Cover>
-                  <span className="block mt-1.5 text-[12px] text-muted">{pl.subtitle}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section className="flex flex-col gap-3">
             <h2 className="px-4 font-display font-semibold text-xl">Песни людей рядом</h2>
             <div className="flex gap-4 overflow-x-auto no-scrollbar px-4">
@@ -186,15 +97,12 @@ export function MusicPage() {
         </>
       )}
 
-      {!spotify && <section className="flex flex-col gap-3">
-        <h2 className="px-4 font-display font-semibold text-xl">{q ? 'Результаты' : 'Все треки'} <span className="text-muted font-normal tnum">· {all.length}</span></h2>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
-          <Chip active={!genre} onClick={() => setGenre(null)}>Все</Chip>
-          {genres.map((g) => <Chip key={g} active={genre === g} onClick={() => setGenre(genre === g ? null : g)}>{GENRE_LABEL[g]}</Chip>)}
-        </div>
-        <ul className="flex flex-col px-2">{all.map((x) => <TrackRow key={x.id} track={x} queue={all} />)}</ul>
-        {!all.length && <p className="px-4 text-muted">{q ? 'В приложении ничего не нашлось — смотрите результаты из интернета выше.' : 'Ничего не нашлось. Попробуйте другой запрос или загрузите свой трек.'}</p>}
-      </section>}
+      {!spotify && all.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="px-4 font-display font-semibold text-xl">В приложении <span className="text-muted font-normal tnum">· {all.length}</span></h2>
+          <ul className="flex flex-col px-2">{all.map((x) => <TrackRow key={x.id} track={x} queue={all} />)}</ul>
+        </section>
+      )}
     </div>
   )
 }
