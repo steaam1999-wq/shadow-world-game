@@ -10,6 +10,7 @@ type Action =
   | { type: 'signIn'; me: Me }
   | { type: 'updateMe'; patch: Partial<Me> }
   | { type: 'signOut' }
+  | { type: 'forgetSaved' }
   | { type: 'reset' }
   | { type: 'respond'; activityId: string; text?: string }
   | { type: 'createActivity'; activity: Omit<Activity, 'id' | 'authorId'> }
@@ -69,7 +70,10 @@ function reducer(state: State, action: Action): State {
     case 'signOut':
       return { ...state, me: null, savedMe: state.me ?? state.savedMe }
     case 'reset':
-      return seedState()
+      // Демо-данные сбрасываем, но последний вход оставляем — чтобы предложить его на экране входа.
+      return { ...seedState(), savedMe: state.me ?? state.savedMe, remember: state.remember }
+    case 'forgetSaved':
+      return { ...state, savedMe: null }
     case 'respond': {
       if (state.liked.includes(action.activityId)) return state
       const activity = state.activities.find((a) => a.id === action.activityId)
