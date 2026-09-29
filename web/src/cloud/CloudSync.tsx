@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import * as api from './api'
 import { setReloader } from './sync'
 
-/** Держит данные в актуальном виде: первая загрузка, живые обновления из базы и страховочный опрос раз в минуту. */
+/** Держит данные в актуальном виде: первая загрузка, живые обновления из базы и страховочный опрос. */
 export function CloudSync() {
   const { state, dispatch } = useStore()
   const ref = useRef(state)
@@ -13,9 +13,11 @@ export function CloudSync() {
   useEffect(() => {
     if (!userId) return
     let alive = true, busy = false, again = false
+    let live = false, lastLoad = 0
     const load = async () => {
       if (busy) { again = true; return }
       busy = true
+      lastLoad = Date.now()
       try {
         // Сессия могла истечь или смениться на другом экране — тогда выходим, а не показываем чужое.
         const user = await api.currentUser()
@@ -30,11 +32,39 @@ export function CloudSync() {
         if (again && alive) { again = false; void load() }
       }
     }
+    // Несколько событий подряд (сообщение + обновление чата) — одна перезагрузка.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const soon = () => { clearTimeout(timer); timer = setTimeout(() => void load(), 400) }
+
     setReloader(() => void load())
     void load()
-    const off = api.subscribe(() => void load())
-    const t = setInterval(() => void load(), 60_000)
-    return () => { alive = false; off(); clearInterval(t); setReloader(null) }
+    const channel = api.subscribe(soon, (m) => {
+      dispatch({ type: 'cloudMessage', capsuleId: m.capsule_id, id: String(m.id), mine: m.sender === userId, text: m.body, at: new Date(m.created_at).getTime() })
+    }, (ok) => { live = ok })
+
+    // Вернулись в приложение (iPhone рвёт соединение в фоне) — сразу проверяем новое и переподключаемся.
+    const wake = () => {
+      if (document.visibilityState !== 'visible') return
+      void load()
+      if (!live) channel.reconnect()
+    }
+    document.addEventListener('visibilitychange', wake)
+    window.addEventListener('focus', wake)
+    window.addEventListener('online', wake)
+    window.addEventListener('pageshow', wake)
+    // Страховка, пока приложение открыто: без живого канала — раз в 15 секунд, с ним — раз в минуту. В фоне не опрашиваем.
+    const poll = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      if (!live) { channel.reconnect(); void load() } else if (Date.now() - lastLoad > 60_000) void load()
+    }, 15_000)
+
+    return () => {
+      alive = false; clearTimeout(timer); clearInterval(poll); channel.stop(); setReloader(null)
+      document.removeEventListener('visibilitychange', wake)
+      window.removeEventListener('focus', wake)
+      window.removeEventListener('online', wake)
+      window.removeEventListener('pageshow', wake)
+    }
   }, [userId, dispatch])
   return null
 }

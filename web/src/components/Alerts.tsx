@@ -23,22 +23,63 @@ function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
   return [prefs, (p) => writePrefs({ ...readPrefs(), ...p })]
 }
 
+// «Капелька» — готовый WAV в памяти. Обычный аудиоэлемент iPhone играет даже при выключенном
+// звонке (Web Audio там молчит), но только если его однажды «разбудить» касанием экрана.
+function dropWav(): string {
+  const rate = 22050, len = Math.round(rate * 0.34)
+  const data = new Int16Array(len)
+  const drop = (start: number, from: number, to: number, vol: number) => {
+    let phase = 0
+    for (let i = 0; i < rate * 0.22 && start + i < len; i++) {
+      const t = i / rate
+      const f = from * Math.pow(to / from, Math.min(1, t / 0.07))
+      phase += (2 * Math.PI * f) / rate
+      const env = Math.min(1, t / 0.006) * Math.exp(-t / 0.045)
+      data[start + i] = Math.max(-32767, Math.min(32767, data[start + i] + Math.sin(phase) * env * vol * 32767))
+    }
+  }
+  drop(0, 520, 1350, 0.55)
+  drop(Math.round(rate * 0.11), 900, 1700, 0.2) // тихое «эхо» капли
+  const buf = new ArrayBuffer(44 + len * 2), v = new DataView(buf)
+  const str = (o: number, t: string) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)) }
+  str(0, 'RIFF'); v.setUint32(4, 36 + len * 2, true); str(8, 'WAVE'); str(12, 'fmt ')
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true)
+  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, len * 2, true)
+  data.forEach((x, i) => v.setInt16(44 + i * 2, x, true))
+  let bin = ''
+  new Uint8Array(buf).forEach((x) => (bin += String.fromCharCode(x)))
+  return 'data:audio/wav;base64,' + btoa(bin)
+}
+
+let el: HTMLAudioElement | null = null
+let unlocked = false
+function dropEl() {
+  if (!el && typeof Audio !== 'undefined') { el = new Audio(dropWav()); el.preload = 'auto' }
+  return el
+}
 let ctx: AudioContext | null = null
-function audio() {
+function audioCtx() {
   if (!ctx) {
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!AC) return null
     ctx = new AC()
   }
-  if (ctx.state === 'suspended') void ctx.resume()
+  if (ctx.state !== 'running') void ctx.resume().catch(() => {})
   return ctx
 }
-// Браузеры дают играть звук только после касания: «разогреваем» звук при первом касании.
-if (typeof window !== 'undefined') window.addEventListener('pointerdown', () => { audio() }, { once: true, capture: true })
+// Браузеры дают играть звук только после касания: «будим» звук на каждом касании, пока не получится.
+function unlock() {
+  audioCtx()
+  const a = dropEl()
+  if (!a || unlocked) return
+  a.muted = true
+  a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; unlocked = true }).catch(() => { a.muted = false })
+}
+if (typeof window !== 'undefined') for (const ev of ['touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { capture: true, passive: true })
 
-/** Звук «капелька»: короткий тон с быстрым подъёмом высоты и затуханием. */
-export function playDrop() {
-  const ac = audio()
+/** Запасной вариант через Web Audio: когда уже играет музыка (второй аудиоэлемент на iPhone её бы остановил). */
+function dropWebAudio() {
+  const ac = audioCtx()
   if (!ac) return
   const t = ac.currentTime + 0.01
   const drop = (at: number, from: number, to: number, vol: number) => {
@@ -53,7 +94,16 @@ export function playDrop() {
     o.start(at); o.stop(at + 0.25)
   }
   drop(t, 520, 1350, 0.35)
-  drop(t + 0.11, 900, 1700, 0.12) // тихое «эхо» капли
+  drop(t + 0.11, 900, 1700, 0.12)
+}
+
+/** Звук «капелька». */
+export function playDrop() {
+  const busy = Array.from(document.querySelectorAll('audio, video')).some((m) => !(m as HTMLMediaElement).paused && !(m as HTMLMediaElement).muted)
+  const a = dropEl()
+  if (busy || !a) { dropWebAudio(); return }
+  a.currentTime = 0
+  a.play().catch(() => dropWebAudio())
 }
 
 async function notifySystem(title: string, body: string, chat: string, icon?: string) {

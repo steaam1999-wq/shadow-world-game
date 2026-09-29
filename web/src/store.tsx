@@ -19,6 +19,7 @@ export type Action =
   | { type: 'reply'; capsuleId: string }
   | { type: 'setStatus'; capsuleId: string; status: CapsuleStatus }
   | { type: 'readCapsule'; capsuleId: string }
+  | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
   | { type: 'report'; personId: string; reason: string; text: string }
   | { type: 'resolveReport'; id: string; state: Report['state'] }
   | { type: 'verify'; id: string; state: Verification['state'] }
@@ -136,6 +137,17 @@ function reducer(state: State, action: Action): State {
           c.id === action.capsuleId ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }] } : c,
         ),
       }
+    case 'cloudMessage': {
+      // Новое сообщение пришло по живому каналу — показываем сразу, не дожидаясь полной перезагрузки.
+      const c = state.capsules.find((x) => x.id === action.capsuleId)
+      if (!c || c.messages.some((m) => m.id === action.id)) return state
+      // Своё сообщение уже на экране (временный id) — полная перезагрузка заменит его.
+      if (action.mine) return state
+      return {
+        ...state,
+        capsules: state.capsules.map((x) => x.id === c.id ? { ...x, messages: [...x.messages, { id: action.id, from: 'them' as const, text: action.text, at: action.at }], unread: x.unread + 1 } : x),
+      }
+    }
     case 'reply':
       return {
         ...state,

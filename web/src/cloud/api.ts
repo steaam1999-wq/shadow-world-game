@@ -346,10 +346,32 @@ export async function sendReport(target: string, reason: string, body: string) {
   if (error) throw error
 }
 
-/** Любое изменение в чате, капсулах, планах или профилях — повод перечитать данные. */
-export function subscribe(onChange: () => void) {
-  const ch = sb().channel('iskra-live')
-  for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
-  ch.subscribe()
-  return () => { void sb().removeChannel(ch) }
+/** Любое изменение в чате, капсулах, планах или профилях — повод перечитать данные.
+ *  Новые сообщения дополнительно приходят сразу (`onMessage`), чтобы не ждать перезагрузки.
+ *  Канал сам переподключается: телефон обрывает соединение, когда вкладка свёрнута. */
+export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => void, onStatus?: (live: boolean) => void) {
+  let ch: ReturnType<SupabaseClient['channel']> | null = null
+  let retry: ReturnType<typeof setTimeout> | undefined
+  let stopped = false
+  const open = () => {
+    if (stopped) return
+    if (ch) void sb().removeChannel(ch)
+    ch = sb().channel(`iskra-live-${Date.now()}`)
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    ch.subscribe((status) => {
+      onStatus?.(status === 'SUBSCRIBED')
+      if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        clearTimeout(retry)
+        if (!stopped) retry = setTimeout(open, 3000)
+      }
+    })
+  }
+  void sb().auth.getSession().then(({ data }) => { if (data.session) sb().realtime.setAuth(data.session.access_token) }).finally(open)
+  return {
+    reconnect: () => { clearTimeout(retry); open() },
+    stop: () => { stopped = true; clearTimeout(retry); if (ch) void sb().removeChannel(ch) },
+  }
 }
+export type { MessageRow }
