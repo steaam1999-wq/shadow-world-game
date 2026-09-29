@@ -7,6 +7,7 @@ import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import { Post } from './Feed'
 import { ReportSheet } from './Vibe'
+import { ReliabilityBadge } from '../components/Meet'
 import type { Activity, Person } from '../types'
 
 // Демо-счётчики подписчиков: стабильные для человека, плюс ваша подписка.
@@ -67,6 +68,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             {p.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
           <div className="text-muted">{lv.name} · {p.district} · {p.distanceKm.toFixed(1).replace('.', ',')} км</div>
+          <ReliabilityBadge person={p} />
           <TrackChip track={personTrack(p)} />
           <p className="mt-1">{p.bio}</p>
           <p className="text-cobalt">{p.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>

@@ -102,3 +102,30 @@ export function planWhen(a: Pick<Activity, 'startsAt' | 'timeHidden'>, now = Dat
   if (a.startsAt <= now) return 'Уже идёт'
   return whenLabel(a.startsAt, now)
 }
+
+// Надёжность: сколько встреч человек подтвердил кодом и сколько пропустил без предупреждения (демо-данные).
+const NO_SHOWS: Record<string, number> = { p3: 1, p6: 1, p8: 2 }
+
+export function reliability(p: Pick<Person, 'id' | 'meetings'>) {
+  const missed = NO_SHOWS[p.id] ?? 0
+  const total = p.meetings + missed
+  return { came: p.meetings, total, pct: total ? Math.round((p.meetings / total) * 100) : 100 }
+}
+
+// Кто сейчас свободен рядом (демо): минуты от открытия приложения.
+const T0 = Date.now()
+const FREE_NOW: Record<string, number> = { p1: 95, p5: 140, p8: 55, p4: 30 }
+
+export function freeUntil(personId: string, now = Date.now()) {
+  const m = FREE_NOW[personId]
+  if (!m) return null
+  const until = T0 + m * 60_000
+  return until > now ? until : null
+}
+
+/** Код встречи: 4 цифры, одинаковые для пары в пределах капсулы. */
+export function meetingCode(capsuleId: string, who: string) {
+  let h = 7
+  for (const ch of capsuleId + who) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return String(1000 + (h % 9000))
+}

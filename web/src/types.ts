@@ -28,6 +28,8 @@ export interface Me {
   privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean }
   radiusKm: number
   photo?: string
+  freeUntil?: number // «Свободен сейчас» до этого времени
+  trustedContact?: string // кому сообщить, если встреча пошла не так
 }
 
 export interface Activity {
@@ -103,6 +105,16 @@ export interface State {
   announcement: string | null
   dismissedAnnouncement: string | null
   following?: string[] // personId, на кого я подписан
+  safety?: Safety | null // идёт встреча с таймером безопасности
   remember?: boolean // «Запомнить меня»: false — выход при закрытии браузера
   savedMe?: Me | null // профиль последнего входа: «Войти» без бэкенда возвращает его
+}
+
+export interface Safety {
+  capsuleId: string
+  personId: string
+  place: string
+  contact: string
+  startedAt: number
+  until: number
 }

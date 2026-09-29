@@ -6,6 +6,7 @@ import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
+import { FreeNow } from '../components/Meet'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
@@ -13,12 +14,13 @@ import type { Activity, Person } from '../types'
 
 interface Props {
   now: number
+  onInvite: (personId: string) => void
   onRespond: (a: Activity, text?: string) => void
   onOpenCapsule: (activityId: string) => void
   onCreate: () => void
 }
 
-export function Feed({ now, onRespond, onOpenCapsule, onCreate }: Props) {
+export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Props) {
   const { state } = useStore()
   // Список сторис фиксируется при открытии, иначе пересортировка «просмотренных» сбивает индекс.
   const [viewer, setViewer] = useState<{ items: { p: Person; a: Activity }[]; index: number } | null>(null)
@@ -55,6 +57,8 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate }: Props) {
           </button>
         ))}
       </div>
+
+      <FreeNow now={now} onInvite={onInvite} />
 
       {state.announcement && state.announcement !== state.dismissedAnnouncement && <Announcement text={state.announcement} />}
 

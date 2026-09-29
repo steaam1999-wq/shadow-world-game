@@ -65,6 +65,7 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
             className="inline-flex items-center gap-1.5 my-1 max-w-full rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
             <Icon name="note" size={13} /> <span className="truncate">Моя песня: {mySong ? `«${mySong.title}»${mySong.artist !== 'Моя песня' ? ` · ${mySong.artist}` : ''}` : `«Мой вайб» · ${GENRE_LABEL[myGenre]}`}</span>
           </button>
+          {me.meetings > 0 && <span className="inline-flex items-center gap-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>

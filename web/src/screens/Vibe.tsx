@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
+import { ReliabilityBadge } from '../components/Meet'
 import { compatibility, planWhen, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, inputCls } from '../components/ui'
 import type { Activity, Person } from '../types'
@@ -39,6 +40,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
                   {i === 0 && <Pill tone="spark">Лучший мэтч</Pill>}
                 </div>
                 <p className={`text-[13px] text-muted`}>{p.district} · {p.distanceKm.toFixed(1).replace('.', ',')} км · встреч: {p.meetings}</p>
+                <ReliabilityBadge person={p} compact />
               </div>
               <div className="text-right shrink-0">
                 <div className="font-display font-semibold text-3xl text-brand tnum leading-none">{c.score}<span className="text-lg">%</span></div>

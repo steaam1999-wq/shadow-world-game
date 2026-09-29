@@ -5,6 +5,7 @@ import { useOpenProfile } from '../nav'
 import { countdown, hm, isBurning, isExpired, planWhen } from '../lib'
 import { Avatar, Button, Icon, Pill, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
+import { CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
@@ -45,7 +46,7 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
               <span className="font-semibold truncate">{p.name}</span>
               <Timer c={c} now={now} />
             </div>
-            <div className="text-[13px] text-muted truncate">{a?.title ?? 'Активность завершена'}</div>
+            <div className="text-[13px] text-muted truncate">{a?.title ?? (c.activityId ? 'Активность завершена' : 'Спонтанная встреча')}</div>
             <div className="flex items-center justify-between gap-2">
               <span className={`text-[13px] truncate ${c.unread ? 'text-fg font-semibold' : 'text-muted'}`}>
                 {last.from === 'me' ? 'Вы: ' : ''}{last.text}
@@ -90,6 +91,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const c = state.capsules.find((x) => x.id === id)
   const [text, setText] = useState('')
   const [typing, setTyping] = useState(false)
+  const [checkin, setCheckin] = useState(false)
+  const [safety, setSafety] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -114,8 +117,10 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
 
   const actions: { status: CapsuleStatus; label: string }[] =
     c.status === 'active' ? [{ status: 'agreed', label: 'Договорились о встрече' }, { status: 'contacts', label: 'Обменялись контактами' }]
-      : c.status === 'agreed' ? [{ status: 'met', label: 'Встреча состоялась' }, { status: 'contacts', label: 'Обменялись контактами' }]
-        : c.status === 'contacts' ? [{ status: 'met', label: 'Встреча состоялась' }] : []
+      : c.status === 'agreed' ? [{ status: 'contacts', label: 'Обменялись контактами' }] : []
+  const canMeet = c.status === 'agreed' || c.status === 'contacts'
+  const safetyHere = state.safety?.capsuleId === c.id
+  const place = a?.exactPlace ?? 'место из переписки'
 
   return (
     <div className="flex flex-col h-full">
@@ -126,7 +131,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{p.name}, {p.age}</div>
-            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : 'Активность завершена'}</div>
+            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.activityId ? 'Активность завершена' : 'Спонтанная встреча'}</div>
           </div>
           </button>
           <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="flag" size={18} /></button>
@@ -163,8 +168,18 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <p className="text-center text-[13px] text-muted py-2">Капсула сгорела: за 72 часа вы не договорились. Можно откликнуться на новую активность {p.name}.</p>
         ) : (
           <>
-            {actions.length > 0 && (
+            {(actions.length > 0 || canMeet) && (
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {canMeet && (
+                  <button onClick={() => setCheckin(true)} className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-brand text-white text-[13px] font-semibold cursor-pointer">
+                    <Icon name="check" size={14} /> Отметить встречу
+                  </button>
+                )}
+                {canMeet && !safetyHere && (
+                  <button onClick={() => setSafety(true)} className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-ok-soft text-ok text-[13px] font-semibold cursor-pointer">
+                    <Icon name="shield" size={14} /> Я на встрече
+                  </button>
+                )}
                 {actions.map((x) => (
                   <button key={x.status} onClick={() => dispatch({ type: 'setStatus', capsuleId: c.id, status: x.status })}
                     className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-surface-2 text-[13px] font-medium hover:brightness-95 cursor-pointer">
@@ -181,6 +196,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         )}
       </div>
       <ReportSheet person={reporting} onClose={() => setReporting(null)} />
+      <CheckinSheet capsule={c} person={p} open={checkin} onClose={() => setCheckin(false)} />
+      <SafetySheet capsule={c} person={p} place={place} open={safety} onClose={() => setSafety(false)} />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
 import { MusicPage } from './music/MusicPage'
+import { SafetyBanner } from './components/Meet'
 import { PersonProfile } from './screens/PersonProfile'
 import { ProfileNav } from './nav'
 import { DEMO_ME, Landing } from './screens/Landing'
@@ -108,6 +109,19 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     const c = state.capsules.find((x) => x.activityId === activityId)
     if (c) { setTab('capsules'); setChat(c.id); setToast(null) }
   }
+  // «Позвать» из «Свободны сейчас»: создаём капсулу и открываем её, как только она появится.
+  const [pendingInvite, setPendingInvite] = useState<string | null>(null)
+  const invite = (personId: string) => {
+    const name = state.people.find((p) => p.id === personId)?.name ?? ''
+    dispatch({ type: 'invite', personId, text: `${name}, привет! Я тоже свободен(на) сейчас и рядом — может, кофе в ближайшие полчаса?` })
+    setPendingInvite(personId)
+  }
+  useEffect(() => {
+    if (!pendingInvite) return
+    const c = state.capsules.find((x) => x.personId === pendingInvite && x.status !== 'met')
+    if (c) { setPendingInvite(null); setPerson(null); setTab('capsules'); setChat(c.id) }
+  }, [pendingInvite, state.capsules])
+
   const respond = (a: Activity, text?: string) => {
     dispatch({ type: 'respond', activityId: a.id, text })
     setToast(a)
@@ -149,7 +163,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(168px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
         {person && <PersonProfile personId={person} now={now} onBack={() => setPerson(null)} onRespond={(a, t) => { setPerson(null); respond(a, t) }}
           onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
-        {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} />}
+        {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} onInvite={invite} />}
         {!person && tab === 'music' && <MusicPage />}
         {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
@@ -158,6 +172,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       </main>
 
       {!inChat && (tab !== 'reels' || person) && <MiniPlayer />}
+      <SafetyBanner now={now} top={inChat ? 104 : 64} />
       <FullPlayer />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />

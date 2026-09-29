@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, CapsuleStatus, Me, Report, State, Verification } from './types'
+import type { Activity, CapsuleStatus, Me, Report, Safety, State, Verification } from './types'
 
 const STORAGE_KEY = 'iskra-state'
 const SESSION_KEY = 'iskra-session'
@@ -31,6 +31,12 @@ type Action =
   | { type: 'share'; personId: string; activityId: string }
   | { type: 'toggleFollow'; personId: string }
   | { type: 'setRemember'; remember: boolean }
+  | { type: 'setFree'; until: number | null }
+  | { type: 'invite'; personId: string; text: string }
+  | { type: 'startSafety'; safety: Safety }
+  | { type: 'extendSafety'; minutes: number }
+  | { type: 'endSafety' }
+  | { type: 'checkIn'; capsuleId: string }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
@@ -145,6 +151,44 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
     }
+    case 'setFree':
+      return state.me ? { ...state, me: { ...state.me, freeUntil: action.until ?? undefined } } : state
+    case 'invite': {
+      // Спонтанное приглашение из «Свободны сейчас»: сообщение в капсулу с человеком, при необходимости новая капсула.
+      const existing = state.capsules.find((c) => c.personId === action.personId && c.status !== 'met')
+      if (existing) {
+        return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }, { id: uid(), from: 'them', text: 'Да, я как раз рядом! Давай через 20 минут?', at: now + 1 }] } : c)) }
+      }
+      const capsule = {
+        id: uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 1,
+        messages: [
+          { id: uid(), from: 'system' as const, text: 'Спонтанная капсула: вы оба свободны прямо сейчас.', at: now },
+          { id: uid(), from: 'me' as const, text: action.text, at: now + 1 },
+          { id: uid(), from: 'them' as const, text: 'О, давай! Я минутах в 15 от тебя. Где встречаемся?', at: now + 2 },
+        ],
+      }
+      return { ...state, capsules: [capsule, ...state.capsules] }
+    }
+    case 'startSafety':
+      return {
+        ...state, safety: action.safety,
+        me: state.me ? { ...state.me, trustedContact: action.safety.contact } : state.me,
+        capsules: state.capsules.map((c) => (c.id === action.safety.capsuleId ? { ...c, messages: [...c.messages, { id: uid(), from: 'system', text: 'Вы на встрече. Таймер безопасности включён — собеседник об этом не узнает.', at: now }] } : c)),
+      }
+    case 'extendSafety':
+      return state.safety ? { ...state, safety: { ...state.safety, until: Math.max(state.safety.until, now) + action.minutes * 60_000 } } : state
+    case 'endSafety':
+      return { ...state, safety: null }
+    case 'checkIn':
+      return {
+        ...state,
+        me: state.me ? { ...state.me, meetings: state.me.meetings + 1 } : state.me,
+        capsules: state.capsules.map((c) =>
+          c.id === action.capsuleId
+            ? { ...c, status: 'met', messages: [...c.messages, { id: uid(), from: 'system', text: 'Встреча подтверждена кодами — оба пришли. +1 к надёжности у обоих.', at: now }] }
+            : c,
+        ),
+      }
     case 'setRemember':
       return { ...state, remember: action.remember }
     case 'toggleFollow':
