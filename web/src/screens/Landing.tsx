@@ -37,6 +37,7 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
   // Запоминаем логин только с галочкой, иначе стираем.
   const keepLogin = () => { try { if (remember && login.trim()) localStorage.setItem(LOGIN_KEY, login.trim()); else if (!remember) localStorage.removeItem(LOGIN_KEY) } catch { /* ignore */ } }
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
 
@@ -97,7 +98,13 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
                   <input id="auth-login" className={inputCls} value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" placeholder="+7 900 000-00-00" />
                 </Field>
                 <Field id="auth-password" label="Пароль">
-                  <input id="auth-password" type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Минимум 6 символов" />
+                  <div className="relative">
+                    <input id="auth-password" type={showPassword ? 'text' : 'password'} className={`${inputCls} pr-12`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Минимум 6 символов" />
+                    <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} aria-pressed={showPassword} aria-controls="auth-password"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-xl text-muted hover:text-fg cursor-pointer">
+                      <Icon name={showPassword ? 'eyeOff' : 'eye'} size={20} />
+                    </button>
+                  </div>
                 </Field>
                 <label htmlFor="auth-remember" className="flex items-start gap-3 cursor-pointer select-none">
                   <input id="auth-remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="mt-0.5 w-5 h-5 shrink-0 rounded-md accent-[var(--spark)] cursor-pointer" />
