@@ -207,8 +207,8 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 : <>Уже есть аккаунт? <button onClick={() => switchMode('login')} className="font-semibold text-fg cursor-pointer">Войти</button></>}
             </p>
           </section>
-          {/* Пример аккаунта */}
-          <section className="rounded-[28px] bg-surface/80 shadow-soft p-4 flex flex-col gap-3" aria-label="Пример аккаунта">
+          {/* Пример аккаунта — только в демо без сервера: с сервером входят настоящие люди. */}
+          {!cloudEnabled && <section className="rounded-[28px] bg-surface/80 shadow-soft p-4 flex flex-col gap-3" aria-label="Пример аккаунта">
             <div className="flex items-center gap-3">
               <span className="rounded-full p-[2px] bg-brand shrink-0"><span className="block rounded-full bg-surface p-[2px]"><Avatar name={DEMO_ME.name} hue={DEMO_ME.hue} size={46} verified /></span></span>
               <div className="flex-1 min-w-0 leading-tight">
@@ -224,7 +224,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             <Button variant="secondary" onClick={() => onDemo(true)} className="w-full h-10 text-[14px]">
               <Icon name="user" size={17} /> Посмотреть без регистрации
             </Button>
-          </section>
+          </section>}
         </div>
       </main>
 
