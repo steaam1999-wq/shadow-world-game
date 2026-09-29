@@ -29,7 +29,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const share = async () => {
-    try { await navigator.clipboard.writeText(`${me.name} в «Искре»: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
+    try { await navigator.clipboard.writeText(`${me.name} в ISKRA: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
     setCopied(true)
     setTimeout(() => setCopied(false), 1600)
   }

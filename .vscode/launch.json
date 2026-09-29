@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Искра (Python, одним файлом)",
+      "name": "ISKRA (Python, одним файлом)",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/python/iskra.py",

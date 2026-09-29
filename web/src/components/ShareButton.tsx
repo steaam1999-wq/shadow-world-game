@@ -81,14 +81,14 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
   }
   const onCancel = () => { if (timer.current !== null) { clearTimeout(timer.current); timer.current = null } }
 
-  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в «Искре»`
+  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в ISKRA`
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setToast('Скопировано') } catch { setToast('Не удалось скопировать — выделите текст вручную') }
     setSheet(false)
   }
   const shareOut = async () => {
     try {
-      if (navigator.share) { await navigator.share({ title: 'Искра', text }); setSheet(false); return }
+      if (navigator.share) { await navigator.share({ title: 'ISKRA', text }); setSheet(false); return }
     } catch { /* отменили или недоступно — копируем */ }
     await copy()
   }

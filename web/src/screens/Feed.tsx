@@ -65,8 +65,8 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
       <FreeNow now={now} onInvite={onInvite} />
 
       {quiet.length > 0 && (
-        <section className="mb-4" aria-label="Люди в Искре">
-          <h2 className="px-4 mb-2 text-[13px] font-semibold text-muted">Люди в Искре · {state.people.length}</h2>
+        <section className="mb-4" aria-label="Люди в ISKRA">
+          <h2 className="px-4 mb-2 text-[13px] font-semibold text-muted">Люди в ISKRA · {state.people.length}</h2>
           <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4">
             {quiet.map((p) => (
               <button key={p.id} onClick={() => openProfile(p.id)} className="flex flex-col items-center gap-1 w-[64px] shrink-0 cursor-pointer" aria-label={`Профиль ${p.name}`}>

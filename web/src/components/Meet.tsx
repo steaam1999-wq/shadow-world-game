@@ -115,7 +115,7 @@ export function SafetyBanner({ now, top = 64 }: { now: number; top?: number }) {
   if (!s) return null
   const person = state.people.find((p) => p.id === s.personId)
   const left = s.until - now
-  const message = `Это ${state.me?.name ?? 'я'} через «Искру». С ${hm(s.startedAt)} я на встрече с человеком из приложения (${person?.name ?? 'имя в профиле'}), место: ${s.place}. Я не отметилась(ся), что всё хорошо — пожалуйста, позвони мне.`
+  const message = `Это ${state.me?.name ?? 'я'} через ISKRA. С ${hm(s.startedAt)} я на встрече с человеком из приложения (${person?.name ?? 'имя в профиле'}), место: ${s.place}. Я не отметилась(ся), что всё хорошо — пожалуйста, позвони мне.`
   const copy = async () => { try { await navigator.clipboard.writeText(message); setCopied(true) } catch { setCopied(false) } }
 
   return (
