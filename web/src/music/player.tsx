@@ -10,6 +10,7 @@ export { GENRE_LABEL }
 export const trackLabel = (t: Track) => (t.source === 'audius' ? 'Audius' : t.source === 'itunes' ? 'Отрывок · iTunes' : GENRE_LABEL[t.genre])
 const MUSIC_TO_GENRE: Record<string, Genre> = { indie: 'indie', electro: 'electro', jazz: 'jazz', hiphop: 'hiphop' }
 const LIKES_KEY = 'iskra-music-likes'
+const ONLINE_KEY = 'iskra-music-online'
 const MY_SONG_KEY = 'iskra-my-song'
 const MAX_MB = 60
 export type Repeat = 'off' | 'all' | 'one'
@@ -59,7 +60,7 @@ interface PlayerApi {
   likes: string[]
   toggleShuffle: () => void
   cycleRepeat: () => void
-  toggleLike: (id: string) => void
+  toggleLike: (id: string, track?: Track) => void
 }
 
 const Ctx = createContext<PlayerApi | null>(null)
@@ -97,12 +98,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     try { return JSON.parse(localStorage.getItem(LIKES_KEY) ?? '[]') as string[] } catch { return [] }
   })
   useEffect(() => { try { localStorage.setItem(LIKES_KEY, JSON.stringify(likes)) } catch { /* ignore */ } }, [likes])
+  // Лайкнутые треки из интернета храним целиком: без этого их не найти в «Любимых» после перезагрузки.
+  const [online, setOnline] = useState<Track[]>(() => {
+    try { return JSON.parse(localStorage.getItem(ONLINE_KEY) ?? '[]') as Track[] } catch { return [] }
+  })
+  useEffect(() => { try { localStorage.setItem(ONLINE_KEY, JSON.stringify(online)) } catch { /* ignore */ } }, [online])
 
   const me = state.me
   const baseQueue = useMemo(() => {
     const mine: Track[] = me ? [{ id: 't-me', title: 'Мой вайб', artist: me.name, genre: genreOf(me.answers), hue: me.hue, bpm: GENRE_BPM[genreOf(me.answers)], root: 57, bars: 40 }] : []
-    return [...uploads, ...mine, ...state.people.map(personTrack), ...CATALOG]
-  }, [me, uploads, state.people])
+    return [...uploads, ...online, ...mine, ...state.people.map(personTrack), ...CATALOG]
+  }, [me, uploads, online, state.people])
   const queue = custom ?? baseQueue
 
   const start = useCallback((t: Track) => {
@@ -216,7 +222,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     likes,
     toggleShuffle: () => setShuffle((v) => !v),
     cycleRepeat: () => setRepeat((r) => (r === 'all' ? 'one' : r === 'one' ? 'off' : 'all')),
-    toggleLike: (id) => setLikes((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])),
+    toggleLike: (id, t) => {
+      const on = !likes.includes(id)
+      setLikes((l) => (on ? [...l, id] : l.filter((x) => x !== id)))
+      if (t?.source) setOnline((o) => (on ? [t, ...o.filter((x) => x.id !== id)] : o.filter((x) => x.id !== id)))
+    },
   }
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>

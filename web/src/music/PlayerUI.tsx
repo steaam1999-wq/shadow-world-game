@@ -109,7 +109,7 @@ export function FullPlayer() {
                 <h2 className="font-display font-semibold text-[24px] leading-tight truncate">{t.title}</h2>
                 <p className="text-muted truncate">{t.artist} · {trackLabel(t)}{t.bpm ? ` · ${t.bpm} BPM` : ''}</p>
               </div>
-              <button onClick={() => p.toggleLike(t.id)} className={`grid place-items-center w-11 h-11 rounded-full cursor-pointer shrink-0 ${p.likes.includes(t.id) ? 'text-spark' : 'text-muted'}`} aria-label={p.likes.includes(t.id) ? 'Убрать из любимых' : 'В любимые'} aria-pressed={p.likes.includes(t.id)}>
+              <button onClick={() => p.toggleLike(t.id, t)} className={`grid place-items-center w-11 h-11 rounded-full cursor-pointer shrink-0 ${p.likes.includes(t.id) ? 'text-spark' : 'text-muted'}`} aria-label={p.likes.includes(t.id) ? 'Убрать из любимых' : 'В любимые'} aria-pressed={p.likes.includes(t.id)}>
                 <Icon name="heart" size={26} fill={p.likes.includes(t.id)} />
               </button>
             </div>

@@ -4,6 +4,7 @@ import type { Track } from './engine'
 // Audius — полные треки независимых артистов, iTunes — официальные 30-секундные отрывки.
 const APP = 'iskra'
 const AUDIUS = 'https://api.audius.co/v1'
+const LIMIT = 50
 
 function hueOf(s: string) {
   let h = 0
@@ -12,34 +13,55 @@ function hueOf(s: string) {
 }
 
 interface AudiusTrack { id: string; title: string; duration: number; is_streamable?: boolean; user?: { name?: string }; artwork?: Record<string, string> | null }
-interface ItunesTrack { trackId: number; trackName: string; artistName: string; previewUrl?: string; artworkUrl100?: string }
+interface ItunesTrack { trackId: number; trackName: string; artistName: string; previewUrl?: string; artworkUrl100?: string; wrapperType?: string }
 
-async function audius(q: string, signal: AbortSignal): Promise<Track[]> {
-  const r = await fetch(`${AUDIUS}/tracks/search?query=${encodeURIComponent(q)}&app_name=${APP}`, { signal })
+async function json<T>(url: string, signal: AbortSignal): Promise<T> {
+  const r = await fetch(url, { signal })
   if (!r.ok) throw new Error(String(r.status))
-  const { data } = (await r.json()) as { data: AudiusTrack[] }
-  return data.filter((t) => t.is_streamable !== false).slice(0, 15).map((t) => ({
-    id: `au-${t.id}`, title: t.title, artist: t.user?.name ?? 'Audius', genre: 'file', source: 'audius', hue: hueOf(t.id),
-    bpm: 0, root: 0, bars: 0, seconds: t.duration, cover: t.artwork?.['480x480'] ?? t.artwork?.['150x150'],
-    url: `${AUDIUS}/tracks/${t.id}/stream?app_name=${APP}`,
-  }))
+  return (await r.json()) as T
 }
 
-async function itunes(q: string, signal: AbortSignal): Promise<Track[]> {
-  const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&entity=song&limit=15`, { signal })
-  if (!r.ok) throw new Error(String(r.status))
-  const { results } = (await r.json()) as { results: ItunesTrack[] }
-  return results.filter((t) => t.previewUrl).map((t) => ({
-    id: `it-${t.trackId}`, title: t.trackName, artist: t.artistName, genre: 'file', source: 'itunes', hue: hueOf(String(t.trackId)),
-    bpm: 0, root: 0, bars: 0, seconds: 30, cover: t.artworkUrl100?.replace('100x100', '400x400'), url: t.previewUrl,
-  }))
-}
+const fromAudius = (list: AudiusTrack[]): Track[] => list.filter((t) => t.is_streamable !== false).map((t) => ({
+  id: `au-${t.id}`, title: t.title, artist: t.user?.name ?? 'Audius', genre: 'file', source: 'audius', hue: hueOf(t.id),
+  bpm: 0, root: 0, bars: 0, seconds: t.duration, cover: t.artwork?.['480x480'] ?? t.artwork?.['150x150'],
+  url: `${AUDIUS}/tracks/${t.id}/stream?app_name=${APP}`,
+}))
 
-export async function searchOnline(q: string, signal: AbortSignal) {
-  const [a, i] = await Promise.allSettled([audius(q, signal), itunes(q, signal)])
+const fromItunes = (list: ItunesTrack[]): Track[] => list.filter((t) => t.previewUrl).map((t) => ({
+  id: `it-${t.trackId}`, title: t.trackName, artist: t.artistName, genre: 'file', source: 'itunes', hue: hueOf(String(t.trackId)),
+  bpm: 0, root: 0, bars: 0, seconds: 30, cover: t.artworkUrl100?.replace('100x100', '400x400'), url: t.previewUrl,
+}))
+
+export interface OnlineLists { full: Track[]; previews: Track[]; failed: string[] }
+
+async function both(a: Promise<Track[]>, i: Promise<Track[]>): Promise<OnlineLists> {
+  const [ra, ri] = await Promise.allSettled([a, i])
   return {
-    full: a.status === 'fulfilled' ? a.value : [],
-    previews: i.status === 'fulfilled' ? i.value : [],
-    failed: [a.status === 'rejected' && 'Audius', i.status === 'rejected' && 'iTunes'].filter(Boolean) as string[],
+    full: ra.status === 'fulfilled' ? ra.value : [],
+    previews: ri.status === 'fulfilled' ? ri.value : [],
+    failed: [ra.status === 'rejected' && 'Audius', ri.status === 'rejected' && 'iTunes'].filter(Boolean) as string[],
   }
+}
+
+export function searchOnline(q: string, signal: AbortSignal) {
+  const e = encodeURIComponent(q)
+  return both(
+    json<{ data: AudiusTrack[] }>(`${AUDIUS}/tracks/search?query=${e}&limit=${LIMIT}&app_name=${APP}`, signal).then((r) => fromAudius(r.data)),
+    json<{ results: ItunesTrack[] }>(`https://itunes.apple.com/search?term=${e}&media=music&entity=song&limit=${LIMIT}`, signal).then((r) => fromItunes(r.results)),
+  )
+}
+
+/** Что слушают сейчас: тренды Audius и чарт Apple Music (отрывки подтягиваются через lookup). */
+export function trendingOnline(signal: AbortSignal) {
+  const chart = json<{ feed: { results: { id: string }[] } }>(`https://rss.applemarketingtools.com/api/v2/us/music/most-played/${LIMIT}/songs.json`, signal)
+    .then(async (r) => {
+      const ids = r.feed.results.map((x) => x.id)
+      const { results } = await json<{ results: ItunesTrack[] }>(`https://itunes.apple.com/lookup?id=${ids.join(',')}&entity=song`, signal)
+      const byId = new Map(results.filter((x) => x.wrapperType !== 'artist').map((x) => [String(x.trackId), x]))
+      return fromItunes(ids.map((id) => byId.get(id)).filter((x): x is ItunesTrack => !!x))
+    })
+  return both(
+    json<{ data: AudiusTrack[] }>(`${AUDIUS}/tracks/trending?limit=${LIMIT}&app_name=${APP}`, signal).then((r) => fromAudius(r.data)),
+    chart,
+  )
 }

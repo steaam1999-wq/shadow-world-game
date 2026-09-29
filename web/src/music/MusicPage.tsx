@@ -4,7 +4,7 @@ import { Avatar, Chip, Icon } from '../components/ui'
 import { Plate } from '../screens/Feed'
 import { CATALOG, PLAYLISTS, playlistTracks, type Playlist } from './catalog'
 import { GENRE_LABEL, formatTime, genreOf, personTrack, trackLabel, usePlayer } from './player'
-import { searchOnline } from './online'
+import { searchOnline, trendingOnline, type OnlineLists } from './online'
 import { Disc } from './PlayerUI'
 import { MySongs } from './MySongs'
 import { trackDuration, type Genre, type Track } from './engine'
@@ -33,7 +33,7 @@ export function TrackRow({ track, queue, index }: { track: Track; queue: Track[]
           <span className="block text-[12px] text-muted truncate">{track.artist} · {trackLabel(track)}{track.genre !== 'file' ? ` · ${formatTime(trackDuration(track))}` : track.seconds ? ` · ${formatTime(track.seconds)}` : ''}</span>
         </span>
       </button>
-      <button onClick={() => p.toggleLike(track.id)} className={`grid place-items-center w-9 h-9 rounded-full cursor-pointer shrink-0 ${liked ? 'text-spark' : 'text-muted'}`} aria-label={liked ? 'Убрать из любимых' : 'В любимые'} aria-pressed={liked}>
+      <button onClick={() => p.toggleLike(track.id, track)} className={`grid place-items-center w-9 h-9 rounded-full cursor-pointer shrink-0 ${liked ? 'text-spark' : 'text-muted'}`} aria-label={liked ? 'Убрать из любимых' : 'В любимые'} aria-pressed={liked}>
         <Icon name="heart" size={20} fill={liked} />
       </button>
     </li>
@@ -95,11 +95,12 @@ export function MusicPage() {
         <input ref={fileRef} id="music-file" type="file" accept="audio/*" multiple className="sr-only" onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) void p.addFiles(f); e.target.value = '' }} />
       </div>
 
-      {q.length >= 2 && <OnlineResults query={q} />}
+      {q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
 
       {!q && (
         <>
           <MySongs />
+          <OnlineSection title="Сейчас в интернете" load={trendingOnline} fullLabel="В тренде · Audius, целиком" previewLabel="Топ-чарт · iTunes, отрывки по 30 секунд" />
           <section className="flex flex-col gap-3">
             <div className="px-4 flex items-end justify-between">
               <div>
@@ -177,38 +178,30 @@ export function MusicPage() {
   )
 }
 
-type Online = { state: 'loading' } | { state: 'done'; full: Track[]; previews: Track[]; failed: string[] }
+type Online = { state: 'loading' } | ({ state: 'done' } & OnlineLists)
 
-/** Поиск по интернету: Audius (полные треки) и iTunes (отрывки по 30 секунд). */
-function OnlineResults({ query }: { query: string }) {
+/** Музыка из интернета: Audius (полные треки) и iTunes (отрывки по 30 секунд). */
+function OnlineSection({ title, load, delay = 0, fullLabel = 'Полные треки · Audius', previewLabel = 'Отрывки по 30 секунд · iTunes' }: {
+  title: string; load: (signal: AbortSignal) => Promise<OnlineLists>; delay?: number; fullLabel?: string; previewLabel?: string
+}) {
   const [res, setRes] = useState<Online>({ state: 'loading' })
+  const loadRef = useRef(load)
   useEffect(() => {
-    setRes({ state: 'loading' })
     const ctl = new AbortController()
     const t = setTimeout(() => {
-      searchOnline(query, ctl.signal).then((r) => { if (!ctl.signal.aborted) setRes({ state: 'done', ...r }) })
-    }, 450)
+      loadRef.current(ctl.signal).then((r) => { if (!ctl.signal.aborted) setRes({ state: 'done', ...r }) })
+    }, delay)
     return () => { clearTimeout(t); ctl.abort() }
-  }, [query])
+  }, [delay])
 
   return (
     <section className="flex flex-col gap-3" aria-live="polite">
-      <h2 className="px-4 font-display font-semibold text-xl flex items-center gap-2"><Icon name="globe" size={20} /> В интернете</h2>
-      {res.state === 'loading' && <p className="px-4 text-muted">Ищем «{query}»…</p>}
+      <h2 className="px-4 font-display font-semibold text-xl flex items-center gap-2"><Icon name="globe" size={20} /> {title}</h2>
+      {res.state === 'loading' && <p className="px-4 text-muted">Загружаем…</p>}
       {res.state === 'done' && (
         <>
-          {res.full.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <p className="px-4 text-[13px] text-muted">Полные треки · Audius</p>
-              <ul className="flex flex-col px-2">{res.full.map((x) => <TrackRow key={x.id} track={x} queue={res.full} />)}</ul>
-            </div>
-          )}
-          {res.previews.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <p className="px-4 text-[13px] text-muted">Отрывки по 30 секунд · iTunes</p>
-              <ul className="flex flex-col px-2">{res.previews.map((x) => <TrackRow key={x.id} track={x} queue={res.previews} />)}</ul>
-            </div>
-          )}
+          <OnlineList label={fullLabel} tracks={res.full} />
+          <OnlineList label={previewLabel} tracks={res.previews} />
           {!res.full.length && !res.previews.length && (
             <p className="px-4 text-muted">
               {res.failed.length === 2 ? 'Не удалось связаться с музыкальными сервисами. Проверьте интернет; в превью Claude внешние сайты могут быть закрыты.' : 'В интернете ничего не нашлось.'}
@@ -218,5 +211,20 @@ function OnlineResults({ query }: { query: string }) {
         </>
       )}
     </section>
+  )
+}
+
+function OnlineList({ label, tracks }: { label: string; tracks: Track[] }) {
+  const [all, setAll] = useState(false)
+  if (!tracks.length) return null
+  const shown = all ? tracks : tracks.slice(0, 6)
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="px-4 text-[13px] text-muted">{label} <span className="tnum">· {tracks.length}</span></p>
+      <ul className="flex flex-col px-2">{shown.map((x) => <TrackRow key={x.id} track={x} queue={tracks} />)}</ul>
+      {tracks.length > shown.length && (
+        <button onClick={() => setAll(true)} className="mx-4 h-10 rounded-2xl bg-surface-2 font-semibold text-[14px] cursor-pointer">Показать все · {tracks.length}</button>
+      )}
+    </div>
   )
 }
