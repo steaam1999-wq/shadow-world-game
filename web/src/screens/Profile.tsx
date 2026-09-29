@@ -4,13 +4,21 @@ import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '../components/ui'
 import { PostArt } from '../components/PostArt'
+import { PostsViewer } from '../components/PostsViewer'
+import type { Activity } from '../types'
 import { GENRE_LABEL, usePlayer } from '../music/player'
 import type { Genre } from '../music/engine'
 
-export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () => void }) {
+export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
+  onSignOut: () => void
+  onAdmin: () => void
+  onRespond: (a: Activity, text?: string) => void
+  onOpenCapsule: (activityId: string) => void
+}) {
   const { state, dispatch } = useStore()
   const me = state.me!
   const [editVibe, setEditVibe] = useState(false)
+  const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const player = usePlayer()
   const mySong = player.uploads.find((t) => t.id === player.mySongId) ?? null
@@ -109,10 +117,11 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
         return list.length ? (
           <div className="grid grid-cols-3 gap-1 px-1">
             {list.map((a) => (
-              <div key={a.id} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg">
+              <button key={a.id} onClick={() => setViewing(a.id)} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer group" aria-label={`Открыть: ${a.title}`}>
                 <PostArt activity={a} />
-                <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent text-white text-[11px] font-semibold leading-tight line-clamp-2">{a.title}</span>
-              </div>
+                <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent text-left text-white text-[11px] font-semibold leading-tight line-clamp-2">{a.title}</span>
+                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition" />
+              </button>
             ))}
           </div>
         ) : (
@@ -225,6 +234,11 @@ export function Profile({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin
         </div>
       </Sheet>
 
+      {viewing && (() => {
+        const list = tab === 'saved' ? state.activities.filter((x) => state.saved.includes(x.id)) : myPlans
+        return <PostsViewer title={tab === 'saved' ? 'Сохранённое' : 'Мои планы'} items={list} startId={viewing}
+          onClose={() => setViewing(null)} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />
+      })()}
       <VerifySheet open={verifying} onClose={() => setVerifying(false)} onDone={() => patch({ verified: true })} />
     </div>
   )
