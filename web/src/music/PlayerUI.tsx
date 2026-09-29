@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Track } from './engine'
 import { formatTime, trackLabel, usePlayer } from './player'
 import { Icon } from '../components/ui'
+import { downloadBlock, prepareDownload } from './download'
 
 /** Обложка-пластинка: крутится, пока трек играет. */
 export function Disc({ track, size, spinning }: { track: Track; size: number; spinning: boolean }) {
@@ -91,6 +92,8 @@ export function FullPlayer() {
   const fileRef = useRef<HTMLInputElement>(null)
   const swipe = useRef<number | null>(null)
   const [showQueue, setShowQueue] = useState(false)
+  const [dl, setDl] = useState<{ id: string; state: 'busy' | 'ready' | 'error' | 'blocked'; text: string; file?: { url: string; name: string } } | null>(null)
+  useEffect(() => () => { if (dl?.file) URL.revokeObjectURL(dl.file.url) }, [dl])
   useEffect(() => {
     if (!p.expanded) return
     const onKey = (e: KeyboardEvent) => {
@@ -103,6 +106,19 @@ export function FullPlayer() {
   if (!p.expanded) return null
   const t = p.track
   const h = t?.hue ?? 320
+  const dlNow = dl && dl.id === t?.id ? dl : null
+  const download = async () => {
+    if (!t || dlNow?.state === 'busy') return
+    const block = downloadBlock(t)
+    if (block) { setDl({ id: t.id, state: 'blocked', text: block }); return }
+    setDl({ id: t.id, state: 'busy', text: t.genre === 'file' ? 'Скачиваем…' : 'Готовим файл — это займёт до полуминуты…' })
+    try {
+      const file = await prepareDownload(t)
+      setDl({ id: t.id, state: 'ready', text: 'Файл готов', file })
+    } catch {
+      setDl({ id: t.id, state: 'error', text: 'Не получилось скачать. Проверьте интернет и попробуйте ещё раз.' })
+    }
+  }
   const liked = !!t && p.likes.includes(t.id)
   const live = !p.duration || !isFinite(p.duration)
   const pct = live ? 0 : (Math.min(p.position, p.duration) / p.duration) * 100
@@ -123,12 +139,31 @@ export function FullPlayer() {
             <Icon name="down" size={26} />
           </button>
           <span className="text-[13px] font-semibold text-white/75 truncate px-2">{t ? trackLabel(t) : 'Музыка'}</span>
-          <button onClick={() => fileRef.current?.click()} className="grid place-items-center w-10 h-10 -mr-2 rounded-full hover:bg-white/10 cursor-pointer" aria-label="Загрузить свой трек">
-            <Icon name="upload" size={22} />
-          </button>
+          <div className="flex -mr-2">
+            {t && (
+              <button onClick={download} className={`grid place-items-center w-10 h-10 rounded-full hover:bg-white/10 cursor-pointer ${downloadBlock(t) ? 'text-white/40' : ''}`}
+                aria-label={downloadBlock(t) ? 'Скачать нельзя' : 'Скачать трек'} aria-busy={dlNow?.state === 'busy'}>
+                <Icon name={dlNow?.state === 'ready' ? 'check' : 'download'} size={22} className={dlNow?.state === 'busy' ? 'animate-pulse' : ''} />
+              </button>
+            )}
+            <button onClick={() => fileRef.current?.click()} className="grid place-items-center w-10 h-10 rounded-full hover:bg-white/10 cursor-pointer" aria-label="Загрузить свой трек">
+              <Icon name="upload" size={22} />
+            </button>
+          </div>
           <input ref={fileRef} id="track-file" type="file" accept="audio/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.addFile(f); e.target.value = '' }} />
         </div>
 
+        {dlNow && (
+          <div className="flex flex-col items-center gap-2 mt-1" role="status">
+            <p className={`text-center text-[13px] ${dlNow.state === 'error' ? 'text-[#ff8a8a]' : 'text-white/75'}`}>{dlNow.text}</p>
+            {dlNow.file && (
+              <a href={dlNow.file.url} download={dlNow.file.name} onClick={() => setTimeout(() => setDl(null), 1500)}
+                className="inline-flex items-center gap-2 h-10 px-5 rounded-full bg-white text-[#111] text-[14px] font-semibold">
+                <Icon name="download" size={18} /> Сохранить файл
+              </a>
+            )}
+          </div>
+        )}
         {t ? (
           <>
             <div className="flex-1 min-h-[16px]" />

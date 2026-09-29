@@ -15,6 +15,7 @@ export interface Track {
   url?: string // для загруженного файла или онлайн-трека
   source?: 'audius' | 'itunes' | 'radio' // онлайн-трек: играет напрямую, без Web Audio
   cover?: string
+  downloadable?: boolean // автор на Audius разрешил скачивание
   seconds?: number // длительность загруженного файла, если известна
 }
 
@@ -160,6 +161,24 @@ export class Engine {
   }
 
   // Планировщик с запасом 120 мс: ставит в очередь все шаги, попадающие в окно.
+  /** Просчитывает синтезированный трек сразу в WAV, без воспроизведения. */
+  async renderWav(t: Track): Promise<Blob> {
+    // 24 кГц хватает синтезатору (самые высокие хэты ~7,5 кГц) и вдвое быстрее считается.
+    const sr = 24000
+    const off = new OfflineAudioContext(1, Math.ceil((trackDuration(t) + 1.5) * sr), sr)
+    const e = new Engine()
+    e.ctx = off as unknown as AudioContext
+    e.master = off.createGain()
+    e.master.gain.value = 0.8
+    e.master.connect(off.destination)
+    e.noise = off.createBuffer(1, sr, sr)
+    const data = e.noise.getChannelData(0)
+    for (let i = 0; i < sr; i++) data[i] = Math.random() * 2 - 1
+    const sd = 60 / t.bpm / 4
+    for (let n = 0; n < t.bars * STEPS_PER_BAR; n++) e.step(t, n, 0.05 + n * sd, sd)
+    return wavBlob(await off.startRendering())
+  }
+
   private tick() {
     const t = this.track
     const ctx = this.ctx
@@ -340,6 +359,18 @@ export class Engine {
   private ride(at: number, vol: number) {
     this.noiseHit(at, vol, 0.35, 'bandpass', 6000)
   }
+}
+
+function wavBlob(buf: AudioBuffer): Blob {
+  const pcm = buf.getChannelData(0)
+  const out = new DataView(new ArrayBuffer(44 + pcm.length * 2))
+  const str = (o: number, v: string) => { for (let i = 0; i < v.length; i++) out.setUint8(o + i, v.charCodeAt(i)) }
+  str(0, 'RIFF'); out.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVEfmt ')
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true)
+  out.setUint32(24, buf.sampleRate, true); out.setUint32(28, buf.sampleRate * 2, true)
+  out.setUint16(32, 2, true); out.setUint16(34, 16, true); str(36, 'data'); out.setUint32(40, pcm.length * 2, true)
+  for (let i = 0; i < pcm.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7fff, true)
+  return new Blob([out], { type: 'audio/wav' })
 }
 
 export const engine = new Engine()

@@ -12,7 +12,7 @@ function hueOf(s: string) {
   return Math.abs(h) % 360
 }
 
-interface AudiusTrack { id: string; title: string; duration: number; is_streamable?: boolean; user?: { name?: string }; artwork?: Record<string, string> | null }
+interface AudiusTrack { id: string; title: string; duration: number; is_streamable?: boolean; is_downloadable?: boolean; download?: { is_downloadable?: boolean } | null; user?: { name?: string }; artwork?: Record<string, string> | null }
 interface ItunesTrack { trackId: number; trackName: string; artistName: string; previewUrl?: string; artworkUrl100?: string; wrapperType?: string }
 
 async function json<T>(url: string, signal: AbortSignal): Promise<T> {
@@ -24,7 +24,7 @@ async function json<T>(url: string, signal: AbortSignal): Promise<T> {
 const fromAudius = (list: AudiusTrack[]): Track[] => list.filter((t) => t.is_streamable !== false).map((t) => ({
   id: `au-${t.id}`, title: t.title, artist: t.user?.name ?? 'Audius', genre: 'file', source: 'audius', hue: hueOf(t.id),
   bpm: 0, root: 0, bars: 0, seconds: t.duration, cover: t.artwork?.['480x480'] ?? t.artwork?.['150x150'],
-  url: `${AUDIUS}/tracks/${t.id}/stream?app_name=${APP}`,
+  url: `${AUDIUS}/tracks/${t.id}/stream?app_name=${APP}`, downloadable: !!(t.is_downloadable ?? t.download?.is_downloadable),
 }))
 
 const fromItunes = (list: ItunesTrack[]): Track[] => list.filter((t) => t.previewUrl).map((t) => ({
