@@ -3,6 +3,7 @@ import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
 import type { Activity, CapsuleStatus, Me, Report, State, Verification } from './types'
 
 const STORAGE_KEY = 'iskra-state'
+const SESSION_KEY = 'iskra-session'
 
 type Action =
   | { type: 'signIn'; me: Me }
@@ -29,6 +30,7 @@ type Action =
   | { type: 'seeStory'; personId: string }
   | { type: 'share'; personId: string; activityId: string }
   | { type: 'toggleFollow'; personId: string }
+  | { type: 'setRemember'; remember: boolean }
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id])
 
@@ -143,6 +145,8 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
     }
+    case 'setRemember':
+      return { ...state, remember: action.remember }
     case 'toggleFollow':
       return { ...state, following: toggle(state.following ?? [], action.personId) }
     case 'seeStory':
@@ -152,10 +156,17 @@ function reducer(state: State, action: Action): State {
 
 function load(): State {
   try {
+    if (!localStorage.getItem(STORAGE_KEY)) sessionStorage.setItem(SESSION_KEY, '1')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as State
-      if (parsed.version === 2) return parsed
+      if (parsed.version === 2) {
+        // Без «Запомнить меня» вход живёт до закрытия браузера: новая сессия — снова экран входа.
+        let sameSession = false
+        try { sameSession = sessionStorage.getItem(SESSION_KEY) === '1'; sessionStorage.setItem(SESSION_KEY, '1') } catch { /* нет sessionStorage */ }
+        if (parsed.remember === false && !sameSession && parsed.me) return { ...parsed, savedMe: parsed.me, me: null }
+        return parsed
+      }
     }
   } catch {
     /* хранилище недоступно — работаем на демо-данных */

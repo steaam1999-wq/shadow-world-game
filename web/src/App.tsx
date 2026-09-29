@@ -61,9 +61,9 @@ function Root() {
   if (view === 'app' && state.me) return <AppShell onSignOut={() => setView('landing')} onAdmin={() => setView('admin')} />
   return (
     <Landing
-      onDemo={enterDemo}
-      onLogin={() => { if (state.savedMe) { dispatch({ type: 'signIn', me: state.savedMe }); setView('app') } else enterDemo() }}
-      onRegister={(name, method) => { setReg({ name, method }); setView('onboarding') }}
+      onDemo={(remember) => { dispatch({ type: 'setRemember', remember }); enterDemo() }}
+      onLogin={(remember) => { dispatch({ type: 'setRemember', remember }); if (state.savedMe) { dispatch({ type: 'signIn', me: state.savedMe }); setView('app') } else enterDemo() }}
+      onRegister={(name, method, remember) => { dispatch({ type: 'setRemember', remember }); setReg({ name, method }); setView('onboarding') }}
       onAdmin={() => setView('admin')}
     />
   )

@@ -103,5 +103,6 @@ export interface State {
   announcement: string | null
   dismissedAnnouncement: string | null
   following?: string[] // personId, на кого я подписан
+  remember?: boolean // «Запомнить меня»: false — выход при закрытии браузера
   savedMe?: Me | null // профиль последнего входа: «Войти» без бэкенда возвращает его
 }

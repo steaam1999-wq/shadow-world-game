@@ -20,16 +20,22 @@ const DEMO_PLANS = [
 ]
 
 type Mode = 'login' | 'register'
+const LOGIN_KEY = 'iskra-last-login'
 
 export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
-  onDemo: () => void
-  onLogin: () => void
-  onRegister: (name: string, method: Me['authMethod']) => void
+  onDemo: (remember: boolean) => void
+  onLogin: (remember: boolean) => void
+  onRegister: (name: string, method: Me['authMethod'], remember: boolean) => void
   onAdmin: () => void
 }) {
   const { state } = useStore()
   const [mode, setMode] = useState<Mode>('login')
-  const [login, setLogin] = useState('')
+  const [login, setLogin] = useState(() => { try { return localStorage.getItem(LOGIN_KEY) ?? '' } catch { return '' } })
+  const [remember, setRemember] = useState(state.remember !== false)
+  const [otherAccount, setOtherAccount] = useState(false)
+  const quick = mode === 'login' && !otherAccount && state.remember !== false ? state.savedMe : null
+  // Запоминаем логин только с галочкой, иначе стираем.
+  const keepLogin = () => { try { if (remember && login.trim()) localStorage.setItem(LOGIN_KEY, login.trim()); else if (!remember) localStorage.removeItem(LOGIN_KEY) } catch { /* ignore */ } }
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [error, setError] = useState('')
@@ -40,11 +46,12 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
     if (password.length < 6) return setError('Пароль должен быть не короче 6 символов')
     if (mode === 'register') {
       if (!name.trim()) return setError('Как вас зовут?')
-      onRegister(name.trim(), login.includes('@') ? 'google' : 'phone')
-    } else onLogin()
+      keepLogin()
+      onRegister(name.trim(), login.includes('@') ? 'google' : 'phone', remember)
+    } else { keepLogin(); onLogin(remember) }
   }
   const switchMode = (m: Mode) => { setMode(m); setError('') }
-  const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin() : onRegister(m === 'telegram' ? 'Женя' : '', m))
+  const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
   return (
     <div className="min-h-full flex flex-col">
@@ -53,7 +60,7 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
         <ThemeToggle />
       </header>
 
-      <main className="flex-1 grid place-items-center px-4 py-6">
+      <main className="flex-1 grid grid-cols-[minmax(0,1fr)] place-items-center px-4 py-6">
         <div className="w-full max-w-[400px] flex flex-col gap-6">
           {/* Вход и регистрация */}
           <section className="w-full flex flex-col gap-5">
@@ -67,7 +74,20 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
                 ))}
               </div>
 
-              <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
+              {quick && (
+                <div className="flex flex-col gap-2">
+                  <button onClick={() => onLogin(true)} className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3 text-left cursor-pointer hover:brightness-95">
+                    <Avatar name={quick.name} hue={quick.hue} src={quick.photo} size={44} verified={quick.verified} />
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-semibold truncate">Продолжить как {quick.name}</span>
+                      <span className="block text-[12px] text-muted truncate">{login || 'Сохранённый вход на этом устройстве'}</span>
+                    </span>
+                    <Icon name="arrow" size={18} />
+                  </button>
+                  <button onClick={() => setOtherAccount(true)} className="self-center text-[13px] text-muted hover:text-fg cursor-pointer">Войти в другой аккаунт</button>
+                </div>
+              )}
+              {!quick && <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
                 {mode === 'register' && (
                   <Field id="reg-name" label="Имя">
                     <input id="reg-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" placeholder="Как вас называть" />
@@ -79,9 +99,16 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
                 <Field id="auth-password" label="Пароль">
                   <input id="auth-password" type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Минимум 6 символов" />
                 </Field>
+                <label htmlFor="auth-remember" className="flex items-start gap-3 cursor-pointer select-none">
+                  <input id="auth-remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="mt-0.5 w-5 h-5 shrink-0 rounded-md accent-[var(--spark)] cursor-pointer" />
+                  <span className="min-w-0 leading-tight">
+                    <span className="block text-[14px] font-medium">Запомнить меня</span>
+                    <span className="block text-[12px] text-muted">{remember ? 'Не придётся входить снова на этом устройстве' : 'Выйду, когда закрою браузер'}</span>
+                  </span>
+                </label>
                 {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
                 <Button type="submit" className="h-12 mt-1">{mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
-              </form>
+              </form>}
 
               <div className="flex items-center gap-3 text-[12px] text-muted"><span className="flex-1 h-px bg-line" />или<span className="flex-1 h-px bg-line" /></div>
               <div className="grid grid-cols-2 gap-2">
@@ -114,7 +141,7 @@ export function Landing({ onDemo, onLogin, onRegister, onAdmin }: {
                 ))}
               </div>
             </div>
-            <Button variant="secondary" onClick={onDemo} className="w-full h-10 text-[14px]">
+            <Button variant="secondary" onClick={() => onDemo(true)} className="w-full h-10 text-[14px]">
               <Icon name="user" size={17} /> Посмотреть без регистрации
             </Button>
           </section>
