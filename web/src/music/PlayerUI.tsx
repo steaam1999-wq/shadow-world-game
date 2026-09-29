@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { engine, type Track } from './engine'
-import { GENRE_LABEL, formatTime, usePlayer } from './player'
+import { formatTime, trackLabel, usePlayer } from './player'
 import { Icon } from '../components/ui'
 
 /** Обложка-пластинка: крутится, пока трек играет. */
@@ -9,6 +9,7 @@ export function Disc({ track, size, spinning }: { track: Track; size: number; sp
   return (
     <span className={`relative grid place-items-center rounded-full shrink-0 shadow-soft ${spinning ? 'anim-spin' : ''}`}
       style={{ width: size, height: size, background: `conic-gradient(from 30deg, hsl(${h} 70% 62%), hsl(${(h + 60) % 360} 70% 58%), hsl(${(h + 150) % 360} 60% 55%), hsl(${h} 70% 62%))` }}>
+      {track.cover && <img src={track.cover} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover" />}
       <span className="absolute inset-[18%] rounded-full" style={{ background: 'repeating-radial-gradient(circle, rgb(0 0 0 / .14) 0 1px, transparent 1px 4px)' }} />
       <span className="relative rounded-full bg-surface" style={{ width: size * 0.2, height: size * 0.2 }} />
     </span>
@@ -106,7 +107,7 @@ export function FullPlayer() {
             <div className="flex items-end justify-between gap-3 mt-4">
               <div className="min-w-0">
                 <h2 className="font-display font-semibold text-[24px] leading-tight truncate">{t.title}</h2>
-                <p className="text-muted truncate">{t.artist} · {GENRE_LABEL[t.genre]}{t.bpm ? ` · ${t.bpm} BPM` : ''}</p>
+                <p className="text-muted truncate">{t.artist} · {trackLabel(t)}{t.bpm ? ` · ${t.bpm} BPM` : ''}</p>
               </div>
               <button onClick={() => p.toggleLike(t.id)} className={`grid place-items-center w-11 h-11 rounded-full cursor-pointer shrink-0 ${p.likes.includes(t.id) ? 'text-spark' : 'text-muted'}`} aria-label={p.likes.includes(t.id) ? 'Убрать из любимых' : 'В любимые'} aria-pressed={p.likes.includes(t.id)}>
                 <Icon name="heart" size={26} fill={p.likes.includes(t.id)} />
@@ -153,7 +154,7 @@ export function FullPlayer() {
                   <Disc track={q} size={40} spinning={cur && p.playing} />
                   <span className="flex-1 min-w-0">
                     <span className={`block font-semibold text-[14px] truncate ${cur ? 'text-spark' : ''}`}>{q.title}</span>
-                    <span className="block text-[12px] text-muted truncate">{q.artist} · {GENRE_LABEL[q.genre]}</span>
+                    <span className="block text-[12px] text-muted truncate">{q.artist} · {trackLabel(q)}</span>
                   </span>
                   {cur && p.playing ? <Bars /> : <Icon name="play" size={16} fill className="text-muted" />}
                 </button>

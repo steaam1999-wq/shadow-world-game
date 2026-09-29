@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { Avatar, Chip, Icon } from '../components/ui'
 import { Plate } from '../screens/Feed'
 import { CATALOG, PLAYLISTS, playlistTracks, type Playlist } from './catalog'
-import { GENRE_LABEL, formatTime, genreOf, personTrack, usePlayer } from './player'
+import { GENRE_LABEL, formatTime, genreOf, personTrack, trackLabel, usePlayer } from './player'
+import { searchOnline } from './online'
 import { Disc } from './PlayerUI'
 import { MySongs } from './MySongs'
 import { trackDuration, type Genre, type Track } from './engine'
@@ -29,7 +30,7 @@ export function TrackRow({ track, queue, index }: { track: Track; queue: Track[]
         <Disc track={track} size={42} spinning={cur && p.playing} />
         <span className="min-w-0 flex-1">
           <span className={`block font-semibold text-[14px] truncate ${cur ? 'text-spark' : ''}`}>{track.title}</span>
-          <span className="block text-[12px] text-muted truncate">{track.artist} · {GENRE_LABEL[track.genre]}{track.genre !== 'file' ? ` · ${formatTime(trackDuration(track))}` : track.seconds ? ` · ${formatTime(track.seconds)}` : ''}</span>
+          <span className="block text-[12px] text-muted truncate">{track.artist} · {trackLabel(track)}{track.genre !== 'file' ? ` · ${formatTime(trackDuration(track))}` : track.seconds ? ` · ${formatTime(track.seconds)}` : ''}</span>
         </span>
       </button>
       <button onClick={() => p.toggleLike(track.id)} className={`grid place-items-center w-9 h-9 rounded-full cursor-pointer shrink-0 ${liked ? 'text-spark' : 'text-muted'}`} aria-label={liked ? 'Убрать из любимых' : 'В любимые'} aria-pressed={liked}>
@@ -93,6 +94,8 @@ export function MusicPage() {
         <button onClick={() => fileRef.current?.click()} className="grid place-items-center w-11 h-11 rounded-2xl bg-surface-2 cursor-pointer" aria-label="Загрузить свой трек"><Icon name="upload" size={20} /></button>
         <input ref={fileRef} id="music-file" type="file" accept="audio/*" multiple className="sr-only" onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) void p.addFiles(f); e.target.value = '' }} />
       </div>
+
+      {q.length >= 2 && <OnlineResults query={q} />}
 
       {!q && (
         <>
@@ -168,8 +171,52 @@ export function MusicPage() {
           {genres.map((g) => <Chip key={g} active={genre === g} onClick={() => setGenre(genre === g ? null : g)}>{GENRE_LABEL[g]}</Chip>)}
         </div>
         <ul className="flex flex-col px-2">{all.map((x) => <TrackRow key={x.id} track={x} queue={all} />)}</ul>
-        {!all.length && <p className="px-4 text-muted">Ничего не нашлось. Попробуйте другой запрос или загрузите свой трек.</p>}
+        {!all.length && <p className="px-4 text-muted">{q ? 'В приложении ничего не нашлось — смотрите результаты из интернета выше.' : 'Ничего не нашлось. Попробуйте другой запрос или загрузите свой трек.'}</p>}
       </section>
     </div>
+  )
+}
+
+type Online = { state: 'loading' } | { state: 'done'; full: Track[]; previews: Track[]; failed: string[] }
+
+/** Поиск по интернету: Audius (полные треки) и iTunes (отрывки по 30 секунд). */
+function OnlineResults({ query }: { query: string }) {
+  const [res, setRes] = useState<Online>({ state: 'loading' })
+  useEffect(() => {
+    setRes({ state: 'loading' })
+    const ctl = new AbortController()
+    const t = setTimeout(() => {
+      searchOnline(query, ctl.signal).then((r) => { if (!ctl.signal.aborted) setRes({ state: 'done', ...r }) })
+    }, 450)
+    return () => { clearTimeout(t); ctl.abort() }
+  }, [query])
+
+  return (
+    <section className="flex flex-col gap-3" aria-live="polite">
+      <h2 className="px-4 font-display font-semibold text-xl flex items-center gap-2"><Icon name="globe" size={20} /> В интернете</h2>
+      {res.state === 'loading' && <p className="px-4 text-muted">Ищем «{query}»…</p>}
+      {res.state === 'done' && (
+        <>
+          {res.full.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="px-4 text-[13px] text-muted">Полные треки · Audius</p>
+              <ul className="flex flex-col px-2">{res.full.map((x) => <TrackRow key={x.id} track={x} queue={res.full} />)}</ul>
+            </div>
+          )}
+          {res.previews.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="px-4 text-[13px] text-muted">Отрывки по 30 секунд · iTunes</p>
+              <ul className="flex flex-col px-2">{res.previews.map((x) => <TrackRow key={x.id} track={x} queue={res.previews} />)}</ul>
+            </div>
+          )}
+          {!res.full.length && !res.previews.length && (
+            <p className="px-4 text-muted">
+              {res.failed.length === 2 ? 'Не удалось связаться с музыкальными сервисами. Проверьте интернет; в превью Claude внешние сайты могут быть закрыты.' : 'В интернете ничего не нашлось.'}
+            </p>
+          )}
+          {res.failed.length === 1 && <p className="px-4 text-[12px] text-muted">{res.failed[0]} сейчас не отвечает.</p>}
+        </>
+      )}
+    </section>
   )
 }

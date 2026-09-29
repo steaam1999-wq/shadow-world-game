@@ -12,7 +12,9 @@ export interface Track {
   bpm: number
   root: number // MIDI-нота тоники
   bars: number
-  url?: string // для загруженного файла
+  url?: string // для загруженного файла или онлайн-трека
+  source?: 'audius' | 'itunes' // онлайн-трек: играет напрямую, без Web Audio
+  cover?: string
   seconds?: number // длительность загруженного файла, если известна
 }
 
@@ -53,6 +55,8 @@ export class Engine {
   private mediaNodes = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>()
   private pausedAt = 0
   playing = false
+  private vol = 0.8
+  private direct = false
   onEnded: (() => void) | null = null
 
   private ensure() {
@@ -75,6 +79,8 @@ export class Engine {
   }
 
   setVolume(v: number) {
+    this.vol = v
+    if (this.audio && this.direct) this.audio.volume = v
     this.ensure()
     this.master.gain.setTargetAtTime(v, this.ctx!.currentTime, 0.02)
   }
@@ -96,7 +102,14 @@ export class Engine {
     this.stop()
     this.track = t
     this.pausedAt = 0
-    if (t.genre === 'file' && t.url) {
+    this.direct = !!t.source
+    if (t.genre === 'file' && t.url && t.source) {
+      // Чужой сервер может не отдавать CORS-заголовки, а тогда Web Audio играет тишину.
+      const el = new Audio(t.url)
+      el.volume = this.vol
+      el.onended = () => { this.playing = false; this.onEnded?.() }
+      this.audio = el
+    } else if (t.genre === 'file' && t.url) {
       const ctx = this.ensure()
       const el = new Audio(t.url)
       el.onended = () => { this.playing = false; this.onEnded?.() }
