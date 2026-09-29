@@ -102,7 +102,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
     <>
       <button ref={btn} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel} onContextMenu={(e) => e.preventDefault()}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheet(true) } }}
-        className="relative z-[61] grid place-items-center w-10 h-10 cursor-pointer select-none touch-none [-webkit-touch-callout:none]"
+        className={`relative ${fan ? "z-[61]" : ""} grid place-items-center w-10 h-10 cursor-pointer select-none touch-none [-webkit-touch-callout:none]`}
         aria-label="Поделиться. Зажмите, чтобы быстро отправить другу">
         <Icon name="send" size={24} className={fan ? 'text-spark' : ''} />
       </button>
