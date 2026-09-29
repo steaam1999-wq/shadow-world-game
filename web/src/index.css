@@ -224,3 +224,11 @@ h1, h2, h3 { text-wrap: balance; }
 .yrange:disabled::-moz-range-thumb { opacity: 0; }
 .yrange-vol::-webkit-slider-runnable-track { background: linear-gradient(to right, #fff var(--fill), rgb(255 255 255 / .2) var(--fill)); border-radius: 3px; }
 .yrange-vol::-moz-range-track { background: linear-gradient(to right, #fff var(--fill), rgb(255 255 255 / .2) var(--fill)); border-radius: 3px; }
+
+/* Safari на iPhone увеличивает страницу при нажатии на поле со шрифтом меньше 16px,
+   и она остаётся сдвинутой. На сенсорных экранах поля ввода — минимум 16px. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
+}
+/* Страница никогда не должна ездить вбок: широкие ленты прокручиваются внутри себя. */
+html, body { overflow-x: clip; }
