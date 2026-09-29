@@ -3,8 +3,8 @@ import { DISTRICTS, HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
 import { PostArt } from '../components/PostArt'
-import { Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
-import { compatibility, whenLabel } from '../lib'
+import { Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '../components/ui'
+import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
 import type { Activity } from '../types'
@@ -109,7 +109,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
                 <button key={a.id} onClick={() => setOpen(a.id)} className={`relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer group ${big ? 'col-span-2 row-span-2' : ''}`} aria-label={a.title}>
                   <PostArt activity={a} />
                   <span className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 to-transparent text-left text-white">
-                    {big && <span className="block text-[12px] font-semibold opacity-85">{whenLabel(a.startsAt, now)}</span>}
+                    {big && <span className="block text-[12px] font-semibold opacity-85">{planWhen(a, now)}</span>}
                     <span className={`block font-semibold leading-tight ${big ? 'text-[16px] line-clamp-3' : 'text-[11px] line-clamp-2'}`}>{a.title}</span>
                   </span>
                   {p && <span className="absolute right-1.5 top-1.5 rounded-full bg-black/35 backdrop-blur-md text-white px-1.5 text-[11px] font-bold tnum">{compatibility(me, p).score}%</span>}
@@ -200,6 +200,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const [day, setDay] = useState<'today' | 'tomorrow'>('today')
   const [clock, setClock] = useState('19:00')
   const [duration, setDuration] = useState(120)
+  const [hideTime, setHideTime] = useState(false)
   const [photo, setPhoto] = useState<string | undefined>()
   const [photoError, setPhotoError] = useState('')
 
@@ -210,12 +211,15 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
     if (day === 'tomorrow') d.setDate(d.getDate() + 1)
     let startsAt = d.getTime()
     if (startsAt < now) startsAt = now + 0.5 * HOUR
+    // Время скрыто: план висит стандартные 48 часов, о времени договариваются в капсуле.
+    if (hideTime) startsAt = now
     const [x, y] = DISTRICT_XY[area] ?? [50, 50]
     dispatch({
       type: 'createActivity',
       activity: {
-        title: title.trim(), category, area, exactPlace: exactPlace.trim() || 'Уточню в капсуле', startsAt, durationMin: duration,
-        expiresAt: startsAt + duration * 60_000, x: x + (Math.random() * 6 - 3), y: y + (Math.random() * 6 - 3), photo,
+        title: title.trim(), category, area, exactPlace: exactPlace.trim() || 'Уточню в капсуле', startsAt,
+        durationMin: hideTime ? 0 : duration, timeHidden: hideTime || undefined,
+        expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 6 - 3), y: y + (Math.random() * 6 - 3), photo,
       },
     })
     setTitle(''); setExactPlace(''); setPhoto(undefined)
@@ -248,6 +252,11 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         <div className="flex flex-wrap gap-2">
           {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
         </div>
+        <div className="rounded-2xl bg-surface-2 px-3.5">
+          <Toggle id="act-hide-time" checked={hideTime} onChange={setHideTime} label="Не показывать время"
+            hint={hideTime ? 'В посте будет «Время обсудим» — договоритесь в капсуле' : 'Скрыть «когда», «во сколько» и длительность'} />
+        </div>
+        {!hideTime && <>
         <div className="grid grid-cols-2 gap-3">
           <Field id="act-day" label="Когда">
             <select id="act-day" className={inputCls} value={day} onChange={(e) => setDay(e.target.value as 'today' | 'tomorrow')}>
@@ -264,6 +273,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
             {[60, 90, 120, 180].map((m) => <option key={m} value={m}>{m / 60} ч</option>)}
           </select>
         </Field>
+        </>}
         <Field id="act-area" label="Район (виден всем)">
           <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
             {DISTRICTS.map((d) => <option key={d}>{d}</option>)}

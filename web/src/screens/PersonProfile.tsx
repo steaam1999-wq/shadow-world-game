@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../store'
-import { compatibility, level, plural, sharedAnswers, whenLabel } from '../lib'
+import { compatibility, level, planWhen, plural, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -97,7 +97,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             <button key={a.id} onClick={() => setOpen(a)} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer" aria-label={a.title}>
               <PostArt activity={a} />
               <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/70 to-transparent text-left text-white">
-                <span className="block text-[10px] opacity-85">{whenLabel(a.startsAt, now)}</span>
+                <span className="block text-[10px] opacity-85">{planWhen(a, now)}</span>
                 <span className="block text-[11px] font-semibold leading-tight line-clamp-2">{a.title}</span>
               </span>
             </button>

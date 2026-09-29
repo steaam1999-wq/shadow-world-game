@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CAPSULE_TTL } from '../data'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
-import { countdown, hm, isBurning, isExpired, whenLabel } from '../lib'
+import { countdown, hm, isBurning, isExpired, planWhen } from '../lib'
 import { Avatar, Button, Icon, Pill, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import type { Capsule, CapsuleStatus, Person } from '../types'
@@ -126,7 +126,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <Avatar name={p.name} hue={p.hue} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{p.name}, {p.age}</div>
-            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${whenLabel(a.startsAt, now)}` : 'Активность завершена'}</div>
+            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : 'Активность завершена'}</div>
           </div>
           </button>
           <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="flag" size={18} /></button>

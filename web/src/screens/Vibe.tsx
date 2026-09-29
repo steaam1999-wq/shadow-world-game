@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
-import { compatibility, sharedAnswers, whenLabel } from '../lib'
+import { compatibility, planWhen, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, inputCls } from '../components/ui'
 import type { Activity, Person } from '../types'
 
@@ -63,7 +63,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
 
             {act ? (
               <div className={`rounded-2xl p-3.5 flex flex-col gap-3 bg-surface-2`}>
-                <div className="flex items-center gap-2 text-[12px] font-semibold text-spark"><Icon name="spark" size={14} fill /> ПЛАН · {whenLabel(act.startsAt, now)}</div>
+                <div className="flex items-center gap-2 text-[12px] font-semibold text-spark"><Icon name="spark" size={14} fill /> ПЛАН · {planWhen(act, now)}</div>
                 <p className="font-semibold leading-snug">{act.title}</p>
                 {responded ? (
                   <Button variant="secondary" onClick={() => onOpenCapsule(act.id)}><Icon name="chat" size={18} /> Открыть капсулу</Button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore } from '../store'
-import { compatibility, relative, sharedAnswers, whenLabel } from '../lib'
+import { compatibility, planWhen, relative, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -163,7 +163,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
           <div className="relative snap-start shrink-0 w-full aspect-[4/5] overflow-hidden" onClick={onImageTap}>
             <PostArt activity={a} />
             <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/35 text-white backdrop-blur-md px-3 h-7 text-[12px] font-medium">
-              <Icon name="clock" size={13} /> {started ? 'Уже идёт' : whenLabel(a.startsAt, now)}
+              <Icon name="clock" size={13} /> {planWhen(a, now)}
             </span>
             {compat && (
               <span className="absolute right-3 top-3 rounded-full bg-white/80 text-[#111114] backdrop-blur-md px-3 h-7 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
@@ -188,8 +188,8 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
                 <h3 className="font-display font-semibold text-[24px] leading-tight">{a.title}</h3>
               </div>
               <dl className="grid grid-cols-2 gap-3 text-[14px]">
-                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Когда</dt><dd className="font-semibold">{started ? 'Уже идёт' : whenLabel(a.startsAt, now)}</dd></div>
-                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Сколько</dt><dd className="font-semibold">{a.durationMin >= 60 ? `${a.durationMin / 60} ч` : `${a.durationMin} мин`}</dd></div>
+                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Когда</dt><dd className="font-semibold">{planWhen(a, now)}</dd></div>
+                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Сколько</dt><dd className="font-semibold">{a.timeHidden ? 'По договорённости' : a.durationMin >= 60 ? `${a.durationMin / 60} ч` : `${a.durationMin} мин`}</dd></div>
                 <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2"><dt className="text-[12px] text-muted">Где</dt><dd className="font-semibold">{a.area}{person ? ' · точный адрес откроется в капсуле' : ` · ${a.exactPlace}`}</dd></div>
                 {compat && (
                   <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2">
@@ -236,7 +236,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}
-        <span className="text-[12px] text-muted">{started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
+        <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в капсуле' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
 
       <Sheet open={menu} onClose={() => setMenu(false)} title="Действия">
@@ -308,7 +308,7 @@ function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsu
           <button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} size={36} verified={p.verified} /></button>
           <div className="flex-1 min-w-0 leading-tight">
             <div className="font-semibold text-[14px]"><button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer">{p.name}</button> <span className="font-normal opacity-75">· {compat.score}% вайб</span></div>
-            <div className="text-[12px] opacity-75">{a.area} · {whenLabel(a.startsAt, now)}</div>
+            <div className="text-[12px] opacity-75">{a.area} · {planWhen(a, now)}</div>
             <TrackChip track={personTrack(p)} light />
           </div>
           <button onClick={onClose} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Закрыть"><Icon name="x" size={26} /></button>

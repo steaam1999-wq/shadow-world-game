@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { compatibility, relative, whenLabel } from '../lib'
+import { compatibility, planWhen, relative } from '../lib'
 import type { Activity, Person } from '../types'
 import { Avatar, Button, Icon, Pill } from './ui'
 
@@ -40,7 +40,7 @@ export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, 
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone="cobalt">{activity.category}</Pill>
         <Pill tone={started ? 'ok' : 'muted'}>
-          <Icon name="clock" size={12} /> {started ? 'Уже идёт' : whenLabel(activity.startsAt, now)}
+          <Icon name="clock" size={12} /> {planWhen(activity, now)}
         </Pill>
         {!compact && !started && <span className="text-[12px] text-muted">{relative(activity.startsAt, now)}</span>}
       </div>

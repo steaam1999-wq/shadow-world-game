@@ -1,5 +1,5 @@
 import { HOUR, VIBE_QUESTIONS } from './data'
-import type { Capsule, Me, Person, VibeAnswers } from './types'
+import type { Activity, Capsule, Me, Person, VibeAnswers } from './types'
 
 /** Совместимость: совпадения ответов вайб-теста (80%) + общие интересы (20%). */
 export function compatibility(me: Pick<Me, 'answers' | 'tags'>, p: Pick<Person, 'answers' | 'tags'>) {
@@ -95,3 +95,10 @@ export function plural(n: number, one: string, few: string, many: string) {
 /** Таймер тикает, только пока капсула в режиме переписки. */
 export const isBurning = (c: Capsule) => c.status === 'active'
 export const isExpired = (c: Capsule, now: number) => isBurning(c) && now >= c.expiresAt
+
+/** Подпись времени плана: скрытое время, «уже идёт» или «Сегодня, 19:30». */
+export function planWhen(a: Pick<Activity, 'startsAt' | 'timeHidden'>, now = Date.now()) {
+  if (a.timeHidden) return 'Время обсудим'
+  if (a.startsAt <= now) return 'Уже идёт'
+  return whenLabel(a.startsAt, now)
+}

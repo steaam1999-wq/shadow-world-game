@@ -43,6 +43,7 @@ export interface Activity {
   x: number // координаты на схеме города, 0..100
   y: number
   photo?: string // data URL загруженного фото; без него рисуется обложка категории
+  timeHidden?: boolean // автор не показывает время — договорятся в капсуле
 }
 
 export type CapsuleStatus = 'active' | 'agreed' | 'contacts' | 'met'

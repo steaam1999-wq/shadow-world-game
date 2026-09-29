@@ -116,7 +116,8 @@ export function PostArt({ activity, className = '' }: { activity: Pick<Activity,
   if (activity.photo) return <img src={activity.photo} alt="" className={`w-full h-full object-cover ${className}`} />
   const scene = SCENES[activity.category] ?? FALLBACK
   const shift = (hash(activity.id) % 30) - 15
-  const gid = `g-${activity.id}`
+  // id для SVG-ссылок url(#…) — только латиница и цифры, иначе градиент не находится и обложка чернеет.
+  const gid = `g-${activity.id.replace(/[^a-zA-Z0-9_-]/g, '')}-${hash(activity.id).toString(36)}`
   return (
     <svg viewBox="0 0 360 360" className={`w-full h-full block ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>

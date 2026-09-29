@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../store'
-import { compatibility, whenLabel } from '../lib'
+import { compatibility, planWhen } from '../lib'
 import { Avatar, Button, Icon } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { Plate } from './Feed'
@@ -73,7 +73,7 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
         <p><Plate size="lg">{a.title}</Plate></p>
         <TrackChip track={personTrack(p)} light />
         <div className="flex items-center gap-2 text-[13px] text-white/85">
-          <Icon name="clock" size={14} /> {whenLabel(a.startsAt, now)} · <Icon name="pin" size={14} /> {a.area}
+          <Icon name="clock" size={14} /> {planWhen(a, now)} · <Icon name="pin" size={14} /> {a.area}
         </div>
         <Button variant={responded ? 'secondary' : 'primary'} className="h-12" onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
           {responded ? 'Открыть капсулу' : 'Хочу с тобой'} <Icon name="arrow" size={18} />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
-import { compatibility, whenLabel } from '../lib'
+import { compatibility, planWhen } from '../lib'
 import { Avatar, Icon, Sheet } from './ui'
 import type { Activity, Person } from '../types'
 
@@ -81,7 +81,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
   }
   const onCancel = () => { if (timer.current !== null) { clearTimeout(timer.current); timer.current = null } }
 
-  const text = `${activity.title} — ${activity.area}, ${whenLabel(activity.startsAt, now)}. Нашёл в «Искре»`
+  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в «Искре»`
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setToast('Скопировано') } catch { setToast('Не удалось скопировать — выделите текст вручную') }
     setSheet(false)
