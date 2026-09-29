@@ -12,6 +12,7 @@ import { Onboarding } from './screens/Onboarding'
 import { CreateActivity, Explore } from './screens/Explore'
 import { Feed } from './screens/Feed'
 import { Reels } from './screens/Reels'
+import { NewPublication } from './screens/Shorts'
 import { CapsuleChat, CapsuleList } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
@@ -30,7 +31,7 @@ type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
   { id: 'home', label: 'Главная', icon: 'home' },
   { id: 'search', label: 'Поиск', icon: 'search' },
-  { id: 'create', label: 'Новый план', icon: 'create' },
+  { id: 'create', label: 'Создать', icon: 'create' },
   { id: 'reels', label: 'Планы на весь экран', icon: 'reels' },
   { id: 'profile', label: 'Профиль', icon: 'user' },
 ]
@@ -105,6 +106,8 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const openProfile = (id: string) => { setPerson(id); setChat(null); window.scrollTo(0, 0) }
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
+  const [choosing, setChoosing] = useState(false)
+  const [posting, setPosting] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   // Листаете ленту дальше — панель уезжает вверх; возвращаетесь — выезжает «жидким стеклом».
   const [hideTop, setHideTop] = useState(false)
@@ -197,7 +200,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(168px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
         {person && <PersonProfile personId={person} now={now} onBack={() => setPerson(null)} onRespond={(a, t) => { setPerson(null); respond(a, t) }}
           onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
-        {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setCreating(true)} onInvite={invite} />}
+        {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setChoosing(true)} onInvite={invite} onMessage={messagePerson} />}
         {!person && tab === 'music' && <MusicPage />}
         {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onMessage={messagePerson} />}
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
@@ -210,6 +213,20 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <FullPlayer />
       <MessageAlerts openChat={tab === 'capsules' && !person ? chat : null} onOpen={openChatById} />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
+      <NewPublication open={posting} onClose={() => setPosting(false)} onDone={() => { setPosting(false); setTab('home'); setPerson(null); window.scrollTo(0, 0) }} />
+      <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что опубликовать?">
+        <div className="flex flex-col gap-2">
+          {[
+            { icon: 'camera', title: 'Публикация', text: 'Фото или видео с подписью — появится на главной', go: () => setPosting(true) },
+            { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
+          ].map((o) => (
+            <button key={o.title} onClick={() => { setChoosing(false); o.go() }} className="flex items-center gap-3 p-3 rounded-2xl bg-surface-2 text-left cursor-pointer hover:brightness-95">
+              <span className="grid place-items-center w-11 h-11 rounded-full bg-brand text-white shrink-0"><Icon name={o.icon} size={20} /></span>
+              <span className="min-w-0"><span className="block font-semibold">{o.title}</span><span className="block text-[13px] text-muted">{o.text}</span></span>
+            </button>
+          ))}
+        </div>
+      </Sheet>
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {state.cloudError && (
@@ -238,7 +255,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
               return (
                 <li key={t.id}>
                   <button
-                    onClick={() => (t.id === 'create' ? setCreating(true) : (setTab(t.id), setChat(null), setPerson(null)))}
+                    onClick={() => (t.id === 'create' ? setChoosing(true) : (setTab(t.id), setChat(null), setPerson(null)))}
                     aria-current={active ? 'page' : undefined} aria-label={t.label}
                     className={`relative w-full h-13 grid place-items-center rounded-[26px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-fg/80 hover:text-fg'}`}>
                     {t.id === 'profile' ? (

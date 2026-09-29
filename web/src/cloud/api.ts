@@ -19,7 +19,7 @@ interface MessageRow { id: number; capsule_id: string; sender: string; body: str
 
 const ms = (iso: string) => new Date(iso).getTime()
 
-interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; created_at: string }
+interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; kind: 'video' | 'photo' | null; created_at: string }
 
 // Ссылки на закрытые видео выдаются на время. Кэшируем их, иначе при каждом обновлении
 // ссылка менялась бы и видео начиналось заново.
@@ -35,14 +35,14 @@ async function signShorts(paths: string[]) {
   return new Map(paths.flatMap((p) => { const s = signed.get(p); return s ? [[p, s.url] as const] : [] }))
 }
 
-/** Загружает видео в хранилище и публикует шортс. */
-export async function uploadShort(userId: string, file: File, caption: string, duration: number) {
-  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4'
+/** Загружает видео или фото в хранилище и публикует его. */
+export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video') {
+  const ext = kind === 'photo' ? 'jpg' : ((file.name ?? '').split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4'
   const path = `${userId}/${crypto.randomUUID()}.${ext}`
-  const type = file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
+  const type = kind === 'photo' ? 'image/jpeg' : file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
   const up = await sb().storage.from('shorts').upload(path, file, { contentType: type, upsert: false })
   if (up.error) throw up.error
-  const { error } = await sb().from('shorts').insert({ path, caption, duration })
+  const { error } = await sb().from('shorts').insert({ path, caption, duration: kind === 'photo' ? null : duration, kind })
   if (error) { await sb().storage.from('shorts').remove([path]); throw error }
 }
 
@@ -195,7 +195,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const visibleShorts = (shortRows.data ?? []).filter((s) => !hidden.has(s.author))
   const urls = await signShorts(visibleShorts.map((s) => s.path))
   const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
-    id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, caption: s.caption, at: ms(s.created_at),
+    id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, kind: s.kind === 'photo' ? 'photo' : 'video', caption: s.caption, at: ms(s.created_at),
   }))
   return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts }
 }

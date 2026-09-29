@@ -82,6 +82,7 @@ export interface Short {
   authorId: string // personId или 'me'
   url: string
   path?: string // путь файла в хранилище (облако)
+  kind: 'video' | 'photo'
   caption: string
   at: number
 }

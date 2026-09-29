@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { FeedPublication, usePublications } from './Shorts'
 import { useStore } from '../store'
 import { compatibility, planWhen, relative, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
@@ -11,7 +12,7 @@ import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
 import { CommentsPreview, CommentsSheet } from '../components/Comments'
-import type { Activity, Person } from '../types'
+import type { Activity, Person, Short } from '../types'
 
 interface Props {
   now: number
@@ -19,10 +20,12 @@ interface Props {
   onRespond: (a: Activity, text?: string) => void
   onOpenCapsule: (activityId: string) => void
   onCreate: () => void
+  onMessage: (personId: string) => void
 }
 
-export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Props) {
+export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMessage }: Props) {
   const { state } = useStore()
+  const publications = usePublications()
   // Список сторис фиксируется при открытии, иначе пересортировка «просмотренных» сбивает индекс.
   const [viewer, setViewer] = useState<{ items: { p: Person; a: Activity }[]; index: number } | null>(null)
   const [hidden, setHidden] = useState<string[]>([])
@@ -50,7 +53,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
             <span className="grid place-items-center w-[68px] h-[68px]"><Avatar name={me.name} hue={me.hue} src={me.photo} size={60} /></span>
             <span className="absolute right-0.5 bottom-0.5 grid place-items-center w-6 h-6 rounded-full bg-brand text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
           </span>
-          <span className="text-[12px] text-muted truncate w-full text-center">Ваш план</span>
+          <span className="text-[12px] text-muted truncate w-full text-center">Создать</span>
         </button>
         {stories.map(({ p }, i) => (
           <button key={p.id} onClick={() => setViewer({ items: stories, index: i })} className="flex flex-col items-center gap-1 w-[72px] shrink-0 cursor-pointer">
@@ -80,17 +83,19 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
 
       {state.announcement && state.announcement !== state.dismissedAnnouncement && <Announcement text={state.announcement} />}
 
-      {posts.map((a) => (
-        <Post key={a.id} activity={a} person={state.people.find((p) => p.id === a.authorId) ?? null} now={now}
-          onRespond={onRespond} onOpenCapsule={onOpenCapsule} onHide={() => setHidden([...hidden, a.id])} />
+      {mixFeed(posts, publications).map((x) => x.kind === 'pub' ? (
+        <FeedPublication key={x.s.id} s={x.s} onMessage={onMessage} />
+      ) : (
+        <Post key={x.a.id} activity={x.a} person={state.people.find((p) => p.id === x.a.authorId) ?? null} now={now}
+          onRespond={onRespond} onOpenCapsule={onOpenCapsule} onHide={() => setHidden([...hidden, x.a.id])} />
       ))}
-      {!posts.length && (
+      {!posts.length && !publications.length && (
         <div className="p-10 text-center flex flex-col items-center gap-3">
           <p className="font-semibold">{state.cloud ? 'Пока никто не предложил план — будьте первым!' : 'Планы на ближайшие 48 часов закончились'}</p>
           <Button onClick={onCreate}>Предложить свой</Button>
         </div>
       )}
-      {posts.length > 0 && (
+      {(posts.length > 0 || publications.length > 0) && (
         <div className="py-10 flex flex-col items-center gap-2 text-center">
           <span className="grid place-items-center w-14 h-14 rounded-full border-2 border-spark text-spark"><Icon name="check" size={28} /></span>
           <p className="font-semibold">Вы всё посмотрели</p>
@@ -111,6 +116,21 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
       )}
     </div>
   )
+}
+
+/** Лента главной: свежие публикации идут вперемешку с планами (после каждых двух планов — публикация). */
+function mixFeed(plans: Activity[], pubs: Short[]) {
+  const out: ({ kind: 'plan'; a: Activity } | { kind: 'pub'; s: Short })[] = []
+  let i = 0
+  plans.forEach((a, n) => {
+    out.push({ kind: 'plan', a })
+    if (n % 2 === 1 && i < pubs.length) out.push({ kind: 'pub', s: pubs[i++] })
+  })
+  while (i < pubs.length) out.push({ kind: 'pub', s: pubs[i++] })
+  // Свою свежую публикацию показываем сразу наверху.
+  const fresh = out.findIndex((x) => x.kind === 'pub' && x.s.authorId === 'me' && Date.now() - x.s.at < 10 * 60_000)
+  if (fresh > 0) out.unshift(...out.splice(fresh, 1))
+  return out
 }
 
 function Announcement({ text }: { text: string }) {

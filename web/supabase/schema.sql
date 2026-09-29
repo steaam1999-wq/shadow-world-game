@@ -322,7 +322,7 @@ create policy "comments: delete" on public.plan_comments for delete to authentic
   or exists (select 1 from plans p where p.id = plan_id and p.author = (select auth.uid()))
 );
 
--- Шортсы: короткие вертикальные видео. Файл лежит в закрытом хранилище shorts/<автор>/<файл>,
+-- Публикации: шортсы (короткие вертикальные видео) и посты с фото на главной. Файл лежит в закрытом хранилище shorts/<автор>/<файл>,
 -- смотреть могут только вошедшие пользователи.
 create table if not exists public.shorts (
   id uuid primary key default gen_random_uuid(),
@@ -332,12 +332,15 @@ create table if not exists public.shorts (
   duration real,
   created_at timestamptz not null default now()
 );
+alter table public.shorts add column if not exists kind text not null default 'video';
+alter table public.shorts drop constraint if exists shorts_kind_check;
+alter table public.shorts add constraint shorts_kind_check check (kind in ('video', 'photo'));
 create index if not exists shorts_author_idx on public.shorts (author);
 create index if not exists shorts_created_idx on public.shorts (created_at desc);
 alter table public.shorts enable row level security;
 revoke all on public.shorts from anon, authenticated;
 grant select, delete on public.shorts to authenticated;
-grant insert (path, caption, duration) on public.shorts to authenticated;
+grant insert (path, caption, duration, kind) on public.shorts to authenticated;
 drop policy if exists "shorts: read" on public.shorts;
 create policy "shorts: read" on public.shorts for select to authenticated
   using (author = (select auth.uid()) or private.is_admin() or (not private.is_banned(author) and not private.blocked_between(author, (select auth.uid()))));
@@ -350,7 +353,7 @@ drop policy if exists "shorts: delete" on public.shorts;
 create policy "shorts: delete" on public.shorts for delete to authenticated using (author = (select auth.uid()) or private.is_admin());
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('shorts', 'shorts', false, 52428800, array['video/mp4', 'video/quicktime', 'video/webm'])
+values ('shorts', 'shorts', false, 52428800, array['video/mp4', 'video/quicktime', 'video/webm', 'image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 drop policy if exists "shorts files: read" on storage.objects;
 create policy "shorts files: read" on storage.objects for select to authenticated using (bucket_id = 'shorts');
