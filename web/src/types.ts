@@ -2,6 +2,9 @@ import type { Track } from './music/engine'
 
 export type VibeAnswers = Record<string, string>
 
+/** Что человек слушает прямо сейчас; `at` — когда это обновлялось. */
+export interface NowPlaying { track: Track; at: number }
+
 export interface Person {
   id: string
   name: string
@@ -16,6 +19,7 @@ export interface Person {
   meetings: number
   photo?: string
   songs?: Track[] // сохранённые онлайн-песни, которые видят другие
+  nowPlaying?: NowPlaying | null
 }
 
 export interface Me {
@@ -29,10 +33,11 @@ export interface Me {
   verified: boolean
   meetings: number
   authMethod: 'telegram' | 'google' | 'phone' | 'email'
-  privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean; hideSongs?: boolean }
+  privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean; hideSongs?: boolean; hideNowPlaying?: boolean }
   radiusKm: number
   photo?: string
   songs?: Track[]
+  nowPlaying?: NowPlaying | null
   freeUntil?: number // «Свободен сейчас» до этого времени
   trustedContact?: string // кому сообщить, если встреча пошла не так
 }

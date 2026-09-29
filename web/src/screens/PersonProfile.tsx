@@ -7,6 +7,7 @@ import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import { PersonSongs, songsOf } from '../music/PersonSongs'
+import { NowPlayingCard, nowPlayingOf } from '../music/NowPlaying'
 import { Post } from './Feed'
 import { ReportSheet } from './Vibe'
 import { ReliabilityBadge } from '../components/Meet'
@@ -40,6 +41,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const followers = followerBase(p) + (following ? 1 : 0)
   const capsule = state.capsules.find((c) => c.personId === p.id)
   const songCount = songsOf(p, !!state.cloud).length
+  const listening = nowPlayingOf(p, !!state.cloud)
 
   const message = () => {
     if (capsule) { onOpenChat(capsule.id); return }
@@ -76,6 +78,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           <div className="text-muted">{lv.name} · {p.district} · {formatKm(p.distanceKm)}</div>
           <ReliabilityBadge person={p} />
           <TrackChip track={personTrack(p)} />
+          {listening && <div className="mt-1.5"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
           <p className="mt-1">{p.bio}</p>
           <p className="text-cobalt">{p.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>

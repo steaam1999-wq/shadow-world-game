@@ -33,7 +33,7 @@ export function TrackChip({ track, queue, light = false }: { track: Track; queue
   )
 }
 
-function Bars() {
+export function Bars() {
   return (
     <span className="inline-flex items-end gap-[2px] h-3 ml-0.5" aria-hidden="true">
       {[0, 1, 2].map((i) => <span key={i} className="w-[2px] bg-current rounded-full anim-eq" style={{ animationDelay: `${i * -0.3}s` }} />)}

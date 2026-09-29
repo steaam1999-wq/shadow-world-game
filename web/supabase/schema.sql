@@ -23,6 +23,12 @@ alter table public.profiles drop constraint if exists profiles_songs_check;
 alter table public.profiles add constraint profiles_songs_check
   check (jsonb_typeof(songs) = 'array' and jsonb_array_length(songs) <= 50 and octet_length(songs::text) <= 60000);
 
+-- «Сейчас слушает»: трек, который играет у человека прямо сейчас (null — ничего не играет).
+alter table public.profiles add column if not exists now_playing jsonb;
+alter table public.profiles drop constraint if exists profiles_now_playing_check;
+alter table public.profiles add constraint profiles_now_playing_check
+  check (now_playing is null or (jsonb_typeof(now_playing) = 'object' and octet_length(now_playing::text) <= 4000));
+
 -- Планы: видны всем вошедшим. Точное место хранится отдельно (plan_secrets).
 create table if not exists public.plans (
   id uuid primary key default gen_random_uuid(),
@@ -164,8 +170,8 @@ create policy "reports: send" on public.reports for insert to authenticated with
 
 -- Профиль: менять можно только свои «анкетные» поля. verified ставит только сервер/админ.
 revoke insert, update on public.profiles from authenticated;
-grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs) on public.profiles to authenticated;
-grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs) on public.profiles to authenticated;
+grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing) on public.profiles to authenticated;
+grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing) on public.profiles to authenticated;
 
 create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade

@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { engine, type Genre, type Track } from './engine'
 import { useStore } from '../store'
-import type { Person, VibeAnswers } from '../types'
+import type { NowPlaying, Person, VibeAnswers } from '../types'
+import { setNowPlaying } from '../cloud/api'
 
 import { GENRE_BPM, GENRE_LABEL } from './catalog'
 import { deleteSong, loadSongs, parseFileName, readDuration, saveSong, type StoredSong } from './library'
@@ -123,6 +124,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return [...uploads, ...online, ...mine, ...state.people.map(personTrack)]
   }, [me, uploads, online, state.people])
   const queue = custom ?? baseQueue
+
+  // «Сейчас слушает»: играющий трек виден на вашей странице. Пауза дольше 30 секунд — убираем.
+  const cloudUser = state.cloud?.userId
+  const shareNow = !!me && !me.privacy?.hideNowPlaying
+  useEffect(() => {
+    const publish = (value: NowPlaying | null) => {
+      dispatch({ type: 'nowPlaying', value })
+      if (cloudUser) void setNowPlaying(cloudUser, value).catch(() => { /* не критично */ })
+    }
+    if (!shareNow || !track) { const t = setTimeout(() => publish(null), 300); return () => clearTimeout(t) }
+    if (!playing) { const t = setTimeout(() => publish(null), 30_000); return () => clearTimeout(t) }
+    const now = () => publish({ track: slimTrack(track.genre === 'file' ? { ...track, url: undefined } : track), at: Date.now() })
+    const first = setTimeout(now, 1500) // быстро листаете треки — публикуем только тот, на котором остановились
+    const beat = setInterval(now, 4 * 60_000)
+    return () => { clearTimeout(first); clearInterval(beat) }
+  }, [track, playing, shareNow, cloudUser, dispatch])
 
   const start = useCallback((t: Track) => {
     engine.load(t)

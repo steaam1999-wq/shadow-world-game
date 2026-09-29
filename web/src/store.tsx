@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Me, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Me, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
@@ -19,6 +19,7 @@ export type Action =
   | { type: 'reply'; capsuleId: string }
   | { type: 'setStatus'; capsuleId: string; status: CapsuleStatus }
   | { type: 'readCapsule'; capsuleId: string }
+  | { type: 'nowPlaying'; value: NowPlaying | null }
   | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
   | { type: 'report'; personId: string; reason: string; text: string }
   | { type: 'resolveReport'; id: string; state: Report['state'] }
@@ -137,6 +138,8 @@ function reducer(state: State, action: Action): State {
           c.id === action.capsuleId ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }] } : c,
         ),
       }
+    case 'nowPlaying':
+      return state.me ? { ...state, me: { ...state.me, nowPlaying: action.value } } : state
     case 'cloudMessage': {
       // Новое сообщение пришло по живому каналу — показываем сразу, не дожидаясь полной перезагрузки.
       const c = state.capsules.find((x) => x.id === action.capsuleId)

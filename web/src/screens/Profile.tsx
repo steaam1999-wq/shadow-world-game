@@ -11,6 +11,7 @@ import { GENRE_LABEL, usePlayer } from '../music/player'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
 import { AlertSettings } from '../components/Alerts'
+import { NowPlayingCard } from '../music/NowPlaying'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
 import type { Genre } from '../music/engine'
 
@@ -74,6 +75,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
             className="inline-flex items-center gap-1.5 my-1 max-w-full rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
             <Icon name="note" size={13} /> <span className="truncate">Моя песня: {mySong ? `«${mySong.title}»${mySong.artist !== 'Моя песня' ? ` · ${mySong.artist}` : ''}` : `«Мой вайб» · ${GENRE_LABEL[myGenre]}`}</span>
           </button>
+          {me.nowPlaying && !me.privacy.hideNowPlaying && <div className="mb-1"><NowPlayingCard np={me.nowPlaying} who="Сейчас на вашей странице" /></div>}
           {me.meetings > 0 && <span className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
@@ -200,6 +202,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
         <Toggle id="pv-approx" checked={me.privacy.approxLocation} onChange={(v) => patch({ privacy: { ...me.privacy, approxLocation: v } })} label="Только приблизительное местоположение" hint="Другие видят район, а не точку на карте" />
         <Toggle id="pv-age" checked={me.privacy.showExactAge} onChange={(v) => patch({ privacy: { ...me.privacy, showExactAge: v } })} label="Показывать точный возраст" hint="Иначе — диапазон, например 25–29" />
         <Toggle id="pv-songs" checked={!me.privacy.hideSongs} onChange={(v) => patch({ privacy: { ...me.privacy, hideSongs: !v } })} label="Показывать мои любимые песни" hint="Другие видят их во вкладке «Песни» вашего профиля" />
+        <Toggle id="pv-now" checked={!me.privacy.hideNowPlaying} onChange={(v) => patch({ privacy: { ...me.privacy, hideNowPlaying: !v } })} label="Показывать, что я слушаю" hint="Играющий трек виден на вашей странице, пока идёт музыка" />
         <Toggle id="pv-contacts" checked={me.privacy.hideFromContacts} onChange={(v) => patch({ privacy: { ...me.privacy, hideFromContacts: v } })} label="Скрыть от контактов телефона" hint="Коллеги и родственники вас не увидят" />
       </section>
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FeedPublication, usePublications } from './Shorts'
+import { ListeningBadge } from '../music/NowPlaying'
 import { useStore } from '../store'
 import { compatibility, planWhen, relative, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
@@ -57,9 +58,12 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
         </button>
         {stories.map(({ p }, i) => (
           <button key={p.id} onClick={() => setViewer({ items: stories, index: i })} className="flex flex-col items-center gap-1 w-[72px] shrink-0 cursor-pointer">
-            <StoryRing seen={state.seenStories.includes(p.id)} size={68}>
-              <Avatar name={p.name} hue={p.hue} src={p.photo} size={58} />
-            </StoryRing>
+            <span className="relative">
+              <StoryRing seen={state.seenStories.includes(p.id)} size={68}>
+                <Avatar name={p.name} hue={p.hue} src={p.photo} size={58} />
+              </StoryRing>
+              <ListeningBadge person={p} />
+            </span>
             <span className="text-[12px] truncate w-full text-center">{p.name}</span>
           </button>
         ))}
@@ -73,7 +77,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
           <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4">
             {quiet.map((p) => (
               <button key={p.id} onClick={() => openProfile(p.id)} className="flex flex-col items-center gap-1 w-[64px] shrink-0 cursor-pointer" aria-label={`Профиль ${p.name}`}>
-                <Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} />
+                <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} /><ListeningBadge person={p} /></span>
                 <span className="text-[12px] truncate w-full text-center">{p.name}</span>
               </button>
             ))}

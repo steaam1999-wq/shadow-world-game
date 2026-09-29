@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Me, Message, Person, PlanComment, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Me, Message, NowPlaying, Person, PlanComment, Short } from '../types'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
 
@@ -12,7 +12,7 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; verified: boolean; meetings: number; songs?: Track[] | null }
+interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; time_hidden: boolean; group_size: number | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string }
@@ -109,6 +109,14 @@ export async function saveProfile(userId: string, me: Me) {
   if (error) throw error
 }
 
+/** Сколько «Сейчас слушает» считается свежим: пока играет, плеер обновляет его каждые 4 минуты. */
+export const NOW_PLAYING_TTL = 6 * 60_000
+
+export async function setNowPlaying(userId: string, value: NowPlaying | null) {
+  const { error } = await sb().from('profiles').update({ now_playing: value }).eq('id', userId)
+  if (error) throw error
+}
+
 export async function fetchMyProfile(userId: string) {
   const { data, error } = await sb().from('profiles').select('*').eq('id', userId).maybeSingle<ProfileRow>()
   if (error) throw error
@@ -164,6 +172,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
     photo: p.photo ?? undefined, songs: Array.isArray(p.songs) ? p.songs : [],
+    nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL ? p.now_playing : null,
   }))
 
   const activities: Activity[] = (plans.data ?? []).map((p) => ({
