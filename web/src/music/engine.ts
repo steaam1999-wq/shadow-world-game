@@ -13,7 +13,7 @@ export interface Track {
   root: number // MIDI-нота тоники
   bars: number
   url?: string // для загруженного файла или онлайн-трека
-  source?: 'audius' | 'itunes' // онлайн-трек: играет напрямую, без Web Audio
+  source?: 'audius' | 'itunes' | 'radio' // онлайн-трек: играет напрямую, без Web Audio
   cover?: string
   seconds?: number // длительность загруженного файла, если известна
 }

@@ -106,7 +106,7 @@ export function MusicPage() {
       {!q && (
         <>
           <MySongs />
-          <OnlineSection title="Сейчас в интернете" load={trendingOnline} fullLabel="В тренде · Audius, целиком" previewLabel="Топ-чарт · iTunes, отрывки по 30 секунд" />
+          <OnlineSection title="Сейчас в интернете" load={trendingOnline} fullLabel="В тренде · Audius, целиком" previewLabel="Топ-чарт · iTunes, отрывки по 30 секунд" radioLabel="Популярное радио · прямой эфир" />
           <section className="flex flex-col gap-3">
             <div className="px-4 flex items-end justify-between">
               <div>
@@ -187,8 +187,8 @@ export function MusicPage() {
 type Online = { state: 'loading' } | ({ state: 'done' } & OnlineLists)
 
 /** Музыка из интернета: Audius (полные треки) и iTunes (отрывки по 30 секунд). */
-function OnlineSection({ title, load, delay = 0, fullLabel = 'Полные треки · Audius', previewLabel = 'Отрывки по 30 секунд · iTunes' }: {
-  title: string; load: (signal: AbortSignal) => Promise<OnlineLists>; delay?: number; fullLabel?: string; previewLabel?: string
+function OnlineSection({ title, load, delay = 0, fullLabel = 'Полные треки · Audius', previewLabel = 'Отрывки по 30 секунд · iTunes', radioLabel = 'Радиостанции · прямой эфир' }: {
+  title: string; load: (signal: AbortSignal) => Promise<OnlineLists>; delay?: number; fullLabel?: string; previewLabel?: string; radioLabel?: string
 }) {
   const [res, setRes] = useState<Online>({ state: 'loading' })
   const loadRef = useRef(load)
@@ -208,12 +208,13 @@ function OnlineSection({ title, load, delay = 0, fullLabel = 'Полные тр�
         <>
           <OnlineList label={fullLabel} tracks={res.full} />
           <OnlineList label={previewLabel} tracks={res.previews} />
-          {!res.full.length && !res.previews.length && (
+          <OnlineList label={radioLabel} tracks={res.radio} />
+          {!res.full.length && !res.previews.length && !res.radio.length && (
             <p className="px-4 text-muted">
-              {res.failed.length === 2 ? 'Не удалось связаться с музыкальными сервисами. Проверьте интернет; в превью Claude внешние сайты могут быть закрыты.' : 'В интернете ничего не нашлось.'}
+              {res.failed.length === 3 ? 'Не удалось связаться с музыкальными сервисами. Проверьте интернет; в превью Claude внешние сайты могут быть закрыты.' : 'В интернете ничего не нашлось.'}
             </p>
           )}
-          {res.failed.length === 1 && <p className="px-4 text-[12px] text-muted">{res.failed[0]} сейчас не отвечает.</p>}
+          {res.failed.length > 0 && res.failed.length < 3 && <p className="px-4 text-[12px] text-muted">Сейчас не отвечает: {res.failed.join(', ')}.</p>}
         </>
       )}
     </section>

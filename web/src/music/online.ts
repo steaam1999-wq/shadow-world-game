@@ -32,15 +32,39 @@ const fromItunes = (list: ItunesTrack[]): Track[] => list.filter((t) => t.previe
   bpm: 0, root: 0, bars: 0, seconds: 30, cover: t.artworkUrl100?.replace('100x100', '400x400'), url: t.previewUrl,
 }))
 
-export interface OnlineLists { full: Track[]; previews: Track[]; failed: string[] }
+export interface OnlineLists { full: Track[]; previews: Track[]; radio: Track[]; failed: string[] }
 
-async function both(a: Promise<Track[]>, i: Promise<Track[]>): Promise<OnlineLists> {
-  const [ra, ri] = await Promise.allSettled([a, i])
+async function both(a: Promise<Track[]>, i: Promise<Track[]>, r: Promise<Track[]>): Promise<OnlineLists> {
+  const [ra, ri, rr] = await Promise.allSettled([a, i, r])
   return {
     full: ra.status === 'fulfilled' ? ra.value : [],
     previews: ri.status === 'fulfilled' ? ri.value : [],
-    failed: [ra.status === 'rejected' && 'Audius', ri.status === 'rejected' && 'iTunes'].filter(Boolean) as string[],
+    radio: rr.status === 'fulfilled' ? rr.value : [],
+    failed: [ra.status === 'rejected' && 'Audius', ri.status === 'rejected' && 'iTunes', rr.status === 'rejected' && 'Radio Browser'].filter(Boolean) as string[],
   }
+}
+
+// Radio Browser — открытая база интернет-радио; у проекта несколько равноправных серверов.
+const RADIO_HOSTS = ['de1', 'nl1', 'at1'].map((h) => `https://${h}.api.radio-browser.info/json`)
+interface Station { stationuuid: string; name: string; url_resolved: string; favicon?: string; tags?: string; country?: string; hls?: number }
+
+async function radio(path: string, signal: AbortSignal): Promise<Track[]> {
+  let last: unknown
+  for (const host of RADIO_HOSTS) {
+    try {
+      const list = await json<Station[]>(`${host}${path}`, signal)
+      // Сайт открыт по https: поток по http браузер заблокирует.
+      return list.filter((st) => st.url_resolved?.startsWith('https://') && !st.hls).slice(0, LIMIT).map((st) => ({
+        id: `rb-${st.stationuuid}`, title: st.name.trim(), artist: st.tags?.split(',').slice(0, 2).join(', ') || st.country || 'Радио',
+        genre: 'file', source: 'radio', hue: hueOf(st.stationuuid), bpm: 0, root: 0, bars: 0,
+        cover: st.favicon?.startsWith('https://') ? st.favicon : undefined, url: st.url_resolved,
+      }))
+    } catch (e) {
+      if (signal.aborted) throw e
+      last = e
+    }
+  }
+  throw last
 }
 
 export function searchOnline(q: string, signal: AbortSignal) {
@@ -48,6 +72,7 @@ export function searchOnline(q: string, signal: AbortSignal) {
   return both(
     json<{ data: AudiusTrack[] }>(`${AUDIUS}/tracks/search?query=${e}&limit=${LIMIT}&app_name=${APP}`, signal).then((r) => fromAudius(r.data)),
     json<{ results: ItunesTrack[] }>(`https://itunes.apple.com/search?term=${e}&media=music&entity=song&limit=${LIMIT}`, signal).then((r) => fromItunes(r.results)),
+    radio(`/stations/search?name=${e}&order=clickcount&reverse=true&hidebroken=true&limit=100`, signal),
   )
 }
 
@@ -63,5 +88,6 @@ export function trendingOnline(signal: AbortSignal) {
   return both(
     json<{ data: AudiusTrack[] }>(`${AUDIUS}/tracks/trending?limit=${LIMIT}&app_name=${APP}`, signal).then((r) => fromAudius(r.data)),
     chart,
+    radio('/stations/search?language=russian&order=clickcount&reverse=true&hidebroken=true&limit=100', signal),
   )
 }
