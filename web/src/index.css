@@ -189,3 +189,14 @@ h1, h2, h3 { text-wrap: balance; }
 /* Надпись логотипа: тёплый тёмный в светлой теме, кремовая со свечением в тёмной */
 .logo-word { color: var(--logo-word); text-shadow: 0 0 14px var(--logo-glow); font-family: "Fredoka", "Rubik", "Nunito", system-ui, sans-serif; font-weight: 700; letter-spacing: -0.01em; }
 .logo-word > span:last-child { font-size: 1.25em; line-height: 1; }
+
+/* Нижняя панель: плотное матовое стекло без просвета, чёткие значки */
+.glass.glass-solid {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, transparent), color-mix(in srgb, var(--surface) 88%, transparent));
+}
+.glass.glass-solid::before { opacity: .35; }
+.tab-icon { stroke-width: 2; }
+.tab-active {
+  background: color-mix(in srgb, var(--fg) 9%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-edge) 70%, transparent), 0 2px 8px -4px var(--glass-shade);
+}

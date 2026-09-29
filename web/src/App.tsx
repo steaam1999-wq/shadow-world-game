@@ -174,7 +174,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       )}
 
       {!inChat && (
-        <nav className="glass fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[456px] rounded-[32px] p-1.5" aria-label="Разделы">
+        <nav className="glass glass-solid fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[456px] rounded-[32px] p-1.5" aria-label="Разделы">
           <ul className="relative grid grid-cols-5">
             {NAV.map((t) => {
               const active = tab === t.id
@@ -183,11 +183,11 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                   <button
                     onClick={() => (t.id === 'create' ? setCreating(true) : (setTab(t.id), setChat(null), setPerson(null)))}
                     aria-current={active ? 'page' : undefined} aria-label={t.label}
-                    className={`relative w-full h-13 grid place-items-center rounded-[26px] cursor-pointer transition duration-300 ${active ? 'text-fg glass-drop' : 'text-muted hover:text-fg'}`}>
+                    className={`relative w-full h-13 grid place-items-center rounded-[26px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-fg/80 hover:text-fg'}`}>
                     {t.id === 'profile' ? (
                       <span className={`rounded-full ${active ? 'ring-2 ring-fg ring-offset-2 ring-offset-transparent' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={26} /></span>
                     ) : (
-                      <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} />
+                      <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} className="tab-icon" />
                     )}
                   </button>
                 </li>
