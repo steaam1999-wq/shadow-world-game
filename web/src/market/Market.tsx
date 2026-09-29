@@ -12,7 +12,7 @@ type View = 'all' | 'fav' | 'mine'
 type Sort = 'new' | 'cheap' | 'expensive'
 
 /** Маркет: барахолка между людьми рядом — объявления, избранное, свои объявления. */
-export function Market({ now, onContact }: { now: number; onContact: (sellerId: string) => void }) {
+export function Market({ now, onContact }: { now: number; onContact?: (sellerId: string) => void }) {
   const { state, dispatch } = useStore()
   const listings = state.listings ?? []
   const fav = state.favListings ?? []
@@ -85,7 +85,7 @@ export function Market({ now, onContact }: { now: number; onContact: (sellerId: 
         </div>
       )}
 
-      {opened && <ListingDetail listing={opened} now={now} onClose={() => setOpen(null)} onContact={(id) => { dispatch({ type: 'contactSeller', listingId: opened.id }); setOpen(null); onContact(id) }} />}
+      {opened && <ListingDetail listing={opened} now={now} onClose={() => setOpen(null)} onContact={(id) => { dispatch({ type: 'contactSeller', listingId: opened.id }); setOpen(null); onContact?.(id) }} />}
       <CreateListing open={creating} onClose={() => setCreating(false)} onCreated={() => setView('mine')} />
     </div>
   )
@@ -118,7 +118,7 @@ function ListingCard({ listing: l, now, onOpen }: { listing: Listing; now: numbe
   )
 }
 
-function ListingDetail({ listing: l, now, onClose, onContact }: { listing: Listing; now: number; onClose: () => void; onContact: (sellerId: string) => void }) {
+function ListingDetail({ listing: l, now, onClose, onContact }: { listing: Listing; now: number; onClose: () => void; onContact?: (sellerId: string) => void }) {
   const { state, dispatch } = useStore()
   const openProfile = useOpenProfile()
   const [phone, setPhone] = useState(false)
@@ -174,7 +174,7 @@ function ListingDetail({ listing: l, now, onClose, onContact }: { listing: Listi
                 </button>
               )}
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={() => seller && onContact(seller.id)} disabled={l.sold}><Icon name="chat" size={18} /> Написать</Button>
+                <Button onClick={() => seller && onContact?.(seller.id)} disabled={l.sold}><Icon name="chat" size={18} /> Написать</Button>
                 <Button variant="secondary" className="whitespace-nowrap" onClick={() => setPhone(true)}>{phone ? <span className="font-mono tnum text-[13px]">{demoPhone}</span> : <><Icon name="eye" size={18} /> Телефон</>}</Button>
               </div>
               {phone && <p className="text-[12px] text-muted -mt-2">Демо: номер скрыт. В рабочей версии здесь будет настоящий телефон продавца.</p>}

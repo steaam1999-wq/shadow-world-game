@@ -7,6 +7,7 @@ import { Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '.
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
+import { Market } from '../market/Market'
 import type { Activity } from '../types'
 
 const RADII = [1, 3, 5, 10]
@@ -23,9 +24,9 @@ const DISTRICT_XY: Record<string, [number, number]> = {
   'Замоскворечье': [52, 64], 'Басманный': [74, 34], 'Таганка': [72, 58], 'Парк Горького': [38, 84],
 }
 
-type Mode = 'plans' | 'people' | 'map'
+type Mode = 'plans' | 'people' | 'map' | 'market'
 
-export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onRespond: (a: Activity, text?: string) => void; onOpenCapsule: (activityId: string) => void }) {
+export function Explore({ now, onRespond, onOpenCapsule, onContact }: { now: number; onRespond: (a: Activity, text?: string) => void; onOpenCapsule: (activityId: string) => void; onContact?: (sellerId: string) => void }) {
   const { state, dispatch } = useStore()
   const me = state.me!
   const [mode, setMode] = useState<Mode>('plans')
@@ -75,16 +76,18 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
         </label>
       </div>
 
-      <div className="grid grid-cols-3 border-b border-line" role="tablist">
-        {([['plans', 'grid', 'Планы'], ['people', 'people', 'Люди'], ['map', 'map', 'Карта']] as const).map(([id, icon, label]) => (
-          <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
-            className={`h-11 flex items-center justify-center gap-1.5 text-[13px] font-semibold border-b-2 -mb-px cursor-pointer ${mode === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
-            <Icon name={icon} size={17} /> {label}
-          </button>
-        ))}
+      <div className="overflow-x-auto no-scrollbar">
+        <div className="grid grid-cols-4 border-b border-line min-w-max" role="tablist">
+          {([['plans', 'grid', 'Планы'], ['people', 'people', 'Люди'], ['map', 'map', 'Карта'], ['market', 'bag', 'Маркет']] as const).map(([id, icon, label]) => (
+            <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
+              className={`h-11 flex items-center justify-center gap-1.5 text-[13px] font-semibold border-b-2 -mb-px cursor-pointer whitespace-nowrap px-3 ${mode === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
+              <Icon name={icon} size={17} /> {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {mode !== 'people' && (
+      {mode !== 'people' && mode !== 'market' && (
         <div className="flex flex-col gap-2">
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
             {RADII.map((r) => (
@@ -136,6 +139,8 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
           )}
         </div>
       )}
+
+      {mode === 'market' && <Market now={now} onContact={onContact} />}
 
       {opened && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="План">
