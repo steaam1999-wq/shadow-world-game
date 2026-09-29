@@ -3,6 +3,7 @@ import type { Track } from './engine'
 import { formatTime, trackLabel, usePlayer } from './player'
 import { Icon } from '../components/ui'
 import { downloadBlock, prepareDownload } from './download'
+import { fetchLyrics, type Lyrics } from './lyrics'
 
 /** Обложка-пластинка: крутится, пока трек играет. */
 export function Disc({ track, size, spinning }: { track: Track; size: number; spinning: boolean }) {
@@ -92,6 +93,7 @@ export function FullPlayer() {
   const fileRef = useRef<HTMLInputElement>(null)
   const swipe = useRef<number | null>(null)
   const [showQueue, setShowQueue] = useState(false)
+  const [showLyrics, setShowLyrics] = useState(false)
   const [dl, setDl] = useState<{ id: string; state: 'busy' | 'ready' | 'error' | 'blocked'; text: string; file?: { url: string; name: string } } | null>(null)
   useEffect(() => () => { if (dl?.file) URL.revokeObjectURL(dl.file.url) }, [dl])
   useEffect(() => {
@@ -166,17 +168,23 @@ export function FullPlayer() {
         )}
         {t ? (
           <>
+            {showLyrics ? (
+              <LyricsView key={t.id} track={t} position={p.position} onSeek={p.seek} />
+            ) : (
+              <>
             <div className="flex-1 min-h-[16px]" />
-            <div className="py-4 grid place-items-center"
-              onTouchStart={(e) => { swipe.current = e.touches[0].clientX }}
-              onTouchEnd={(e) => {
-                if (swipe.current === null) return
-                const dx = e.changedTouches[0].clientX - swipe.current
-                swipe.current = null
-                if (dx < -60) p.next(); else if (dx > 60) p.prev()
-              }}>
-              <Artwork track={t} className={`w-full max-w-[340px] aspect-square rounded-[16px] shadow-[0_24px_60px_-12px_rgb(0_0_0/.6)] transition-transform duration-500 ease-out ${p.playing ? 'scale-100' : 'scale-[.86]'}`} />
-            </div>
+              <div className="py-4 grid place-items-center"
+                onTouchStart={(e) => { swipe.current = e.touches[0].clientX }}
+                onTouchEnd={(e) => {
+                  if (swipe.current === null) return
+                  const dx = e.changedTouches[0].clientX - swipe.current
+                  swipe.current = null
+                  if (dx < -60) p.next(); else if (dx > 60) p.prev()
+                }}>
+                <Artwork track={t} className={`w-full max-w-[340px] aspect-square rounded-[16px] shadow-[0_24px_60px_-12px_rgb(0_0_0/.6)] transition-transform duration-500 ease-out ${p.playing ? 'scale-100' : 'scale-[.86]'}`} />
+              </div>
+              </>
+            )}
 
             <div className="flex items-center justify-between gap-3 mt-4">
               <div className="min-w-0">
@@ -225,9 +233,14 @@ export function FullPlayer() {
               </button>
             </div>
 
-            <button onClick={() => setShowQueue((v) => !v)} className="mt-5 self-center inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white/12 text-[13px] font-semibold cursor-pointer" aria-expanded={showQueue}>
-              <Icon name="list" size={16} /> Далее · {upNext.length}
-            </button>
+            <div className="mt-5 flex justify-center gap-2">
+              <button onClick={() => setShowLyrics((v) => !v)} className={`inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[13px] font-semibold cursor-pointer ${showLyrics ? 'bg-white text-[#111]' : 'bg-white/12'}`} aria-pressed={showLyrics}>
+                <Icon name="comment" size={16} /> Текст
+              </button>
+              <button onClick={() => setShowQueue((v) => !v)} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white/12 text-[13px] font-semibold cursor-pointer" aria-expanded={showQueue}>
+                <Icon name="list" size={16} /> Далее · {upNext.length}
+              </button>
+            </div>
           </>
         ) : (
           <div className="flex-1 grid place-items-center text-center">
@@ -255,6 +268,55 @@ export function FullPlayer() {
           </ul>
         )}
       </div>
+    </div>
+  )
+}
+
+type LyricsState = { state: 'loading' } | { state: 'done'; lyrics: Lyrics | null } | { state: 'error' }
+
+/** Текст песни из LRCLIB: с таймингом — подсвечиваем текущую строку и перематываем по нажатию. */
+function LyricsView({ track, position, onSeek }: { track: Track; position: number; onSeek: (sec: number) => void }) {
+  const [res, setRes] = useState<LyricsState>({ state: 'loading' })
+  const box = useRef<HTMLDivElement>(null)
+  const radio = track.source === 'radio'
+  useEffect(() => {
+    if (radio) return
+    const ctl = new AbortController()
+    fetchLyrics(track, ctl.signal)
+      .then((lyrics) => setRes({ state: 'done', lyrics }))
+      .catch(() => { if (!ctl.signal.aborted) setRes({ state: 'error' }) })
+    return () => ctl.abort()
+  }, [track, radio])
+
+  const lyrics = res.state === 'done' ? res.lyrics : null
+  // В отрывке iTunes позиция не совпадает с песней — тайминг не используем.
+  const synced = !!lyrics?.synced && track.source !== 'itunes'
+  let cur = -1
+  if (synced && lyrics) lyrics.lines.forEach((l, i) => { if (l.at !== null && l.at <= position + 0.25) cur = i })
+  useEffect(() => {
+    if (cur < 0) return
+    box.current?.querySelector(`[data-line="${cur}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [cur])
+
+  const note = (text: string) => <div className="flex-1 min-h-[300px] grid place-items-center text-center text-white/70 px-4">{text}</div>
+  if (radio) return note('Во время радиоэфира текст недоступен.')
+  if (res.state === 'loading') return note('Ищем текст…')
+  if (res.state === 'error') return note('Не удалось загрузить текст. Проверьте интернет.')
+  if (!lyrics) return note('Текста этой песни пока нет в базе.')
+  if (lyrics.instrumental) return note('Инструментал — без слов.')
+
+  return (
+    <div ref={box} className="flex-1 min-h-[300px] max-h-[52vh] overflow-y-auto no-scrollbar py-4 -mx-1 px-1 [mask-image:linear-gradient(transparent,#000_12%,#000_88%,transparent)]">
+      {track.source === 'itunes' && lyrics.synced && <p className="text-[12px] text-white/50 mb-3">Это отрывок — текст без подсветки строк.</p>}
+      {lyrics.lines.map((l, i) => {
+        const on = i === cur
+        const cls = `block w-full text-left font-display font-bold text-[24px] leading-snug py-1.5 transition-colors duration-300 ${!synced ? 'text-white/85' : on ? 'text-white' : i < cur ? 'text-white/35' : 'text-white/45'}`
+        if (!l.text) return <span key={i} data-line={i} className="block h-4" />
+        return synced && l.at !== null
+          ? <button key={i} data-line={i} onClick={() => onSeek(l.at!)} className={`${cls} cursor-pointer`}>{l.text}</button>
+          : <p key={i} data-line={i} className={cls}>{l.text}</p>
+      })}
+      <p className="text-[11px] text-white/40 mt-6">Текст: LRCLIB</p>
     </div>
   )
 }
