@@ -96,6 +96,12 @@ export function MusicPage() {
       </div>
 
       {q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
+      {q.length >= 2 && (
+        <a href={`https://zaycev.net/search?query_search=${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
+          className="mx-4 h-11 rounded-2xl bg-surface-2 font-semibold text-[14px] inline-flex items-center justify-center gap-2">
+          <Icon name="search" size={17} /> Найти «{query.trim()}» на Зайцев.нет <Icon name="arrow" size={16} />
+        </a>
+      )}
 
       {!q && (
         <>
