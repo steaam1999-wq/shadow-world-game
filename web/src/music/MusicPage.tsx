@@ -58,6 +58,7 @@ export function MusicPage() {
   const liked = p.library.filter((x) => p.likes.includes(x.id))
   const genres = Array.from(new Set(CATALOG.map((x) => x.genre))) as Genre[]
   const q = query.trim().toLowerCase()
+  const spotify = parseSpotify(query)
   const all = p.library.filter((x) => (!genre || x.genre === genre) && (!q || `${x.title} ${x.artist} ${GENRE_LABEL[x.genre]}`.toLowerCase().includes(q)))
 
   if (open) {
@@ -95,8 +96,15 @@ export function MusicPage() {
         <input ref={fileRef} id="music-file" type="file" accept="audio/*" multiple className="sr-only" onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) void p.addFiles(f); e.target.value = '' }} />
       </div>
 
-      {q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
-      {q.length >= 2 && (
+      {spotify && <SpotifyEmbed type={spotify.type} id={spotify.id} />}
+      {!spotify && q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
+      {!spotify && q.length >= 2 && (
+        <a href={`https://open.spotify.com/search/${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
+          className="mx-4 h-11 rounded-2xl bg-[#1DB954] text-black font-semibold text-[14px] inline-flex items-center justify-center gap-2">
+          Найти «{query.trim()}» в Spotify <Icon name="arrow" size={16} />
+        </a>
+      )}
+      {!spotify && q.length >= 2 && (
         <a href={`https://zaycev.net/search?query_search=${encodeURIComponent(query.trim())}`} target="_blank" rel="noopener noreferrer"
           className="mx-4 h-11 rounded-2xl bg-surface-2 font-semibold text-[14px] inline-flex items-center justify-center gap-2">
           <Icon name="search" size={17} /> Найти «{query.trim()}» на Зайцев.нет <Icon name="arrow" size={16} />
@@ -106,6 +114,7 @@ export function MusicPage() {
       {!q && (
         <>
           <MySongs />
+          <p className="-mt-3 px-4 text-[12px] text-muted">Есть ссылка на Spotify? Вставьте её в поиск — откроется плеер Spotify.</p>
           <OnlineSection title="Сейчас в интернете" load={trendingOnline} fullLabel="В тренде · Audius, целиком" previewLabel="Топ-чарт · iTunes, отрывки по 30 секунд" radioLabel="Популярное радио · прямой эфир" />
           <section className="flex flex-col gap-3">
             <div className="px-4 flex items-end justify-between">
@@ -171,7 +180,7 @@ export function MusicPage() {
         </>
       )}
 
-      <section className="flex flex-col gap-3">
+      {!spotify && <section className="flex flex-col gap-3">
         <h2 className="px-4 font-display font-semibold text-xl">{q ? 'Результаты' : 'Все треки'} <span className="text-muted font-normal tnum">· {all.length}</span></h2>
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
           <Chip active={!genre} onClick={() => setGenre(null)}>Все</Chip>
@@ -179,7 +188,7 @@ export function MusicPage() {
         </div>
         <ul className="flex flex-col px-2">{all.map((x) => <TrackRow key={x.id} track={x} queue={all} />)}</ul>
         {!all.length && <p className="px-4 text-muted">{q ? 'В приложении ничего не нашлось — смотрите результаты из интернета выше.' : 'Ничего не нашлось. Попробуйте другой запрос или загрузите свой трек.'}</p>}
-      </section>
+      </section>}
     </div>
   )
 }
@@ -233,5 +242,25 @@ function OnlineList({ label, tracks }: { label: string; tracks: Track[] }) {
         <button onClick={() => setAll(true)} className="mx-4 h-10 rounded-2xl bg-surface-2 font-semibold text-[14px] cursor-pointer">Показать все · {tracks.length}</button>
       )}
     </div>
+  )
+}
+
+const SPOTIFY_RE = /open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]{22})/
+
+function parseSpotify(text: string) {
+  const m = SPOTIFY_RE.exec(text)
+  return m ? { type: m[1], id: m[2] } : null
+}
+
+/** Официальный плеер Spotify: целиком для Premium после входа, остальным — отрывок. */
+function SpotifyEmbed({ type, id }: { type: string; id: string }) {
+  return (
+    <section className="flex flex-col gap-2 px-4">
+      <h2 className="font-display font-semibold text-xl">Spotify</h2>
+      <iframe title="Плеер Spotify" src={`https://open.spotify.com/embed/${type}/${id}?utm_source=generator`}
+        className="w-full rounded-2xl border-0" height={type === 'track' || type === 'episode' ? 152 : 380} loading="lazy"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
+      <p className="text-[12px] text-muted">Полностью песни играют, если вы вошли в Spotify с подпиской Premium; иначе — отрывок. В приложении Claude плеер может не загрузиться — откройте сайт в браузере.</p>
+    </section>
   )
 }
