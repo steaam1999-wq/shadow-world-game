@@ -35,6 +35,7 @@ create table if not exists public.plans (
   created_at timestamptz not null default now()
 );
 create index if not exists plans_expires_idx on public.plans (expires_at);
+create index if not exists plans_author_idx on public.plans (author);
 
 -- Капсула: переписка автора плана и откликнувшегося, 72 часа на договорённость.
 create table if not exists public.capsules (
@@ -48,6 +49,8 @@ create table if not exists public.capsules (
   unique (plan_id, responder),
   check (author <> responder)
 );
+create index if not exists capsules_author_idx on public.capsules (author);
+create index if not exists capsules_responder_idx on public.capsules (responder);
 
 -- Точное место встречи: видит автор и те, у кого есть капсула по этому плану.
 create table if not exists public.plan_secrets (
@@ -63,6 +66,7 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 create index if not exists messages_capsule_idx on public.messages (capsule_id, created_at);
+create index if not exists messages_sender_idx on public.messages (sender);
 
 create table if not exists public.reports (
   id bigint generated always as identity primary key,
@@ -72,12 +76,20 @@ create table if not exists public.reports (
   body text not null default '',
   created_at timestamptz not null default now()
 );
+create index if not exists reports_reporter_idx on public.reports (reporter);
+create index if not exists reports_target_idx on public.reports (target);
 
 -- Участник ли текущий пользователь капсулы. security definer — чтобы политики не зацикливались.
-create or replace function public.in_capsule(c uuid) returns boolean
+-- Живёт в закрытой схеме private: через API её не вызвать.
+create schema if not exists private;
+grant usage on schema private to authenticated;
+create or replace function private.in_capsule(c uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from capsules where id = c and auth.uid() in (author, responder))
+  select exists (select 1 from public.capsules where id = c and (select auth.uid()) in (author, responder))
 $$;
+revoke all on function private.in_capsule(uuid) from public, anon;
+grant execute on function private.in_capsule(uuid) to authenticated;
+drop function if exists public.in_capsule(uuid);
 
 alter table public.profiles enable row level security;
 alter table public.plans enable row level security;
@@ -89,47 +101,50 @@ alter table public.reports enable row level security;
 drop policy if exists "profiles: read" on public.profiles;
 create policy "profiles: read" on public.profiles for select to authenticated using (true);
 drop policy if exists "profiles: own insert" on public.profiles;
-create policy "profiles: own insert" on public.profiles for insert to authenticated with check (id = auth.uid());
+create policy "profiles: own insert" on public.profiles for insert to authenticated with check (id = (select auth.uid()));
 drop policy if exists "profiles: own update" on public.profiles;
-create policy "profiles: own update" on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+create policy "profiles: own update" on public.profiles for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
 drop policy if exists "plans: read" on public.plans;
 create policy "plans: read" on public.plans for select to authenticated using (true);
 drop policy if exists "plans: own insert" on public.plans;
-create policy "plans: own insert" on public.plans for insert to authenticated with check (author = auth.uid());
+create policy "plans: own insert" on public.plans for insert to authenticated with check (author = (select auth.uid()));
 drop policy if exists "plans: own delete" on public.plans;
-create policy "plans: own delete" on public.plans for delete to authenticated using (author = auth.uid());
+create policy "plans: own delete" on public.plans for delete to authenticated using (author = (select auth.uid()));
 
 drop policy if exists "secrets: author" on public.plan_secrets;
-create policy "secrets: author" on public.plan_secrets for all to authenticated
-  using (exists (select 1 from plans p where p.id = plan_id and p.author = auth.uid()))
-  with check (exists (select 1 from plans p where p.id = plan_id and p.author = auth.uid()));
 drop policy if exists "secrets: matched" on public.plan_secrets;
-create policy "secrets: matched" on public.plan_secrets for select to authenticated
-  using (exists (select 1 from capsules c where c.plan_id = plan_secrets.plan_id and c.responder = auth.uid()));
+drop policy if exists "secrets: read" on public.plan_secrets;
+create policy "secrets: read" on public.plan_secrets for select to authenticated using (
+  exists (select 1 from plans p where p.id = plan_id and p.author = (select auth.uid()))
+  or exists (select 1 from capsules c where c.plan_id = plan_secrets.plan_id and c.responder = (select auth.uid()))
+);
+drop policy if exists "secrets: author insert" on public.plan_secrets;
+create policy "secrets: author insert" on public.plan_secrets for insert to authenticated
+  with check (exists (select 1 from plans p where p.id = plan_id and p.author = (select auth.uid())));
 
 drop policy if exists "capsules: participants read" on public.capsules;
-create policy "capsules: participants read" on public.capsules for select to authenticated using (auth.uid() in (author, responder));
+create policy "capsules: participants read" on public.capsules for select to authenticated using ((select auth.uid()) in (author, responder));
 drop policy if exists "capsules: respond" on public.capsules;
 create policy "capsules: respond" on public.capsules for insert to authenticated with check (
-  responder = auth.uid()
+  responder = (select auth.uid())
   and author = (select p.author from plans p where p.id = plan_id and p.expires_at > now())
 );
 drop policy if exists "capsules: participants update" on public.capsules;
 create policy "capsules: participants update" on public.capsules for update to authenticated
-  using (auth.uid() in (author, responder)) with check (auth.uid() in (author, responder));
+  using ((select auth.uid()) in (author, responder)) with check ((select auth.uid()) in (author, responder));
 -- Менять в капсуле можно только статус и срок: остальные поля защищены.
 revoke update on public.capsules from authenticated;
 grant update (status, expires_at) on public.capsules to authenticated;
 
 drop policy if exists "messages: participants read" on public.messages;
-create policy "messages: participants read" on public.messages for select to authenticated using (public.in_capsule(capsule_id));
+create policy "messages: participants read" on public.messages for select to authenticated using (private.in_capsule(capsule_id));
 drop policy if exists "messages: participants send" on public.messages;
 create policy "messages: participants send" on public.messages for insert to authenticated
-  with check (sender = auth.uid() and public.in_capsule(capsule_id));
+  with check (sender = (select auth.uid()) and private.in_capsule(capsule_id));
 
 drop policy if exists "reports: send" on public.reports;
-create policy "reports: send" on public.reports for insert to authenticated with check (reporter = auth.uid());
+create policy "reports: send" on public.reports for insert to authenticated with check (reporter = (select auth.uid()));
 
 -- Живые обновления чата, капсул и ленты.
 do $$
