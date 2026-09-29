@@ -53,11 +53,11 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
       <section className="flex flex-col gap-3 px-4">
         <div className="flex items-center gap-6">
           <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={92}>
-            <Avatar name={p.name} hue={p.hue} size={80} />
+            <Avatar name={p.name} hue={p.hue} src={p.photo} size={80} />
           </StoryRing>
           <dl className="flex-1 grid grid-cols-3 text-center">
-            {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')], [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
-              <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{Number(v).toLocaleString('ru-RU')}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
+            {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], (state.cloud ? [`${compat.score}%`, 'совпадение'] : [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')]), [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
+              <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
             ))}
           </dl>
         </div>

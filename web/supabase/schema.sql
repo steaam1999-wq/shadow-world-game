@@ -146,10 +146,11 @@ create policy "messages: participants send" on public.messages for insert to aut
 drop policy if exists "reports: send" on public.reports;
 create policy "reports: send" on public.reports for insert to authenticated with check (reporter = (select auth.uid()));
 
--- Живые обновления чата, капсул и ленты.
+-- Живые обновления чата, капсул, ленты и новых людей.
 do $$
 begin
   begin alter publication supabase_realtime add table public.messages; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.capsules; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.plans; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end;
 end $$;

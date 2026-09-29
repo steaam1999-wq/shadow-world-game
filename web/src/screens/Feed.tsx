@@ -36,6 +36,9 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
   const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : 2)
   const posts = [...live].sort((a, b) => rank(a) - rank(b) || a.startsAt - b.startsAt)
   const me = state.me!
+  const openProfile = useOpenProfile()
+  // Люди без активного плана: иначе новенькие не видны на главной, пока не предложат план.
+  const quiet = state.people.filter((p) => !stories.some((s) => s.p.id === p.id))
 
   return (
     <div className="flex flex-col">
@@ -60,6 +63,20 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
 
       <FreeNow now={now} onInvite={onInvite} />
 
+      {quiet.length > 0 && (
+        <section className="mb-4" aria-label="Люди в Искре">
+          <h2 className="px-4 mb-2 text-[13px] font-semibold text-muted">Люди в Искре · {state.people.length}</h2>
+          <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4">
+            {quiet.map((p) => (
+              <button key={p.id} onClick={() => openProfile(p.id)} className="flex flex-col items-center gap-1 w-[64px] shrink-0 cursor-pointer" aria-label={`Профиль ${p.name}`}>
+                <Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} />
+                <span className="text-[12px] truncate w-full text-center">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {state.announcement && state.announcement !== state.dismissedAnnouncement && <Announcement text={state.announcement} />}
 
       {posts.map((a) => (
@@ -68,7 +85,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite }: Prop
       ))}
       {!posts.length && (
         <div className="p-10 text-center flex flex-col items-center gap-3">
-          <p className="font-semibold">Планы на ближайшие 48 часов закончились</p>
+          <p className="font-semibold">{state.cloud ? 'Пока никто не предложил план — будьте первым!' : 'Планы на ближайшие 48 часов закончились'}</p>
           <Button onClick={onCreate}>Предложить свой</Button>
         </div>
       )}

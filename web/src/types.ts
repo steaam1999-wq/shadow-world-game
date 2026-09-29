@@ -12,6 +12,7 @@ export interface Person {
   tags: string[]
   verified: boolean
   meetings: number
+  photo?: string
 }
 
 export interface Me {

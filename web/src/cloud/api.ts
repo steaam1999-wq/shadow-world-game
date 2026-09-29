@@ -110,6 +110,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: distanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
+    photo: p.photo ?? undefined,
   }))
 
   const activities: Activity[] = (plans.data ?? []).map((p) => ({
@@ -180,10 +181,10 @@ export async function sendReport(target: string, reason: string, body: string) {
   if (error) throw error
 }
 
-/** Любое изменение в чате, капсулах или планах — повод перечитать данные. */
+/** Любое изменение в чате, капсулах, планах или профилях — повод перечитать данные. */
 export function subscribe(onChange: () => void) {
   const ch = sb().channel('iskra-live')
-  for (const table of ['messages', 'capsules', 'plans']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+  for (const table of ['messages', 'capsules', 'plans', 'profiles']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
   ch.subscribe()
   return () => { void sb().removeChannel(ch) }
 }
