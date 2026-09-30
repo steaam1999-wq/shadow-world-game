@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../store'
-import { Avatar, Button, Field, Icon, Logo, ThemeToggle, inputCls } from '../components/ui'
-import { PostArt } from '../components/PostArt'
+import { Avatar, Button, Field, Icon, Logo, LogoMark, ThemeToggle, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { humanError, requestPasswordReset, signIn, signUp } from '../cloud/api'
+import { authProviders, humanError, requestPasswordReset, sendMagicLink, signIn, signInWithProvider, signUp } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 
 // Пример аккаунта: открывается одной кнопкой, чтобы посмотреть приложение без регистрации.
@@ -28,7 +27,13 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const { state, dispatch } = useStore()
   const [mode, setMode] = useState<Mode>('login')
   // Сначала — экран приветствия; форма открывается по кнопке «Начать» или «Войти».
-  const [stage, setStage] = useState<'welcome' | 'auth'>('welcome')
+  const [stage, setStage] = useState<'welcome' | 'auth' | 'magic'>('welcome')
+  const [providers, setProviders] = useState<string[]>([])
+  const [sentTo, setSentTo] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+  // Какие соцсети включены в настройках входа — кнопки только для них.
+  useEffect(() => { if (cloudEnabled) void authProviders().then(setProviders) }, [])
+  useEffect(() => { if (!cooldown) return; const t = setTimeout(() => setCooldown((c) => c - 1), 1000); return () => clearTimeout(t) }, [cooldown])
   const [step, setStep] = useState(0) // шаг формы: по одному вопросу на экран
   const [login, setLogin] = useState(() => { try { return localStorage.getItem(LOGIN_KEY) ?? '' } catch { return '' } })
   const [remember, setRemember] = useState(state.remember !== false)
@@ -102,45 +107,87 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   }
   const switchMode = (m: Mode) => { setMode(m); setError(''); setResetting(false); setStep(0) }
   const openAuth = (m: Mode) => { switchMode(m); setStage('auth') }
+  const sendLink = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const email = login.trim().toLowerCase()
+    if (!email.includes('@')) return setError('Похоже, это не почта — проверьте, есть ли «@»')
+    setError(''); setBusy(true)
+    try { keepLogin(); await sendMagicLink(email); setSentTo(email); setCooldown(60) }
+    catch (err) { setError(/rate|security purposes|seconds/i.test(String((err as Error)?.message)) ? 'Письмо уже отправлено — подождите минуту и попробуйте снова.' : humanError(err)) }
+    finally { setBusy(false) }
+  }
+  const oauth = async (provider: string) => {
+    setError(''); setBusy(true)
+    try { await signInWithProvider(provider) } catch (err) { setError(humanError(err)); setBusy(false) }
+  }
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
   return (
     <div className="min-h-full flex flex-col">
       <header className="flex items-center justify-between px-4 sm:px-8 h-16">
-        <Logo className="text-xl" />
+        {stage === 'welcome' ? <span /> : <Logo className="text-xl" />}
         <ThemeToggle />
       </header>
 
       {stage === 'welcome' && (
-        <main className="flex-1 flex flex-col items-center px-4 pb-6">
-          <div className="w-full max-w-[420px] flex flex-col gap-6">
-            <HeroCollage />
-            <div className="flex flex-col gap-3 text-center anim-page">
-              <h1 className="font-display font-bold text-[29px] leading-[1.15]">Хватит свайпать.<br /><span className="text-brand">Время встречаться.</span></h1>
-              <p className="text-[15px] text-muted leading-snug">Планы на вечер рядом с вами — кофе, выставки, прогулки. Откликнитесь и встретьтесь в тот же день.</p>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {state.savedMe && (
-                <button onClick={() => { if (cloudEnabled) { setOtherAccount(true); openAuth('login') } else onLogin(true) }}
-                  className="flex items-center gap-3 rounded-[22px] bg-surface shadow-soft p-3 text-left cursor-pointer hover:brightness-95">
-                  <Avatar name={state.savedMe.name} hue={state.savedMe.hue} src={state.savedMe.photo} size={44} verified={state.savedMe.verified} />
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-semibold truncate">Продолжить как {state.savedMe.name}</span>
-                    <span className="block text-[12px] text-muted truncate">{login || 'Сохранённый вход на этом устройстве'}</span>
-                  </span>
-                  <Icon name="arrow" size={18} />
-                </button>
-              )}
-              <Button onClick={() => openAuth('register')} className="h-14 text-[16px] !rounded-full">Начать — это бесплатно</Button>
-              <Button variant="secondary" onClick={() => openAuth('login')} className="h-14 text-[16px] !rounded-full">У меня уже есть аккаунт</Button>
-              {!cloudEnabled && (
-                <button onClick={() => onDemo(true)} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer inline-flex items-center justify-center gap-1.5">
-                  <Icon name="eye" size={16} /> Посмотреть без регистрации
-                </button>
-              )}
-            </div>
-            <p className="text-center text-[12px] text-muted">Только для тех, кому есть 18 · проверенные профили · блокировка и жалобы в один тап</p>
+        <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col px-6 pb-6">
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center py-6 anim-page">
+            <LogoMark size={84} animate />
+            <h1 className="font-display font-bold text-[34px] leading-[1.05] tracking-tight">Встречи рядом.<br /><span className="text-brand">Без свайпов.</span></h1>
+            <p className="text-[15px] text-muted leading-snug max-w-[290px]">Кофе, выставки, прогулки — сегодня, с людьми из вашего города.</p>
           </div>
+
+          <div className="flex flex-col gap-2.5">
+            {state.savedMe && (
+              <button onClick={() => { if (cloudEnabled) { setOtherAccount(true); openAuth('login') } else onLogin(true) }}
+                className="flex items-center gap-3 h-14 rounded-full bg-surface shadow-soft pl-2 pr-4 text-left cursor-pointer hover:brightness-95">
+                <Avatar name={state.savedMe.name} hue={state.savedMe.hue} src={state.savedMe.photo} size={40} />
+                <span className="flex-1 min-w-0 font-semibold truncate">Продолжить как {state.savedMe.name}</span>
+                <Icon name="arrow" size={18} />
+              </button>
+            )}
+            {(cloudEnabled ? providers : ['telegram', 'google']).map((pv) => (
+              <AuthOption key={pv} icon={<ProviderIcon id={pv} />} disabled={busy}
+                onClick={() => (cloudEnabled ? void oauth(pv) : social(pv === 'telegram' ? 'telegram' : 'google'))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
+            ))}
+            <AuthOption primary icon={<Icon name="send" size={18} />} onClick={() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register'))}>Продолжить с почтой</AuthOption>
+            <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Войти с паролем</button>
+            {!cloudEnabled && (
+              <button onClick={() => onDemo(true)} className="-mt-2 h-10 text-[13px] text-muted hover:text-fg cursor-pointer inline-flex items-center justify-center gap-1.5">
+                <Icon name="eye" size={15} /> Посмотреть без регистрации
+              </button>
+            )}
+            {error && <p className="text-center text-[13px] text-danger" role="alert">{error}</p>}
+          </div>
+          <p className="mt-4 text-center text-[12px] text-muted">Продолжая, вы принимаете <button onClick={() => setRules(true)} className="underline underline-offset-2 cursor-pointer">правила</button>. Только 18+.</p>
+        </main>
+      )}
+
+      {stage === 'magic' && (
+        <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col gap-5 px-6 py-4 anim-page">
+          <button onClick={() => { setStage('welcome'); setError('') }} className="self-start grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Назад"><Icon name="back" size={22} /></button>
+          {sentTo ? (
+            <div className="flex flex-col items-center gap-4 text-center pt-6">
+              <span className="grid place-items-center w-20 h-20 rounded-full bg-brand text-white"><Icon name="send" size={34} /></span>
+              <h1 className="font-display font-bold text-[26px] leading-tight">Проверьте почту</h1>
+              <p className="text-[15px] text-muted">Мы отправили письмо на <b className="text-fg">{sentTo}</b>. Откройте его на этом устройстве и нажмите «Войти». Письмо может прийти в «Спам».</p>
+              <Button variant="secondary" onClick={() => void sendLink()} disabled={busy || cooldown > 0} className="h-12 !rounded-full w-full">{cooldown > 0 ? `Отправить ещё раз через ${cooldown} с` : 'Отправить ещё раз'}</Button>
+              <button onClick={() => setSentTo('')} className="text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Изменить почту</button>
+              {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+            </div>
+          ) : (
+            <form onSubmit={(e) => void sendLink(e)} className="flex flex-col gap-4" noValidate>
+              <div>
+                <h1 className="font-display font-bold text-[28px] leading-tight">Вход по почте</h1>
+                <p className="text-[15px] text-muted mt-1">Пришлём письмо с кнопкой «Войти» — пароль не нужен. Нет аккаунта — создадим.</p>
+              </div>
+              <label htmlFor="magic-email" className="sr-only">Почта</label>
+              <input id="magic-email" type="email" inputMode="email" autoComplete="email" autoFocus value={login} onChange={(e) => setLogin(e.target.value)} placeholder="you@mail.ru" className={`${inputCls} h-14 text-[17px]`} />
+              {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Отправляем…' : 'Получить ссылку'}</Button>
+              <button type="button" onClick={() => openAuth('login')} className="text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Войти с паролем</button>
+            </form>
+          )}
         </main>
       )}
 
@@ -251,17 +298,6 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 )
               })()}
 
-              {!cloudEnabled && <>
-              <div className="flex items-center gap-3 text-[12px] text-muted"><span className="flex-1 h-px bg-line" />или<span className="flex-1 h-px bg-line" /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => social('telegram')} className="h-11 rounded-2xl bg-[#2AABEE] text-white font-semibold text-[14px] inline-flex items-center justify-center gap-2 cursor-pointer">
-                  <Icon name="send" size={16} /> Telegram
-                </button>
-                <button onClick={() => social('google')} className="h-11 rounded-2xl bg-surface-2 font-semibold text-[14px] inline-flex items-center justify-center gap-2 cursor-pointer">
-                  <span className="font-display font-bold">G</span> Google
-                </button>
-              </div>
-              </>}
             </div>
 
             <p className="text-center text-[13px] text-muted">
@@ -273,40 +309,35 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
         </div>
       </main>}
 
-      <footer className="px-4 py-5 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[12px] text-muted">
+      {stage !== 'welcome' && <footer className="px-4 py-5 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[12px] text-muted">
         <span>© 2026 Match{cloudEnabled ? '' : ' · демо-версия'}</span>
         <button onClick={() => setRules(true)} className="hover:text-fg cursor-pointer">Правила и конфиденциальность</button>
-      </footer>
+      </footer>}
       <RulesSheet open={rules} onClose={() => setRules(false)} />
     </div>
   )
 }
 
-/** Живой коллаж на экране приветствия: карточки планов, люди и «точка встречи» в центре. */
-function HeroCollage() {
-  const cards = [
-    { id: 'hero-1', category: 'Кофе', cls: 'left-[4%] top-[8%] -rotate-[8deg] anim-float', label: '☕ Кофе' },
-    { id: 'hero-2', category: 'Выставка', cls: 'right-[4%] top-[2%] rotate-[7deg] anim-float-slow', label: '🖼 Выставка' },
-    { id: 'hero-3', category: 'Прогулка', cls: 'left-[calc(50%-62px)] bottom-0 rotate-[2deg] anim-float', label: '🚶 Прогулка' },
-  ]
-  const people = [
-    { name: 'Алина', hue: 330, cls: 'left-[9%] bottom-[4%] anim-float-slow' },
-    { name: 'Максим', hue: 220, cls: 'right-[9%] bottom-[10%] anim-float' },
-  ]
+const PROVIDER_NAME: Record<string, string> = { google: 'Google', apple: 'Apple', telegram: 'Telegram', facebook: 'Facebook', github: 'GitHub', twitter: 'X', discord: 'Discord', azure: 'Microsoft', vk: 'VK' }
+
+function ProviderIcon({ id }: { id: string }) {
+  if (id === 'google') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+  )
+  if (id === 'apple') return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-3.9zM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
+  )
+  if (id === 'telegram') return <span className="grid place-items-center w-[18px] h-[18px] rounded-full bg-[#2AABEE] text-white"><Icon name="send" size={10} /></span>
+  return <Icon name="user" size={18} />
+}
+
+/** Кнопка способа входа: одинаковые по размеру, главная — тёмная. */
+function AuthOption({ icon, children, onClick, primary = false, disabled = false }: { icon: React.ReactNode; children: React.ReactNode; onClick: () => void; primary?: boolean; disabled?: boolean }) {
   return (
-    <div className="relative h-[270px] mt-2" aria-hidden="true">
-      {cards.map((c) => (
-        <div key={c.id} className={`absolute w-[124px] aspect-[3/4] rounded-[22px] overflow-hidden shadow-soft ring-4 ring-surface ${c.cls}`}>
-          <PostArt activity={{ id: c.id, category: c.category }} />
-          <span className="absolute left-2 bottom-2 rounded-full bg-white/90 text-[#14152a] text-[11px] font-semibold px-2 py-0.5">{c.label}</span>
-        </div>
-      ))}
-      {people.map((p) => (
-        <span key={p.name} className={`absolute rounded-full ring-4 ring-surface shadow-soft ${p.cls}`}><Avatar name={p.name} hue={p.hue} size={44} /></span>
-      ))}
-      <span className="absolute left-1/2 top-0 -translate-x-1/2 z-10">
-        <span className="block rounded-full bg-surface shadow-soft px-3 py-1 text-[12px] font-semibold whitespace-nowrap anim-float-slow">🎶 95% совпадение</span>
-      </span>
-    </div>
+    <button onClick={onClick} disabled={disabled}
+      className={`relative h-14 rounded-full font-semibold text-[15px] inline-flex items-center justify-center cursor-pointer transition active:scale-[.99] disabled:opacity-60 ${primary ? 'bg-fg text-bg' : 'bg-surface text-fg border border-line shadow-soft'}`}>
+      <span className="absolute left-5 grid place-items-center">{icon}</span>
+      {children}
+    </button>
   )
 }

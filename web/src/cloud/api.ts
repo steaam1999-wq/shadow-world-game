@@ -125,6 +125,33 @@ export async function signIn(email: string, password: string) {
   return data.user
 }
 
+/** Вход без пароля: письмо со ссылкой «Войти». Нового человека сразу регистрирует. */
+export async function sendMagicLink(email: string) {
+  const { error } = await sb().auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } })
+  if (error) throw error
+}
+
+/** Какие соцсети включены в настройках входа (Google, Apple…). Кнопки показываем только для них. */
+export async function authProviders(): Promise<string[]> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+    const j = await r.json() as { external?: Record<string, boolean> }
+    return Object.entries(j.external ?? {}).filter(([k, on]) => on && !['email', 'phone', 'anonymous_users'].includes(k)).map(([k]) => k)
+  } catch { return [] }
+}
+
+export async function signInWithProvider(provider: string) {
+  const { error } = await sb().auth.signInWithOAuth({ provider: provider as 'google', options: { redirectTo: location.origin + location.pathname } })
+  if (error) throw error
+}
+
+/** Вернулись по ссылке из письма или от Google/Apple: сессия уже в адресе страницы. */
+export async function sessionFromUrl() {
+  const { data } = await sb().auth.getSession()
+  const u = data.session?.user
+  return u ? { id: u.id, email: u.email ?? '', name: String(u.user_metadata?.full_name ?? u.user_metadata?.name ?? '').split(' ')[0] } : null
+}
+
 /** Возвращает пользователя или null, если нужно подтвердить почту по ссылке из письма. */
 export async function signUp(email: string, password: string) {
   const { data, error } = await sb().auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } })

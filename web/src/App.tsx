@@ -20,14 +20,14 @@ import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { CloudSync } from './cloud/CloudSync'
 import { MessageAlerts } from './components/Alerts'
-import { fetchMyProfile, profileToMe } from './cloud/api'
+import { fetchMyProfile, profileToMe, sessionFromUrl } from './cloud/api'
 import { cloudEnabled } from './cloud/config'
 import { NewPassword } from './screens/NewPassword'
-import { Avatar, Icon, Logo, Sheet } from './components/ui'
+import { Avatar, Icon, Logo, LogoMark, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
 import type { Activity, Me, Person, PlanComment, State } from './types'
 
-type View = 'landing' | 'onboarding' | 'app' | 'admin' | 'recovery'
+type View = 'landing' | 'onboarding' | 'app' | 'admin' | 'recovery' | 'callback'
 type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
 
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
@@ -42,17 +42,41 @@ function readHash(): string {
   try { return window.location.hash.slice(1) } catch { return '' }
 }
 
+/** Экран «Входим…»: забираем сессию из ссылки и продолжаем как обычный вход. */
+function AuthCallback({ onUser, onFail }: { onUser: (u: { id: string; email: string; name: string }) => Promise<void>; onFail: () => void }) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let alive = true
+    sessionFromUrl().then((u) => { if (!alive) return; if (u) void onUser(u); else setFailed(true) }, () => { if (alive) setFailed(true) })
+    return () => { alive = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="min-h-full grid place-items-center p-8 text-center">
+      <div className="flex flex-col items-center gap-4">
+        <LogoMark size={72} animate />
+        {failed ? (
+          <>
+            <p className="font-semibold">Ссылка устарела или уже использована</p>
+            <button onClick={onFail} className="h-11 px-5 rounded-full bg-brand text-white font-semibold cursor-pointer">Войти ещё раз</button>
+          </>
+        ) : <p className="text-muted">Входим…</p>}
+      </div>
+    </div>
+  )
+}
+
 function Root() {
   const { state, dispatch } = useStore()
   const [view, setView] = useState<View>(() => {
     const hash = readHash()
     if (cloudEnabled && /type=recovery|error_code=/.test(hash)) return 'recovery' // ссылка «новый пароль» из письма
+    if (cloudEnabled && /access_token=/.test(hash)) return 'callback' // вход по ссылке из письма, Google или Apple
     return hash === 'admin' ? 'admin' : state.me ? 'app' : 'landing'
   })
   const [reg, setReg] = useState<{ name: string; method: Me['authMethod'] } | null>(null)
 
   useEffect(() => {
-    if (view === 'recovery') return // токен восстановления из адреса ещё нужен экрану нового пароля
+    if (view === 'recovery' || view === 'callback') return // токен из адреса ещё нужен
     try { history.replaceState(null, '', view === 'admin' ? '#admin' : view === 'app' ? '#app' : ' ') } catch { /* ignore */ }
     window.scrollTo(0, 0)
   }, [view])
@@ -84,6 +108,7 @@ function Root() {
     }
   }
 
+  if (view === 'callback') return <AuthCallback onUser={(u) => onCloudAuth(u.id, u.email, u.name)} onFail={() => setView('landing')} />
   if (view === 'recovery') return <NewPassword onDone={(userId, email) => onCloudAuth(userId, email, '')} onCancel={() => setView('landing')} />
   if (view === 'admin') return <Admin onExit={() => setView(state.me ? 'app' : 'landing')} />
   if (view === 'onboarding') return <Onboarding initialName={reg?.name} method={reg?.method ?? null} onDone={() => setView('app')} onBack={() => setView('landing')} />
