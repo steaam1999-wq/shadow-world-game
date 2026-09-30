@@ -465,6 +465,61 @@ create policy "media files: delete own" on storage.objects for delete to authent
   bucket_id = 'media' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
 );
 
+-- Push-уведомления о новых сообщениях, даже когда сайт закрыт.
+-- Ключи хранятся в Vault (не в этом файле). Для нового проекта создайте их один раз:
+--   select vault.create_secret('<VAPID private>', 'iskra_vapid_private');
+--   select vault.create_secret('<VAPID public>',  'iskra_vapid_public');
+--   select vault.create_secret('<случайная строка>', 'iskra_push_hook');
+-- и разверните функцию supabase/functions/push (verify_jwt = false: она проверяет x-push-secret).
+create extension if not exists pg_net with schema extensions;
+
+create table if not exists public.push_subscriptions (
+  endpoint text primary key check (char_length(endpoint) <= 1000),
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  p256dh text not null check (char_length(p256dh) <= 200),
+  auth text not null check (char_length(auth) <= 100),
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
+alter table public.push_subscriptions enable row level security;
+revoke all on public.push_subscriptions from anon, authenticated;
+grant select, delete on public.push_subscriptions to authenticated;
+grant insert (endpoint, p256dh, auth) on public.push_subscriptions to authenticated;
+grant update (p256dh, auth) on public.push_subscriptions to authenticated;
+drop policy if exists "push: own" on public.push_subscriptions;
+create policy "push: own" on public.push_subscriptions for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+-- Ключи для функции рассылки: вызывать может только сервер (service_role).
+create or replace function public.push_config() returns json
+language sql stable security definer set search_path = public, vault as $$
+  select json_build_object(
+    'public', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_vapid_public'),
+    'private', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_vapid_private'),
+    'hook', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))
+$$;
+revoke all on function public.push_config() from public, anon, authenticated;
+grant execute on function public.push_config() to service_role;
+
+-- Новое сообщение — просим функцию push разослать уведомление получателю (адрес — этого проекта).
+create or replace function private.on_message_push() returns trigger
+language plpgsql security definer set search_path = public, vault, extensions as $$
+begin
+  perform net.http_post(
+    url := 'https://mrivbqkqdaxtvwcsljzu.supabase.co/functions/v1/push',
+    body := json_build_object('message_id', new.id)::jsonb,
+    headers := json_build_object('Content-Type', 'application/json',
+      'x-push-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))::jsonb,
+    timeout_milliseconds := 5000
+  );
+  return new;
+exception when others then
+  return new; -- уведомление не должно мешать отправке сообщения
+end $$;
+revoke all on function private.on_message_push() from public, anon, authenticated;
+drop trigger if exists messages_push on public.messages;
+create trigger messages_push after insert on public.messages for each row execute function private.on_message_push();
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

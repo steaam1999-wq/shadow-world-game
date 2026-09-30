@@ -99,7 +99,26 @@ export async function signUp(email: string, password: string) {
 }
 
 export async function signOut() {
+  await removePushSubscription() // после выхода уведомления на это устройство приходить не должны
   await sb().auth.signOut()
+}
+
+/** Подписка этого браузера на push: сохраняем, чтобы сервер знал, куда слать уведомления. */
+export async function savePushSubscription(sub: PushSubscription) {
+  const j = sub.toJSON()
+  if (!j.endpoint || !j.keys?.p256dh || !j.keys?.auth) return
+  const { error } = await sb().from('push_subscriptions').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth })
+  if (error) throw error
+}
+
+export async function removePushSubscription() {
+  try {
+    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined
+    const sub = await reg?.pushManager?.getSubscription()
+    if (!sub) return
+    await sb().from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+    await sub.unsubscribe()
+  } catch { /* не критично */ }
 }
 
 export async function currentUser() {

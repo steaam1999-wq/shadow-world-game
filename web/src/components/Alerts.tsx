@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { cloudEnabled, VAPID_PUBLIC_KEY } from '../cloud/config'
+import { savePushSubscription } from '../cloud/api'
 import { Avatar, Button, Icon, Toggle } from './ui'
 import type { Person } from '../types'
 
@@ -120,6 +122,22 @@ export function registerAlertsWorker() {
   navigator.serviceWorker.register('sw.js').catch(() => { /* без воркера — только баннер и звук */ })
 }
 
+function b64ToBytes(b64: string) {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4))
+  return Uint8Array.from(s, (c) => c.charCodeAt(0))
+}
+
+/** Подписывает это устройство на push, чтобы уведомления приходили и при закрытом сайте. */
+export async function enablePush(): Promise<boolean> {
+  try {
+    if (!cloudEnabled || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
+    const reg = await navigator.serviceWorker.ready
+    const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) })
+    await savePushSubscription(sub)
+    return true
+  } catch { return false }
+}
+
 interface Incoming { chat: string; person: Person; text: string; key: string }
 
 /** Следит за новыми входящими и показывает баннер; `openChat` — какой чат сейчас открыт. */
@@ -198,13 +216,18 @@ export function AlertSettings() {
   const standalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone)
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent)
 
+  const { state } = useStore()
+  const [pushOk, setPushOk] = useState(false)
   const toggleSystem = async (on: boolean) => {
     if (!on) { set({ system: false }); return }
     if (!supported) return
     const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
     setPerm(p)
     set({ system: p === 'granted' })
+    if (p === 'granted' && state.cloud) setPushOk(await enablePush())
   }
+  // Разрешение уже есть — продлеваем подписку (браузер может её сменить).
+  useEffect(() => { if (prefs.system && perm === 'granted' && state.cloud) void enablePush().then(setPushOk) }, [prefs.system, perm, state.cloud])
 
   return (
     <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
@@ -215,7 +238,7 @@ export function AlertSettings() {
       </div>
       {supported ? (
         <Toggle id="al-system" checked={prefs.system && perm === 'granted'} onChange={(v) => { void toggleSystem(v) }} label="Уведомления на устройстве"
-          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : 'Когда ISKRA открыта в фоне или свёрнута'} />
+          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : pushOk ? 'Придут, даже когда ISKRA закрыта' : 'Когда ISKRA открыта в фоне или свёрнута'} />
       ) : (
         <p className="py-3 text-[13px] text-muted">
           {ios && !standalone ? 'На iPhone уведомления работают, если добавить сайт на экран «Домой»: «Поделиться» → «На экран Домой», и открыть ISKRA оттуда.' : 'Этот браузер не показывает системные уведомления — остаются звук и баннер.'}
