@@ -52,6 +52,8 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       const c = s.capsules.find((x) => x.personId === a.personId && !x.activityId)
       return c ? run(api.sendMessage(uid, c.id, a.text)) : a.capsuleId ? run(api.openDirect(uid, a.capsuleId, a.personId, a.text)) : null
     }
+    case 'react':
+      return /^\d+$/.test(a.messageId) ? run(api.setReaction(a.chatId, a.messageId, a.emoji)) : null
     case 'addChatTrack':
       return run(api.addChatTrack(a.chatId, a.track))
     case 'removeChatTrack':

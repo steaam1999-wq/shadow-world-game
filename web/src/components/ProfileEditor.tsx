@@ -170,9 +170,9 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
             {state.cloud && me.verified && draft.photo !== me.photo && <p className="text-[12px] text-muted text-center">На фото должны быть вы — модератор может попросить пройти верификацию заново.</p>}
           </div>
 
-          {!draft.photo && (
+          {(
             <div className="flex flex-col gap-2">
-              <span className="text-[13px] font-semibold text-muted">Цвет аватарки</span>
+              <span className="text-[13px] font-semibold text-muted">Цвет профиля <span className="font-normal">— им окрашена шапка вашей страницы{draft.photo ? '' : ' и аватарка'}</span></span>
               <div className="flex flex-wrap gap-2">
                 {HUES.map((h) => (
                   <button key={h} onClick={() => set({ hue: h })} aria-label={`Цвет ${h}`} aria-pressed={draft.hue === h}

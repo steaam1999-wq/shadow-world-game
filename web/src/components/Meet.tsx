@@ -285,3 +285,28 @@ export function AgainCard({ capsule, person }: { capsule: Capsule; person: Perso
     </div>
   )
 }
+
+/* ───────── Скоро встреча ───────── */
+
+/** Карточка на главной: встреча по моему плану или отклику начнётся в ближайшие полтора часа. */
+export function UpcomingMeeting({ now, onOpenCapsule }: { now: number; onOpenCapsule: (activityId: string) => void }) {
+  const { state } = useStore()
+  const mine = state.activities
+    .filter((a) => a.startsAt > now - 30 * 60_000 && a.startsAt < now + 90 * 60_000)
+    .filter((a) => state.liked.includes(a.id) || (a.authorId === 'me' && state.capsules.some((c) => c.activityId === a.id)) || (state.groups ?? []).some((g) => g.planId === a.id))
+    .sort((a, b) => a.startsAt - b.startsAt)[0]
+  if (!mine) return null
+  const left = mine.startsAt - now
+  const text = left > 0 ? `через ${Math.max(1, Math.round(left / 60_000))} мин · в ${hm(mine.startsAt)}` : 'уже началась'
+  return (
+    <section className="mx-4 mb-4 rounded-[24px] bg-brand text-white p-4 flex items-center gap-3 shadow-soft" aria-label="Скоро встреча">
+      <span className="grid place-items-center w-11 h-11 rounded-full bg-white/20 shrink-0"><Icon name="clock" size={20} /></span>
+      <span className="flex-1 min-w-0 leading-tight">
+        <span className="block text-[11px] font-semibold uppercase tracking-wide opacity-90">Скоро встреча</span>
+        <span className="block font-semibold truncate">{mine.title}</span>
+        <span className="block text-[12px] opacity-90 truncate">{text} · {mine.exactPlace || mine.area}</span>
+      </span>
+      <button onClick={() => onOpenCapsule(mine.id)} className="shrink-0 h-9 px-3 rounded-full bg-white text-[#14152a] text-[13px] font-semibold cursor-pointer">Чат</button>
+    </section>
+  )
+}

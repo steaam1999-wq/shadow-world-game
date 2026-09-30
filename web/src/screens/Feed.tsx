@@ -9,7 +9,8 @@ import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
-import { FreeNow, GroupStack, groupFull, joinLabel } from '../components/Meet'
+import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
+import { SurpriseMeet } from '../components/Surprise'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
@@ -70,7 +71,9 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
         ))}
       </div>
 
+      <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
       <FreeNow now={now} onInvite={onInvite} />
+      <SurpriseMeet onMessage={onMessage} />
 
       {quiet.length > 0 && (
         <section className="mb-4" aria-label="Люди в Match">

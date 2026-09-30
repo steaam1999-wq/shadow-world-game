@@ -102,6 +102,14 @@ export interface PlaylistItem {
   at: number
 }
 
+/** Реакция на сообщение в чате. */
+export interface Reaction {
+  chatId: string
+  messageId: string
+  userId: string // 'me' или personId
+  emoji: string
+}
+
 export interface Capsule {
   id: string
   personId: string
@@ -176,6 +184,7 @@ export interface State {
   capsules: Capsule[]
   groups?: Group[] // групповые чаты
   playlists?: PlaylistItem[] // общие плейлисты переписок
+  reactions?: Reaction[] // реакции на сообщения
   liked: string[] // activityId, на которые я откликнулся
   hearts: string[] // activityId, которые я лайкнул
   saved: string[]

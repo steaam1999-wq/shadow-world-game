@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import type { Track } from './music/engine'
 import { cloudEffect, requestReload } from './cloud/sync'
 
@@ -58,6 +58,7 @@ export type Action =
   | { type: 'noShow'; capsuleId: string; on: boolean }
   | { type: 'addChatTrack'; chatId: string; track: Track }
   | { type: 'removeChatTrack'; id: string }
+  | { type: 'react'; chatId: string; messageId: string; emoji: string | null }
   | { type: 'startSafety'; safety: Safety }
   | { type: 'extendSafety'; minutes: number }
   | { type: 'endSafety' }
@@ -71,7 +72,7 @@ export type Action =
   | { type: 'deleteShortComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; playlists?: PlaylistItem[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; playlists?: PlaylistItem[]; reactions?: Reaction[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -331,6 +332,10 @@ function reducer(state: State, action: Action): State {
       if (list.some((x) => x.chatId === action.chatId && x.track.id === action.track.id) || list.filter((x) => x.chatId === action.chatId).length >= 50) return state
       return { ...state, playlists: [...list, { id: `tmp-${uid()}`, chatId: action.chatId, addedBy: 'me', track: action.track, at: now }] }
     }
+    case 'react': {
+      const rest = (state.reactions ?? []).filter((r) => !(r.chatId === action.chatId && r.messageId === action.messageId && r.userId === 'me'))
+      return { ...state, reactions: action.emoji ? [...rest, { chatId: action.chatId, messageId: action.messageId, userId: 'me', emoji: action.emoji }] : rest }
+    }
     case 'removeChatTrack':
       return { ...state, playlists: (state.playlists ?? []).filter((x) => x.id !== action.id) }
     case 'noShow': {
@@ -421,6 +426,7 @@ function reducer(state: State, action: Action): State {
         people: action.people, activities: action.activities, capsules: action.capsules,
         ...(action.groups ? { groups: action.groups } : {}),
         ...(action.playlists ? { playlists: action.playlists } : {}),
+        ...(action.reactions ? { reactions: action.reactions } : {}),
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),

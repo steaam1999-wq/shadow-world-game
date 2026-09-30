@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm } from '../lib'
@@ -167,8 +168,8 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
               )}
               <div className={`flex flex-col gap-1 min-w-0 ${mine ? 'items-end' : 'items-start'}`}>
                 {first && <span className="px-3 text-[12px] font-semibold text-muted">{who?.name ?? 'Бывший участник'}</span>}
-                <div onClick={() => { if (mine || g.ownerId === 'me') setPicked(picked === m.id ? null : m.id) }}
-                  className={`rounded-3xl ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${mine ? 'bg-brand text-white rounded-br-md cursor-pointer' : 'bg-surface-2 rounded-bl-md'}`}>
+                <div onClick={() => setPicked(picked === m.id ? null : m.id)}
+                  className={`rounded-3xl cursor-pointer ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${mine ? 'bg-brand text-white rounded-br-md' : 'bg-surface-2 rounded-bl-md'}`}>
                   {m.photo && (
                     <button onClick={(e) => { e.stopPropagation(); setViewing(m.photo!) }} className="block cursor-zoom-in" aria-label="Открыть фото">
                       <img src={m.photo} alt="Фото" className="block max-w-[240px] max-h-[320px] rounded-[20px] object-cover" loading="lazy" />
@@ -180,7 +181,9 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
                     {mine && <span aria-label={(g.othersReadAt ?? 0) >= m.at ? 'Прочитано' : 'Отправлено'}>{(g.othersReadAt ?? 0) >= m.at ? '✓✓' : '✓'}</span>}
                   </span>
                 </div>
-                {picked === m.id && (
+                <ReactionChips chatId={g.id} messageId={m.id} />
+                {picked === m.id && <ReactionPicker chatId={g.id} messageId={m.id} onDone={() => setPicked(null)} />}
+                {picked === m.id && (mine || g.ownerId === 'me') && (
                   <button onClick={() => { dispatch({ type: 'deleteGroupMessage', groupId: g.id, messageId: m.id }); setPicked(null) }}
                     className="inline-flex items-center gap-1 h-7 px-3 rounded-full bg-danger-soft text-danger text-[12px] font-semibold cursor-pointer"><Icon name="trash" size={13} /> Удалить у всех</button>
                 )}

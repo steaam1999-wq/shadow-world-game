@@ -1107,6 +1107,84 @@ do $$ begin
   begin alter publication supabase_realtime add table public.chat_tracks; exception when duplicate_object then null; end;
 end $$;
 
+-- Реакции на сообщения в чатах (личных и групповых): одна реакция от человека на сообщение.
+create table if not exists public.message_reactions (
+  chat_id uuid not null,
+  message_id bigint not null,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  emoji text not null check (emoji in ('🔥', '☕', '🎶', '🤝', '😂', '❤️')),
+  created_at timestamptz not null default now(),
+  primary key (chat_id, message_id, user_id)
+);
+alter table public.message_reactions enable row level security;
+revoke all on public.message_reactions from anon, authenticated;
+grant select, delete on public.message_reactions to authenticated;
+grant insert (chat_id, message_id, emoji) on public.message_reactions to authenticated;
+grant update (emoji) on public.message_reactions to authenticated;
+drop policy if exists "reactions: read" on public.message_reactions;
+create policy "reactions: read" on public.message_reactions for select to authenticated using (private.in_chat(chat_id));
+drop policy if exists "reactions: add" on public.message_reactions;
+create policy "reactions: add" on public.message_reactions for insert to authenticated with check (
+  user_id = (select auth.uid()) and not private.is_banned((select auth.uid())) and private.in_chat(chat_id)
+);
+drop policy if exists "reactions: change own" on public.message_reactions;
+create policy "reactions: change own" on public.message_reactions for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+drop policy if exists "reactions: remove own" on public.message_reactions;
+create policy "reactions: remove own" on public.message_reactions for delete to authenticated using (user_id = (select auth.uid()));
+do $$ begin
+  begin alter publication supabase_realtime add table public.message_reactions; exception when duplicate_object then null; end;
+end $$;
+
+-- Напоминание за час до встречи: push автору плана, откликнувшимся и участникам компании. Каждому — один раз.
+create extension if not exists pg_cron;
+create table if not exists private.plan_reminders_sent (
+  plan_id uuid not null references public.plans (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  sent_at timestamptz not null default now(),
+  primary key (plan_id, user_id)
+);
+create or replace function private.send_plan_reminders() returns integer
+language plpgsql security definer set search_path = '' as $$
+declare
+  pl record;
+  users uuid[];
+  total integer := 0;
+begin
+  for pl in
+    select p.id from public.plans p
+    where p.starts_at between now() + interval '40 minutes' and now() + interval '65 minutes'
+  loop
+    with who as (
+      select p.author as u from public.plans p where p.id = pl.id
+        and exists (select 1 from public.capsules c where c.plan_id = p.id)
+      union select c.responder from public.capsules c where c.plan_id = pl.id
+      union select m.user_id from public.group_chats g join public.group_members m on m.group_id = g.id where g.plan_id = pl.id
+    ), fresh as (
+      insert into private.plan_reminders_sent (plan_id, user_id)
+      select pl.id, who.u from who
+      where not exists (select 1 from private.plan_reminders_sent s where s.plan_id = pl.id and s.user_id = who.u)
+      on conflict do nothing
+      returning user_id
+    )
+    select array_agg(user_id) into users from fresh;
+    if users is not null then
+      total := total + coalesce(array_length(users, 1), 0);
+      perform net.http_post(
+        url := 'https://mrivbqkqdaxtvwcsljzu.supabase.co/functions/v1/push',
+        body := json_build_object('reminder_plan_id', pl.id, 'users', users)::jsonb,
+        headers := json_build_object('Content-Type', 'application/json',
+          'x-push-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))::jsonb,
+        timeout_milliseconds := 5000
+      );
+    end if;
+  end loop;
+  return total;
+end $$;
+revoke all on function private.send_plan_reminders() from public, anon, authenticated;
+select cron.unschedule(jobid) from cron.job where jobname = 'match-plan-reminders';
+select cron.schedule('match-plan-reminders', '*/5 * * * *', 'select private.send_plan_reminders()');
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

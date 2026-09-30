@@ -106,6 +106,11 @@ export function planWhen(a: Pick<Activity, 'startsAt' | 'timeHidden'>, now = Dat
 // Надёжность: сколько встреч человек подтвердил кодом и сколько пропустил без предупреждения (демо-данные).
 const NO_SHOWS: Record<string, number> = { p3: 1, p6: 1, p8: 2 }
 
+/** Фон шапки профиля в цвете, который выбрал человек. */
+export function profileTint(hue: number) {
+  return { background: `linear-gradient(180deg, hsl(${hue} 85% 65% / .38) 0%, hsl(${(hue + 40) % 360} 80% 60% / .16) 55%, transparent 100%)` }
+}
+
 export function reliability(p: { id: string; meetings: number; noShows?: number }) {
   const missed = p.noShows ?? NO_SHOWS[p.id] ?? 0
   const total = p.meetings + missed

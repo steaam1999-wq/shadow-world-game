@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
@@ -283,8 +284,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             <div key={m.id} className="self-center max-w-[90%] text-center text-[12px] text-muted bg-surface-2 rounded-full px-3 py-1">{m.text}</div>
           ) : (
             <div key={m.id} className={`max-w-[80%] flex flex-col gap-1 ${m.from === 'me' ? 'self-end items-end' : 'self-start items-start'}`}>
-              <div onClick={() => { if (m.from === 'me') setPicked(picked === m.id ? null : m.id) }}
-                className={`rounded-3xl ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${m.from === 'me' ? 'bg-brand text-white rounded-br-md cursor-pointer' : 'bg-surface-2 rounded-bl-md'}`}>
+              <div onClick={() => setPicked(picked === m.id ? null : m.id)}
+                className={`rounded-3xl cursor-pointer ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${m.from === 'me' ? 'bg-brand text-white rounded-br-md' : 'bg-surface-2 rounded-bl-md'}`}>
                 {m.photo && (
                   <button onClick={(e) => { e.stopPropagation(); setViewing(m.photo!) }} className="block cursor-zoom-in" aria-label="Открыть фото">
                     <img src={m.photo} alt="Фото" className="block max-w-[240px] max-h-[320px] rounded-[20px] object-cover" loading="lazy" />
@@ -296,7 +297,9 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                   {m.from === 'me' && <span aria-label={(c.theirReadAt ?? 0) >= m.at ? 'Прочитано' : 'Отправлено'}>{(c.theirReadAt ?? 0) >= m.at ? '✓✓' : '✓'}</span>}
                 </span>
               </div>
-              {picked === m.id && (
+              <ReactionChips chatId={c.id} messageId={m.id} />
+              {picked === m.id && <ReactionPicker chatId={c.id} messageId={m.id} onDone={() => setPicked(null)} />}
+              {picked === m.id && m.from === 'me' && (
                 <button onClick={() => { dispatch({ type: 'deleteMessage', capsuleId: c.id, messageId: m.id }); setPicked(null) }}
                   className="inline-flex items-center gap-1 h-7 px-3 rounded-full bg-danger-soft text-danger text-[12px] font-semibold cursor-pointer"><Icon name="trash" size={13} /> Удалить у всех</button>
               )}

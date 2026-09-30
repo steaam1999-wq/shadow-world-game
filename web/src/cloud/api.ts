@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
 import type { Social } from '../store'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
@@ -226,7 +226,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, trackRows] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, reactionRows, trackRows] = await Promise.all([
     db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
     db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -240,9 +240,10 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.rpc('plan_companies'),
     db.rpc('no_show_counts'),
     db.from('no_shows').select('capsule_id').returns<{ capsule_id: string }[]>(),
+    db.from('message_reactions').select('chat_id, message_id, user_id, emoji').limit(5000).returns<{ chat_id: string; message_id: number; user_id: string; emoji: string }[]>(),
     db.from('chat_tracks').select('*').order('created_at').limit(3000).returns<{ id: number; chat_id: string; added_by: string; track: Track; created_at: string }[]>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, trackRows]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, reactionRows, trackRows]) if (r.error) throw r.error
   const settings = parseSettings(settingRows.data ?? [])
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
@@ -337,7 +338,9 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     const track = safeTrack(x.track)
     return track && !hidden.has(x.added_by) ? [{ id: String(x.id), chatId: x.chat_id, addedBy: x.added_by === userId ? 'me' : x.added_by, track, at: ms(x.created_at) }] : []
   })
-  return { me, people, activities, capsules: caps, groups, playlists, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
+  const reactions: Reaction[] = (reactionRows.data ?? []).filter((x) => !hidden.has(x.user_id))
+    .map((x) => ({ chatId: x.chat_id, messageId: String(x.message_id), userId: x.user_id === userId ? 'me' : x.user_id, emoji: x.emoji }))
+  return { me, people, activities, capsules: caps, groups, playlists, reactions, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
 }
 
 /** Фото из хранилища — временными ссылками; старые (base64 в базе) — отдельным запросом, только где они ещё есть. */
@@ -614,6 +617,16 @@ export async function setNoShow(capsuleId: string, target: string, on: boolean) 
   if (error && error.code !== '23505') throw error
 }
 
+/** Поставить реакцию на сообщение (null — убрать). */
+export async function setReaction(chatId: string, messageId: string, emoji: string | null) {
+  // Сначала убираем свою прежнюю реакцию (политика удаляет только свои), затем ставим новую.
+  const del = await sb().from('message_reactions').delete().eq('chat_id', chatId).eq('message_id', Number(messageId))
+  if (del.error) throw del.error
+  if (!emoji) return
+  const { error } = await sb().from('message_reactions').insert({ chat_id: chatId, message_id: Number(messageId), emoji })
+  if (error && error.code !== '23505') throw error
+}
+
 export async function addChatTrack(chatId: string, track: Track) {
   const { error } = await sb().from('chat_tracks').insert({ chat_id: chatId, track })
   if (error) throw new Error(/row-level security/.test(error.message) ? 'В плейлисте уже 50 песен.' : error.message)
@@ -812,7 +825,7 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
     if (onGroupMessage) ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages' }, (p) => onGroupMessage(p.new as GroupMessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments', 'group_chats', 'group_members', 'group_messages', 'chat_tracks']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments', 'group_chats', 'group_members', 'group_messages', 'chat_tracks', 'message_reactions']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

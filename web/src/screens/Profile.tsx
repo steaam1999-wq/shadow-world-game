@@ -4,7 +4,7 @@ import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { ReliabilityBadge } from '../components/Meet'
 import { MeetingCards } from '../components/Met'
-import { LEVELS, level, plural, profileCompleteness, nameAge } from '../lib'
+import { LEVELS, level, plural, profileCompleteness, nameAge, profileTint } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
@@ -53,7 +53,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   return (
     <div className="flex flex-col gap-3 pb-4">
       {/* Шапка в духе Threads: имя слева, фото справа, счётчики строкой под описанием */}
-      <section className="flex flex-col gap-3 px-4 pt-3">
+      <section className="flex flex-col gap-3 px-4 pt-3 pb-1 rounded-b-[28px]" style={profileTint(me.hue)}>
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">
             <h2 className="flex items-center gap-1.5 font-display font-bold text-[24px] leading-tight">

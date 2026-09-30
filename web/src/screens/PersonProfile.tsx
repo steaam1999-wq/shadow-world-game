@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
-import { compatibility, level, planWhen, plural, sharedAnswers, nameAge } from '../lib'
+import { compatibility, level, planWhen, plural, sharedAnswers, nameAge, profileTint } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -64,7 +64,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="more" size={22} /></button>
       </div>
 
-      <section className="flex flex-col gap-3 px-4">
+      <section className="flex flex-col gap-3 px-4 pt-3 pb-1 -mt-3 rounded-b-[28px]" style={profileTint(p.hue)}>
         {/* Как в Threads: имя слева, фото справа */}
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">

@@ -1,5 +1,5 @@
 // Match: push-уведомления о новых сообщениях и подписках.
-// Вызывается триггерами базы (messages_push, group_messages_push, follows_push) с общим секретом в заголовке x-push-secret.
+// Вызывается триггерами базы (messages_push, group_messages_push, follows_push) и расписанием напоминаний о встречах с общим секретом в заголовке x-push-secret.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
@@ -18,7 +18,15 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}))
   let to: string[], payload: string, topic: string
-  if (body.group_message_id) {
+  if (body.reminder_plan_id && Array.isArray(body.users)) {
+    // За час до встречи: «Скоро встреча — «Название» в 19:00».
+    const { data: p } = await db.from('plans').select('title, area, starts_at').eq('id', body.reminder_plan_id).maybeSingle()
+    if (!p) return new Response('no plan', { status: 404 })
+    const time = new Date(p.starts_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Minsk' })
+    to = body.users.filter((u: unknown): u is string => typeof u === 'string')
+    payload = JSON.stringify({ title: 'Скоро встреча', body: `«${p.title}» в ${time} · ${p.area}. Не опаздывайте!`, kind: 'reminder' })
+    topic = String(body.reminder_plan_id).replace(/-/g, '').slice(0, 32)
+  } else if (body.group_message_id) {
     // Сообщение в группе: всем участникам, кроме отправителя.
     const { data: m } = await db.from('group_messages').select('group_id, sender, body, photo_path').eq('id', body.group_message_id).maybeSingle()
     if (!m) return new Response('no message', { status: 404 })
