@@ -82,14 +82,14 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
   }
   const onCancel = () => { if (timer.current !== null) { clearTimeout(timer.current); timer.current = null } }
 
-  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в ISKRA`
+  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в Match`
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setToast('Скопировано'); dispatch({ type: 'repost', activityId: activity.id }) } catch { setToast('Не удалось скопировать — выделите текст вручную') }
     setSheet(false)
   }
   const shareOut = async () => {
     try {
-      if (navigator.share) { await navigator.share({ title: 'ISKRA', text }); dispatch({ type: 'repost', activityId: activity.id }); setSheet(false); return }
+      if (navigator.share) { await navigator.share({ title: 'Match', text }); dispatch({ type: 'repost', activityId: activity.id }); setSheet(false); return }
     } catch { /* отменили или недоступно — копируем */ }
     await copy()
   }

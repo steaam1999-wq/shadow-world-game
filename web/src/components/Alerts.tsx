@@ -203,7 +203,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
   // Счётчик непрочитанных — в заголовке вкладки и на иконке приложения.
   const unread = state.capsules.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0)
   useEffect(() => {
-    document.title = unread ? `(${unread}) ISKRA` : 'ISKRA'
+    document.title = unread ? `(${unread}) Match` : 'Match'
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
     try { void (unread ? nav.setAppBadge?.(unread) : nav.clearAppBadge?.())?.catch(() => {}) } catch { /* ignore */ }
   }, [unread])
@@ -254,10 +254,10 @@ export function AlertSettings() {
       </div>
       {supported ? (
         <Toggle id="al-system" checked={prefs.system && perm === 'granted'} onChange={(v) => { void toggleSystem(v) }} label="Уведомления на устройстве"
-          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : pushOk ? 'Придут, даже когда ISKRA закрыта' : 'Когда ISKRA открыта в фоне или свёрнута'} />
+          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : pushOk ? 'Придут, даже когда Match закрыта' : 'Когда Match открыта в фоне или свёрнута'} />
       ) : (
         <p className="py-3 text-[13px] text-muted">
-          {ios && !standalone ? 'На iPhone уведомления работают, если добавить сайт на экран «Домой»: «Поделиться» → «На экран Домой», и открыть ISKRA оттуда.' : 'Этот браузер не показывает системные уведомления — остаются звук и баннер.'}
+          {ios && !standalone ? 'На iPhone уведомления работают, если добавить сайт на экран «Домой»: «Поделиться» → «На экран Домой», и открыть Match оттуда.' : 'Этот браузер не показывает системные уведомления — остаются звук и баннер.'}
         </p>
       )}
     </section>

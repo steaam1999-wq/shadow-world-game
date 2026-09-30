@@ -73,7 +73,7 @@ export async function deleteShort(id: string, path?: string) {
 export function humanError(e: unknown): string {
   const m = (e as { message?: string })?.message ?? String(e)
   if (/Invalid login credentials/i.test(m)) return 'Неверная почта или пароль.'
-  if (/Email not confirmed/i.test(m)) return 'Почта ещё не подтверждена — откройте письмо от ISKRA и нажмите ссылку.'
+  if (/Email not confirmed/i.test(m)) return 'Почта ещё не подтверждена — откройте письмо от Match и нажмите ссылку.'
   if (/User already registered/i.test(m)) return 'Такая почта уже зарегистрирована — войдите.'
   if (/Password should be/i.test(m)) return 'Пароль слишком простой: нужно минимум 6 символов.'
   if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту.'

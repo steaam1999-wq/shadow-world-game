@@ -15,7 +15,7 @@ function demoSongs(p: Person): Track[] {
   const own = personTrack(p)
   const extra = [0, 1, 2].map((i) => {
     const g = i === 0 ? genreOf(p.answers) : DEMO_GENRES[(seed + i * 2) % DEMO_GENRES.length]
-    return { id: `demo-${p.id}-${i}`, title: DEMO_TITLES[(seed + i) % DEMO_TITLES.length], artist: ['ISKRA Radio', 'Night Drive', 'Studio 7'][i], genre: g, hue: (p.hue + 70 * (i + 1)) % 360, bpm: GENRE_BPM[g], root: 52 + ((seed + i) % 9), bars: 40 }
+    return { id: `demo-${p.id}-${i}`, title: DEMO_TITLES[(seed + i) % DEMO_TITLES.length], artist: ['Match Radio', 'Night Drive', 'Studio 7'][i], genre: g, hue: (p.hue + 70 * (i + 1)) % 360, bpm: GENRE_BPM[g], root: 52 + ((seed + i) % 9), bars: 40 }
   })
   return [own, ...extra]
 }

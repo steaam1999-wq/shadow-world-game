@@ -15,7 +15,7 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
   return (
     <Sheet open={open} onClose={onClose} title="Правила и конфиденциальность">
       <div className="flex flex-col gap-5 pb-2">
-        <p className="text-[13px] text-muted">ISKRA — проект в стадии тестирования. Редакция от 29 сентября 2026 года.</p>
+        <p className="text-[13px] text-muted">Match — проект в стадии тестирования. Редакция от 29 сентября 2026 года.</p>
 
         <Part title="Кто может пользоваться">
           <p>Только люди старше 18 лет. Один человек — один аккаунт, с настоящим именем и своими фото.</p>

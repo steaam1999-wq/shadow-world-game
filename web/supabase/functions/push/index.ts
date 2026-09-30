@@ -1,4 +1,4 @@
-// ISKRA: push-уведомления о новых сообщениях и подписках.
+// Match: push-уведомления о новых сообщениях и подписках.
 // Вызывается триггерами базы (messages_push, follows_push) с общим секретом в заголовке x-push-secret.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     if (!f) return new Response('no follow', { status: 404 })
     const { data: who } = await db.from('profiles').select('name').eq('id', body.follower).maybeSingle()
     to = body.followee
-    payload = JSON.stringify({ title: 'ISKRA', body: `${who?.name ?? 'Кто-то'} подписал(ась) на вас`, kind: 'follow', person: body.follower })
+    payload = JSON.stringify({ title: 'Match', body: `${who?.name ?? 'Кто-то'} подписал(ась) на вас`, kind: 'follow', person: body.follower })
     topic = 'follow'
   } else {
     const message_id = body.message_id
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     to = c.author === m.sender ? c.responder : c.author
     const { data: sender } = await db.from('profiles').select('name').eq('id', m.sender).maybeSingle()
     const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : 'Новое сообщение')
-    payload = JSON.stringify({ title: sender?.name ?? 'ISKRA', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
+    payload = JSON.stringify({ title: sender?.name ?? 'Match', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
     topic = String(m.capsule_id).replace(/-/g, '').slice(0, 32)
   }
   const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth').eq('user_id', to)

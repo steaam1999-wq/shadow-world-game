@@ -18,7 +18,7 @@ function parse(hit: Hit): Lyrics {
   return { lines: (hit.plainLyrics ?? '').split('\n').map((text) => ({ at: null, text: text.trim() })), synced: false, instrumental: false }
 }
 
-/** Текст песни или null, если в базе его нет. Синтезированные треки ISKRA — без слов. */
+/** Текст песни или null, если в базе его нет. Синтезированные треки Match — без слов. */
 export async function fetchLyrics(t: Track, signal: AbortSignal): Promise<Lyrics | null> {
   if (t.genre !== 'file') return { lines: [], synced: false, instrumental: true }
   const key = `${t.artist}|${t.title}`.toLowerCase()

@@ -229,7 +229,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       </main>
 
       <footer className="px-4 py-5 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[12px] text-muted">
-        <span>© 2026 ISKRA{cloudEnabled ? '' : ' · демо-версия'}</span>
+        <span>© 2026 Match{cloudEnabled ? '' : ' · демо-версия'}</span>
         <button onClick={() => setRules(true)} className="hover:text-fg cursor-pointer">Правила и конфиденциальность</button>
       </footer>
       <RulesSheet open={rules} onClose={() => setRules(false)} />

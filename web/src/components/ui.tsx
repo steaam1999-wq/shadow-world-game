@@ -65,7 +65,7 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
   )
 }
 
-/** Знак ISKRA: облачко сообщения с огоньком внутри — глянцевый, в тёплом градиенте. */
+/** Знак Match: облачко сообщения с огоньком внутри — глянцевый, в тёплом градиенте. */
 export function LogoMark({ size = 34 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className="shrink-0 drop-shadow-[0_4px_10px_rgb(200_60_40/.35)]">
@@ -94,9 +94,9 @@ export function LogoMark({ size = 34 }: { size?: number }) {
 
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="ISKRA">
+    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Match">
       <LogoMark size={className.includes('text-xl') ? 36 : 32} />
-      <span aria-hidden="true">ISKRA</span>
+      <span aria-hidden="true">Match</span>
     </span>
   )
 }
