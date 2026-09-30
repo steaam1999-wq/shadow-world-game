@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, readPhoto, type Tone } from '../components/ui'
@@ -271,6 +272,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Match'}</div>
           </div>
           </button>
+          <PlaylistButton chatId={c.id} />
           <button onClick={() => setMenu(true)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Встреча и безопасность"><Icon name="more" size={20} /></button>
         </div>
       </header>

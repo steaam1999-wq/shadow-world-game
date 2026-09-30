@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Group, Me, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Track } from './music/engine'
 import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
@@ -55,6 +56,8 @@ export type Action =
   | { type: 'setFree'; until: number | null }
   | { type: 'invite'; personId: string; text: string; capsuleId?: string }
   | { type: 'noShow'; capsuleId: string; on: boolean }
+  | { type: 'addChatTrack'; chatId: string; track: Track }
+  | { type: 'removeChatTrack'; id: string }
   | { type: 'startSafety'; safety: Safety }
   | { type: 'extendSafety'; minutes: number }
   | { type: 'endSafety' }
@@ -68,7 +71,7 @@ export type Action =
   | { type: 'deleteShortComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; playlists?: PlaylistItem[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -323,6 +326,13 @@ function reducer(state: State, action: Action): State {
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
     }
+    case 'addChatTrack': {
+      const list = state.playlists ?? []
+      if (list.some((x) => x.chatId === action.chatId && x.track.id === action.track.id) || list.filter((x) => x.chatId === action.chatId).length >= 50) return state
+      return { ...state, playlists: [...list, { id: `tmp-${uid()}`, chatId: action.chatId, addedBy: 'me', track: action.track, at: now }] }
+    }
+    case 'removeChatTrack':
+      return { ...state, playlists: (state.playlists ?? []).filter((x) => x.id !== action.id) }
     case 'noShow': {
       const c = state.capsules.find((x) => x.id === action.capsuleId)
       if (!c || !!c.noShow === action.on) return state
@@ -410,6 +420,7 @@ function reducer(state: State, action: Action): State {
         ...state,
         people: action.people, activities: action.activities, capsules: action.capsules,
         ...(action.groups ? { groups: action.groups } : {}),
+        ...(action.playlists ? { playlists: action.playlists } : {}),
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),

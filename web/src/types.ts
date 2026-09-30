@@ -93,6 +93,15 @@ export interface Group {
   othersReadAt?: number // когда кто-то из участников последний раз открывал группу — для «прочитано»
 }
 
+/** Песня в общем плейлисте переписки — «саундтрек встречи». */
+export interface PlaylistItem {
+  id: string
+  chatId: string // капсула или группа
+  addedBy: string // 'me' или personId
+  track: Track
+  at: number
+}
+
 export interface Capsule {
   id: string
   personId: string
@@ -166,6 +175,7 @@ export interface State {
   activities: Activity[]
   capsules: Capsule[]
   groups?: Group[] // групповые чаты
+  playlists?: PlaylistItem[] // общие плейлисты переписок
   liked: string[] // activityId, на которые я откликнулся
   hearts: string[] // activityId, которые я лайкнул
   saved: string[]

@@ -1069,6 +1069,44 @@ $$;
 revoke all on function public.no_show_counts() from public, anon;
 grant execute on function public.no_show_counts() to authenticated;
 
+-- Общий плейлист переписки (личной или групповой): «саундтрек встречи». До 50 песен на чат.
+create table if not exists public.chat_tracks (
+  id bigint generated always as identity primary key,
+  chat_id uuid not null,
+  added_by uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  track jsonb not null check (pg_column_size(track) < 4000),
+  created_at timestamptz not null default now()
+);
+create index if not exists chat_tracks_chat_idx on public.chat_tracks (chat_id, created_at);
+create or replace function private.in_chat(c uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select private.in_capsule(c) or private.in_group(c)
+$$;
+revoke all on function private.in_chat(uuid) from public, anon;
+grant execute on function private.in_chat(uuid) to authenticated;
+create or replace function private.chat_track_count(c uuid) returns integer
+language sql stable security definer set search_path = '' as $$
+  select count(*)::int from public.chat_tracks where chat_id = c
+$$;
+revoke all on function private.chat_track_count(uuid) from public, anon;
+grant execute on function private.chat_track_count(uuid) to authenticated;
+alter table public.chat_tracks enable row level security;
+revoke all on public.chat_tracks from anon, authenticated;
+grant select, delete on public.chat_tracks to authenticated;
+grant insert (chat_id, track) on public.chat_tracks to authenticated;
+drop policy if exists "chat tracks: read" on public.chat_tracks;
+create policy "chat tracks: read" on public.chat_tracks for select to authenticated using (private.in_chat(chat_id));
+drop policy if exists "chat tracks: add" on public.chat_tracks;
+create policy "chat tracks: add" on public.chat_tracks for insert to authenticated with check (
+  added_by = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and private.in_chat(chat_id) and private.chat_track_count(chat_id) < 50
+);
+drop policy if exists "chat tracks: remove own" on public.chat_tracks;
+create policy "chat tracks: remove own" on public.chat_tracks for delete to authenticated using (added_by = (select auth.uid()));
+do $$ begin
+  begin alter publication supabase_realtime add table public.chat_tracks; exception when duplicate_object then null; end;
+end $$;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

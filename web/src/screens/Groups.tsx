@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm } from '../lib'
 import { Avatar, Button, Icon, Sheet, readPhoto } from '../components/ui'
@@ -145,6 +146,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
               <span className="block text-[12px] text-muted truncate">{g.planId ? 'Компания плана · ' : ''}{count} {plural(count)}</span>
             </span>
           </button>
+          <PlaylistButton chatId={g.id} />
           <button onClick={() => setInfo(true)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Настройки группы"><Icon name="more" size={20} /></button>
         </div>
       </header>
