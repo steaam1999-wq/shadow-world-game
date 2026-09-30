@@ -6,10 +6,9 @@ import { PostArt, likeCount } from '../components/PostArt'
 import { Plate } from './Feed'
 import { LikeButton } from '../components/LikeButton'
 import { GroupStack, groupFull, joinLabel } from '../components/Meet'
-import { TrackChip } from '../music/PlayerUI'
-import { personTrack } from '../music/player'
 import type { Activity, Person } from '../types'
 import { ShortsFeed } from './Shorts'
+import { PlanMusicChip } from '../music/PlanMusic'
 
 /** Вертикальная лента на весь экран: один план — один экран, листается свайпом вверх. */
 export function Reels({ now, onRespond, onOpenCapsule, onMessage }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void; onMessage: (personId: string) => void }) {
@@ -94,7 +93,7 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
           <span className="rounded-full bg-white/20 backdrop-blur-md px-2.5 h-6 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
         </div>
         <p><Plate size="lg">{a.title}</Plate></p>
-        <TrackChip track={personTrack(p)} light />
+        {a.music && <PlanMusicChip id={a.id} music={a.music} light />}
         <div className="flex items-center gap-2 text-[13px] text-white/85">
           <Icon name="clock" size={14} /> {planWhen(a, now)} · <Icon name="pin" size={14} /> {a.area}
         </div>

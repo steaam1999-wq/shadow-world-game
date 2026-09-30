@@ -2,6 +2,9 @@ import type { Track } from './music/engine'
 
 export type VibeAnswers = Record<string, string>
 
+/** Музыка к плану: трек из интернета и откуда начинается 15-секундный отрывок. */
+export interface PlanMusic { track: Track; start: number }
+
 /** Что человек слушает прямо сейчас; `at` — когда это обновлялось. */
 export interface NowPlaying { track: Track; at: number }
 
@@ -59,6 +62,7 @@ export interface Activity {
   timeHidden?: boolean // автор не показывает время — договорятся в капсуле
   groupSize?: number // групповой план: сколько всего человек, включая автора (3–4)
   members?: string[] // кто уже присоединился (personId или 'me'), без автора
+  music?: PlanMusic // 15 секунд песни к плану
 }
 
 export type CapsuleStatus = 'active' | 'agreed' | 'contacts' | 'met'

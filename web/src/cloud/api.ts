@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Me, Message, Notice, NowPlaying, Person, PlanComment, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Me, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
 import type { Social } from '../store'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
@@ -14,7 +14,7 @@ export function sb() {
 }
 
 interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
-interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null }
+interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
 
@@ -50,7 +50,7 @@ async function uploadImage(userId: string, dataUrl: string) {
 
 // Колонки без встроенных фото: так ленту не приходится скачивать вместе со всеми фото целиком.
 const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path'
-const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path'
+const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
 /** Загружает видео или фото в хранилище и публикует его. */
 export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video') {
@@ -220,7 +220,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const activities: Activity[] = (plans.data ?? []).map((p) => ({
     id: p.id, authorId: p.author === userId ? 'me' : p.author, title: p.title, category: p.category, area: p.area,
     exactPlace: place.get(p.id) ?? '', startsAt: ms(p.starts_at), durationMin: p.duration_min, expiresAt: ms(p.expires_at),
-    x: p.x, y: p.y, photo: p.photo ?? undefined, timeHidden: p.time_hidden || undefined, groupSize: p.group_size ?? undefined, members: p.group_size ? [] : undefined,
+    x: p.x, y: p.y, photo: p.photo ?? undefined, timeHidden: p.time_hidden || undefined, groupSize: p.group_size ?? undefined, members: p.group_size ? [] : undefined, music: p.music?.track ? p.music : undefined,
   }))
 
   const byCapsule = new Map<string, MessageRow[]>()
@@ -314,6 +314,7 @@ export async function createPlan(userId: string, id: string, a: Omit<Activity, '
     id, author: userId, title: a.title, category: a.category, area: a.area, starts_at: new Date(a.startsAt).toISOString(),
     duration_min: a.durationMin, expires_at: new Date(a.expiresAt).toISOString(), x: a.x, y: a.y, photo: null,
     photo_path: a.photo?.startsWith('data:') ? await uploadImage(userId, a.photo) : null,
+    music: a.music ?? null,
     time_hidden: !!a.timeHidden, group_size: a.groupSize ?? null,
   })
   if (error) throw error

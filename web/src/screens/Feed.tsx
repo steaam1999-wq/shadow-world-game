@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
+import { PlanMusicChip } from '../music/PlanMusic'
 import { useStore } from '../store'
 import { compatibility, planWhen, plural, relative, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
@@ -282,6 +283,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       <div className="px-4 flex flex-col gap-1 text-[14px]">
         {state.cloud ? (state.likeCounts?.[a.id] ?? 0) > 0 && <span className="font-semibold tnum">{likesLabel(state.likeCounts![a.id])}</span>
           : <span className="font-semibold tnum">{likesLabel(likeCount(a.id, hearted))}</span>}
+        {a.music && <span className="self-start max-w-full"><PlanMusicChip id={a.id} music={a.music} /></span>}
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}

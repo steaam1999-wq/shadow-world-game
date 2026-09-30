@@ -52,6 +52,11 @@ create table if not exists public.plans (
 create index if not exists plans_expires_idx on public.plans (expires_at);
 create index if not exists plans_author_idx on public.plans (author);
 alter table public.plans add column if not exists photo_path text check (photo_path is null or char_length(photo_path) <= 200);
+-- Музыка к плану: трек из интернета и начало 15-секундного отрывка.
+alter table public.plans add column if not exists music jsonb;
+alter table public.plans drop constraint if exists plans_music_check;
+alter table public.plans add constraint plans_music_check
+  check (music is null or (jsonb_typeof(music) = 'object' and octet_length(music::text) <= 4000));
 
 -- Капсула: переписка двух людей, 72 часа на договорённость. С планом — отклик на него,
 -- без плана (plan_id null) — личное сообщение из профиля.

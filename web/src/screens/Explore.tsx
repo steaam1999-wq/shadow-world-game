@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { PlanMusicPicker } from '../music/PlanMusic'
 import { PlaceOptions, byXY, mapKindOf, minskXY, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
@@ -8,7 +9,7 @@ import { Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '.
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
-import type { Activity } from '../types'
+import type { Activity, PlanMusic } from '../types'
 
 const RADII = [3, 10, 50, 500]
 const TIMES = [
@@ -254,6 +255,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const [groupSize, setGroupSize] = useState(0) // 0 — вдвоём
   const [photo, setPhoto] = useState<string | undefined>()
   const [photoError, setPhotoError] = useState('')
+  const [music, setMusic] = useState<PlanMusic | undefined>()
 
   const submit = () => {
     const [h, m] = clock.split(':').map(Number)
@@ -271,10 +273,10 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         title: title.trim(), category, area, exactPlace: exactPlace.trim() || 'Уточню в чате', startsAt,
         durationMin: hideTime ? 0 : duration, timeHidden: hideTime || undefined,
         ...(groupSize ? { groupSize, members: [] } : {}),
-        expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 3 - 1.5), y: y + (Math.random() * 3 - 1.5), photo,
+        expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 3 - 1.5), y: y + (Math.random() * 3 - 1.5), photo, music,
       },
     })
-    setTitle(''); setExactPlace(''); setPhoto(undefined)
+    setTitle(''); setExactPlace(''); setPhoto(undefined); setMusic(undefined)
     onClose()
   }
 
@@ -335,6 +337,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
           </select>
         </Field>
         </>}
+        <PlanMusicPicker value={music} onChange={setMusic} />
         <Field id="act-area" label="Город или район (виден всем)">
           <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
             <PlaceOptions />
