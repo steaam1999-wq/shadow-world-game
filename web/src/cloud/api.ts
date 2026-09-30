@@ -20,7 +20,7 @@ interface MessageRow { id: number; capsule_id: string; sender: string; body: str
 
 const ms = (iso: string) => new Date(iso).getTime()
 
-interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; kind: 'video' | 'photo' | null; created_at: string }
+interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; kind: 'video' | 'photo' | null; created_at: string; thumb_path?: string | null }
 
 // Ссылки на закрытые файлы выдаются на время. Кэшируем их, иначе при каждом обновлении
 // ссылка менялась бы: видео начиналось бы заново, а фото скачивались повторно.
@@ -67,21 +67,38 @@ async function removePhoto(p: string) {
 const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path'
 const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
-/** Загружает видео или фото в хранилище и публикует его. */
-export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video') {
+/** Загружает видео или фото в хранилище и публикует его. `thumb` — кадр-превью видео (JPEG). */
+export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video', thumb?: Blob | null) {
   const ext = kind === 'photo' ? 'jpg' : ((file.name ?? '').split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4'
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`
+  const id = crypto.randomUUID()
+  const path = `${userId}/${id}.${ext}`
   const type = kind === 'photo' ? 'image/jpeg' : file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
   const up = await sb().storage.from('shorts').upload(path, file, { contentType: type, upsert: false })
   if (up.error) throw up.error
-  const { error } = await sb().from('shorts').insert({ path, caption, duration: kind === 'photo' ? null : duration, kind })
-  if (error) { await sb().storage.from('shorts').remove([path]); throw error }
+  // Превью не обязательно: если не получилось, видео всё равно публикуется.
+  let thumbPath: string | null = null
+  if (kind === 'video' && thumb) {
+    const t = await sb().storage.from('shorts').upload(`${userId}/${id}-thumb.jpg`, thumb, { contentType: 'image/jpeg', upsert: false })
+    if (!t.error) thumbPath = t.data.path
+  }
+  const { error } = await sb().from('shorts').insert({ path, caption, duration: kind === 'photo' ? null : duration, kind, ...(thumbPath ? { thumb_path: thumbPath } : {}) })
+  if (error) { await sb().storage.from('shorts').remove(thumbPath ? [path, thumbPath] : [path]); throw error }
+}
+
+/** Досоздаёт превью для своего старого видео. */
+export async function setShortThumb(userId: string, id: string, thumb: Blob) {
+  const t = await sb().storage.from('shorts').upload(`${userId}/${id}-thumb.jpg`, thumb, { contentType: 'image/jpeg', upsert: true })
+  if (t.error) throw t.error
+  const { error } = await sb().from('shorts').update({ thumb_path: t.data.path }).eq('id', id)
+  if (error) throw error
 }
 
 export async function deleteShort(id: string, path?: string) {
+  const thumbPath = (await sb().from('shorts').select('thumb_path').eq('id', id).maybeSingle<{ thumb_path: string | null }>()).data?.thumb_path
   const { error } = await sb().from('shorts').delete().eq('id', id)
   if (error) throw error
-  if (path) await sb().storage.from('shorts').remove([path])
+  const files = [path, thumbPath].filter((p): p is string => !!p)
+  if (files.length) await sb().storage.from('shorts').remove(files)
 }
 
 /** Перевод ошибок Supabase на понятный язык. */
@@ -295,9 +312,10 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const shortComments: PlanComment[] = (sc.data ?? []).filter((c) => !hidden.has(c.author)).map((c) => ({
     id: String(c.id), planId: c.short_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at),
   }))
-  const urls = await signShorts(visibleShorts.map((s) => s.path))
+  const urls = await signShorts(visibleShorts.flatMap((s) => (s.thumb_path ? [s.path, s.thumb_path] : [s.path])))
   const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
     id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, kind: s.kind === 'photo' ? 'photo' : 'video', caption: s.caption, at: ms(s.created_at),
+    ...(s.thumb_path && urls.has(s.thumb_path) ? { thumb: urls.get(s.thumb_path)!, thumbPath: s.thumb_path } : {}),
   }))
   const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,
     new Set(activities.filter((a) => a.authorId === 'me').map((a) => a.id)), new Set(shorts.filter((s) => s.authorId === 'me').map((s) => s.id)))

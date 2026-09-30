@@ -4,7 +4,7 @@ import { useOpenProfile } from '../nav'
 import { relative } from '../lib'
 import { Avatar, Button, Field, Icon, Sheet, inputCls } from '../components/ui'
 import { LikeButton } from '../components/LikeButton'
-import { deleteShort, humanError, uploadShort } from '../cloud/api'
+import { deleteShort, humanError, setShortThumb, uploadShort } from '../cloud/api'
 import { requestReload } from '../cloud/sync'
 import type { Person, Short } from '../types'
 import { ReportSheet } from './Vibe'
@@ -18,7 +18,7 @@ const MAX_SEC = 60
 const CAPTION_MAX = 200
 
 // ——— Демо: видео в IndexedDB ———
-interface StoredShort { id: string; caption: string; at: number; blob: Blob; kind?: 'video' | 'photo' }
+interface StoredShort { id: string; caption: string; at: number; blob: Blob; kind?: 'video' | 'photo'; thumb?: Blob | null }
 function idb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open('iskra-shorts', 1)
@@ -43,8 +43,8 @@ let demoLoaded = false
 export async function reloadDemoPublications() {
   try {
     const all = await idbRun<StoredShort[]>('readonly', (s) => s.getAll() as IDBRequest<StoredShort[]>)
-    demoList.forEach((x) => URL.revokeObjectURL(x.url))
-    demoList = all.sort((a, b) => b.at - a.at).map((x) => ({ id: x.id, authorId: 'me', url: URL.createObjectURL(x.blob), caption: x.caption, at: x.at, kind: x.kind ?? 'video' }))
+    demoList.forEach((x) => { URL.revokeObjectURL(x.url); if (x.thumb) URL.revokeObjectURL(x.thumb) })
+    demoList = all.sort((a, b) => b.at - a.at).map((x) => ({ id: x.id, authorId: 'me', url: URL.createObjectURL(x.blob), caption: x.caption, at: x.at, kind: x.kind ?? 'video', ...(x.thumb ? { thumb: URL.createObjectURL(x.thumb) } : {}) }))
   } catch { demoList = [] }
   demoLoaded = true
   demoListeners.forEach((l) => l(demoList))
@@ -163,8 +163,10 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
   return (
     <section ref={box} className="relative h-full snap-start snap-always overflow-hidden text-white bg-black" aria-label={s.caption || 'Шортс'}>
       {/* Горизонтальное видео — целиком, по краям размытая копия; вертикальное — на весь экран. */}
-      {!portrait && <video src={s.url} className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />}
-      <video ref={video} src={s.url} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
+      {!portrait && (s.thumb
+        ? <img src={s.thumb} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" aria-hidden="true" />
+        : <video src={s.url} className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />)}
+      <video ref={video} src={s.url} poster={s.thumb} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
         onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setPortrait(v.videoHeight / v.videoWidth >= 1.3) }} />
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/30 via-transparent to-black/70" />
       {paused && <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="grid place-items-center w-20 h-20 rounded-full bg-black/35 backdrop-blur"><Icon name="play" size={36} fill /></span></span>}
@@ -255,6 +257,59 @@ function readVideoDuration(url: string): Promise<number> {
   })
 }
 
+/** Кадр из видео для превью (JPEG до 480 px). iPhone часто не показывает первый кадр в <video>, поэтому храним картинку. */
+export function videoFrame(src: string, remote = false): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const v = document.createElement('video')
+    let done = false
+    const finish = (b: Blob | null) => { if (done) return; done = true; clearTimeout(timer); v.pause(); v.removeAttribute('src'); v.load(); resolve(b) }
+    const timer = setTimeout(() => finish(null), 15000)
+    const draw = () => {
+      if (!v.videoWidth || !v.videoHeight) return finish(null)
+      const k = Math.min(1, 480 / Math.max(v.videoWidth, v.videoHeight))
+      const c = document.createElement('canvas')
+      c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k)
+      try {
+        c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height)
+        c.toBlob((b) => finish(b), 'image/jpeg', 0.8)
+      } catch { finish(null) }
+    }
+    if (remote) v.crossOrigin = 'anonymous'
+    v.muted = true; v.playsInline = true; v.preload = 'auto'
+    v.setAttribute('muted', ''); v.setAttribute('playsinline', '')
+    v.onloadeddata = () => { v.currentTime = Math.min(0.1, (v.duration || 1) / 2) }
+    v.onseeked = () => draw()
+    v.onerror = () => finish(null)
+    v.src = src
+    // Safari не грузит кадры без воспроизведения — запускаем без звука и сразу останавливаем.
+    void v.play().then(() => v.pause()).catch(() => {})
+  })
+}
+
+/** Превью своих старых видео: создаём один раз, когда автор открывает профиль. */
+const thumbTried = new Set<string>()
+function useBackfillThumbs(list: Short[]) {
+  const { state } = useStore()
+  const userId = state.cloud?.userId
+  useEffect(() => {
+    if (!userId) return
+    const todo = list.filter((s) => s.authorId === 'me' && s.kind === 'video' && !s.thumb && !thumbTried.has(s.id))
+    if (!todo.length) return
+    let stop = false
+    void (async () => {
+      let made = false
+      for (const s of todo) {
+        if (stop) break
+        thumbTried.add(s.id)
+        const b = await videoFrame(s.url, true)
+        if (b) { try { await setShortThumb(userId, s.id, b); made = true } catch { /* не страшно: останется видео */ } }
+      }
+      if (made) requestReload()
+    })()
+    return () => { stop = true }
+  }, [userId, list])
+}
+
 /** Новая публикация: фото или видео с подписью. Видео до 60 с попадает и в «Шортсы». */
 export function NewPublication({ open, kind, onClose, onDone }: { open: boolean; kind?: 'video' | 'photo'; onClose: () => void; onDone: () => void }) {
   const { state } = useStore()
@@ -303,11 +358,12 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
     if (!file) return
     setBusy(true); setError('')
     try {
+      const thumb = fileKind === 'video' && preview ? await videoFrame(preview) : null
       if (state.cloud) {
-        await uploadShort(state.cloud.userId, file, caption.trim(), Math.round(duration * 10) / 10, fileKind)
+        await uploadShort(state.cloud.userId, file, caption.trim(), Math.round(duration * 10) / 10, fileKind, thumb)
         requestReload()
       } else {
-        await idbRun('readwrite', (s) => s.put({ id: crypto.randomUUID(), caption: caption.trim(), at: Date.now(), blob: file, kind: fileKind } satisfies StoredShort))
+        await idbRun('readwrite', (s) => s.put({ id: crypto.randomUUID(), caption: caption.trim(), at: Date.now(), blob: file, kind: fileKind, thumb } satisfies StoredShort))
         await reloadDemoPublications()
       }
       onDone()
@@ -385,10 +441,10 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
       </header>
       <div className="relative bg-black">
         {s.kind === 'photo'
-          ? <img src={s.url} alt={s.caption || 'Фото'} className="w-full max-h-[75vh] object-contain" loading="lazy" onDoubleClick={() => { if (!hearts.includes(s.id)) toggleHeart(s.id) }} />
+          ? <img src={s.url} alt={s.caption || 'Фото'} className="w-full max-h-[75vh] object-contain" onError={() => requestReload()} onDoubleClick={() => { if (!hearts.includes(s.id)) toggleHeart(s.id) }} />
           : (
             <>
-              <video ref={(el) => { video.current = el; if (el) { el.muted = muted; el.setAttribute('muted', ''); el.setAttribute('playsinline', '') } }} src={s.url} className="w-full max-h-[75vh] object-contain" loop playsInline muted preload="metadata" onClick={() => setMuted((m) => !m)} />
+              <video ref={(el) => { video.current = el; if (el) { el.muted = muted; el.setAttribute('muted', ''); el.setAttribute('playsinline', '') } }} src={s.url} poster={s.thumb} className="w-full max-h-[75vh] object-contain" loop playsInline muted preload="metadata" onClick={() => setMuted((m) => !m)} />
               <button onClick={() => setMuted((m) => !m)} className="absolute right-3 bottom-3 grid place-items-center w-8 h-8 rounded-full bg-black/50 text-white cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'}><Icon name={muted ? 'soundOff' : 'sound'} size={16} /></button>
             </>
           )}
@@ -415,19 +471,29 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   )
 }
 
+/** Плитка сетки. Картинка растянута через absolute: в Safari `h-full` внутри блока с aspect-ratio даёт нулевую высоту. */
+function Tile({ s }: { s: Short }) {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => setBroken(false), [s.url, s.thumb])
+  const img = s.kind === 'photo' ? s.url : s.thumb
+  if (img && !broken) return <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" decoding="async" onError={() => { setBroken(true); requestReload() }} />
+  if (s.kind === 'video') return <video src={`${s.url}#t=0.1`} className="absolute inset-0 w-full h-full object-cover" muted playsInline preload="metadata" />
+  return <span className="absolute inset-0 grid place-items-center text-muted"><Icon name="camera" size={22} /></span>
+}
+
 /** Сетка публикаций человека в профиле: фото и видео. `mine` — показать плитку «добавить». */
 export function ProfilePublications({ authorId, onMessage }: { authorId: string; onMessage: (personId: string) => void }) {
   const list = usePublications().filter((s) => s.authorId === authorId)
   const [open, setOpen] = useState<Short | null>(null)
   const [adding, setAdding] = useState(false)
   const mine = authorId === 'me'
+  useBackfillThumbs(list)
   return (
     <>
       <div className="grid grid-cols-3 gap-1 px-1">
         {list.map((s) => (
-          <button key={s.id} onClick={() => setOpen(s)} className="relative aspect-[3/4] rounded-lg overflow-hidden bg-black cursor-pointer" aria-label={s.caption || (s.kind === 'video' ? 'Видео' : 'Фото')}>
-            {s.kind === 'photo' ? <img src={s.url} alt="" className="w-full h-full object-cover" loading="lazy" />
-              : <video src={`${s.url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />}
+          <button key={s.id} onClick={() => setOpen(s)} className="relative block w-full aspect-[3/4] rounded-lg overflow-hidden bg-surface-2 cursor-pointer" aria-label={s.caption || (s.kind === 'video' ? 'Видео' : 'Фото')}>
+            <Tile s={s} />
             {s.kind === 'video' && <span className="absolute right-1.5 top-1.5 text-white drop-shadow"><Icon name="reels" size={18} /></span>}
           </button>
         ))}

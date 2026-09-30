@@ -355,7 +355,9 @@ create index if not exists shorts_created_idx on public.shorts (created_at desc)
 alter table public.shorts enable row level security;
 revoke all on public.shorts from anon, authenticated;
 grant select, delete on public.shorts to authenticated;
-grant insert (path, caption, duration, kind) on public.shorts to authenticated;
+alter table public.shorts add column if not exists thumb_path text check (char_length(thumb_path) <= 200); -- кадр-превью видео (JPEG)
+grant insert (path, caption, duration, kind, thumb_path) on public.shorts to authenticated;
+grant update (thumb_path) on public.shorts to authenticated;
 drop policy if exists "shorts: read" on public.shorts;
 create policy "shorts: read" on public.shorts for select to authenticated
   using (author = (select auth.uid()) or private.is_admin() or (not private.is_banned(author) and not private.blocked_between(author, (select auth.uid()))));
@@ -363,7 +365,13 @@ drop policy if exists "shorts: add own" on public.shorts;
 create policy "shorts: add own" on public.shorts for insert to authenticated with check (
   author = (select auth.uid()) and not private.is_banned((select auth.uid()))
   and path like (select auth.uid())::text || '/%'
+  and (thumb_path is null or thumb_path like (select auth.uid())::text || '/%')
 );
+-- Автор может досоздать превью для старого видео.
+drop policy if exists "shorts: set own thumb" on public.shorts;
+create policy "shorts: set own thumb" on public.shorts for update to authenticated
+  using (author = (select auth.uid()))
+  with check (author = (select auth.uid()) and (thumb_path is null or thumb_path like (select auth.uid())::text || '/%'));
 drop policy if exists "shorts: delete" on public.shorts;
 create policy "shorts: delete" on public.shorts for delete to authenticated using (author = (select auth.uid()) or private.is_admin());
 

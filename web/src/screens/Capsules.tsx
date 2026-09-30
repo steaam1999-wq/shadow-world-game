@@ -69,12 +69,55 @@ function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
   )
 }
 
-export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string) => void }) {
+/** Новый чат: выбрать любого человека. Сначала те, с кем уже общались и на кого подписаны. */
+function NewChatSheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (personId: string) => void }) {
+  const { state } = useStore()
+  const [query, setQuery] = useState('')
+  useEffect(() => { if (!open) setQuery('') }, [open])
+  const q = query.trim().toLowerCase()
+  const following = new Set(state.following ?? [])
+  const chatted = new Set(state.capsules.filter((c) => !c.hidden).map((c) => c.personId))
+  const rank = (p: Person) => (chatted.has(p.id) ? 0 : following.has(p.id) ? 1 : 2)
+  const people = state.people
+    .filter((p) => !q || p.name.toLowerCase().includes(q))
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'ru'))
+  return (
+    <Sheet open={open} onClose={onClose} title="Новый чат">
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
+          <Icon name="search" size={16} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Кому написать?" aria-label="Поиск людей" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
+        </label>
+        {people.length ? (
+          <ul className="flex flex-col max-h-[55vh] overflow-y-auto -mx-2">
+            {people.map((p) => (
+              <li key={p.id}>
+                <button onClick={() => onPick(p.id)} className="w-full flex items-center gap-3 px-2 py-2 rounded-2xl hover:bg-surface-2 text-left cursor-pointer">
+                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={44} verified={p.verified} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-semibold truncate">{nameAge(p.name, p.age)}</span>
+                    <span className="block text-[13px] text-muted truncate">{chatted.has(p.id) ? 'Уже общаетесь' : following.has(p.id) ? 'Вы подписаны' : p.district || p.bio || '\u00a0'}</span>
+                  </span>
+                  <Icon name="chat" size={20} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="py-8 text-center text-muted text-[14px]">{q ? 'Никого не нашли.' : 'Пока некому написать — людей ещё нет.'}</p>
+        )}
+      </div>
+    </Sheet>
+  )
+}
+
+export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: string) => void; onNew: (personId: string) => void }) {
   const { state } = useStore()
   const { dispatch } = useStore()
   const [query, setQuery] = useState('')
   const [swiped, setSwiped] = useState<string | null>(null) // у какой строки открыта кнопка удаления
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const deletingName = state.people.find((x) => x.id === state.capsules.find((c) => c.id === deleting)?.personId)?.name ?? ''
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
   const q = query.trim().toLowerCase()
@@ -85,7 +128,10 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="font-display font-bold text-2xl">Чаты</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="font-display font-bold text-2xl">Чаты</h1>
+        <button onClick={() => setCreating(true)} className="grid place-items-center w-10 h-10 rounded-full bg-surface-2 hover:bg-line cursor-pointer" aria-label="Новый чат"><Icon name="edit" size={19} /></button>
+      </div>
       {state.capsules.length > 3 && (
         <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={16} />
@@ -117,8 +163,12 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
           })}
         </ul>
       ) : (
-        <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">{q ? 'Никого не нашли.' : 'Здесь будут ваши переписки. Напишите человеку из его профиля или откликнитесь на план.'}</div>
+        <div className="rounded-[28px] bg-surface-2 p-8 flex flex-col items-center gap-3 text-center text-muted">
+          {q ? 'Никого не нашли.' : 'Здесь будут ваши переписки. Начните новый чат, напишите человеку из его профиля или откликнитесь на план.'}
+          {!q && <Button onClick={() => setCreating(true)}><Icon name="edit" size={18} /> Новый чат</Button>}
+        </div>
       )}
+      <NewChatSheet open={creating} onClose={() => setCreating(false)} onPick={(id) => { setCreating(false); onNew(id) }} />
       <Sheet open={!!deleting} onClose={() => setDeleting(null)} title={`Удалить чат с ${deletingName}?`}>
         <div className="flex flex-col gap-3">
           <p className="text-muted">Переписка исчезнет у вас. У {deletingName} она останется. Если {deletingName} напишет снова, чат появится — уже без старых сообщений.</p>
