@@ -20,7 +20,7 @@ interface MessageRow { id: number; capsule_id: string; sender: string; body: str
 
 const ms = (iso: string) => new Date(iso).getTime()
 
-interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; kind: 'video' | 'photo' | null; created_at: string; thumb_path?: string | null }
+interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; kind: 'video' | 'photo' | null; created_at: string; thumb_path?: string | null; filter?: string; music?: Track | null; place?: string | null }
 
 // Ссылки на закрытые файлы выдаются на время. Кэшируем их, иначе при каждом обновлении
 // ссылка менялась бы: видео начиналось бы заново, а фото скачивались повторно.
@@ -68,8 +68,9 @@ const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meeting
 const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
 /** Загружает видео или фото в хранилище и публикует его. `thumb` — кадр-превью видео (JPEG). */
-export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video', thumb?: Blob | null) {
-  const ext = kind === 'photo' ? 'jpg' : ((file.name ?? '').split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4'
+export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video', thumb?: Blob | null, extra: { filter?: string; music?: Track; place?: string } = {}) {
+  const fromType = file.type.includes('quicktime') ? 'mov' : file.type.includes('webm') ? 'webm' : 'mp4'
+  const ext = kind === 'photo' ? 'jpg' : ((file.name?.includes('.') ? file.name.split('.').pop()! : '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || fromType)
   const id = crypto.randomUUID()
   const path = `${userId}/${id}.${ext}`
   const type = kind === 'photo' ? 'image/jpeg' : file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
@@ -81,7 +82,7 @@ export async function uploadShort(userId: string, file: Blob & { name?: string }
     const t = await sb().storage.from('shorts').upload(`${userId}/${id}-thumb.jpg`, thumb, { contentType: 'image/jpeg', upsert: false })
     if (!t.error) thumbPath = t.data.path
   }
-  const { error } = await sb().from('shorts').insert({ path, caption, duration: kind === 'photo' ? null : duration, kind, ...(thumbPath ? { thumb_path: thumbPath } : {}) })
+  const { error } = await sb().from('shorts').insert({ path, caption, duration: kind === 'photo' ? null : duration, kind, ...(thumbPath ? { thumb_path: thumbPath } : {}), filter: extra.filter ?? 'none', ...(extra.music ? { music: extra.music } : {}), ...(extra.place ? { place: extra.place.slice(0, 60) } : {}) })
   if (error) { await sb().storage.from('shorts').remove(thumbPath ? [path, thumbPath] : [path]); throw error }
 }
 
@@ -332,6 +333,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
     id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, kind: s.kind === 'photo' ? 'photo' : 'video', caption: s.caption, at: ms(s.created_at),
     ...(s.thumb_path && urls.has(s.thumb_path) ? { thumb: urls.get(s.thumb_path)!, thumbPath: s.thumb_path } : {}),
+    ...(s.filter && s.filter !== 'none' ? { filter: s.filter } : {}), ...(safeTrack(s.music) ? { music: safeTrack(s.music)! } : {}), ...(s.place ? { place: s.place } : {}),
   }))
   const groups = await loadGroups(db, userId, hidden)
   const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,

@@ -1254,6 +1254,13 @@ alter table public.stories add column if not exists filter text not null default
 alter table public.stories add column if not exists sticker jsonb check (sticker is null or pg_column_size(sticker) < 3000);
 grant insert (filter, sticker) on public.stories to authenticated;
 
+-- Редактор публикаций: фильтр Match, песня и место.
+alter table public.shorts add column if not exists filter text not null default 'none'
+  check (filter in ('none', 'spark', 'sunset', 'minsk', 'cold', 'vivid'));
+alter table public.shorts add column if not exists music jsonb check (music is null or pg_column_size(music) < 3000);
+alter table public.shorts add column if not exists place text check (place is null or char_length(place) <= 60);
+grant insert (filter, music, place) on public.shorts to authenticated;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

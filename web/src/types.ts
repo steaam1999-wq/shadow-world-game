@@ -162,6 +162,9 @@ export interface Short {
   kind: 'video' | 'photo'
   caption: string
   at: number
+  filter?: string // фильтр Match (storyFilters)
+  music?: Track // песня к публикации
+  place?: string // где снято
 }
 
 export interface PlanComment {
