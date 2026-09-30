@@ -46,3 +46,18 @@ export function ListeningBadge({ person }: { person: Person }) {
     </span>
   )
 }
+
+/** В профиле, под именем: трек, который играет прямо сейчас (его же видят другие). Нажатие — пауза/продолжить. */
+export function PlayingChip() {
+  const player = usePlayer()
+  const t = player.track
+  if (!t || !player.playing) return null
+  return (
+    <button onClick={() => player.toggle()} aria-label={`Пауза: ${t.title}`}
+      className="inline-flex items-center gap-1.5 my-1 max-w-full rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
+      <Icon name="note" size={13} className="text-spark shrink-0" />
+      <span className="truncate">Сейчас играет: «{t.title}»{t.artist ? ` · ${t.artist}` : ''}</span>
+      <Bars />
+    </button>
+  )
+}
