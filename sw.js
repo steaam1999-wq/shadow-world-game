@@ -5,9 +5,10 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
 self.addEventListener('notificationclick', (e) => {
   e.notification.close()
   const chat = e.notification.data && e.notification.data.chat
+  const person = e.notification.data && e.notification.data.person
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
     const win = list[0]
-    if (win) { win.postMessage({ type: 'open-chat', chat }); return win.focus() }
+    if (win) { win.postMessage({ type: 'open-chat', chat, person }); return win.focus() }
     return self.clients.openWindow('./#app')
   }))
 })
@@ -22,8 +23,8 @@ self.addEventListener('push', (e) => {
     const safari = /Safari/.test(self.navigator.userAgent) && !/Chrome|Chromium|Android/.test(self.navigator.userAgent)
     if (!safari && list.some((c) => c.visibilityState === 'visible' && c.focused)) return
     return self.registration.showNotification(d.title || 'ISKRA', {
-      body: d.body || 'Новое сообщение', tag: d.chat || 'iskra', renotify: true,
-      icon: 'icon-192.png', badge: 'icon-192.png', data: { chat: d.chat },
+      body: d.body || 'Новое сообщение', tag: d.chat || d.kind || 'iskra', renotify: true,
+      icon: 'icon-192.png', badge: 'icon-192.png', data: { chat: d.chat, person: d.person },
     })
   }))
 })
