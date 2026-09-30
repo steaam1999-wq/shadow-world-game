@@ -230,7 +230,7 @@ export function useRemovePublication(s: Short) {
 }
 
 /** Фото уменьшаем до 1440 px и сохраняем в JPEG: так оно быстро грузится у всех. */
-function compressPhoto(file: File): Promise<Blob> {
+export function compressPhoto(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const img = new Image()
@@ -247,7 +247,7 @@ function compressPhoto(file: File): Promise<Blob> {
   })
 }
 
-function readVideoDuration(url: string): Promise<number> {
+export function readVideoDuration(url: string): Promise<number> {
   return new Promise((resolve) => {
     const v = document.createElement('video')
     v.preload = 'metadata'

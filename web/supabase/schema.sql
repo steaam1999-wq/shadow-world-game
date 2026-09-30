@@ -1185,6 +1185,69 @@ revoke all on function private.send_plan_reminders() from public, anon, authenti
 select cron.unschedule(jobid) from cron.job where jobname = 'match-plan-reminders';
 select cron.schedule('match-plan-reminders', '*/5 * * * *', 'select private.send_plan_reminders()');
 
+-- Истории как в Instagram: фото, видео или текст на цветном фоне; видны 24 часа.
+-- Файлы лежат в хранилище shorts/<автор>/story-*.
+create table if not exists public.stories (
+  id uuid primary key default gen_random_uuid(),
+  author uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('photo', 'video', 'text')),
+  path text check (path is null or char_length(path) <= 200),
+  caption text not null default '' check (char_length(caption) <= 300),
+  hue integer not null default 330 check (hue between 0 and 360),
+  duration real check (duration is null or duration between 0 and 61),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '24 hours',
+  check (kind = 'text' or path is not null),
+  check (kind <> 'text' or char_length(caption) >= 1)
+);
+create index if not exists stories_author_idx on public.stories (author, created_at);
+create index if not exists stories_expires_idx on public.stories (expires_at);
+alter table public.stories enable row level security;
+revoke all on public.stories from anon, authenticated;
+grant select, delete on public.stories to authenticated;
+grant insert (id, kind, path, caption, hue, duration) on public.stories to authenticated;
+drop policy if exists "stories: read" on public.stories;
+create policy "stories: read" on public.stories for select to authenticated using (
+  author = (select auth.uid())
+  or (expires_at > now() and not private.is_banned(author) and not private.blocked_between(author, (select auth.uid())))
+);
+drop policy if exists "stories: add own" on public.stories;
+create policy "stories: add own" on public.stories for insert to authenticated with check (
+  author = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and (path is null or path like (select auth.uid())::text || '/%')
+);
+drop policy if exists "stories: delete" on public.stories;
+create policy "stories: delete" on public.stories for delete to authenticated using (author = (select auth.uid()) or private.is_admin());
+
+-- Кто посмотрел: автор видит список, зритель — только свою отметку.
+create table if not exists public.story_views (
+  story_id uuid not null references public.stories (id) on delete cascade,
+  viewer uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  viewed_at timestamptz not null default now(),
+  primary key (story_id, viewer)
+);
+alter table public.story_views enable row level security;
+revoke all on public.story_views from anon, authenticated;
+grant select on public.story_views to authenticated;
+grant insert (story_id) on public.story_views to authenticated;
+create or replace function private.story_author(s uuid) returns uuid
+language sql stable security definer set search_path = '' as $$
+  select author from public.stories where id = s
+$$;
+revoke all on function private.story_author(uuid) from public, anon;
+grant execute on function private.story_author(uuid) to authenticated;
+drop policy if exists "story views: read" on public.story_views;
+create policy "story views: read" on public.story_views for select to authenticated
+  using (viewer = (select auth.uid()) or private.story_author(story_id) = (select auth.uid()));
+drop policy if exists "story views: add" on public.story_views;
+create policy "story views: add" on public.story_views for insert to authenticated with check (
+  viewer = (select auth.uid())
+  and exists (select 1 from public.stories s where s.id = story_id and s.author <> (select auth.uid()) and s.expires_at > now())
+);
+do $$ begin
+  begin alter publication supabase_realtime add table public.stories; exception when duplicate_object then null; end;
+end $$;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

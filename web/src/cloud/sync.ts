@@ -52,6 +52,16 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       const c = s.capsules.find((x) => x.personId === a.personId && !x.activityId)
       return c ? run(api.sendMessage(uid, c.id, a.text)) : a.capsuleId ? run(api.openDirect(uid, a.capsuleId, a.personId, a.text)) : null
     }
+    case 'addStory':
+      return run(api.postStory(uid, a.story, a.file))
+    case 'deleteStory': {
+      const st = (s.stories ?? []).find((x) => x.id === a.id)
+      return run(api.deleteStory(a.id, st?.path))
+    }
+    case 'viewStory': {
+      const st = (s.stories ?? []).find((x) => x.id === a.id)
+      return st && st.authorId !== 'me' ? run(api.viewStory(a.id)) : null
+    }
     case 'react':
       return /^\d+$/.test(a.messageId) ? run(api.setReaction(a.chatId, a.messageId, a.emoji)) : null
     case 'addChatTrack':

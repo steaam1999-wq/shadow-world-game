@@ -15,6 +15,7 @@ import { Reels } from './screens/Reels'
 import { NewPublication } from './screens/Shorts'
 import { CapsuleChat, CapsuleList, NewChatSheet } from './screens/Capsules'
 import { GroupChat } from './screens/Groups'
+import { StoryCreator } from './screens/Stories'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { CloudSync } from './cloud/CloudSync'
@@ -109,6 +110,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [creating, setCreating] = useState(false)
   const [choosing, setChoosing] = useState(false)
   const [newChat, setNewChat] = useState(false)
+  const [storying, setStorying] = useState(false)
   const [posting, setPosting] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   // Листаете ленту дальше — панель уезжает вверх; возвращаетесь — выезжает «жидким стеклом».
@@ -223,6 +225,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что создать?">
         <div className="flex flex-col gap-2">
           {[
+            { icon: 'plus', title: 'История', text: 'Фото, видео или текст на 24 часа — кружок сверху главной', go: () => setStorying(true) },
             { icon: 'camera', title: 'Публикация', text: 'Фото или видео с подписью — появится на главной', go: () => setPosting(true) },
             { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
             { icon: 'chat', title: 'Новый чат', text: 'Написать человеку лично или создать группу', go: () => setNewChat(true) },
@@ -234,6 +237,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           ))}
         </div>
       </Sheet>
+      <StoryCreator open={storying} onClose={() => { setStorying(false); setTab('home'); setPerson(null) }} />
       <NewChatSheet open={newChat} onClose={() => setNewChat(false)} onPick={(id) => { setNewChat(false); messagePerson(id) }} onGroupCreated={(id) => { setNewChat(false); openChatById(id) }} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 

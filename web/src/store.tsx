@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Story, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import type { Track } from './music/engine'
 import { cloudEffect, requestReload } from './cloud/sync'
 
@@ -59,6 +59,9 @@ export type Action =
   | { type: 'addChatTrack'; chatId: string; track: Track }
   | { type: 'removeChatTrack'; id: string }
   | { type: 'react'; chatId: string; messageId: string; emoji: string | null }
+  | { type: 'addStory'; story: Story; file?: Blob }
+  | { type: 'deleteStory'; id: string }
+  | { type: 'viewStory'; id: string }
   | { type: 'startSafety'; safety: Safety }
   | { type: 'extendSafety'; minutes: number }
   | { type: 'endSafety' }
@@ -72,7 +75,7 @@ export type Action =
   | { type: 'deleteShortComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; playlists?: PlaylistItem[]; reactions?: Reaction[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; playlists?: PlaylistItem[]; reactions?: Reaction[]; stories?: Story[]; storiesSeen?: string[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -332,6 +335,12 @@ function reducer(state: State, action: Action): State {
       if (list.some((x) => x.chatId === action.chatId && x.track.id === action.track.id) || list.filter((x) => x.chatId === action.chatId).length >= 50) return state
       return { ...state, playlists: [...list, { id: `tmp-${uid()}`, chatId: action.chatId, addedBy: 'me', track: action.track, at: now }] }
     }
+    case 'addStory':
+      return { ...state, stories: [...(state.stories ?? []), action.story] }
+    case 'deleteStory':
+      return { ...state, stories: (state.stories ?? []).filter((s) => s.id !== action.id) }
+    case 'viewStory':
+      return (state.storiesSeen ?? []).includes(action.id) ? state : { ...state, storiesSeen: [...(state.storiesSeen ?? []), action.id] }
     case 'react': {
       const rest = (state.reactions ?? []).filter((r) => !(r.chatId === action.chatId && r.messageId === action.messageId && r.userId === 'me'))
       return { ...state, reactions: action.emoji ? [...rest, { chatId: action.chatId, messageId: action.messageId, userId: 'me', emoji: action.emoji }] : rest }
@@ -385,7 +394,7 @@ function reducer(state: State, action: Action): State {
       // Личная переписка из профиля: одна на пару людей, без привязки к плану.
       const msg = action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now }] : []
       const existing = state.capsules.find((c) => c.personId === action.personId)
-      if (existing) return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, ...msg] } : c)) }
+      if (existing) return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, hidden: msg.length ? false : c.hidden, messages: [...c.messages, ...msg] } : c)) }
       const capsule = {
         id: action.capsuleId ?? uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 0,
         messages: [{ id: uid(), from: 'system' as const, text: 'Личная переписка.', at: now }, ...msg],
@@ -418,7 +427,7 @@ function reducer(state: State, action: Action): State {
       return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], groups: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], groups: [], stories: [], storiesSeen: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {
@@ -427,6 +436,8 @@ function reducer(state: State, action: Action): State {
         ...(action.groups ? { groups: action.groups } : {}),
         ...(action.playlists ? { playlists: action.playlists } : {}),
         ...(action.reactions ? { reactions: action.reactions } : {}),
+        ...(action.stories ? { stories: action.stories } : {}),
+        ...(action.storiesSeen ? { storiesSeen: action.storiesSeen } : {}),
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),
@@ -458,6 +469,8 @@ function load(): State {
         // Без «Запомнить меня» вход живёт до закрытия браузера: новая сессия — снова экран входа.
         let sameSession = false
         try { sameSession = sessionStorage.getItem(SESSION_KEY) === '1'; sessionStorage.setItem(SESSION_KEY, '1') } catch { /* нет sessionStorage */ }
+        // Видео-истории демо живут только до перезагрузки (ссылка blob: умирает вместе со страницей).
+        if (parsed.stories) parsed = { ...parsed, stories: parsed.stories.filter((s) => !s.url?.startsWith('blob:')) }
         if (parsed.remember === false && !sameSession && parsed.me) return { ...parsed, savedMe: parsed.me, me: null }
         return parsed
       }

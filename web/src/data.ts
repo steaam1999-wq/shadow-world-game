@@ -174,6 +174,13 @@ export function seedState(now = Date.now()): State {
     hearts: ['a1'],
     saved: [],
     seenStories: [],
+    // Демо-истории: текст на цветном фоне от нескольких людей.
+    stories: [
+      { id: 'st1', authorId: 'p1', kind: 'text', caption: 'Сегодня в 19:00 лекция в Ok16 — кто со мной? ☕', hue: 330, at: now - 2 * 3600_000, expiresAt: now + 22 * 3600_000 },
+      { id: 'st2', authorId: 'p1', kind: 'text', caption: 'А после — прогулка по набережной Свислочи 🌆', hue: 260, at: now - 3600_000, expiresAt: now + 23 * 3600_000 },
+      { id: 'st3', authorId: 'p3', kind: 'text', caption: 'Ищу компанию на скалодром в субботу 🧗', hue: 200, at: now - 5 * 3600_000, expiresAt: now + 19 * 3600_000 },
+      { id: 'st4', authorId: 'p5', kind: 'text', caption: 'Нашла лучшую кофейню на Зыбицкой. Показать? 😉', hue: 30, at: now - 40 * 60_000, expiresAt: now + 23 * 3600_000 },
+    ],
     following: ['p1'],
     categories: DEFAULT_CATEGORIES,
     tags: DEFAULT_TAGS,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
 import { PlanMusicChip } from '../music/PlanMusic'
@@ -11,6 +11,7 @@ import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
 import { SurpriseMeet } from '../components/Surprise'
+import { StoriesRow, useStoryGroups } from './Stories'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
@@ -27,49 +28,24 @@ interface Props {
 }
 
 export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMessage }: Props) {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const publications = usePublications()
-  // Список сторис фиксируется при открытии, иначе пересортировка «просмотренных» сбивает индекс.
-  const [viewer, setViewer] = useState<{ items: { p: Person; a: Activity }[]; index: number } | null>(null)
   const [hidden, setHidden] = useState<string[]>([])
 
   const live = state.activities.filter((a) => a.expiresAt > now && !hidden.includes(a.id))
-  // Сторис: по одной на человека с активным планом, непросмотренные первыми.
-  const stories = state.people
-    .map((p) => ({ p, a: live.filter((a) => a.authorId === p.id).sort((x, y) => x.startsAt - y.startsAt)[0] }))
-    .filter((x): x is { p: Person; a: Activity } => !!x.a)
-    .sort((x, y) => Number(state.seenStories.includes(x.p.id)) - Number(state.seenStories.includes(y.p.id)))
+  const storyGroups = useStoryGroups(now).others
   const followed = state.following ?? []
   const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : 2)
   const posts = [...live].sort((a, b) => rank(a) - rank(b) || a.startsAt - b.startsAt)
-  const me = state.me!
   const openProfile = useOpenProfile()
   // Люди без активного плана: иначе новенькие не видны на главной, пока не предложат план.
-  const quiet = state.people.filter((p) => !stories.some((s) => s.p.id === p.id))
+  const quiet = state.people.filter((p) => !storyGroups.some((g) => g.personId === p.id))
 
   return (
     <div className="flex flex-col">
-      {/* Сторис */}
-      <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4 pt-3 pb-4">
-        <button onClick={onCreate} className="flex flex-col items-center gap-1 w-[72px] shrink-0 cursor-pointer">
-          <span className="relative">
-            <span className="grid place-items-center w-[68px] h-[68px]"><Avatar name={me.name} hue={me.hue} src={me.photo} size={60} /></span>
-            <span className="absolute right-0.5 bottom-0.5 grid place-items-center w-6 h-6 rounded-full bg-brand text-white border-2 border-surface"><Icon name="plus" size={14} /></span>
-          </span>
-          <span className="text-[12px] text-muted truncate w-full text-center">Создать</span>
-        </button>
-        {stories.map(({ p }, i) => (
-          <button key={p.id} onClick={() => setViewer({ items: stories, index: i })} className="flex flex-col items-center gap-1 w-[72px] shrink-0 cursor-pointer">
-            <span className="relative">
-              <StoryRing seen={state.seenStories.includes(p.id)} size={68}>
-                <Avatar name={p.name} hue={p.hue} src={p.photo} size={58} />
-              </StoryRing>
-              <ListeningBadge person={p} />
-            </span>
-            <span className="text-[12px] truncate w-full text-center">{p.name}</span>
-          </button>
-        ))}
-      </div>
+      {/* Истории: свои и чужие за сутки, у каждого в конце — его действующий план */}
+      <StoriesRow now={now} onRespond={(a, t) => onRespond(a, t)} onOpenCapsule={onOpenCapsule}
+        onMessage={(personId, text) => dispatch({ type: 'directMessage', personId, capsuleId: crypto.randomUUID(), text })} />
 
       <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
       <FreeNow now={now} onInvite={onInvite} />
@@ -111,17 +87,6 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
         </div>
       )}
 
-      {viewer && (
-        <StoryViewer
-          items={viewer.items}
-          index={viewer.index}
-          now={now}
-          onIndex={(index) => setViewer({ ...viewer, index })}
-          onClose={() => setViewer(null)}
-          onReply={(a, text) => { setViewer(null); onRespond(a, text) }}
-          onOpenCapsule={(id) => { setViewer(null); onOpenCapsule(id) }}
-        />
-      )}
     </div>
   )
 }
@@ -308,93 +273,6 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   )
 }
 
-const STORY_MS = 6000
-
-function StoryViewer({ items, index, now, onIndex, onClose, onReply, onOpenCapsule }: {
-  items: { p: Person; a: Activity }[]
-  index: number
-  now: number
-  onIndex: (i: number) => void
-  onClose: () => void
-  onReply: (a: Activity, text: string) => void
-  onOpenCapsule: (activityId: string) => void
-}) {
-  const openProfile = useOpenProfile()
-  const { state, dispatch } = useStore()
-  const { p, a } = items[index]
-  const [text, setText] = useState('')
-  const [paused, setPaused] = useState(false)
-  const responded = state.liked.includes(a.id)
-  const compat = compatibility(state.me!, p)
-
-  useEffect(() => { dispatch({ type: 'seeStory', personId: p.id }) }, [p.id, dispatch])
-  // Колбэки в ref: родитель перерисовывается каждую секунду, и таймер не должен сбрасываться.
-  const nav = useRef({ onIndex, onClose, count: items.length })
-  useEffect(() => { nav.current = { onIndex, onClose, count: items.length } })
-  useEffect(() => {
-    if (paused) return
-    const t = setTimeout(() => (index + 1 < nav.current.count ? nav.current.onIndex(index + 1) : nav.current.onClose()), STORY_MS)
-    return () => clearTimeout(t)
-  }, [index, paused])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowRight' && index + 1 < items.length) onIndex(index + 1)
-      if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [index, items.length, onIndex, onClose])
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex justify-center" role="dialog" aria-modal="true" aria-label={`Сторис ${p.name}`}>
-      <div className="relative w-full max-w-[480px] h-full flex flex-col text-white pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]">
-        <div className="absolute inset-0 opacity-90"><PostArt activity={a} /></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/75" />
-
-        <div className="relative flex gap-1 px-2 pt-2">
-          {items.map((_, i) => (
-            <div key={i} className="flex-1 h-[3px] rounded-full bg-white/35 overflow-hidden">
-              <div key={`${index}-${i}`} className="h-full bg-white"
-                style={i < index ? { width: '100%' } : i === index ? { animation: `storybar ${STORY_MS}ms linear both`, animationPlayState: paused ? 'paused' : 'running' } : { width: 0 }} />
-            </div>
-          ))}
-        </div>
-        <div className="relative flex items-center gap-3 px-3 py-3">
-          <button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={36} verified={p.verified} /></button>
-          <div className="flex-1 min-w-0 leading-tight">
-            <div className="font-semibold text-[14px]"><button onClick={() => { onClose(); openProfile(p.id) }} className="cursor-pointer">{p.name}</button> <span className="font-normal opacity-75">· {compat.score}% вайб</span></div>
-            <div className="text-[12px] opacity-75">{a.area} · {planWhen(a, now)}</div>
-            <TrackChip track={personTrack(p)} light />
-          </div>
-          <button onClick={onClose} className="grid place-items-center w-10 h-10 cursor-pointer" aria-label="Закрыть"><Icon name="x" size={26} /></button>
-        </div>
-
-        {/* Зоны перелистывания */}
-        <div className="relative flex-1 flex">
-          <button className="w-1/3 h-full cursor-pointer" aria-label="Предыдущая" onClick={() => index > 0 && onIndex(index - 1)} />
-          <button className="w-2/3 h-full cursor-pointer" aria-label="Следующая" onClick={() => (index + 1 < items.length ? onIndex(index + 1) : onClose())} />
-        </div>
-
-        <div className="relative px-4 pb-4 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <span className="self-start rounded-full bg-white/20 backdrop-blur px-3 h-7 inline-flex items-center text-[12px] font-bold uppercase tracking-wider">{a.category}</span>
-            <h2 className="font-display font-bold text-[26px] leading-tight drop-shadow">{a.title}</h2>
-          </div>
-          {responded ? (
-            <Button onClick={() => onOpenCapsule(a.id)} className="!bg-white !text-[#14152a]">Открыть чат</Button>
-          ) : (
-            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); onReply(a, text.trim() || 'Хочу с тобой!') }}>
-              <input id="story-reply" aria-label="Ответить на план" value={text} onChange={(e) => setText(e.target.value)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}
-                placeholder="Ответить на план…" className="flex-1 min-w-0 h-11 rounded-full border border-white/60 bg-transparent px-4 text-white placeholder:text-white/70 focus:outline-none focus:border-white" autoComplete="off" />
-              <button type="submit" className="grid place-items-center w-11 h-11 rounded-full bg-spark text-on-spark cursor-pointer" aria-label="Откликнуться и отправить"><Icon name="send" size={18} /></button>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /** Текст на плашке, как подписи на обложках: каждая строка в своей подложке. */
 export function Plate({ children, size = 'md' }: { children: ReactNode; size?: 'md' | 'lg' }) {

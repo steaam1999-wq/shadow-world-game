@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Story, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
 import type { Social } from '../store'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
@@ -226,7 +226,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, reactionRows, trackRows] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, storyRows, viewRows, reactionRows, trackRows] = await Promise.all([
     db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
     db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -240,10 +240,12 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.rpc('plan_companies'),
     db.rpc('no_show_counts'),
     db.from('no_shows').select('capsule_id').returns<{ capsule_id: string }[]>(),
+    db.from('stories').select('*').order('created_at').limit(1000).returns<{ id: string; author: string; kind: 'photo' | 'video' | 'text'; path: string | null; caption: string; hue: number; duration: number | null; created_at: string; expires_at: string }[]>(),
+    db.from('story_views').select('story_id, viewer, viewed_at').limit(5000).returns<{ story_id: string; viewer: string; viewed_at: string }[]>(),
     db.from('message_reactions').select('chat_id, message_id, user_id, emoji').limit(5000).returns<{ chat_id: string; message_id: number; user_id: string; emoji: string }[]>(),
     db.from('chat_tracks').select('*').order('created_at').limit(3000).returns<{ id: number; chat_id: string; added_by: string; track: Track; created_at: string }[]>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, reactionRows, trackRows]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows, storyRows, viewRows, reactionRows, trackRows]) if (r.error) throw r.error
   const settings = parseSettings(settingRows.data ?? [])
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
@@ -340,7 +342,20 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   })
   const reactions: Reaction[] = (reactionRows.data ?? []).filter((x) => !hidden.has(x.user_id))
     .map((x) => ({ chatId: x.chat_id, messageId: String(x.message_id), userId: x.user_id === userId ? 'me' : x.user_id, emoji: x.emoji }))
-  return { me, people, activities, capsules: caps, groups, playlists, reactions, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
+  // Истории: свои просроченные тихо удаляем вместе с файлами, остальные — со ссылками на файлы.
+  const nowMs = Date.now()
+  const expiredMine = (storyRows.data ?? []).filter((x) => x.author === userId && ms(x.expires_at) <= nowMs)
+  if (expiredMine.length) void cleanupStories(expiredMine.map((x) => ({ id: x.id, path: x.path })))
+  const liveStories = (storyRows.data ?? []).filter((x) => ms(x.expires_at) > nowMs && !hidden.has(x.author))
+  const storyUrls = await sign('shorts', liveStories.flatMap((x) => (x.path ? [x.path] : [])))
+  const views = viewRows.data ?? []
+  const stories: Story[] = liveStories.map((x) => ({
+    id: x.id, authorId: x.author === userId ? 'me' : x.author, kind: x.kind, caption: x.caption, hue: x.hue, at: ms(x.created_at), expiresAt: ms(x.expires_at),
+    ...(x.path ? { path: x.path, url: storyUrls.get(x.path) } : {}), ...(x.duration ? { duration: x.duration } : {}),
+    ...(x.author === userId ? { views: views.filter((v) => v.story_id === x.id && v.viewer !== userId).map((v) => ({ personId: v.viewer, at: ms(v.viewed_at) })) } : {}),
+  }))
+  const storiesSeen = views.filter((v) => v.viewer === userId).map((v) => v.story_id)
+  return { me, people, activities, capsules: caps, groups, playlists, reactions, stories, storiesSeen, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
 }
 
 /** Фото из хранилища — временными ссылками; старые (base64 в базе) — отдельным запросом, только где они ещё есть. */
@@ -617,6 +632,39 @@ export async function setNoShow(capsuleId: string, target: string, on: boolean) 
   if (error && error.code !== '23505') throw error
 }
 
+/** Опубликовать историю: файл (фото или видео) — в хранилище shorts/<я>/story-*, запись — в stories. */
+export async function postStory(userId: string, story: Story, file?: Blob) {
+  let path: string | null = null
+  if (story.kind !== 'text') {
+    if (!file) throw new Error('Нет файла истории')
+    const ext = story.kind === 'photo' ? 'jpg' : (file.type.includes('quicktime') ? 'mov' : file.type.includes('webm') ? 'webm' : 'mp4')
+    path = `${userId}/story-${story.id}.${ext}`
+    const up = await sb().storage.from('shorts').upload(path, file, { contentType: story.kind === 'photo' ? 'image/jpeg' : file.type || 'video/mp4', upsert: false })
+    if (up.error) throw up.error
+  }
+  const { error } = await sb().from('stories').insert({ id: story.id, kind: story.kind, path, caption: story.caption, hue: story.hue, duration: story.duration ?? null })
+  if (error) { if (path) await sb().storage.from('shorts').remove([path]); throw error }
+}
+
+export async function deleteStory(id: string, path?: string) {
+  const { error } = await sb().from('stories').delete().eq('id', id)
+  if (error) throw error
+  if (path) await sb().storage.from('shorts').remove([path])
+}
+
+async function cleanupStories(list: { id: string; path: string | null }[]) {
+  try {
+    await sb().from('stories').delete().in('id', list.map((x) => x.id))
+    const paths = list.flatMap((x) => (x.path ? [x.path] : []))
+    if (paths.length) await sb().storage.from('shorts').remove(paths)
+  } catch { /* не страшно: попробуем при следующей загрузке */ }
+}
+
+export async function viewStory(id: string) {
+  const { error } = await sb().from('story_views').insert({ story_id: id })
+  if (error && error.code !== '23505') throw error
+}
+
 /** Поставить реакцию на сообщение (null — убрать). */
 export async function setReaction(chatId: string, messageId: string, emoji: string | null) {
   // Сначала убираем свою прежнюю реакцию (политика удаляет только свои), затем ставим новую.
@@ -825,7 +873,7 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
     if (onGroupMessage) ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages' }, (p) => onGroupMessage(p.new as GroupMessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments', 'group_chats', 'group_members', 'group_messages', 'chat_tracks', 'message_reactions']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments', 'group_chats', 'group_members', 'group_messages', 'chat_tracks', 'message_reactions', 'stories']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

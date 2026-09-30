@@ -110,6 +110,21 @@ export interface Reaction {
   emoji: string
 }
 
+/** История: фото, видео или текст на цветном фоне. Живёт 24 часа. */
+export interface Story {
+  id: string
+  authorId: string // 'me' или personId
+  kind: 'photo' | 'video' | 'text'
+  url?: string
+  path?: string
+  caption: string
+  hue: number
+  duration?: number
+  at: number
+  expiresAt: number
+  views?: { personId: string; at: number }[] // кто посмотрел (только у моих)
+}
+
 export interface Capsule {
   id: string
   personId: string
@@ -185,6 +200,8 @@ export interface State {
   groups?: Group[] // групповые чаты
   playlists?: PlaylistItem[] // общие плейлисты переписок
   reactions?: Reaction[] // реакции на сообщения
+  stories?: Story[] // истории людей и мои
+  storiesSeen?: string[] // какие истории я уже посмотрел
   liked: string[] // activityId, на которые я откликнулся
   hearts: string[] // activityId, которые я лайкнул
   saved: string[]
