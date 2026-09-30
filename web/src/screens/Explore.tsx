@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { PlanMusicPicker } from '../music/PlanMusic'
-import { PlaceOptions, byXY, mapKindOf, minskXY, placeDistanceKm, placeInfo, placeXY } from '../places'
+import { PlaceOptions, byXY, knownKm, mapKindOf, minskXY, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
@@ -42,7 +42,8 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       .filter((a) => {
         const p = state.people.find((x) => x.id === a.authorId)
         const km = placeInfo(a.area) && placeInfo(me.district) ? placeDistanceKm(me.district, a.area) : p?.distanceKm
-        return a.authorId === 'me' || (p && km !== undefined && km <= me.radiusKm)
+        // Город не указан (у меня или у автора) — расстояние неизвестно, план показываем.
+        return a.authorId === 'me' || (p && (!me.district || !knownKm(km) || km! <= me.radiusKm))
       })
       .filter((a) => !cats.length || cats.includes(a.category))
       .filter((a) => !groupsOnly || !!a.groupSize)
@@ -87,10 +88,10 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       {mode !== 'people' && (
         <div className="flex flex-col gap-2">
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
-            {RADII.map((r) => (
+            {me.district && RADII.map((r) => (
               <Chip key={r} active={me.radiusKm === r} onClick={() => dispatch({ type: 'updateMe', patch: { radiusKm: r } })}>{r === 500 ? 'Вся страна' : `до ${r} км`}</Chip>
             ))}
-            <span className="w-px bg-line shrink-0 mx-1" />
+            {me.district && <span className="w-px bg-line shrink-0 mx-1" />}
             {TIMES.map((t) => <Chip key={t.id} active={time === t.id} onClick={() => setTime(t.id)}>{t.label}</Chip>)}
           </div>
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4">
@@ -220,9 +221,9 @@ function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[];
             <path d="M-2 62 C 14 58, 22 92, 40 90 S 52 66, 50 58 S 66 50, 78 70 S 94 76, 102 70" fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth="4" strokeLinecap="round" />
           </>
         )}
-        {/* Моё положение — приблизительно */}
-        <circle cx={mx} cy={my} r={kind === 'by' ? 5 : 9} fill="var(--cobalt)" fillOpacity=".12" />
-        <circle cx={mx} cy={my} r="1.8" fill="var(--cobalt)" stroke="var(--surface)" strokeWidth=".8" />
+        {/* Моё положение — приблизительно (если город указан) */}
+        {myDistrict && <circle cx={mx} cy={my} r={kind === 'by' ? 5 : 9} fill="var(--cobalt)" fillOpacity=".12" />}
+        {myDistrict && <circle cx={mx} cy={my} r="1.8" fill="var(--cobalt)" stroke="var(--surface)" strokeWidth=".8" />}
         {shown.map(({ a, x, y }) => {
           const on = a.id === selected
           return (
@@ -246,7 +247,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const { state, dispatch } = useStore()
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState(state.categories[0])
-  const [area, setArea] = useState(state.me?.district ?? 'Минск')
+  const [area, setArea] = useState(state.me?.district || 'Минск')
   const [exactPlace, setExactPlace] = useState('')
   const [day, setDay] = useState<'today' | 'tomorrow'>('today')
   const [clock, setClock] = useState('19:00')
@@ -340,7 +341,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         <PlanMusicPicker value={music} onChange={setMusic} />
         <Field id="act-area" label="Город или район (виден всем)">
           <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
-            <PlaceOptions />
+            <PlaceOptions none={false} />
           </select>
         </Field>
         <Field id="act-place" label="Точное место (увидит только тот, с кем откроется чат)">

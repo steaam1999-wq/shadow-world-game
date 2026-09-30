@@ -99,7 +99,7 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
   const ageNum = Number(age)
   const problem = !draft.name.trim() ? 'Введите имя'
     : !Number.isInteger(ageNum) || ageNum < 18 || ageNum > 99 ? 'Возраст — от 18 до 99'
-    : draft.tags.length < 3 ? 'Выберите хотя бы 3 интереса' : ''
+    : ''
 
   const save = () => {
     if (problem) { setError(problem); return }
@@ -157,7 +157,7 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
             <span className={`self-end text-[12px] tnum ${draft.bio.length >= BIO_MAX ? 'text-danger' : 'text-muted'}`}>{draft.bio.length}/{BIO_MAX}</span>
           </Field>
           <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-semibold text-muted">Интересы · {draft.tags.length} {draft.tags.length < 3 && <span className="font-normal">(нужно хотя бы 3)</span>}</span>
+            <span className="text-[13px] font-semibold text-muted">Интересы{draft.tags.length ? ` · ${draft.tags.length}` : ''} <span className="font-normal">(необязательно)</span></span>
             <div className="flex flex-wrap gap-2">
               {state.tags.map((t) => (
                 <Chip key={t} active={draft.tags.includes(t)} onClick={() => set({ tags: draft.tags.includes(t) ? draft.tags.filter((x) => x !== t) : [...draft.tags, t] })}>{t}</Chip>

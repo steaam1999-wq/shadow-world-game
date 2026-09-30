@@ -623,6 +623,118 @@ create policy "shares: add own" on public.plan_shares for insert to authenticate
   and exists (select 1 from public.plans p where p.id = plan_id and not private.blocked_between(p.author, (select auth.uid())))
 );
 
+-- Админ-панель: общие настройки приложения, статистика, управление пользователями и контентом.
+
+-- Настройки для всех: объявление, категории планов, интересы, открыта ли регистрация.
+create table if not exists public.app_settings (
+  key text primary key check (key in ('announcement', 'categories', 'tags', 'registration_open')),
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.app_settings enable row level security;
+revoke all on public.app_settings from anon, authenticated;
+grant select on public.app_settings to authenticated;
+grant insert, update, delete on public.app_settings to authenticated;
+drop policy if exists "settings: read" on public.app_settings;
+create policy "settings: read" on public.app_settings for select to authenticated using (true);
+drop policy if exists "settings: admin write" on public.app_settings;
+create policy "settings: admin write" on public.app_settings for all to authenticated using (private.is_admin()) with check (private.is_admin());
+
+-- Регистрация закрыта — новые анкеты создать нельзя; у кого профиль уже есть, сохраняют его как обычно.
+create or replace function private.can_create_profile() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = (select auth.uid()))
+    or coalesce((select value = 'true'::jsonb or value = 'null'::jsonb from public.app_settings where key = 'registration_open'), true)
+$$;
+revoke all on function private.can_create_profile() from public, anon;
+grant execute on function private.can_create_profile() to authenticated;
+drop policy if exists "profiles: own insert" on public.profiles;
+create policy "profiles: own insert" on public.profiles for insert to authenticated
+  with check (id = (select auth.uid()) and private.can_create_profile());
+
+-- Администратор может удалить любой план (например, нарушающий правила).
+drop policy if exists "plans: admin delete" on public.plans;
+create policy "plans: admin delete" on public.plans for delete to authenticated using (private.is_admin());
+
+-- Сводка для первой вкладки админки.
+create or replace function public.admin_stats() returns json
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return json_build_object(
+    'users', (select count(*) from profiles),
+    'users_24h', (select count(*) from profiles where created_at > now() - interval '24 hours'),
+    'users_7d', (select count(*) from profiles where created_at > now() - interval '7 days'),
+    'verified', (select count(*) from profiles where verified),
+    'plans_active', (select count(*) from plans where expires_at > now()),
+    'plans_7d', (select count(*) from plans where created_at > now() - interval '7 days'),
+    'messages_24h', (select count(*) from messages where created_at > now() - interval '24 hours'),
+    'chats', (select count(*) from capsules),
+    'posts', (select count(*) from shorts),
+    'likes', (select count(*) from plan_likes) + (select count(*) from short_likes),
+    'follows', (select count(*) from follows),
+    'reports_open', (select count(*) from reports where status = 'open'),
+    'bans', (select count(*) from bans),
+    'verifications_pending', (select count(*) from verification_requests where status = 'pending'),
+    'push_devices', (select count(*) from push_subscriptions),
+    'daily', (select coalesce(json_agg(json_build_object('day', d::date, 'users', (select count(*) from profiles where created_at::date = d::date), 'plans', (select count(*) from plans where created_at::date = d::date), 'messages', (select count(*) from messages where created_at::date = d::date)) order by d), '[]'::json)
+              from generate_series(current_date - 13, current_date, interval '1 day') d)
+  );
+end $$;
+revoke all on function public.admin_stats() from public, anon;
+grant execute on function public.admin_stats() to authenticated;
+
+-- Список пользователей для админки (с почтой и датой последнего входа — их видит только администратор).
+create or replace function public.admin_users(q text default '') returns table (
+  id uuid, name text, age int, district text, photo_path text, verified boolean, created_at timestamptz,
+  email text, last_sign_in_at timestamptz, is_admin boolean, banned boolean, ban_reason text,
+  plans bigint, posts bigint, followers bigint, reports bigint
+)
+language plpgsql stable security definer set search_path = public, auth as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return query
+  select p.id, p.name, p.age, p.district, p.photo_path, p.verified, p.created_at,
+    u.email::text, u.last_sign_in_at,
+    exists (select 1 from admins a where a.user_id = p.id),
+    exists (select 1 from bans b where b.user_id = p.id),
+    (select b.reason from bans b where b.user_id = p.id),
+    (select count(*) from plans x where x.author = p.id),
+    (select count(*) from shorts x where x.author = p.id),
+    (select count(*) from follows x where x.followee = p.id),
+    (select count(*) from reports x where x.target = p.id)
+  from profiles p join auth.users u on u.id = p.id
+  where coalesce(q, '') = '' or p.name ilike '%' || q || '%' or u.email ilike '%' || q || '%' or p.district ilike '%' || q || '%'
+  order by p.created_at desc
+  limit 300;
+end $$;
+revoke all on function public.admin_users(text) from public, anon;
+grant execute on function public.admin_users(text) to authenticated;
+
+-- Галочка «проверен» вручную.
+create or replace function public.admin_set_verified(u uuid, v boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  update profiles set verified = v where id = u;
+end $$;
+revoke all on function public.admin_set_verified(uuid, boolean) from public, anon;
+grant execute on function public.admin_set_verified(uuid, boolean) to authenticated;
+
+-- Назначить или снять администратора (последнего снять нельзя).
+create or replace function public.admin_set_admin(u uuid, v boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  if v then insert into admins (user_id) values (u) on conflict do nothing;
+  else
+    if (select count(*) from admins) <= 1 then raise exception 'last admin' using errcode = 'P0001'; end if;
+    delete from admins where user_id = u;
+  end if;
+end $$;
+revoke all on function public.admin_set_admin(uuid, boolean) from public, anon;
+grant execute on function public.admin_set_admin(uuid, boolean) to authenticated;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
@@ -644,4 +756,5 @@ begin
   begin alter publication supabase_realtime add table public.short_likes; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.follows; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.plan_shares; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.app_settings; exception when duplicate_object then null; end;
 end $$;

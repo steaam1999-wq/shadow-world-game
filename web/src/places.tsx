@@ -80,13 +80,22 @@ export function placeXY(name: string, kind: MapKind = mapKindOf(name)): [number,
   return byXY(p.lat, p.lon)
 }
 
-export const formatKm = (km: number) => (km >= 999 ? 'далеко' : km >= 20 ? `${Math.round(km)} км` : `${km.toFixed(1).replace('.', ',')} км`)
+export const formatKm = (km: number) => (km >= 999 ? '' : km >= 20 ? `${Math.round(km)} км` : `${km.toFixed(1).replace('.', ',')} км`)
 
 /** Выпадающий список мест, сгруппированный по областям. */
-export function PlaceOptions() {
-  return PLACE_GROUPS.map((g) => (
+export function PlaceOptions({ none = true }: { none?: boolean } = {}) {
+  return [
+    ...(none ? [<option key="none" value="">Не указывать</option>] : []),
+    ...PLACE_GROUPS.map((g) => (
     <optgroup key={g.region} label={g.region}>
       {g.places.map(([name]) => <option key={name} value={name}>{name}</option>)}
     </optgroup>
-  ))
+    )),
+  ]
 }
+
+/** Расстояние известно, только если оба указали город. */
+export const knownKm = (km: number | undefined) => km !== undefined && km < 999
+
+/** «Минск · 2,1 км» без пустых частей: город могут не указать. */
+export const placeLine = (...parts: (string | number | false | null | undefined)[]) => parts.filter((x) => x !== '' && x !== false && x != null).join(' · ')

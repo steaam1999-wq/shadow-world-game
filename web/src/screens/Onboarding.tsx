@@ -160,7 +160,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
             <textarea id="bio" className={`${inputCls} h-24 py-2.5 resize-none`} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Чем занимаетесь и что ищете. Пара предложений." maxLength={200} />
           </Field>
           <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-semibold text-muted">Интересы (минимум 3)</span>
+            <span className="text-[13px] font-semibold text-muted">Интересы (необязательно)</span>
             <div className="flex flex-wrap gap-2">
               {state.tags.map((t) => (
                 <Chip key={t} active={tags.includes(t)} onClick={() => setTags(tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t])}>{t}</Chip>
@@ -168,7 +168,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
             </div>
           </div>
           <p className="mt-auto text-[12px] text-muted">Нажимая кнопку, вы соглашаетесь с <button type="button" onClick={() => setRules(true)} className="underline hover:text-fg cursor-pointer">правилами и политикой конфиденциальности</button> и подтверждаете, что вам есть 18 лет.</p>
-          <Button type="submit" className="h-13" disabled={!name.trim() || tags.length < 3 || Number(age) < 18}>
+          <Button type="submit" className="h-13" disabled={!name.trim() || Number(age) < 18}>
             Смотреть активности
           </Button>
         </form>

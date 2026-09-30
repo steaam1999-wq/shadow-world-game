@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { plural } from '../lib'
 import { Avatar, Icon, Sheet } from './ui'
+import { placeLine } from '../places'
 
 type Tab = 'followers' | 'following'
 
@@ -23,7 +24,7 @@ export function FollowersSheet({ personId, open, onClose, initialTab = 'follower
   const rows = (tab === 'followers' ? followers : following).flatMap((id) => {
     if (id === 'me') return state.me ? [{ id: 'me', name: state.me.name, hue: state.me.hue, photo: state.me.photo, verified: state.me.verified, sub: state.me.district }] : []
     const p = state.people.find((x) => x.id === id)
-    return p ? [{ id: p.id, name: p.name, hue: p.hue, photo: p.photo, verified: p.verified, sub: `${p.district}${(state.followers?.[p.id] ?? 0) ? ` · ${state.followers![p.id]} ${plural(state.followers![p.id], 'подписчик', 'подписчика', 'подписчиков')}` : ''}` }] : []
+    return p ? [{ id: p.id, name: p.name, hue: p.hue, photo: p.photo, verified: p.verified, sub: placeLine(p.district, (state.followers?.[p.id] ?? 0) > 0 && `${state.followers![p.id]} ${plural(state.followers![p.id], 'подписчик', 'подписчика', 'подписчиков')}`) }] : []
   }).filter((p) => !q || p.name.toLowerCase().includes(q))
 
   const tabBtn = (id: Tab, label: string, n: number) => (

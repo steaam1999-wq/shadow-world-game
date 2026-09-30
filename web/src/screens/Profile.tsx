@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PlaceOptions } from '../places'
+import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { LEVELS, level, plural, profileCompleteness } from '../lib'
@@ -57,7 +57,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
               <span className="truncate">{me.name}, {me.age}</span>
               {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
             </h2>
-            <div className="text-[14px] text-muted truncate">{lv.name} · {me.district}</div>
+            <div className="text-[14px] text-muted truncate">{placeLine(lv.name, me.district)}</div>
           </div>
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
             <Avatar name={me.name} hue={me.hue} src={me.photo} size={76} />

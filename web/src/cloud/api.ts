@@ -80,6 +80,7 @@ export function humanError(e: unknown): string {
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Нет связи с сервером. Проверьте интернет.'
   // Отказ правил доступа: блокировка между людьми или бан модератором.
   if (/row-level security.*"(capsules|messages)"/i.test(m)) return 'Написать нельзя: переписка заблокирована или аккаунт ограничен модератором.'
+  if (/row-level security.*"profiles"/i.test(m)) return 'Регистрация временно закрыта. Попробуйте позже.'
   if (/row-level security.*"plans"/i.test(m)) return 'Публиковать планы нельзя: аккаунт ограничен модератором.'
   if (/row-level security/i.test(m)) return 'Это действие запрещено.'
   return 'Ошибка сервера: ' + m
@@ -174,7 +175,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows] = await Promise.all([
     db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
     db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -183,8 +184,10 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.from('admins').select('user_id').returns<{ user_id: string }[]>(),
     db.from('verification_requests').select('status').eq('user_id', userId).maybeSingle<{ status: 'pending' | 'approved' | 'rejected' }>(),
     db.from('shorts').select('*').order('created_at', { ascending: false }).limit(200).returns<ShortRow[]>(),
+    db.from('app_settings').select('key, value').returns<{ key: string; value: unknown }[]>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows]) if (r.error) throw r.error
+  const settings = parseSettings(settingRows.data ?? [])
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
   const blocked = (profiles.data ?? []).filter((p) => hidden.has(p.id)).map((p) => ({ id: p.id, name: p.name }))
@@ -256,7 +259,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   }))
   const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,
     new Set(activities.filter((a) => a.authorId === 'me').map((a) => a.id)), new Set(shorts.filter((s) => s.authorId === 'me').map((s) => s.id)))
-  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, social }
+  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, social, settings }
 }
 
 /** Фото из хранилища — временными ссылками; старые (base64 в базе) — отдельным запросом, только где они ещё есть. */
@@ -269,6 +272,66 @@ async function attachPhotos(profiles: ProfileRow[], plans: PlanRow[]) {
   ])
   const legacy = new Map([...(oldProfiles.data ?? []), ...(oldPlans.data ?? [])].map((r) => [r.id, r.photo]))
   for (const r of [...profiles, ...plans]) r.photo = (r.photo_path ? urls.get(r.photo_path) : legacy.get(r.id)) ?? null
+}
+
+/** Общие настройки из админки: объявление, категории, интересы, открыта ли регистрация. */
+export interface AppSettings { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean }
+function parseSettings(rows: { key: string; value: unknown }[]): AppSettings {
+  const get = (k: string) => rows.find((r) => r.key === k)?.value
+  const list = (v: unknown) => (Array.isArray(v) && v.length ? v.map(String) : null)
+  const ann = get('announcement')
+  return { announcement: typeof ann === 'string' && ann.trim() ? ann : null, categories: list(get('categories')), tags: list(get('tags')), registrationOpen: get('registration_open') !== false }
+}
+
+export async function adminSaveSetting(key: 'announcement' | 'categories' | 'tags' | 'registration_open', value: unknown) {
+  const { error } = await sb().from('app_settings').upsert({ key, value, updated_at: new Date().toISOString() })
+  if (error) throw error
+}
+
+export interface AdminStats {
+  users: number; users_24h: number; users_7d: number; verified: number; plans_active: number; plans_7d: number; messages_24h: number
+  chats: number; posts: number; likes: number; follows: number; reports_open: number; bans: number; verifications_pending: number; push_devices: number
+  daily: { day: string; users: number; plans: number; messages: number }[]
+}
+export async function adminStats(): Promise<AdminStats> {
+  const { data, error } = await sb().rpc('admin_stats')
+  if (error) throw error
+  return data as AdminStats
+}
+
+export interface AdminUser {
+  id: string; name: string; age: number; district: string; photo: string | null; verified: boolean; createdAt: number; email: string
+  lastSignIn: number | null; isAdmin: boolean; banned: boolean; banReason: string | null; plans: number; posts: number; followers: number; reports: number
+}
+export async function adminUsers(q: string): Promise<AdminUser[]> {
+  const { data, error } = await sb().rpc('admin_users', { q })
+  if (error) throw error
+  const rows = (data ?? []) as { id: string; name: string; age: number; district: string; photo_path: string | null; verified: boolean; created_at: string; email: string; last_sign_in_at: string | null; is_admin: boolean; banned: boolean; ban_reason: string | null; plans: number; posts: number; followers: number; reports: number }[]
+  const urls = await sign('media', rows.flatMap((r) => (r.photo_path ? [r.photo_path] : [])))
+  return rows.map((r) => ({
+    id: r.id, name: r.name, age: r.age, district: r.district, photo: r.photo_path ? urls.get(r.photo_path) ?? null : null, verified: r.verified,
+    createdAt: ms(r.created_at), email: r.email, lastSignIn: r.last_sign_in_at ? ms(r.last_sign_in_at) : null, isAdmin: r.is_admin,
+    banned: r.banned, banReason: r.ban_reason, plans: Number(r.plans), posts: Number(r.posts), followers: Number(r.followers), reports: Number(r.reports),
+  }))
+}
+export async function adminSetVerified(userId: string, v: boolean) {
+  const { error } = await sb().rpc('admin_set_verified', { u: userId, v })
+  if (error) throw error
+}
+export async function adminSetAdmin(userId: string, v: boolean) {
+  const { error } = await sb().rpc('admin_set_admin', { u: userId, v })
+  if (error) throw new Error(/last admin/.test(error.message) ? 'Нельзя снять последнего администратора.' : error.message)
+}
+/** Удалить все планы и публикации пользователя (например, после бана за спам). */
+export async function adminWipeContent(userId: string) {
+  const db = sb()
+  const [{ data: plans }, { data: posts }] = await Promise.all([
+    db.from('plans').select('id').eq('author', userId).returns<{ id: string }[]>(),
+    db.from('shorts').select('id, path').eq('author', userId).returns<{ id: string; path: string }[]>(),
+  ])
+  for (const p of plans ?? []) await deletePlan(p.id)
+  for (const s of posts ?? []) await deleteShort(s.id, s.path)
+  return { plans: plans?.length ?? 0, posts: posts?.length ?? 0 }
 }
 
 type LikeRow = { user_id: string; created_at: string }
@@ -524,7 +587,7 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     if (ch) void sb().removeChannel(ch)
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

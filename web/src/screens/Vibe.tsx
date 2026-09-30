@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatKm } from '../places'
+import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { ReliabilityBadge } from '../components/Meet'
@@ -40,7 +40,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
                   <h2 className="font-display font-bold text-lg"><button onClick={() => openProfile(p.id)} className="cursor-pointer hover:underline">{p.name}, {p.age}</button></h2>
                   {i === 0 && <Pill tone="spark">Лучший мэтч</Pill>}
                 </div>
-                <p className={`text-[13px] text-muted`}>{p.district} · {formatKm(p.distanceKm)} · встреч: {p.meetings}</p>
+                <p className={`text-[13px] text-muted`}>{placeLine(p.district, formatKm(p.distanceKm), `встреч: ${p.meetings}`)}</p>
                 <ReliabilityBadge person={p} compact />
               </div>
               <div className="text-right shrink-0">
