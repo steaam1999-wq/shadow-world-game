@@ -156,7 +156,7 @@ export function MessageAlerts({ openChat, onOpen }: { openChat: string | null; o
       for (const m of c.messages) {
         if (m.from !== 'them' || m.at < since.current || seen.current.has(m.id)) continue
         seen.current.add(m.id)
-        fresh.push({ chat: c.id, person, text: m.text, key: m.id })
+        fresh.push({ chat: c.id, person, text: m.text || '📷 Фото', key: m.id })
       }
     }
     const last = fresh[fresh.length - 1]

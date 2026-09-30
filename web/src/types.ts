@@ -68,6 +68,8 @@ export interface Message {
   from: 'me' | 'them' | 'system'
   text: string
   at: number
+  photo?: string // ссылка на фото или data URL, пока отправляется
+  photoPath?: string // путь фото в хранилище чата (облако)
 }
 
 export interface Capsule {
@@ -80,6 +82,7 @@ export interface Capsule {
   messages: Message[]
   unread: number
   again?: 'yes' | 'no' // мой тайный ответ «хочу встретиться ещё»
+  theirReadAt?: number // когда собеседник последний раз открывал чат — для галочек «прочитано»
 }
 
 /** Уведомление: лайк моего плана или публикации, новая подписка. */

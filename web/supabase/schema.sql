@@ -520,6 +520,45 @@ revoke all on function private.on_message_push() from public, anon, authenticate
 drop trigger if exists messages_push on public.messages;
 create trigger messages_push after insert on public.messages for each row execute function private.on_message_push();
 
+-- Чат: фото в сообщениях, «прочитано» и удаление своих сообщений.
+alter table public.messages add column if not exists photo_path text check (photo_path is null or char_length(photo_path) <= 200);
+alter table public.messages drop constraint if exists messages_body_check;
+alter table public.messages drop constraint if exists messages_content_check;
+alter table public.messages add constraint messages_content_check
+  check (char_length(body) <= 2000 and (char_length(body) >= 1 or photo_path is not null));
+drop policy if exists "messages: delete own" on public.messages;
+create policy "messages: delete own" on public.messages for delete to authenticated using (sender = (select auth.uid()));
+
+-- Когда каждый участник последний раз открывал чат — для галочек «прочитано».
+alter table public.capsules add column if not exists author_read_at timestamptz;
+alter table public.capsules add column if not exists responder_read_at timestamptz;
+create or replace function public.mark_read(c uuid) returns void
+language sql security definer set search_path = public as $$
+  update public.capsules set
+    author_read_at = case when author = (select auth.uid()) then now() else author_read_at end,
+    responder_read_at = case when responder = (select auth.uid()) then now() else responder_read_at end
+  where id = c and (select auth.uid()) in (author, responder)
+$$;
+revoke all on function public.mark_read(uuid) from public, anon;
+grant execute on function public.mark_read(uuid) to authenticated;
+
+-- Фото из чатов: chat/<id чата>/<файл>, видят только двое участников.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('chat', 'chat', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "chat files: participants read" on storage.objects;
+create policy "chat files: participants read" on storage.objects for select to authenticated using (
+  bucket_id = 'chat' and private.in_capsule(((storage.foldername(name))[1])::uuid)
+);
+drop policy if exists "chat files: participants upload" on storage.objects;
+create policy "chat files: participants upload" on storage.objects for insert to authenticated with check (
+  bucket_id = 'chat' and private.can_write(((storage.foldername(name))[1])::uuid)
+);
+drop policy if exists "chat files: delete own" on storage.objects;
+create policy "chat files: delete own" on storage.objects for delete to authenticated using (
+  bucket_id = 'chat' and owner_id = (select auth.uid())::text
+);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

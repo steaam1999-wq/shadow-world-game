@@ -33,6 +33,14 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     }
     case 'send':
       return run(api.sendMessage(uid, a.capsuleId, a.text))
+    case 'sendPhoto':
+      return run(api.sendPhotoMessage(uid, a.capsuleId, a.photo, a.text ?? ''))
+    case 'deleteMessage': {
+      const m = s.capsules.find((c) => c.id === a.capsuleId)?.messages.find((x) => x.id === a.messageId)
+      return m && /^\d+$/.test(m.id) ? run(api.deleteMessage(m.id, m.photoPath)) : null
+    }
+    case 'readCapsule':
+      return run(api.markRead(a.capsuleId))
     case 'share': {
       const plan = s.activities.find((x) => x.id === a.activityId)
       const c = s.capsules.find((x) => x.personId === a.personId)

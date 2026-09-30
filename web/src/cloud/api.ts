@@ -15,8 +15,8 @@ export function sb() {
 
 interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null }
-interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string }
-interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string }
+interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null }
+interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
 
 const ms = (iso: string) => new Date(iso).getTime()
 
@@ -25,7 +25,7 @@ interface ShortRow { id: string; author: string; path: string; caption: string; 
 // Ссылки на закрытые файлы выдаются на время. Кэшируем их, иначе при каждом обновлении
 // ссылка менялась бы: видео начиналось бы заново, а фото скачивались повторно.
 const signed = new Map<string, { url: string; until: number }>()
-async function sign(bucket: 'shorts' | 'media', paths: string[]) {
+async function sign(bucket: 'shorts' | 'media' | 'chat', paths: string[]) {
   const now = Date.now()
   const key = (p: string) => `${bucket}:${p}`
   const need = [...new Set(paths)].filter((p) => (signed.get(key(p))?.until ?? 0) < now + 10 * 60_000)
@@ -224,6 +224,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   }))
 
   const byCapsule = new Map<string, MessageRow[]>()
+  const chatPhotos = await sign('chat', (messages.data ?? []).flatMap((m) => (m.photo_path ? [m.photo_path] : [])))
   for (const m of messages.data ?? []) byCapsule.set(m.capsule_id, [...(byCapsule.get(m.capsule_id) ?? []), m])
 
   const caps: Capsule[] = (capsules.data ?? []).map((c) => {
@@ -233,13 +234,14 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     const msgs: Message[] = [
       { id: `${c.id}-open`, from: 'system', text: c.plan_id ? 'Чат открыт. Договоритесь о встрече — точное место уже здесь.' : 'Личная переписка.', at: created },
       ...(exact ? [{ id: `${c.id}-place`, from: 'system' as const, text: `Точное место: ${exact}`, at: created }] : []),
-      ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at) })),
+      ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at), ...(m.photo_path ? { photo: chatPhotos.get(m.photo_path), photoPath: m.photo_path } : {}) })),
       ...(c.status !== 'active' ? [{ id: `${c.id}-status`, from: 'system' as const, text: STATUS_NOTE[c.status], at: Date.now() }] : []),
     ]
     const seen = read[c.id] ?? 0
     return {
       id: c.id, personId: c.author === userId ? c.responder : c.author, activityId: c.plan_id ?? '',
       createdAt: created, expiresAt: ms(c.expires_at), status: c.status, messages: msgs,
+      theirReadAt: (() => { const r = c.author === userId ? c.responder_read_at : c.author_read_at; return r ? ms(r) : undefined })(),
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
   })
@@ -342,6 +344,27 @@ export async function openDirect(userId: string, capsuleId: string, otherId: str
 
 export async function sendMessage(userId: string, capsuleId: string, body: string) {
   const { error } = await sb().from('messages').insert({ capsule_id: capsuleId, sender: userId, body })
+  if (error) throw error
+}
+
+/** Фото в чат: файл в хранилище chat/<id чата>/, в сообщении — путь к нему. */
+export async function sendPhotoMessage(userId: string, capsuleId: string, dataUrl: string, text: string) {
+  const blob = await (await fetch(dataUrl)).blob()
+  const path = `${capsuleId}/${crypto.randomUUID()}.jpg`
+  const up = await sb().storage.from('chat').upload(path, blob, { contentType: 'image/jpeg', upsert: false })
+  if (up.error) throw up.error
+  const { error } = await sb().from('messages').insert({ capsule_id: capsuleId, sender: userId, body: text, photo_path: path })
+  if (error) { await sb().storage.from('chat').remove([path]); throw error }
+}
+
+export async function deleteMessage(id: string, photoPath?: string) {
+  const { error } = await sb().from('messages').delete().eq('id', Number(id))
+  if (error) throw error
+  if (photoPath) await sb().storage.from('chat').remove([photoPath])
+}
+
+export async function markRead(capsuleId: string) {
+  const { error } = await sb().rpc('mark_read', { c: capsuleId })
   if (error) throw error
 }
 

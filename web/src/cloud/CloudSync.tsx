@@ -41,6 +41,7 @@ export function CloudSync() {
     setReloader(() => void load())
     void load()
     const channel = api.subscribe(soon, (m) => {
+      if (m.photo_path) return // сообщение с фото придёт с перезагрузкой — там уже будет ссылка на фото
       dispatch({ type: 'cloudMessage', capsuleId: m.capsule_id, id: String(m.id), mine: m.sender === userId, text: m.body, at: new Date(m.created_at).getTime() })
     }, (ok) => { live = ok })
 

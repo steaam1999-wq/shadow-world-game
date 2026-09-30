@@ -19,6 +19,8 @@ export type Action =
   | { type: 'reply'; capsuleId: string }
   | { type: 'setStatus'; capsuleId: string; status: CapsuleStatus }
   | { type: 'readCapsule'; capsuleId: string }
+  | { type: 'sendPhoto'; capsuleId: string; photo: string; text?: string }
+  | { type: 'deleteMessage'; capsuleId: string; messageId: string }
   | { type: 'nowPlaying'; value: NowPlaying | null }
   | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
   | { type: 'report'; personId: string; reason: string; text: string }
@@ -169,7 +171,7 @@ function reducer(state: State, action: Action): State {
         ...state,
         capsules: state.capsules.map((c) =>
           c.id === action.capsuleId
-            ? { ...c, messages: [...c.messages, { id: uid(), from: 'them', text: QUICK_REPLIES[Math.floor(Math.random() * QUICK_REPLIES.length)], at: now }] }
+            ? { ...c, theirReadAt: now, messages: [...c.messages, { id: uid(), from: 'them', text: QUICK_REPLIES[Math.floor(Math.random() * QUICK_REPLIES.length)], at: now }] }
             : c,
         ),
       }
@@ -183,6 +185,13 @@ function reducer(state: State, action: Action): State {
             : c,
         ),
       }
+    case 'sendPhoto':
+      return {
+        ...state,
+        capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, messages: [...c.messages, { id: uid(), from: 'me' as const, text: action.text ?? '', photo: action.photo, at: now }] } : c),
+      }
+    case 'deleteMessage':
+      return { ...state, capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, messages: c.messages.filter((m) => m.id !== action.messageId) } : c) }
     case 'readCapsule':
       return {
         ...state,

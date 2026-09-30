@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
   const { message_id } = await req.json().catch(() => ({}))
   if (!message_id) return new Response('bad request', { status: 400 })
-  const { data: m } = await db.from('messages').select('capsule_id, sender, body').eq('id', message_id).maybeSingle()
+  const { data: m } = await db.from('messages').select('capsule_id, sender, body, photo_path').eq('id', message_id).maybeSingle()
   if (!m) return new Response('no message', { status: 404 })
   const { data: c } = await db.from('capsules').select('author, responder').eq('id', m.capsule_id).maybeSingle()
   if (!c) return new Response('no chat', { status: 404 })
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   ])
   if (!subs?.length) return new Response('no subscribers', { status: 200 })
 
-  const text = String(m.body)
+  const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : 'Новое сообщение')
   const payload = JSON.stringify({ title: sender?.name ?? 'ISKRA', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
   let sent = 0
   await Promise.all(subs.map(async (s) => {
