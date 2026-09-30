@@ -13,8 +13,8 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
-interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; time_hidden: boolean; group_size: number | null }
+interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
+interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string }
 
@@ -22,19 +22,35 @@ const ms = (iso: string) => new Date(iso).getTime()
 
 interface ShortRow { id: string; author: string; path: string; caption: string; duration: number | null; kind: 'video' | 'photo' | null; created_at: string }
 
-// Ссылки на закрытые видео выдаются на время. Кэшируем их, иначе при каждом обновлении
-// ссылка менялась бы и видео начиналось заново.
+// Ссылки на закрытые файлы выдаются на время. Кэшируем их, иначе при каждом обновлении
+// ссылка менялась бы: видео начиналось бы заново, а фото скачивались повторно.
 const signed = new Map<string, { url: string; until: number }>()
-async function signShorts(paths: string[]) {
+async function sign(bucket: 'shorts' | 'media', paths: string[]) {
   const now = Date.now()
-  const need = paths.filter((p) => (signed.get(p)?.until ?? 0) < now + 10 * 60_000)
-  if (need.length) {
-    const { data, error } = await sb().storage.from('shorts').createSignedUrls(need, 6 * 3600)
+  const key = (p: string) => `${bucket}:${p}`
+  const need = [...new Set(paths)].filter((p) => (signed.get(key(p))?.until ?? 0) < now + 10 * 60_000)
+  for (let i = 0; i < need.length; i += 500) {
+    const { data, error } = await sb().storage.from(bucket).createSignedUrls(need.slice(i, i + 500), 6 * 3600)
     if (error) throw error
-    for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(d.path, { url: d.signedUrl, until: now + 6 * 3600_000 })
+    for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(key(d.path), { url: d.signedUrl, until: now + 6 * 3600_000 })
   }
-  return new Map(paths.flatMap((p) => { const s = signed.get(p); return s ? [[p, s.url] as const] : [] }))
+  return new Map(paths.flatMap((p) => { const s = signed.get(key(p)); return s ? [[p, s.url] as const] : [] }))
 }
+const signShorts = (paths: string[]) => sign('shorts', paths)
+
+/** Загружает фото (data URL) в хранилище и возвращает путь. */
+async function uploadImage(userId: string, dataUrl: string) {
+  const blob = await (await fetch(dataUrl)).blob()
+  const type = ['image/png', 'image/webp'].includes(blob.type) ? blob.type : 'image/jpeg'
+  const path = `${userId}/${crypto.randomUUID()}.${type.split('/')[1].replace('jpeg', 'jpg')}`
+  const { error } = await sb().storage.from('media').upload(path, blob, { contentType: type, upsert: false })
+  if (error) throw error
+  return path
+}
+
+// Колонки без встроенных фото: так ленту не приходится скачивать вместе со всеми фото целиком.
+const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path'
+const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path'
 
 /** Загружает видео или фото в хранилище и публикует его. */
 export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video') {
@@ -96,18 +112,22 @@ export function profileToMe(p: ProfileRow, local: Me | null): Me {
     privacy: { showExactAge: true, hideFromContacts: true, approxLocation: true }, radiusKm: 10,
     ...local,
     name: p.name, age: p.age, bio: p.bio, district: p.district, hue: p.hue, tags: p.tags, answers: p.answers,
-    photo: p.photo ?? undefined, verified: p.verified, meetings: p.meetings, authMethod: 'email',
+    photo: p.photo ?? undefined, photoPath: p.photo_path ?? undefined, verified: p.verified, meetings: p.meetings, authMethod: 'email',
     songs: local?.privacy?.hideSongs ? local.songs : (p.songs ?? []),
   }
 }
 
 export async function saveProfile(userId: string, me: Me) {
+  // Новое фото (data URL) уходит в хранилище; ссылка на уже загруженное — оставляем путь как есть.
+  const old = me.photoPath ?? null
+  const photoPath = me.photo?.startsWith('data:') ? await uploadImage(userId, me.photo) : me.photo ? old : null
   const { error } = await sb().from('profiles').upsert({
     id: userId, name: me.name, age: me.age, bio: me.bio, district: me.district, hue: me.hue,
-    tags: me.tags, answers: me.answers, photo: me.photo ?? null, meetings: me.meetings,
+    tags: me.tags, answers: me.answers, photo: null, photo_path: photoPath, meetings: me.meetings,
     songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50),
   })
   if (error) throw error
+  if (old && old !== photoPath) await sb().storage.from('media').remove([old])
 }
 
 /** Сколько «Сейчас слушает» считается свежим: пока играет, плеер обновляет его каждые 4 минуты. */
@@ -121,6 +141,7 @@ export async function setNowPlaying(userId: string, value: NowPlaying | null) {
 export async function fetchMyProfile(userId: string) {
   const { data, error } = await sb().from('profiles').select('*').eq('id', userId).maybeSingle<ProfileRow>()
   if (error) throw error
+  if (data?.photo_path) data.photo = (await sign('media', [data.photo_path])).get(data.photo_path) ?? null
   return data
 }
 
@@ -135,8 +156,8 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
   const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows] = await Promise.all([
-    db.from('profiles').select('*').limit(500).returns<ProfileRow[]>(),
-    db.from('plans').select('*').gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
+    db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
+    db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
     db.from('plan_secrets').select('*').returns<{ plan_id: string; exact_place: string }[]>(),
     db.from('blocks').select('blocked').returns<{ blocked: string }[]>(),
@@ -165,6 +186,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     : { data: [] as MessageRow[], error: null }
   if (messages.error) throw messages.error
 
+  await attachPhotos(profiles.data ?? [], plans.data ?? [])
   const mine = (profiles.data ?? []).find((p) => p.id === userId) ?? null
   const me = mine ? profileToMe(mine, local) : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
@@ -212,6 +234,18 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, social }
 }
 
+/** Фото из хранилища — временными ссылками; старые (base64 в базе) — отдельным запросом, только где они ещё есть. */
+async function attachPhotos(profiles: ProfileRow[], plans: PlanRow[]) {
+  const db = sb()
+  const [urls, oldProfiles, oldPlans] = await Promise.all([
+    sign('media', [...profiles, ...plans].flatMap((r) => (r.photo_path ? [r.photo_path] : []))),
+    profiles.some((p) => !p.photo_path) ? db.from('profiles').select('id,photo').is('photo_path', null).not('photo', 'is', null).limit(500).returns<{ id: string; photo: string }[]>() : Promise.resolve({ data: [], error: null }),
+    plans.some((p) => !p.photo_path) ? db.from('plans').select('id,photo').in('id', plans.filter((p) => !p.photo_path).map((p) => p.id)).not('photo', 'is', null).returns<{ id: string; photo: string }[]>() : Promise.resolve({ data: [], error: null }),
+  ])
+  const legacy = new Map([...(oldProfiles.data ?? []), ...(oldPlans.data ?? [])].map((r) => [r.id, r.photo]))
+  for (const r of [...profiles, ...plans]) r.photo = (r.photo_path ? urls.get(r.photo_path) : legacy.get(r.id)) ?? null
+}
+
 type LikeRow = { user_id: string; created_at: string }
 async function loadSocial(db: SupabaseClient, userId: string, planIds: string[], shortIds: string[], hidden: Set<string>, myPlans: Set<string>, myShorts: Set<string>): Promise<Social> {
   const [pl, sl, fo, sv] = await Promise.all([
@@ -257,7 +291,8 @@ export async function createPlan(userId: string, id: string, a: Omit<Activity, '
   const db = sb()
   const { error } = await db.from('plans').insert({
     id, author: userId, title: a.title, category: a.category, area: a.area, starts_at: new Date(a.startsAt).toISOString(),
-    duration_min: a.durationMin, expires_at: new Date(a.expiresAt).toISOString(), x: a.x, y: a.y, photo: a.photo ?? null,
+    duration_min: a.durationMin, expires_at: new Date(a.expiresAt).toISOString(), x: a.x, y: a.y, photo: null,
+    photo_path: a.photo?.startsWith('data:') ? await uploadImage(userId, a.photo) : null,
     time_hidden: !!a.timeHidden, group_size: a.groupSize ?? null,
   })
   if (error) throw error
@@ -266,8 +301,10 @@ export async function createPlan(userId: string, id: string, a: Omit<Activity, '
 }
 
 export async function deletePlan(id: string) {
+  const { data } = await sb().from('plans').select('photo_path').eq('id', id).maybeSingle<{ photo_path: string | null }>()
   const { error } = await sb().from('plans').delete().eq('id', id)
   if (error) throw error
+  if (data?.photo_path) await sb().storage.from('media').remove([data.photo_path])
 }
 
 export async function respond(userId: string, capsuleId: string, plan: Activity, text?: string) {
@@ -305,11 +342,13 @@ export async function unblock(userId: string, personId: string) {
 }
 
 export async function deleteAccount() {
-  // Видео лежат в хранилище отдельно от базы — убираем свои файлы до удаления аккаунта.
+  // Видео и фото лежат в хранилище отдельно от базы — убираем свои файлы до удаления аккаунта.
   const user = await currentUser()
   if (user) {
-    const { data } = await sb().storage.from('shorts').list(user.id, { limit: 1000 })
-    if (data?.length) await sb().storage.from('shorts').remove(data.map((f) => `${user.id}/${f.name}`))
+    for (const bucket of ['shorts', 'media']) {
+      const { data } = await sb().storage.from(bucket).list(user.id, { limit: 1000 })
+      if (data?.length) await sb().storage.from(bucket).remove(data.map((f) => `${user.id}/${f.name}`))
+    }
   }
   const { error } = await sb().rpc('delete_my_account')
   if (error) throw error

@@ -29,6 +29,9 @@ alter table public.profiles drop constraint if exists profiles_now_playing_check
 alter table public.profiles add constraint profiles_now_playing_check
   check (now_playing is null or (jsonb_typeof(now_playing) = 'object' and octet_length(now_playing::text) <= 4000));
 
+-- Фото профиля в хранилище media/<владелец>/<файл>; в photo остаются только старые фото (base64).
+alter table public.profiles add column if not exists photo_path text check (photo_path is null or char_length(photo_path) <= 200);
+
 -- Планы: видны всем вошедшим. Точное место хранится отдельно (plan_secrets).
 create table if not exists public.plans (
   id uuid primary key default gen_random_uuid(),
@@ -48,6 +51,7 @@ create table if not exists public.plans (
 );
 create index if not exists plans_expires_idx on public.plans (expires_at);
 create index if not exists plans_author_idx on public.plans (author);
+alter table public.plans add column if not exists photo_path text check (photo_path is null or char_length(photo_path) <= 200);
 
 -- Капсула: переписка двух людей, 72 часа на договорённость. С планом — отклик на него,
 -- без плана (plan_id null) — личное сообщение из профиля.
@@ -170,8 +174,8 @@ create policy "reports: send" on public.reports for insert to authenticated with
 
 -- Профиль: менять можно только свои «анкетные» поля. verified ставит только сервер/админ.
 revoke insert, update on public.profiles from authenticated;
-grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing) on public.profiles to authenticated;
-grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing) on public.profiles to authenticated;
+grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing, photo_path) on public.profiles to authenticated;
+grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing, photo_path) on public.profiles to authenticated;
 
 create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade
@@ -445,6 +449,21 @@ create policy "follows: remove own" on public.follows for delete to authenticate
 
 drop policy if exists "saved: own" on public.saved_plans;
 create policy "saved: own" on public.saved_plans for all to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+-- Закрытое хранилище фото профилей и планов.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('media', 'media', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "media files: read" on storage.objects;
+create policy "media files: read" on storage.objects for select to authenticated using (bucket_id = 'media');
+drop policy if exists "media files: upload own" on storage.objects;
+create policy "media files: upload own" on storage.objects for insert to authenticated with check (
+  bucket_id = 'media' and (storage.foldername(name))[1] = (select auth.uid())::text and not private.is_banned((select auth.uid()))
+);
+drop policy if exists "media files: delete own" on storage.objects;
+create policy "media files: delete own" on storage.objects for delete to authenticated using (
+  bucket_id = 'media' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
+);
 
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void

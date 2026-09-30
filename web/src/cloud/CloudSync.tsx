@@ -13,7 +13,7 @@ export function CloudSync() {
   useEffect(() => {
     if (!userId) return
     let alive = true, busy = false, again = false
-    let live = false, lastLoad = 0
+    let live = false, lastLoad = 0, migrated = false
     const load = async () => {
       if (busy) { again = true; return }
       busy = true
@@ -25,6 +25,8 @@ export function CloudSync() {
         if (!user || user.id !== userId) { dispatch({ type: 'signOut' }); return }
         const d = await api.loadAll(userId, ref.current.me, ref.current.cloudRead ?? {})
         if (alive) dispatch({ type: 'cloudLoad', ...d })
+        // Старое фото профиля лежит прямо в базе — один раз переносим его в хранилище.
+        if (alive && !migrated && d.me?.photo?.startsWith('data:') && !d.me.photoPath) { migrated = true; dispatch({ type: 'updateMe', patch: {} }) }
       } catch (e) {
         if (alive) dispatch({ type: 'cloudError', message: api.humanError(e) })
       } finally {

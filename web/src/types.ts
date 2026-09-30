@@ -36,6 +36,7 @@ export interface Me {
   privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean; hideSongs?: boolean; hideNowPlaying?: boolean }
   radiusKm: number
   photo?: string
+  photoPath?: string // где фото лежит в хранилище (облако)
   songs?: Track[]
   nowPlaying?: NowPlaying | null
   freeUntil?: number // «Свободен сейчас» до этого времени
