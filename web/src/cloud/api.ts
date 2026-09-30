@@ -100,6 +100,7 @@ export async function signUp(email: string, password: string) {
 }
 
 export async function signOut() {
+  lastUpload = null
   await removePushSubscription() // после выхода уведомления на это устройство приходить не должны
   await sb().auth.signOut()
 }
@@ -133,14 +134,20 @@ export function profileToMe(p: ProfileRow, local: Me | null): Me {
     ...local,
     name: p.name, age: p.age, bio: p.bio, district: p.district, hue: p.hue, tags: p.tags, answers: p.answers,
     photo: p.photo ?? undefined, photoPath: p.photo_path ?? undefined, verified: p.verified, meetings: p.meetings, authMethod: 'email',
-    songs: local?.privacy?.hideSongs ? local.songs : (p.songs ?? []),
+    songs: local?.privacy?.hideSongs ? local.songs : safeTracks(p.songs),
   }
 }
+
+// Последнее загруженное фото профиля: пока экран не обновился, повторное сохранение не должно грузить его ещё раз.
+let lastUpload: { data: string; path: string } | null = null
 
 export async function saveProfile(userId: string, me: Me) {
   // Новое фото (data URL) уходит в хранилище; ссылка на уже загруженное — оставляем путь как есть.
   const old = me.photoPath ?? null
-  const photoPath = me.photo?.startsWith('data:') ? await uploadImage(userId, me.photo) : me.photo ? old : null
+  const fresh = me.photo?.startsWith('data:') ? me.photo : null
+  const photoPath = fresh
+    ? (lastUpload?.data === fresh ? lastUpload.path : (lastUpload = { data: fresh, path: await uploadImage(userId, fresh) }).path)
+    : me.photo ? old : null
   const { error } = await sb().from('profiles').upsert({
     id: userId, name: me.name, age: me.age ?? null, bio: me.bio, district: me.district, hue: me.hue,
     tags: me.tags, answers: me.answers, photo: null, photo_path: photoPath, meetings: me.meetings,
@@ -152,6 +159,14 @@ export async function saveProfile(userId: string, me: Me) {
   const priv = await sb().from('profile_private').upsert({ user_id: userId, birth_date: me.birthDate ?? null })
   if (priv.error) throw priv.error
 }
+
+/** Треки из чужих профилей и планов: только https-ссылки на звук и обложку, иначе ссылку отбрасываем. */
+const httpsOnly = (u?: string) => (typeof u === 'string' && u.startsWith('https://') ? u : undefined)
+function safeTrack(t: Track | null | undefined): Track | null {
+  if (!t || typeof t !== 'object' || typeof t.id !== 'string') return null
+  return { ...t, title: String(t.title ?? '').slice(0, 120), artist: String(t.artist ?? '').slice(0, 80), url: httpsOnly(t.url), cover: httpsOnly(t.cover) }
+}
+const safeTracks = (list: unknown) => (Array.isArray(list) ? list.map((t) => safeTrack(t as Track)).filter((t): t is Track => !!t) : [])
 
 /** Сколько «Сейчас слушает» считается свежим: пока играет, плеер обновляет его каждые 4 минуты. */
 export const NOW_PLAYING_TTL = 6 * 60_000
@@ -220,14 +235,14 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
-    photo: p.photo ?? undefined, songs: Array.isArray(p.songs) ? p.songs : [],
-    nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL ? p.now_playing : null,
+    photo: p.photo ?? undefined, songs: safeTracks(p.songs),
+    nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
 
   const activities: Activity[] = (plans.data ?? []).map((p) => ({
     id: p.id, authorId: p.author === userId ? 'me' : p.author, title: p.title, category: p.category, area: p.area,
     exactPlace: place.get(p.id) ?? '', startsAt: ms(p.starts_at), durationMin: p.duration_min, expiresAt: ms(p.expires_at),
-    x: p.x, y: p.y, photo: p.photo ?? undefined, timeHidden: p.time_hidden || undefined, groupSize: p.group_size ?? undefined, members: p.group_size ? [] : undefined, music: p.music?.track ? p.music : undefined,
+    x: p.x, y: p.y, photo: p.photo ?? undefined, timeHidden: p.time_hidden || undefined, groupSize: p.group_size ?? undefined, members: p.group_size ? [] : undefined, music: p.music?.track && safeTrack(p.music.track) ? { track: safeTrack(p.music.track)!, start: Math.max(0, Number(p.music.start) || 0) } : undefined,
   }))
 
   const byCapsule = new Map<string, MessageRow[]>()
@@ -491,6 +506,12 @@ export async function deleteAccount() {
     for (const bucket of ['shorts', 'media']) {
       const { data } = await sb().storage.from(bucket).list(user.id, { limit: 1000 })
       if (data?.length) await sb().storage.from(bucket).remove(data.map((f) => `${user.id}/${f.name}`))
+    }
+    // Мои чаты удалятся вместе с аккаунтом — убираем и фото из них.
+    const { data: chats } = await sb().from('capsules').select('id').returns<{ id: string }[]>()
+    for (const c of chats ?? []) {
+      const { data } = await sb().storage.from('chat').list(c.id, { limit: 1000 })
+      if (data?.length) await sb().storage.from('chat').remove(data.map((f) => `${c.id}/${f.name}`))
     }
   }
   const { error } = await sb().rpc('delete_my_account')

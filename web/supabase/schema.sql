@@ -638,7 +638,12 @@ grant insert, update, delete on public.app_settings to authenticated;
 drop policy if exists "settings: read" on public.app_settings;
 create policy "settings: read" on public.app_settings for select to authenticated using (true);
 drop policy if exists "settings: admin write" on public.app_settings;
-create policy "settings: admin write" on public.app_settings for all to authenticated using (private.is_admin()) with check (private.is_admin());
+drop policy if exists "settings: admin insert" on public.app_settings;
+drop policy if exists "settings: admin update" on public.app_settings;
+drop policy if exists "settings: admin delete" on public.app_settings;
+create policy "settings: admin insert" on public.app_settings for insert to authenticated with check (private.is_admin());
+create policy "settings: admin update" on public.app_settings for update to authenticated using (private.is_admin()) with check (private.is_admin());
+create policy "settings: admin delete" on public.app_settings for delete to authenticated using (private.is_admin());
 
 -- Регистрация закрыта — новые анкеты создать нельзя; у кого профиль уже есть, сохраняют его как обычно.
 create or replace function private.can_create_profile() returns boolean
@@ -653,8 +658,10 @@ create policy "profiles: own insert" on public.profiles for insert to authentica
   with check (id = (select auth.uid()) and private.can_create_profile());
 
 -- Администратор может удалить любой план (например, нарушающий правила).
+-- Удалить план может автор или администратор (одно правило — быстрее двух).
 drop policy if exists "plans: admin delete" on public.plans;
-create policy "plans: admin delete" on public.plans for delete to authenticated using (private.is_admin());
+drop policy if exists "plans: own delete" on public.plans;
+create policy "plans: own delete" on public.plans for delete to authenticated using (author = (select auth.uid()) or private.is_admin());
 
 -- Сводка для первой вкладки админки.
 create or replace function public.admin_stats() returns json
