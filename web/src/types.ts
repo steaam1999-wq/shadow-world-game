@@ -11,7 +11,7 @@ export interface NowPlaying { track: Track; at: number }
 export interface Person {
   id: string
   name: string
-  age: number
+  age: number | null // null — человек не указал дату рождения
   hue: number
   bio: string
   district: string
@@ -27,7 +27,7 @@ export interface Person {
 
 export interface Me {
   name: string
-  age: number
+  age: number | null // null — человек не указал дату рождения
   hue: number
   bio: string
   district: string
@@ -38,6 +38,7 @@ export interface Me {
   authMethod: 'telegram' | 'google' | 'phone' | 'email'
   privacy: { showExactAge: boolean; hideFromContacts: boolean; approxLocation: boolean; hideSongs?: boolean; hideNowPlaying?: boolean }
   radiusKm: number
+  birthDate?: string // ГГГГ-ММ-ДД, видна только самому человеку
   photo?: string
   photoPath?: string // где фото лежит в хранилище (облако)
   songs?: Track[]

@@ -129,3 +129,25 @@ export function meetingCode(capsuleId: string, who: string) {
   for (const ch of capsuleId + who) h = (h * 31 + ch.charCodeAt(0)) >>> 0
   return String(1000 + (h % 9000))
 }
+
+/** «Аня, 26» или просто «Аня», если возраст не указан. */
+export const nameAge = (name: string, age?: number | null) => (age ? `${name}, ${age}` : name)
+
+/** Полных лет на сегодня по дате рождения «ГГГГ-ММ-ДД». */
+export function ageFrom(birth: string, now = new Date()) {
+  const [y, m, d] = birth.split('-').map(Number)
+  let a = now.getFullYear() - y
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) a--
+  return a
+}
+
+/** «ДД.ММ.ГГГГ» → «ГГГГ-ММ-ДД»; null — дата неполная или такой даты нет. */
+export function parseBirth(text: string): string | null {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(text.trim())
+  if (!m) return null
+  const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const dt = new Date(y, mo - 1, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null
+  return `${m[3]}-${m[2]}-${m[1]}`
+}
+export const formatBirth = (iso?: string) => (iso ? iso.split('-').reverse().join('.') : '')

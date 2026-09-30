@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { BirthDateField, birthProblem } from '../components/BirthDate'
+import { ageFrom, parseBirth } from '../lib'
 import { PlaceOptions } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
@@ -17,7 +19,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
   const [codeSent, setCodeSent] = useState(false)
   const [answers, setAnswers] = useState<VibeAnswers>({})
   const [name, setName] = useState(initialName)
-  const [age, setAge] = useState('25')
+  const [birth, setBirth] = useState('')
   const [district, setDistrict] = useState('Минск')
   const [bio, setBio] = useState('')
   const [tags, setTags] = useState<string[]>([])
@@ -38,7 +40,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
     dispatch({
       type: 'signIn',
       me: {
-        name: name.trim(), age: Number(age) || 25, hue: 12, bio: bio.trim(), district, answers, tags,
+        name: name.trim(), age: parseBirth(birth) ? ageFrom(parseBirth(birth)!) : null, birthDate: parseBirth(birth) ?? undefined, hue: 12, bio: bio.trim(), district, answers, tags,
         verified: method === 'telegram', meetings: 0, authMethod: method ?? 'phone',
         privacy: { showExactAge: true, hideFromContacts: true, approxLocation: true },
         radiusKm: 10,
@@ -143,14 +145,10 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
             <span className="eyebrow">Последний шаг</span>
             <h1 className="font-display font-bold text-2xl leading-tight mt-1">Пара слов о себе</h1>
           </div>
-          <div className="grid grid-cols-[1fr_96px] gap-3">
-            <Field id="name" label="Имя">
-              <input id="name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Как вас называть" required />
-            </Field>
-            <Field id="age" label="Возраст">
-              <input id="age" className={`${inputCls} tnum`} type="number" min={18} max={99} value={age} onChange={(e) => setAge(e.target.value)} required />
-            </Field>
-          </div>
+          <Field id="name" label="Имя">
+            <input id="name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Как вас называть" required />
+          </Field>
+          <BirthDateField id="birth" value={birth} onChange={setBirth} />
           <Field id="district" label="Город или район (другие увидят только его)">
             <select id="district" className={inputCls} value={district} onChange={(e) => setDistrict(e.target.value)}>
               <PlaceOptions />
@@ -168,7 +166,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
             </div>
           </div>
           <p className="mt-auto text-[12px] text-muted">Нажимая кнопку, вы соглашаетесь с <button type="button" onClick={() => setRules(true)} className="underline hover:text-fg cursor-pointer">правилами и политикой конфиденциальности</button> и подтверждаете, что вам есть 18 лет.</p>
-          <Button type="submit" className="h-13" disabled={!name.trim() || Number(age) < 18}>
+          <Button type="submit" className="h-13" disabled={!name.trim() || !!birthProblem(birth)}>
             Смотреть активности
           </Button>
         </form>

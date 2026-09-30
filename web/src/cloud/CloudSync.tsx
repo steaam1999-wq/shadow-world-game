@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import * as api from './api'
 import { setReloader } from './sync'
+import { ageFrom } from '../lib'
 
 /** Держит данные в актуальном виде: первая загрузка, живые обновления из базы и страховочный опрос. */
 export function CloudSync() {
@@ -25,6 +26,8 @@ export function CloudSync() {
         if (!user || user.id !== userId) { dispatch({ type: 'signOut' }); return }
         const d = await api.loadAll(userId, ref.current.me, ref.current.cloudRead ?? {})
         if (alive) dispatch({ type: 'cloudLoad', ...d })
+        // Прошёл день рождения — пересчитываем возраст по дате рождения.
+        if (alive && d.me?.birthDate && ageFrom(d.me.birthDate) !== d.me.age) dispatch({ type: 'updateMe', patch: { age: ageFrom(d.me.birthDate) } })
         // Старое фото профиля лежит прямо в базе — один раз переносим его в хранилище.
         if (alive && !migrated && d.me?.photo?.startsWith('data:') && !d.me.photoPath) { migrated = true; dispatch({ type: 'updateMe', patch: {} }) }
       } catch (e) {

@@ -3,7 +3,7 @@ import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { ReliabilityBadge } from '../components/Meet'
-import { compatibility, planWhen, sharedAnswers } from '../lib'
+import { compatibility, planWhen, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, inputCls } from '../components/ui'
 import type { Activity, Person } from '../types'
 
@@ -37,7 +37,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
               <button onClick={() => openProfile(p.id)} className="cursor-pointer" aria-label={`Профиль ${p.name}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={64} verified={p.verified} /></button>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="font-display font-bold text-lg"><button onClick={() => openProfile(p.id)} className="cursor-pointer hover:underline">{p.name}, {p.age}</button></h2>
+                  <h2 className="font-display font-bold text-lg"><button onClick={() => openProfile(p.id)} className="cursor-pointer hover:underline">{nameAge(p.name, p.age)}</button></h2>
                   {i === 0 && <Pill tone="spark">Лучший мэтч</Pill>}
                 </div>
                 <p className={`text-[13px] text-muted`}>{placeLine(p.district, formatKm(p.distanceKm), `встреч: ${p.meetings}`)}</p>

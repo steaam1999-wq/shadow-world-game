@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
-import { plural, relative } from '../lib'
+import { plural, relative, nameAge } from '../lib'
 import { Avatar, Button, Icon, Logo, Pill, Sheet, Toggle, inputCls } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { DEFAULT_CATEGORIES, DEFAULT_TAGS } from '../data'
@@ -154,7 +154,7 @@ function Users({ onError }: { onError: (e: string) => void }) {
                 <button onClick={() => setOpen(u)} className={`${card} !p-3 w-full flex items-center gap-3 text-left cursor-pointer hover:brightness-95`}>
                   <Avatar name={u.name} hue={u.name.length * 37} src={u.photo ?? undefined} size={44} verified={u.verified} />
                   <span className="flex-1 min-w-0">
-                    <span className="flex items-center gap-1.5 font-semibold truncate">{u.name}, {u.age}
+                    <span className="flex items-center gap-1.5 font-semibold truncate">{nameAge(u.name, u.age)}
                       {u.isAdmin && <Pill tone="cobalt">админ</Pill>}{u.banned && <Pill tone="danger">бан</Pill>}{u.id === me && <Pill tone="muted">вы</Pill>}
                     </span>
                     <span className="block text-[12px] text-muted truncate">{u.email}{u.district ? ` · ${u.district}` : ''}</span>
@@ -184,7 +184,7 @@ function UserSheet({ user: u, onClose, onChanged, onError, self }: { user: Admin
     try { await job(); setDone(msg); onChanged() } catch (e) { onError(humanError(e)) } finally { setBusy(false) }
   }
   return (
-    <Sheet open={!!u} onClose={onClose} title={`${u.name}, ${u.age}`}>
+    <Sheet open={!!u} onClose={onClose} title={nameAge(u.name, u.age)}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <Avatar name={u.name} hue={u.name.length * 37} src={u.photo ?? undefined} size={64} verified={u.verified} />
@@ -255,7 +255,7 @@ function Moderation({ onError }: { onError: (e: string) => void }) {
             <li key={v.userId} className={`${card} flex gap-4`}>
               {v.photo ? <img src={v.photo} alt={`Селфи ${v.name}`} className="w-28 h-28 rounded-2xl object-cover shrink-0" /> : <span className="w-28 h-28 rounded-2xl bg-surface-2 shrink-0" />}
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                <span className="font-semibold">{v.name}, {v.age}</span>
+                <span className="font-semibold">{nameAge(v.name, v.age)}</span>
                 <span className="text-[13px] text-muted">Задание: {v.gesture}</span>
                 <span className="text-[12px] text-muted">{relative(v.createdAt, now)}</span>
                 <div className="flex flex-wrap gap-2 mt-auto">

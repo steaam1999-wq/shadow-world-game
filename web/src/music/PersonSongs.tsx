@@ -11,7 +11,7 @@ const DEMO_TITLES = ['Утро на районе', 'Последний трам�
 const DEMO_GENRES: Genre[] = ['lofi', 'synthwave', 'house', 'bossa', 'funk', 'ambient']
 
 function demoSongs(p: Person): Track[] {
-  const seed = p.hue + p.age
+  const seed = p.hue + (p.age ?? 0)
   const own = personTrack(p)
   const extra = [0, 1, 2].map((i) => {
     const g = i === 0 ? genreOf(p.answers) : DEMO_GENRES[(seed + i * 2) % DEMO_GENRES.length]

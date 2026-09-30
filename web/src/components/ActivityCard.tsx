@@ -1,6 +1,6 @@
 import { useStore } from '../store'
 import { formatKm, placeLine } from '../places'
-import { compatibility, planWhen, relative } from '../lib'
+import { compatibility, planWhen, relative, nameAge } from '../lib'
 import type { Activity, Person } from '../types'
 import { joinLabel } from './Meet'
 import { Avatar, Button, Icon, Pill } from './ui'
@@ -24,7 +24,7 @@ export function ActivityCard({ activity, person, now, onRespond, onOpenCapsule, 
       <div className="flex items-center gap-3">
         {person ? <Avatar name={person.name} hue={person.hue} src={person.photo} size={44} verified={person.verified} /> : <Avatar name={me.name} hue={me.hue} size={44} verified={me.verified} />}
         <div className="min-w-0 flex-1">
-          <div className="font-semibold truncate">{person ? `${person.name}, ${person.age}` : 'Ваша активность'}</div>
+          <div className="font-semibold truncate">{person ? nameAge(person.name, person.age) : 'Ваша активность'}</div>
           <div className="text-[12px] text-muted flex items-center gap-1">
             <Icon name="pin" size={12} /> {placeLine(activity.area, person && formatKm(person.distanceKm))}
           </div>

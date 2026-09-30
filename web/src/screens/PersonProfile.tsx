@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
-import { compatibility, level, planWhen, plural, sharedAnswers } from '../lib'
+import { compatibility, level, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -65,7 +65,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         <div className="flex items-center gap-4">
           <div className="flex-1 min-w-0">
             <h2 className="flex items-center gap-1.5 font-display font-bold text-[24px] leading-tight">
-              <span className="truncate">{p.name}, {p.age}</span>
+              <span className="truncate">{nameAge(p.name, p.age)}</span>
               {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
             </h2>
             <div className="text-[14px] text-muted truncate">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { BirthDateField, birthProblem } from './BirthDate'
+import { ageFrom, formatBirth, parseBirth } from '../lib'
 import { PlaceOptions } from '../places'
 import { useStore } from '../store'
 import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls } from './ui'
@@ -75,14 +77,14 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
   const { state, dispatch } = useStore()
   const me = state.me!
   const [draft, setDraft] = useState<Me>(me)
-  const [age, setAge] = useState(String(me.age))
+  const [birth, setBirth] = useState(formatBirth(me.birthDate))
   const [raw, setRaw] = useState<string | null>(null) // выбранное фото до кадрирования
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
   // Каждое открытие начинается с текущего профиля: «Отмена» ничего не меняет.
-  useEffect(() => { if (open) { setDraft(state.me!); setAge(String(state.me!.age)); setRaw(null); setError('') } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) { setDraft(state.me!); setBirth(formatBirth(state.me!.birthDate)); setRaw(null); setError('') } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (p: Partial<Me>) => setDraft((d) => ({ ...d, ...p }))
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,14 +98,12 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
     r.readAsDataURL(f)
   }
 
-  const ageNum = Number(age)
-  const problem = !draft.name.trim() ? 'Введите имя'
-    : !Number.isInteger(ageNum) || ageNum < 18 || ageNum > 99 ? 'Возраст — от 18 до 99'
-    : ''
+  const problem = !draft.name.trim() ? 'Введите имя' : birthProblem(birth) ?? ''
+  const birthIso = parseBirth(birth)
 
   const save = () => {
     if (problem) { setError(problem); return }
-    const patch: Partial<Me> = { name: draft.name.trim(), age: ageNum, district: draft.district, bio: draft.bio.trim(), tags: draft.tags, hue: draft.hue, photo: draft.photo }
+    const patch: Partial<Me> = { name: draft.name.trim(), age: birthIso ? ageFrom(birthIso) : null, birthDate: birthIso ?? undefined, district: draft.district, bio: draft.bio.trim(), tags: draft.tags, hue: draft.hue, photo: draft.photo }
     dispatch({ type: 'updateMe', patch })
     onClose()
   }
@@ -139,14 +139,10 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
             </div>
           )}
 
-          <div className="grid grid-cols-[1fr_96px] gap-3">
-            <Field id="me-name" label="Имя">
-              <input id="me-name" className={inputCls} value={draft.name} onChange={(e) => set({ name: e.target.value })} maxLength={30} autoComplete="given-name" />
-            </Field>
-            <Field id="me-age" label="Возраст">
-              <input id="me-age" className={`${inputCls} tnum`} type="number" inputMode="numeric" min={18} max={99} value={age} onChange={(e) => setAge(e.target.value)} />
-            </Field>
-          </div>
+          <Field id="me-name" label="Имя">
+            <input id="me-name" className={inputCls} value={draft.name} onChange={(e) => set({ name: e.target.value })} maxLength={30} autoComplete="given-name" />
+          </Field>
+          <BirthDateField id="me-birth" value={birth} onChange={setBirth} />
           <Field id="me-district" label="Город или район (другие видят только его)">
             <select id="me-district" className={inputCls} value={draft.district} onChange={(e) => set({ district: e.target.value })}>
               <PlaceOptions />

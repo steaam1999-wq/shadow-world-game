@@ -735,6 +735,23 @@ end $$;
 revoke all on function public.admin_set_admin(uuid, boolean) from public, anon;
 grant execute on function public.admin_set_admin(uuid, boolean) to authenticated;
 
+-- Возраст необязателен: человек может не указывать дату рождения.
+alter table public.profiles alter column age drop not null;
+alter table public.profiles drop constraint if exists profiles_age_check;
+alter table public.profiles add constraint profiles_age_check check (age is null or age between 18 and 99);
+
+-- Дата рождения — только для самого человека (другие видят лишь возраст).
+create table if not exists public.profile_private (
+  user_id uuid primary key default auth.uid() references public.profiles (id) on delete cascade,
+  birth_date date check (birth_date is null or (birth_date > date '1900-01-01' and birth_date <= current_date - interval '18 years'))
+);
+alter table public.profile_private enable row level security;
+revoke all on public.profile_private from anon, authenticated;
+grant select, insert, update, delete on public.profile_private to authenticated;
+drop policy if exists "private: own" on public.profile_private;
+create policy "private: own" on public.profile_private for all to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

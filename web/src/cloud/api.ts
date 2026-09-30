@@ -13,7 +13,7 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
+interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
@@ -142,12 +142,15 @@ export async function saveProfile(userId: string, me: Me) {
   const old = me.photoPath ?? null
   const photoPath = me.photo?.startsWith('data:') ? await uploadImage(userId, me.photo) : me.photo ? old : null
   const { error } = await sb().from('profiles').upsert({
-    id: userId, name: me.name, age: me.age, bio: me.bio, district: me.district, hue: me.hue,
+    id: userId, name: me.name, age: me.age ?? null, bio: me.bio, district: me.district, hue: me.hue,
     tags: me.tags, answers: me.answers, photo: null, photo_path: photoPath, meetings: me.meetings,
     songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50),
   })
   if (error) throw error
   if (old && old !== photoPath) await sb().storage.from('media').remove([old])
+  // Дата рождения — в закрытой таблице, её видит только сам человек.
+  const priv = await sb().from('profile_private').upsert({ user_id: userId, birth_date: me.birthDate ?? null })
+  if (priv.error) throw priv.error
 }
 
 /** Сколько «Сейчас слушает» считается свежим: пока играет, плеер обновляет его каждые 4 минуты. */
@@ -175,7 +178,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv] = await Promise.all([
     db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
     db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -185,8 +188,9 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.from('verification_requests').select('status').eq('user_id', userId).maybeSingle<{ status: 'pending' | 'approved' | 'rejected' }>(),
     db.from('shorts').select('*').order('created_at', { ascending: false }).limit(200).returns<ShortRow[]>(),
     db.from('app_settings').select('key, value').returns<{ key: string; value: unknown }[]>(),
+    db.from('profile_private').select('birth_date').eq('user_id', userId).maybeSingle<{ birth_date: string | null }>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv]) if (r.error) throw r.error
   const settings = parseSettings(settingRows.data ?? [])
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
@@ -210,7 +214,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
 
   await attachPhotos(profiles.data ?? [], plans.data ?? [])
   const mine = (profiles.data ?? []).find((p) => p.id === userId) ?? null
-  const me = mine ? profileToMe(mine, local) : null
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
@@ -300,13 +304,13 @@ export async function adminStats(): Promise<AdminStats> {
 }
 
 export interface AdminUser {
-  id: string; name: string; age: number; district: string; photo: string | null; verified: boolean; createdAt: number; email: string
+  id: string; name: string; age: number | null; district: string; photo: string | null; verified: boolean; createdAt: number; email: string
   lastSignIn: number | null; isAdmin: boolean; banned: boolean; banReason: string | null; plans: number; posts: number; followers: number; reports: number
 }
 export async function adminUsers(q: string): Promise<AdminUser[]> {
   const { data, error } = await sb().rpc('admin_users', { q })
   if (error) throw error
-  const rows = (data ?? []) as { id: string; name: string; age: number; district: string; photo_path: string | null; verified: boolean; created_at: string; email: string; last_sign_in_at: string | null; is_admin: boolean; banned: boolean; ban_reason: string | null; plans: number; posts: number; followers: number; reports: number }[]
+  const rows = (data ?? []) as { id: string; name: string; age: number | null; district: string; photo_path: string | null; verified: boolean; created_at: string; email: string; last_sign_in_at: string | null; is_admin: boolean; banned: boolean; ban_reason: string | null; plans: number; posts: number; followers: number; reports: number }[]
   const urls = await sign('media', rows.flatMap((r) => (r.photo_path ? [r.photo_path] : [])))
   return rows.map((r) => ({
     id: r.id, name: r.name, age: r.age, district: r.district, photo: r.photo_path ? urls.get(r.photo_path) ?? null : null, verified: r.verified,
@@ -513,18 +517,18 @@ export async function submitVerification(userId: string, photo: string, gesture:
 }
 
 // ===== Админка =====
-export interface AdminVerification { userId: string; name: string; age: number; photo: string; gesture: string; createdAt: number }
+export interface AdminVerification { userId: string; name: string; age: number | null; photo: string; gesture: string; createdAt: number }
 
 export async function adminVerifications(): Promise<AdminVerification[]> {
   const db = sb()
   const [reqs, profiles] = await Promise.all([
     db.from('verification_requests').select('*').eq('status', 'pending').order('created_at').returns<{ user_id: string; photo: string | null; gesture: string; created_at: string }[]>(),
-    db.from('profiles').select('id,name,age').returns<{ id: string; name: string; age: number }[]>(),
+    db.from('profiles').select('id,name,age').returns<{ id: string; name: string; age: number | null }[]>(),
   ])
   for (const r of [reqs, profiles]) if (r.error) throw r.error
   const who = new Map((profiles.data ?? []).map((p) => [p.id, p]))
   return (reqs.data ?? []).map((r) => ({
-    userId: r.user_id, name: who.get(r.user_id)?.name ?? 'удалён', age: who.get(r.user_id)?.age ?? 0,
+    userId: r.user_id, name: who.get(r.user_id)?.name ?? 'удалён', age: who.get(r.user_id)?.age ?? null,
     photo: r.photo ?? '', gesture: r.gesture, createdAt: ms(r.created_at),
   }))
 }

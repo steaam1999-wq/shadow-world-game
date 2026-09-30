@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
-import { hm, planWhen } from '../lib'
+import { hm, planWhen, nameAge } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, readPhoto, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
@@ -183,7 +183,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer" aria-label={`Профиль ${p.name}`}>
           <Avatar name={p.name} hue={p.hue} src={p.photo} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate">{p.name}, {p.age}</div>
+            <div className="font-semibold truncate">{nameAge(p.name, p.age)}</div>
             <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в ISKRA'}</div>
           </div>
           </button>
