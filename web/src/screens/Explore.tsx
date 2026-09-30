@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PlanMusicPicker } from '../music/PlanMusic'
 import { PlaceOptions, byXY, knownKm, mapKindOf, minskXY, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
 import { PostArt } from '../components/PostArt'
-import { Button, Chip, Field, Icon, Sheet, Toggle, inputCls, readPhoto } from '../components/ui'
+import { Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
@@ -257,6 +257,21 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const [photo, setPhoto] = useState<string | undefined>()
   const [photoError, setPhotoError] = useState('')
   const [music, setMusic] = useState<PlanMusic | undefined>()
+  const [when, setWhen] = useState<'hour' | 'evening' | 'tomorrow' | 'custom' | 'later'>('evening')
+  const [more, setMore] = useState(false)
+  // Быстрый выбор времени: одно касание вместо даты, часов и длительности.
+  const pickWhen = (w: typeof when) => {
+    setWhen(w)
+    const d = new Date(now)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    setHideTime(w === 'later')
+    if (w === 'hour') { const t = new Date(now + HOUR); setDay('today'); setClock(`${pad(t.getHours())}:${pad(Math.floor(t.getMinutes() / 5) * 5)}`) }
+    if (w === 'evening') { setDay('today'); setClock(d.getHours() >= 19 ? `${pad(Math.min(23, d.getHours() + 1))}:00` : '19:00') }
+    if (w === 'tomorrow') { setDay('tomorrow'); setClock('19:00') }
+  }
+  // Открыли форму — «сегодня вечером» от текущего времени, настройки свёрнуты.
+  useEffect(() => { if (open) { pickWhen('evening'); setMore(false) } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  const IDEAS: [string, string][] = [['Кофе после работы, кто со мной?', 'Кофе'], ['Прогулка по набережной Свислочи', 'Прогулка'], ['Иду на выставку, нужна компания', 'Выставка'], ['Настолки вечером — не хватает игрока', 'Настолки']]
 
   const submit = () => {
     const [h, m] = clock.split(':').map(Number)
@@ -281,72 +296,96 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
     onClose()
   }
 
+  const whenLabel = hideTime ? 'Время обсудим в чате' : `${day === 'today' ? 'Сегодня' : 'Завтра'} в ${clock}`
   return (
     <Sheet open={open} onClose={onClose} title="Новый план">
       <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); submit() }}>
-        <div className="flex gap-3 items-center">
-          <label htmlFor="act-photo" className="relative w-24 h-24 shrink-0 rounded-2xl overflow-hidden border-2 border-dashed border-line cursor-pointer hover:border-cobalt grid place-items-center text-muted">
-            {photo ? <img src={photo} alt="Фото плана" className="w-full h-full object-cover" /> : (
-              <span className="absolute inset-0"><PostArt activity={{ id: title || 'new', category, photo: undefined }} /><span className="absolute inset-0 grid place-items-center bg-black/25 text-white"><Icon name="camera" size={26} /></span></span>
-            )}
-          </label>
-          <input id="act-photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
-            const f = e.target.files?.[0]
-            if (!f) return
-            try { setPhoto(await readPhoto(f)); setPhotoError('') } catch { setPhotoError('Не получилось открыть файл. Выберите JPG или PNG.') }
-          }} />
-          <div className="text-[13px] text-muted flex flex-col gap-1">
-            <span>Добавьте фото места или настроения. Без фото будет обложка категории.</span>
-            {photo && <button type="button" onClick={() => setPhoto(undefined)} className="self-start text-danger font-semibold cursor-pointer">Убрать фото</button>}
-            {photoError && <span className="text-danger">{photoError}</span>}
-          </div>
-        </div>
+        {/* 1. Что */}
         <Field id="act-title" label="Что вы предлагаете">
-          <input id="act-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Иду на лекцию в Ok16, пойдёшь со мной?" maxLength={80} required />
+          <input id="act-title" className={`${inputCls} text-[16px]`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Иду на лекцию в Ok16, пойдёшь со мной?" maxLength={80} required autoFocus />
         </Field>
-        <div className="flex flex-wrap gap-2">
-          {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold text-muted">Формат</span>
-          <div className="flex flex-wrap gap-2">
-            {[[0, 'Вдвоём'], [3, 'Компания на 3'], [4, 'Компания на 4']].map(([n, label]) => (
-              <Chip key={n} active={groupSize === n} onClick={() => setGroupSize(Number(n))}>{label}</Chip>
+        {!title && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 -mt-2" aria-label="Идеи">
+            {IDEAS.map(([t, c]) => (
+              <button key={t} type="button" onClick={() => { setTitle(t); if (state.categories.includes(c)) setCategory(c) }} className="shrink-0 h-8 px-3 rounded-full border border-dashed border-line text-[13px] text-muted hover:text-fg cursor-pointer">💡 {t}</button>
             ))}
           </div>
-          {groupSize > 0 && <p className="text-[12px] text-muted">Вы и ещё {groupSize - 1} {groupSize - 1 === 2 ? 'человека' : 'человека'}: меньше неловкости, чем один на один. План исчезнет из ленты, когда наберётся компания.</p>}
+        )}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5" role="radiogroup" aria-label="Категория">
+          {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => setCategory(c)} className="shrink-0">{c}</Chip>)}
         </div>
-        <div className="rounded-2xl bg-surface-2 px-3.5">
-          <Toggle id="act-hide-time" checked={hideTime} onChange={setHideTime} label="Не показывать время"
-            hint={hideTime ? 'В посте будет «Время обсудим» — договоритесь в чате' : 'Скрыть «когда», «во сколько» и длительность'} />
+
+        {/* 2. Когда — одним касанием */}
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-muted">Когда</span>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Когда">
+            {([['hour', 'Через час'], ['evening', 'Сегодня вечером'], ['tomorrow', 'Завтра'], ['custom', 'Своё время'], ['later', 'Договоримся']] as const).map(([w, label]) => (
+              <Chip key={w} active={when === w} onClick={() => pickWhen(w)}>{label}</Chip>
+            ))}
+          </div>
+          {when === 'custom' && (
+            <div className="grid grid-cols-2 gap-3">
+              <select id="act-day" aria-label="День" className={inputCls} value={day} onChange={(e) => setDay(e.target.value as 'today' | 'tomorrow')}>
+                <option value="today">Сегодня</option>
+                <option value="tomorrow">Завтра</option>
+              </select>
+              <input id="act-time" aria-label="Во сколько" type="time" className={`${inputCls} tnum`} value={clock} onChange={(e) => setClock(e.target.value)} required />
+            </div>
+          )}
+          <p className="text-[12px] text-muted">{whenLabel} · 📍 {area}</p>
         </div>
-        {!hideTime && <>
-        <div className="grid grid-cols-2 gap-3">
-          <Field id="act-day" label="Когда">
-            <select id="act-day" className={inputCls} value={day} onChange={(e) => setDay(e.target.value as 'today' | 'tomorrow')}>
-              <option value="today">Сегодня</option>
-              <option value="tomorrow">Завтра</option>
-            </select>
-          </Field>
-          <Field id="act-time" label="Во сколько">
-            <input id="act-time" type="time" className={`${inputCls} tnum`} value={clock} onChange={(e) => setClock(e.target.value)} required />
-          </Field>
-        </div>
-        <Field id="act-duration" label="Длительность">
-          <select id="act-duration" className={inputCls} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
-            {[60, 90, 120, 180].map((m) => <option key={m} value={m}>{m / 60} ч</option>)}
-          </select>
-        </Field>
-        </>}
-        <PlanMusicPicker value={music} onChange={setMusic} />
-        <Field id="act-area" label="Город или район (виден всем)">
-          <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
-            <PlaceOptions none={false} />
-          </select>
-        </Field>
-        <Field id="act-place" label="Точное место (увидит только тот, с кем откроется чат)">
-          <input id="act-place" className={inputCls} value={exactPlace} onChange={(e) => setExactPlace(e.target.value)} placeholder="Кофейня у выхода из метро" maxLength={80} />
-        </Field>
+
+        {/* 3. Остальное — по желанию */}
+        <button type="button" onClick={() => setMore((x) => !x)} aria-expanded={more} className="flex items-center justify-between gap-2 min-h-11 py-2 px-4 rounded-2xl bg-surface-2 text-[14px] font-semibold text-left cursor-pointer">
+          <span>Ещё настройки <span className="font-normal text-muted">· фото, компания, место, музыка</span></span>
+          <Icon name="down" size={18} className={`transition ${more ? 'rotate-180' : ''}`} />
+        </button>
+        {more && (
+          <div className="flex flex-col gap-4">
+            <div className="flex gap-3 items-center">
+              <label htmlFor="act-photo" className="relative w-20 h-20 shrink-0 rounded-2xl overflow-hidden border-2 border-dashed border-line cursor-pointer hover:border-cobalt grid place-items-center text-muted">
+                {photo ? <img src={photo} alt="Фото плана" className="w-full h-full object-cover" /> : (
+                  <span className="absolute inset-0"><PostArt activity={{ id: title || 'new', category, photo: undefined }} /><span className="absolute inset-0 grid place-items-center bg-black/25 text-white"><Icon name="camera" size={24} /></span></span>
+                )}
+              </label>
+              <input id="act-photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
+                const f = e.target.files?.[0]
+                if (!f) return
+                try { setPhoto(await readPhoto(f)); setPhotoError('') } catch { setPhotoError('Не получилось открыть файл. Выберите JPG или PNG.') }
+              }} />
+              <div className="text-[13px] text-muted flex flex-col gap-1">
+                <span>Фото места или настроения. Без фото будет обложка категории.</span>
+                {photo && <button type="button" onClick={() => setPhoto(undefined)} className="self-start text-danger font-semibold cursor-pointer">Убрать фото</button>}
+                {photoError && <span className="text-danger">{photoError}</span>}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[13px] font-semibold text-muted">Сколько человек</span>
+              <div className="flex flex-wrap gap-2">
+                {[[0, 'Вдвоём'], [3, 'Компания на 3'], [4, 'Компания на 4']].map(([n, label]) => (
+                  <Chip key={n} active={groupSize === n} onClick={() => setGroupSize(Number(n))}>{label}</Chip>
+                ))}
+              </div>
+              {groupSize > 0 && <p className="text-[12px] text-muted">Вы и ещё {groupSize - 1} человека — для компании будет общий чат.</p>}
+            </div>
+            {!hideTime && (
+              <Field id="act-duration" label="Длительность">
+                <select id="act-duration" className={inputCls} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
+                  {[60, 90, 120, 180].map((m) => <option key={m} value={m}>{m / 60} ч</option>)}
+                </select>
+              </Field>
+            )}
+            <Field id="act-area" label="Город или район (виден всем)">
+              <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
+                <PlaceOptions none={false} />
+              </select>
+            </Field>
+            <Field id="act-place" label="Точное место (увидит только тот, с кем откроется чат)">
+              <input id="act-place" className={inputCls} value={exactPlace} onChange={(e) => setExactPlace(e.target.value)} placeholder="Кофейня у выхода из метро" maxLength={80} />
+            </Field>
+            <PlanMusicPicker value={music} onChange={setMusic} />
+          </div>
+        )}
         <Button type="submit" disabled={!title.trim()} className="h-12">Опубликовать на 48 часов</Button>
       </form>
     </Sheet>

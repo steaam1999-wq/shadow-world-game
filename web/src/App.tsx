@@ -224,9 +224,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что создать?">
         <div className="flex flex-col gap-2">
           {[
+            { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
             { icon: 'plus', title: 'История', text: 'Фото, видео или текст на 24 часа — кружок сверху главной', go: () => setStorying(true) },
             { icon: 'camera', title: 'Публикация', text: 'Фото или видео с подписью — появится на главной', go: () => setPosting(true) },
-            { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
             { icon: 'chat', title: 'Новый чат', text: 'Написать человеку лично или создать группу', go: () => setNewChat(true) },
           ].map((o) => (
             <button key={o.title} onClick={() => { setChoosing(false); o.go() }} className="flex items-center gap-3 p-3 rounded-2xl bg-surface-2 text-left cursor-pointer hover:brightness-95">
