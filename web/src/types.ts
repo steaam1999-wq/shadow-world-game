@@ -119,6 +119,7 @@ export interface PlanComment {
   authorId: string // personId или 'me'
   text: string
   at: number
+  replyTo?: string // id комментария, на который отвечают
 }
 
 export interface Report {

@@ -322,6 +322,9 @@ create table if not exists public.plan_comments (
 );
 create index if not exists plan_comments_plan_idx on public.plan_comments (plan_id, created_at);
 create index if not exists plan_comments_author_idx on public.plan_comments (author);
+-- Ответ на другой комментарий того же плана (удаляется вместе с ним).
+alter table public.plan_comments add column if not exists reply_to bigint references public.plan_comments (id) on delete cascade;
+create index if not exists plan_comments_reply_idx on public.plan_comments (reply_to);
 alter table public.plan_comments enable row level security;
 drop policy if exists "comments: read" on public.plan_comments;
 create policy "comments: read" on public.plan_comments for select to authenticated
@@ -330,6 +333,7 @@ drop policy if exists "comments: write" on public.plan_comments;
 create policy "comments: write" on public.plan_comments for insert to authenticated with check (
   author = (select auth.uid()) and not private.is_banned((select auth.uid()))
   and exists (select 1 from plans p where p.id = plan_id and not private.blocked_between(p.author, (select auth.uid())))
+  and reply_to is null -- ответы разрешаются ниже, после функции private.can_reply_plan
 );
 drop policy if exists "comments: delete" on public.plan_comments;
 create policy "comments: delete" on public.plan_comments for delete to authenticated using (
@@ -777,17 +781,39 @@ create table if not exists public.short_comments (
 );
 create index if not exists short_comments_short_idx on public.short_comments (short_id, created_at);
 create index if not exists short_comments_author_idx on public.short_comments (author);
+alter table public.short_comments add column if not exists reply_to bigint references public.short_comments (id) on delete cascade;
+create index if not exists short_comments_reply_idx on public.short_comments (reply_to);
 alter table public.short_comments enable row level security;
 revoke all on public.short_comments from anon, authenticated;
 grant select, delete on public.short_comments to authenticated;
-grant insert (short_id, body) on public.short_comments to authenticated;
+grant insert (short_id, body, reply_to) on public.short_comments to authenticated;
 drop policy if exists "short comments: read" on public.short_comments;
 create policy "short comments: read" on public.short_comments for select to authenticated
   using (author = (select auth.uid()) or private.is_admin() or (not private.is_banned(author) and not private.blocked_between(author, (select auth.uid()))));
+-- Ответ можно оставить только на комментарий того же плана или публикации. Функция нужна,
+-- потому что политика не может сама читать свою таблицу (бесконечная рекурсия).
+create or replace function private.can_reply_plan(reply bigint, plan uuid, me uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.plan_comments r where r.id = reply and r.plan_id = plan and not private.blocked_between(r.author, me))
+$$;
+create or replace function private.can_reply_short(reply bigint, short uuid, me uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.short_comments r where r.id = reply and r.short_id = short and not private.blocked_between(r.author, me))
+$$;
+revoke all on function private.can_reply_plan(bigint, uuid, uuid), private.can_reply_short(bigint, uuid, uuid) from public;
+grant execute on function private.can_reply_plan(bigint, uuid, uuid), private.can_reply_short(bigint, uuid, uuid) to authenticated;
+
+drop policy if exists "comments: write" on public.plan_comments;
+create policy "comments: write" on public.plan_comments for insert to authenticated with check (
+  author = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (select 1 from plans p where p.id = plan_id and not private.blocked_between(p.author, (select auth.uid())))
+  and (reply_to is null or private.can_reply_plan(reply_to, plan_id, (select auth.uid())))
+);
 drop policy if exists "short comments: write" on public.short_comments;
 create policy "short comments: write" on public.short_comments for insert to authenticated with check (
   author = (select auth.uid()) and not private.is_banned((select auth.uid()))
   and exists (select 1 from public.shorts s where s.id = short_id and not private.blocked_between(s.author, (select auth.uid())))
+  and (reply_to is null or private.can_reply_short(reply_to, short_id, (select auth.uid())))
 );
 drop policy if exists "short comments: delete" on public.short_comments;
 create policy "short comments: delete" on public.short_comments for delete to authenticated using (

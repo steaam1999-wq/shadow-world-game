@@ -50,9 +50,9 @@ export type Action =
   | { type: 'wantAgain'; capsuleId: string; want: boolean }
   | { type: 'directMessage'; personId: string; capsuleId?: string; text?: string }
   | { type: 'block'; personId: string; name: string }
-  | { type: 'addComment'; planId: string; text: string }
+  | { type: 'addComment'; planId: string; text: string; replyTo?: string }
   | { type: 'deleteComment'; id: string }
-  | { type: 'addShortComment'; shortId: string; text: string }
+  | { type: 'addShortComment'; shortId: string; text: string; replyTo?: string }
   | { type: 'deleteShortComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
@@ -329,13 +329,13 @@ function reducer(state: State, action: Action): State {
       }
     }
     case 'addComment':
-      return { ...state, comments: [...(state.comments ?? []), { id: `tmp-${uid()}`, planId: action.planId, authorId: 'me', text: action.text, at: now }] }
+      return { ...state, comments: [...(state.comments ?? []), { id: state.cloud ? `tmp-${uid()}` : uid(), planId: action.planId, authorId: 'me', text: action.text, at: now, ...(action.replyTo ? { replyTo: action.replyTo } : {}) }] }
     case 'deleteComment':
-      return { ...state, comments: (state.comments ?? []).filter((c) => c.id !== action.id) }
+      return { ...state, comments: withoutThread(state.comments ?? [], action.id) }
     case 'addShortComment':
-      return { ...state, shortComments: [...(state.shortComments ?? []), { id: `tmp-${uid()}`, planId: action.shortId, authorId: 'me', text: action.text, at: now }] }
+      return { ...state, shortComments: [...(state.shortComments ?? []), { id: state.cloud ? `tmp-${uid()}` : uid(), planId: action.shortId, authorId: 'me', text: action.text, at: now, ...(action.replyTo ? { replyTo: action.replyTo } : {}) }] }
     case 'deleteShortComment':
-      return { ...state, shortComments: (state.shortComments ?? []).filter((c) => c.id !== action.id) }
+      return { ...state, shortComments: withoutThread(state.shortComments ?? [], action.id) }
     case 'verificationSent':
       return { ...state, verification: 'pending' }
     case 'unblock':
@@ -390,6 +390,16 @@ function load(): State {
 }
 
 const Ctx = createContext<{ state: State; dispatch: (a: Action) => void } | null>(null)
+
+/** Удаляет комментарий вместе со всеми ответами на него (на сервере так же — каскадом). */
+function withoutThread(list: PlanComment[], id: string) {
+  const gone = new Set([id])
+  for (let grew = true; grew;) {
+    grew = false
+    for (const c of list) if (c.replyTo && gone.has(c.replyTo) && !gone.has(c.id)) { gone.add(c.id); grew = true }
+  }
+  return list.filter((c) => !gone.has(c.id))
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, baseDispatch] = useReducer(reducer, undefined, load)

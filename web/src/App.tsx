@@ -23,7 +23,7 @@ import { cloudEnabled } from './cloud/config'
 import { NewPassword } from './screens/NewPassword'
 import { Avatar, Icon, Logo, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
-import type { Activity, Me, Person } from './types'
+import type { Activity, Me, Person, PlanComment, State } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin' | 'recovery'
 type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
@@ -183,7 +183,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
             </button>
             <button onClick={() => { setActivityOpen(true); dispatch({ type: 'seeNotices' }) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
               <Icon name="heart" size={25} />
-              {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || (state.comments ?? []).some((c) => c.authorId !== 'me' && c.at > (state.noticesSeenAt ?? 0) && state.activities.some((a) => a.id === c.planId && a.authorId === 'me')) || (state.shortComments ?? []).some((c) => c.authorId !== 'me' && c.at > (state.noticesSeenAt ?? 0) && (state.shorts ?? []).some((s) => s.id === c.planId && s.authorId === 'me'))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
+              {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || commentNotices(state).some((c) => c.at > (state.noticesSeenAt ?? 0))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
             </button>
             {tab !== 'capsules' && (
               <button onClick={() => { setTab('capsules'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
@@ -277,6 +277,22 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
 /** «Действия»: уведомления о сообщениях, лайках и системные объявления. */
 /** Уведомления: только лайки, репосты и комментарии к моим планам и публикациям. */
+/** Чужие комментарии, о которых нужно сообщить: под моими планами и публикациями и ответы на мои комментарии. */
+function commentNotices(state: State) {
+  const pick = (list: PlanComment[], mineTarget: (id: string) => boolean, short: boolean) => {
+    const myIds = new Set(list.filter((c) => c.authorId === 'me').map((c) => c.id))
+    return list.flatMap((c) => {
+      if (c.authorId === 'me') return []
+      const reply = !!c.replyTo && myIds.has(c.replyTo)
+      return reply || mineTarget(c.planId) ? [{ ...c, reply, short }] : []
+    })
+  }
+  return [
+    ...pick(state.comments ?? [], (id) => state.activities.some((a) => a.id === id && a.authorId === 'me'), false),
+    ...pick(state.shortComments ?? [], (id) => (state.shorts ?? []).some((s) => s.id === id && s.authorId === 'me'), true),
+  ]
+}
+
 function ActivitySheet({ open, onClose, now, openProfile }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void; openProfile: (id: string) => void }) {
   const { state } = useStore()
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
@@ -290,17 +306,12 @@ function ActivitySheet({ open, onClose, now, openProfile }: { open: boolean; onC
       if (n.kind === 'repost') return [{ key: n.id, person: p, kind: 'repost', text: `сделал(а) репост вашего плана${planTitle(n.targetId)}`, at: n.at }]
       return [{ key: n.id, person: p, kind: 'like', text: n.kind === 'likePlan' ? `нравится ваш план${planTitle(n.targetId)}` : 'нравится ваша публикация', at: n.at }]
     }),
-    // Комментарии других людей под моими планами.
-    ...(state.comments ?? []).flatMap((c): Item[] => {
-      if (c.authorId === 'me' || !myPlans.some((a) => a.id === c.planId)) return []
+    // Комментарии под моими планами и публикациями и ответы на мои комментарии.
+    ...commentNotices(state).flatMap((c): Item[] => {
       const p = state.people.find((x) => x.id === c.authorId)
-      return p ? [{ key: `c-${c.id}`, person: p, kind: 'comment', text: `прокомментировал(а)${planTitle(c.planId)}: «${c.text.length > 80 ? c.text.slice(0, 79) + '…' : c.text}»`, at: c.at }] : []
-    }),
-    // Комментарии к моим публикациям и шортсам.
-    ...(state.shortComments ?? []).flatMap((c): Item[] => {
-      if (c.authorId === 'me' || !(state.shorts ?? []).some((s) => s.id === c.planId && s.authorId === 'me')) return []
-      const p = state.people.find((x) => x.id === c.authorId)
-      return p ? [{ key: `sc-${c.id}`, person: p, kind: 'comment', text: `прокомментировал(а) вашу публикацию: «${c.text.length > 80 ? c.text.slice(0, 79) + '…' : c.text}»`, at: c.at }] : []
+      const quote = `«${c.text.length > 80 ? c.text.slice(0, 79) + '…' : c.text}»`
+      const text = c.reply ? `ответил(а) на ваш комментарий: ${quote}` : c.short ? `прокомментировал(а) вашу публикацию: ${quote}` : `прокомментировал(а)${planTitle(c.planId)}: ${quote}`
+      return p ? [{ key: `${c.short ? 'sc' : 'c'}-${c.id}`, person: p, kind: 'comment', text, at: c.at }] : []
     }),
     // В демо лайки выдуманы, чтобы экран не пустовал.
     ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i): Item => {

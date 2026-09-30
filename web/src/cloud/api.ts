@@ -247,11 +247,11 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   capsules.data = (capsules.data ?? []).filter((c) => !hidden.has(c.author) && !hidden.has(c.responder))
   const planIds = (plans.data ?? []).map((p) => p.id)
   const commentRows = planIds.length
-    ? await db.from('plan_comments').select('*').in('plan_id', planIds).order('created_at').limit(2000).returns<{ id: number; plan_id: string; author: string; body: string; created_at: string }[]>()
+    ? await db.from('plan_comments').select('*').in('plan_id', planIds).order('created_at').limit(2000).returns<{ id: number; plan_id: string; author: string; body: string; created_at: string; reply_to: number | null }[]>()
     : { data: [], error: null }
   if (commentRows.error) throw commentRows.error
   const comments: PlanComment[] = (commentRows.data ?? []).filter((c) => !hidden.has(c.author)).map((c) => ({
-    id: String(c.id), planId: c.plan_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at),
+    id: String(c.id), planId: c.plan_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at), ...(c.reply_to ? { replyTo: String(c.reply_to) } : {}),
   }))
   const capsuleIds = (capsules.data ?? []).map((c) => c.id)
   const messages = capsuleIds.length
@@ -306,11 +306,11 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const visibleShorts = (shortRows.data ?? []).filter((s) => !hidden.has(s.author))
   const shortIds = visibleShorts.map((s) => s.id)
   const sc = shortIds.length
-    ? await db.from('short_comments').select('*').in('short_id', shortIds).order('created_at').limit(3000).returns<{ id: number; short_id: string; author: string; body: string; created_at: string }[]>()
+    ? await db.from('short_comments').select('*').in('short_id', shortIds).order('created_at').limit(3000).returns<{ id: number; short_id: string; author: string; body: string; created_at: string; reply_to: number | null }[]>()
     : { data: [], error: null }
   if (sc.error) throw sc.error
   const shortComments: PlanComment[] = (sc.data ?? []).filter((c) => !hidden.has(c.author)).map((c) => ({
-    id: String(c.id), planId: c.short_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at),
+    id: String(c.id), planId: c.short_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at), ...(c.reply_to ? { replyTo: String(c.reply_to) } : {}),
   }))
   const urls = await signShorts(visibleShorts.flatMap((s) => (s.thumb_path ? [s.path, s.thumb_path] : [s.path])))
   const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
@@ -563,13 +563,15 @@ export async function updatePassword(password: string) {
   return data.user
 }
 
-export async function addComment(planId: string, body: string) {
-  const { error } = await sb().from('plan_comments').insert({ plan_id: planId, body })
+const replyRef = (replyTo?: string) => (replyTo && /^\d+$/.test(replyTo) ? { reply_to: Number(replyTo) } : {})
+
+export async function addComment(planId: string, body: string, replyTo?: string) {
+  const { error } = await sb().from('plan_comments').insert({ plan_id: planId, body, ...replyRef(replyTo) })
   if (error) throw error
 }
 
-export async function addShortComment(shortId: string, body: string) {
-  const { error } = await sb().from('short_comments').insert({ short_id: shortId, body })
+export async function addShortComment(shortId: string, body: string, replyTo?: string) {
+  const { error } = await sb().from('short_comments').insert({ short_id: shortId, body, ...replyRef(replyTo) })
   if (error) throw error
 }
 
