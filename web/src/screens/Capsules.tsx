@@ -163,16 +163,14 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="font-display font-bold text-2xl">Чаты</h1>
-        <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-spark text-on-spark font-semibold text-[14px] cursor-pointer"><Icon name="plus" size={18} /> Новый чат</button>
-      </div>
-      {rows.length + (q ? 1 : 0) > 3 && (
-        <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
+      <h1 className="sr-only">Чаты</h1>
+      <div className="flex items-center gap-2">
+        <label className="flex-1 min-w-0 flex items-center gap-2 h-11 rounded-full bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={16} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск по имени" aria-label="Поиск по чатам" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск по чатам" aria-label="Поиск по чатам" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
         </label>
-      )}
+        <button onClick={() => setCreating(true)} className="shrink-0 inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-brand text-white font-semibold text-[14px] shadow-[0_8px_20px_-10px_rgb(255_79_134/.8)] cursor-pointer"><Icon name="plus" size={18} /> Новый чат</button>
+      </div>
       {rows.length ? (
         <ul className="flex flex-col">
           {rows.map((r) => {

@@ -101,15 +101,13 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
           </div>
         )}
         <MeetingCards />
-        {/* Значки как «актуальное» */}
-        <div className="flex gap-4 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
-          {badges.map((b) => (
-            <div key={b.id} className={`flex flex-col items-center gap-1 w-[68px] shrink-0 ${b.got ? '' : 'opacity-40'}`} title={b.desc}>
-              <span className="grid place-items-center w-16 h-16 rounded-full border border-line p-1">
-                <span className={`grid place-items-center w-full h-full rounded-full ${b.got ? 'bg-brand text-white' : 'bg-surface-2 text-muted'}`}><Icon name="spark" size={22} fill /></span>
-              </span>
-              <span className="text-[11px] text-center leading-tight">{b.name}</span>
-            </div>
+        {/* Достижения: полученные — яркие, остальные — подсказкой, как их получить */}
+        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" aria-label="Достижения">
+          {[...badges].sort((x, y) => Number(y.got) - Number(x.got)).map((b) => (
+            <span key={b.id} title={b.desc} className={`shrink-0 inline-flex items-center gap-1.5 h-8 pl-1 pr-3 rounded-full text-[12px] font-semibold ${b.got ? 'bg-surface shadow-soft' : 'bg-surface-2 text-muted'}`}>
+              <span className={`grid place-items-center w-6 h-6 rounded-full ${b.got ? 'bg-brand text-white' : 'bg-line text-muted'}`}><Icon name={b.got ? 'spark' : 'clock'} size={12} fill={b.got} /></span>
+              {b.name}
+            </span>
           ))}
         </div>
       </section>
@@ -117,8 +115,9 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
       <div className="grid grid-cols-4 border-t border-line" role="tablist">
         {([['posts', 'camera', 'Фото и видео'], ['plans', 'grid', 'Мои планы'], ['saved', 'bookmark', 'Сохранённое'], ['settings', 'settings', 'Настройки']] as const).map(([id, icon, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} aria-label={label} onClick={() => setTab(id)}
-            className={`h-11 grid place-items-center border-t -mt-px cursor-pointer ${tab === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
-            <Icon name={icon} size={22} />
+            className={`h-14 flex flex-col items-center justify-center gap-1 border-t-2 -mt-px cursor-pointer ${tab === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
+            <Icon name={icon} size={20} />
+            <span className={`text-[11px] leading-none ${tab === id ? 'font-semibold' : ''}`}>{id === 'posts' ? 'Посты' : id === 'plans' ? 'Планы' : id === 'saved' ? 'Сохранено' : 'Настройки'}</span>
           </button>
         ))}
       </div>

@@ -11,6 +11,7 @@ import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
 import { SurpriseMeet } from '../components/Surprise'
+import { WelcomeTips } from '../components/Tips'
 import { StoriesRow, useStoryGroups } from './Stories'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
@@ -40,6 +41,10 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
   const openProfile = useOpenProfile()
   // Люди без активного плана: иначе новенькие не видны на главной, пока не предложат план.
   const quiet = state.people.filter((p) => !storyGroups.some((g) => g.personId === p.id))
+  const [feedMode, setFeedMode] = useState<'all' | 'following'>('all')
+  const inFollowing = (id: string) => id === 'me' || followed.includes(id)
+  const shownPosts = feedMode === 'all' ? posts : posts.filter((a) => inFollowing(a.authorId))
+  const shownPubs = feedMode === 'all' ? publications : publications.filter((x) => inFollowing(x.authorId))
 
   return (
     <div className="flex flex-col">
@@ -47,6 +52,8 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
       <StoriesRow now={now} onRespond={(a, t) => onRespond(a, t)} onOpenCapsule={onOpenCapsule}
         onMessage={(personId, text) => dispatch({ type: 'directMessage', personId, capsuleId: crypto.randomUUID(), text })} />
 
+      <WelcomeTips />
+      <h2 className="px-4 mb-2 font-display font-bold text-[17px]">Сейчас рядом</h2>
       <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
       <FreeNow now={now} onInvite={onInvite} />
       <SurpriseMeet onMessage={onMessage} />
@@ -67,7 +74,22 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
 
       {state.announcement && state.announcement !== state.dismissedAnnouncement && <Announcement text={state.announcement} />}
 
-      {mixFeed(posts, publications).map((x) => x.kind === 'pub' ? (
+      {/* Лента: все или только те, на кого подписан */}
+      <div className="flex items-center justify-between gap-3 px-4 mb-3 mt-1">
+        <h2 className="font-display font-bold text-[17px]">Лента</h2>
+        <div className="flex rounded-full bg-surface-2 p-1" role="tablist" aria-label="Что показывать в ленте">
+          {([['all', 'Все'], ['following', 'Подписки']] as const).map(([m, label]) => (
+            <button key={m} role="tab" aria-selected={feedMode === m} onClick={() => setFeedMode(m)}
+              className={`h-8 px-3.5 rounded-full text-[13px] font-semibold cursor-pointer transition ${feedMode === m ? 'bg-surface shadow-soft text-fg' : 'text-muted'}`}>{label}</button>
+          ))}
+        </div>
+      </div>
+      {feedMode === 'following' && !mixFeed(shownPosts, shownPubs).length && (
+        <div className="mx-4 mb-4 rounded-[24px] bg-surface-2 p-6 text-center text-[14px] text-muted">
+          Здесь будут планы и публикации тех, на кого вы подписаны. Откройте профиль человека и нажмите «Подписаться».
+        </div>
+      )}
+      {mixFeed(shownPosts, shownPubs).map((x) => x.kind === 'pub' ? (
         <FeedPublication key={x.s.id} s={x.s} onMessage={onMessage} />
       ) : (
         <Post key={x.a.id} activity={x.a} person={state.people.find((p) => p.id === x.a.authorId) ?? null} now={now}

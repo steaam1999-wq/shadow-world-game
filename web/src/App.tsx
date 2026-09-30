@@ -34,7 +34,7 @@ const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
   { id: 'home', label: 'Главная', icon: 'home' },
   { id: 'search', label: 'Поиск', icon: 'search' },
   { id: 'create', label: 'Создать', icon: 'create' },
-  { id: 'reels', label: 'Планы на весь экран', icon: 'reels' },
+  { id: 'capsules', label: 'Чаты', icon: 'chat' },
   { id: 'profile', label: 'Профиль', icon: 'user' },
 ]
 
@@ -175,7 +175,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
   const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length + (state.groups ?? []).filter((g) => g.unread > 0).length
   const inChat = tab === 'capsules' && chat
-  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name, music: 'Музыка' }
+  const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Шортсы и планы', capsules: 'Чаты', profile: me.name, music: 'Музыка' }
 
   return (
     <ProfileNav.Provider value={openProfile}>
@@ -193,12 +193,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
               <Icon name="heart" size={25} />
               {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || commentNotices(state).some((c) => c.at > (state.noticesSeenAt ?? 0))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
             </button>
-            {tab !== 'capsules' && (
-              <button onClick={() => { setTab('capsules'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
-                <Icon name="send" size={24} />
-                {unread > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[11px] font-bold border-2 border-surface">{unread}</span>}
-              </button>
-            )}
+            <button onClick={() => { setTab('reels'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Шортсы и планы на весь экран">
+              <Icon name="reels" size={24} />
+            </button>
           </div>
           </div>
         </header>
@@ -206,6 +203,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       {!inChat && (tab !== 'reels' || person) && <div className="h-14 shrink-0" aria-hidden="true" />}
 
       <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(168px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
+        <div key={person ?? tab} className={`anim-page ${inChat ? 'flex-1 flex flex-col' : ''}`}>
         {person && <PersonProfile personId={person} now={now} onBack={() => setPerson(null)} onRespond={(a, t) => { setPerson(null); respond(a, t) }}
           onOpenCapsule={(id) => { setPerson(null); openCapsuleByActivity(id) }} onOpenChat={(id) => { setPerson(null); setTab('capsules'); setChat(id) }} />}
         {!person && tab === 'home' && <Feed now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreate={() => setChoosing(true)} onInvite={invite} onMessage={messagePerson} />}
@@ -214,6 +212,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'capsules' && (chat && (state.capsules.some((c) => c.id === chat) || (state.groups ?? []).some((g) => g.id === chat)) ? ((state.groups ?? []).some((g) => g.id === chat) ? <GroupChat id={chat} onBack={closeChat} /> : <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} />) : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} onNew={messagePerson} /></div>)}
         {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
+        </div>
       </main>
 
       {!inChat && (tab !== 'reels' || person) && <MiniPlayer />}
@@ -261,20 +260,33 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
       {!inChat && (
         <nav className="glass glass-solid fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[456px] rounded-[32px] p-1.5" aria-label="Разделы">
-          <ul className="relative grid grid-cols-5">
+          <ul className="relative grid grid-cols-5 items-center">
             {NAV.map((t) => {
-              const active = tab === t.id
+              const active = tab === t.id && !person
+              // «Создать» — главная кнопка: круг в фирменном градиенте посередине.
+              if (t.id === 'create') return (
+                <li key={t.id} className="grid place-items-center">
+                  <button onClick={() => setChoosing(true)} aria-label={t.label}
+                    className="grid place-items-center w-12 h-12 rounded-2xl bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.7)] cursor-pointer active:scale-95 transition">
+                    <Icon name="plus" size={26} />
+                  </button>
+                </li>
+              )
               return (
                 <li key={t.id}>
                   <button
-                    onClick={() => (t.id === 'create' ? setChoosing(true) : (setTab(t.id), setChat(null), setPerson(null)))}
-                    aria-current={active ? 'page' : undefined} aria-label={t.label}
-                    className={`relative w-full h-13 grid place-items-center rounded-[26px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-fg/80 hover:text-fg'}`}>
-                    {t.id === 'profile' ? (
-                      <Avatar name={me.name} hue={me.hue} src={me.photo} size={28} />
-                    ) : (
-                      <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} className="tab-icon" />
-                    )}
+                    onClick={() => { setTab(t.id as Tab); setChat(null); setPerson(null) }}
+                    aria-current={active ? 'page' : undefined} aria-label={t.id === 'capsules' && unread ? `${t.label}: ${unread} непрочитанных` : t.label}
+                    className={`relative w-full h-14 flex flex-col items-center justify-center gap-0.5 rounded-[24px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-muted hover:text-fg'}`}>
+                    <span className="relative">
+                      {t.id === 'profile' ? (
+                        <span className={`block rounded-full ${active ? 'ring-2 ring-fg ring-offset-1 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
+                      ) : (
+                        <Icon name={t.icon} size={24} fill={active && (t.id === 'home')} className="tab-icon" />
+                      )}
+                      {t.id === 'capsules' && unread > 0 && <span className="absolute -top-1.5 -right-2.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-bold border-2 border-surface">{unread}</span>}
+                    </span>
+                    <span className={`text-[10.5px] leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
                   </button>
                 </li>
               )

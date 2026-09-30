@@ -60,8 +60,8 @@ export function ReliabilityBadge({ person, compact = false }: { person: { id: st
       <Icon name="shield" size={12} /> приходит {r.pct}%
     </span>
   ) : (
-    <span className={`inline-flex items-center gap-1.5 text-[13px] ${tone}`}>
-      <Icon name="shield" size={15} /> <b>Надёжность {r.pct}%</b> <span className="text-muted font-normal">— пришёл(ла) на {r.came} из {r.total} встреч</span>
+    <span className={`flex flex-wrap items-center gap-x-1.5 text-[13px] ${tone}`}>
+      <Icon name="shield" size={15} /> <b className="whitespace-nowrap">Надёжность {r.pct}%</b> <span className="text-muted font-normal">— пришёл(ла) на {r.came} из {r.total} встреч</span>
     </span>
   )
 }
