@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Me, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
 import type { Social } from '../store'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
@@ -317,9 +317,10 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, kind: s.kind === 'photo' ? 'photo' : 'video', caption: s.caption, at: ms(s.created_at),
     ...(s.thumb_path && urls.has(s.thumb_path) ? { thumb: urls.get(s.thumb_path)!, thumbPath: s.thumb_path } : {}),
   }))
+  const groups = await loadGroups(db, userId, hidden)
   const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,
     new Set(activities.filter((a) => a.authorId === 'me').map((a) => a.id)), new Set(shorts.filter((s) => s.authorId === 'me').map((s) => s.id)))
-  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
+  return { me, people, activities, capsules: caps, groups, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
 }
 
 /** Фото из хранилища — временными ссылками; старые (base64 в базе) — отдельным запросом, только где они ещё есть. */
@@ -481,6 +482,101 @@ export async function openDirect(userId: string, capsuleId: string, otherId: str
   if (text) await sendMessage(userId, capsuleId, text)
 }
 
+// ——— Групповые чаты ———
+interface GroupMessageRow { id: number; group_id: string; sender: string; body: string; photo_path: string | null; created_at: string }
+export type { GroupMessageRow }
+
+/** Мои группы с участниками и перепиской. Сообщения тех, кого я заблокировал, не показываем. */
+async function loadGroups(db: SupabaseClient, userId: string, hidden: Set<string>): Promise<Group[]> {
+  const chats = await db.from('group_chats').select('*').returns<{ id: string; title: string; owner: string; created_at: string }[]>()
+  if (chats.error) throw chats.error
+  const ids = (chats.data ?? []).map((g) => g.id)
+  if (!ids.length) return []
+  const [members, msgs] = await Promise.all([
+    db.from('group_members').select('group_id, user_id, read_at').in('group_id', ids).returns<{ group_id: string; user_id: string; read_at: string | null }[]>(),
+    db.from('group_messages').select('*').in('group_id', ids).order('created_at').limit(3000).returns<GroupMessageRow[]>(),
+  ])
+  if (members.error) throw members.error
+  if (msgs.error) throw msgs.error
+  const photos = await sign('chat', (msgs.data ?? []).flatMap((m) => (m.photo_path ? [m.photo_path] : [])))
+  // Создатель, который ещё не добавил себя (сбой при создании), видит группу, но не участник — такую пропускаем.
+  return (chats.data ?? []).flatMap((g): Group[] => {
+    const ms = (members.data ?? []).filter((m) => m.group_id === g.id)
+    const mine = ms.find((m) => m.user_id === userId)
+    if (!mine) return []
+    const myRead = mine.read_at ? ms_(mine.read_at) : 0
+    const rows = (msgs.data ?? []).filter((m) => m.group_id === g.id && !hidden.has(m.sender))
+    const others = ms.filter((m) => m.user_id !== userId)
+    return [{
+      id: g.id, title: g.title, ownerId: g.owner === userId ? 'me' : g.owner, createdAt: ms_(g.created_at),
+      members: others.map((m) => m.user_id).filter((id) => !hidden.has(id)),
+      othersReadAt: Math.max(0, ...others.map((m) => (m.read_at ? ms_(m.read_at) : 0))) || undefined,
+      messages: [
+        { id: `${g.id}-open`, from: 'system' as const, text: 'Группа создана', at: ms_(g.created_at) },
+        ...rows.map((m) => ({
+          id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, senderId: m.sender === userId ? 'me' : m.sender, text: m.body, at: ms_(m.created_at),
+          ...(m.photo_path ? { photo: photos.get(m.photo_path), photoPath: m.photo_path } : {}),
+        })),
+      ],
+      unread: rows.filter((m) => m.sender !== userId && ms_(m.created_at) > myRead).length,
+    }]
+  })
+}
+const ms_ = (iso: string) => new Date(iso).getTime()
+
+export async function createGroup(userId: string, id: string, title: string, members: string[]) {
+  const { error } = await sb().from('group_chats').insert({ id, title })
+  if (error) throw error
+  const add = await sb().from('group_members').insert([userId, ...members].map((user_id) => ({ group_id: id, user_id })))
+  if (add.error) { await sb().from('group_chats').delete().eq('id', id); throw add.error }
+}
+
+export async function sendGroupMessage(groupId: string, body: string) {
+  const { error } = await sb().from('group_messages').insert({ group_id: groupId, body })
+  if (error) throw error
+}
+
+export async function sendGroupPhoto(groupId: string, dataUrl: string, text: string) {
+  const blob = await (await fetch(dataUrl)).blob()
+  const path = `${groupId}/${crypto.randomUUID()}.jpg`
+  const up = await sb().storage.from('chat').upload(path, blob, { contentType: 'image/jpeg', upsert: false })
+  if (up.error) throw up.error
+  const { error } = await sb().from('group_messages').insert({ group_id: groupId, body: text, photo_path: path })
+  if (error) { await sb().storage.from('chat').remove([path]); throw error }
+}
+
+export async function deleteGroupMessage(id: string, photoPath?: string) {
+  const { error } = await sb().from('group_messages').delete().eq('id', Number(id))
+  if (error) throw error
+  if (photoPath) await sb().storage.from('chat').remove([photoPath])
+}
+
+export async function markGroupRead(userId: string, groupId: string) {
+  const { error } = await sb().from('group_members').update({ read_at: new Date().toISOString() }).eq('group_id', groupId).eq('user_id', userId)
+  if (error) throw error
+}
+
+export async function renameGroup(groupId: string, title: string) {
+  const { error } = await sb().from('group_chats').update({ title }).eq('id', groupId)
+  if (error) throw error
+}
+
+export async function addGroupMembers(groupId: string, members: string[]) {
+  const { error } = await sb().from('group_members').insert(members.map((user_id) => ({ group_id: groupId, user_id })))
+  if (error) throw error
+}
+
+export async function removeGroupMember(groupId: string, personId: string) {
+  const { error } = await sb().from('group_members').delete().eq('group_id', groupId).eq('user_id', personId)
+  if (error) throw error
+}
+
+/** Выйти из группы; создатель вместо этого удаляет её целиком. */
+export async function leaveGroup(userId: string, groupId: string, owner: boolean) {
+  const { error } = owner ? await sb().from('group_chats').delete().eq('id', groupId) : await sb().from('group_members').delete().eq('group_id', groupId).eq('user_id', userId)
+  if (error) throw error
+}
+
 export async function sendMessage(userId: string, capsuleId: string, body: string) {
   const { error } = await sb().from('messages').insert({ capsule_id: capsuleId, sender: userId, body })
   if (error) throw error
@@ -546,6 +642,9 @@ export async function deleteAccount() {
       const { data } = await sb().storage.from('chat').list(c.id, { limit: 1000 })
       if (data?.length) await sb().storage.from('chat').remove(data.map((f) => `${c.id}/${f.name}`))
     }
+    // Мои фото в групповых чатах.
+    const { data: gp } = await sb().from('group_messages').select('photo_path').eq('sender', user.id).not('photo_path', 'is', null).returns<{ photo_path: string }[]>()
+    if (gp?.length) await sb().storage.from('chat').remove(gp.map((m) => m.photo_path))
   }
   const { error } = await sb().rpc('delete_my_account')
   if (error) throw error
@@ -656,7 +755,7 @@ export async function sendReport(target: string, reason: string, body: string, s
 /** Любое изменение в чате, капсулах, планах или профилях — повод перечитать данные.
  *  Новые сообщения дополнительно приходят сразу (`onMessage`), чтобы не ждать перезагрузки.
  *  Канал сам переподключается: телефон обрывает соединение, когда вкладка свёрнута. */
-export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => void, onStatus?: (live: boolean) => void) {
+export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => void, onStatus?: (live: boolean) => void, onGroupMessage?: (m: GroupMessageRow) => void) {
   let ch: ReturnType<SupabaseClient['channel']> | null = null
   let retry: ReturnType<typeof setTimeout> | undefined
   let stopped = false
@@ -665,7 +764,8 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     if (ch) void sb().removeChannel(ch)
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    if (onGroupMessage) ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_messages' }, (p) => onGroupMessage(p.new as GroupMessageRow))
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments', 'group_chats', 'group_members', 'group_messages']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

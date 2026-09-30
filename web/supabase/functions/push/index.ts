@@ -1,5 +1,5 @@
 // Match: push-уведомления о новых сообщениях и подписках.
-// Вызывается триггерами базы (messages_push, follows_push) с общим секретом в заголовке x-push-secret.
+// Вызывается триггерами базы (messages_push, group_messages_push, follows_push) с общим секретом в заголовке x-push-secret.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
@@ -17,13 +17,27 @@ Deno.serve(async (req) => {
   if (req.headers.get('x-push-secret') !== config!.hook) return new Response('forbidden', { status: 403 })
 
   const body = await req.json().catch(() => ({}))
-  let to: string, payload: string, topic: string
-  if (body.follower && body.followee) {
+  let to: string[], payload: string, topic: string
+  if (body.group_message_id) {
+    // Сообщение в группе: всем участникам, кроме отправителя.
+    const { data: m } = await db.from('group_messages').select('group_id, sender, body, photo_path').eq('id', body.group_message_id).maybeSingle()
+    if (!m) return new Response('no message', { status: 404 })
+    const [{ data: g }, { data: members }, { data: sender }] = await Promise.all([
+      db.from('group_chats').select('title').eq('id', m.group_id).maybeSingle(),
+      db.from('group_members').select('user_id').eq('group_id', m.group_id),
+      db.from('profiles').select('name').eq('id', m.sender).maybeSingle(),
+    ])
+    to = (members ?? []).map((x: { user_id: string }) => x.user_id).filter((id: string) => id !== m.sender)
+    const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : 'Новое сообщение')
+    const line = `${sender?.name ?? 'Кто-то'}: ${text}`
+    payload = JSON.stringify({ title: g?.title ?? 'Группа', body: line.length > 140 ? line.slice(0, 139) + '…' : line, chat: m.group_id })
+    topic = String(m.group_id).replace(/-/g, '').slice(0, 32)
+  } else if (body.follower && body.followee) {
     // Новая подписка: «Имя подписался(ась) на вас».
     const { data: f } = await db.from('follows').select('follower').eq('follower', body.follower).eq('followee', body.followee).maybeSingle()
     if (!f) return new Response('no follow', { status: 404 })
     const { data: who } = await db.from('profiles').select('name').eq('id', body.follower).maybeSingle()
-    to = body.followee
+    to = [body.followee]
     payload = JSON.stringify({ title: 'Match', body: `${who?.name ?? 'Кто-то'} подписал(ась) на вас`, kind: 'follow', person: body.follower })
     topic = 'follow'
   } else {
@@ -33,13 +47,14 @@ Deno.serve(async (req) => {
     if (!m) return new Response('no message', { status: 404 })
     const { data: c } = await db.from('capsules').select('author, responder').eq('id', m.capsule_id).maybeSingle()
     if (!c) return new Response('no chat', { status: 404 })
-    to = c.author === m.sender ? c.responder : c.author
+    to = [c.author === m.sender ? c.responder : c.author]
     const { data: sender } = await db.from('profiles').select('name').eq('id', m.sender).maybeSingle()
     const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : 'Новое сообщение')
     payload = JSON.stringify({ title: sender?.name ?? 'Match', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
     topic = String(m.capsule_id).replace(/-/g, '').slice(0, 32)
   }
-  const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth').eq('user_id', to)
+  if (!to.length) return new Response('no recipients', { status: 200 })
+  const { data: subs } = await db.from('push_subscriptions').select('endpoint, p256dh, auth').in('user_id', to)
   if (!subs?.length) return new Response('no subscribers', { status: 200 })
 
   let sent = 0

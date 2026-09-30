@@ -839,6 +839,139 @@ create policy "avatar files: delete own" on storage.objects for delete to authen
   bucket_id = 'avatars' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
 );
 
+-- Групповые чаты: группа, участники и сообщения. Создатель (owner) добавляет и удаляет людей,
+-- переименовывает и удаляет группу; любой участник может писать и выйти.
+create table if not exists public.group_chats (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 1 and 60),
+  owner uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists group_chats_owner_idx on public.group_chats (owner);
+create table if not exists public.group_members (
+  group_id uuid not null references public.group_chats (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  read_at timestamptz,
+  primary key (group_id, user_id)
+);
+create index if not exists group_members_user_idx on public.group_members (user_id);
+create table if not exists public.group_messages (
+  id bigint generated always as identity primary key,
+  group_id uuid not null references public.group_chats (id) on delete cascade,
+  sender uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  body text not null default '',
+  photo_path text check (photo_path is null or char_length(photo_path) <= 200),
+  created_at timestamptz not null default now(),
+  constraint group_messages_content_check check (char_length(body) <= 2000 and (char_length(body) >= 1 or photo_path is not null))
+);
+create index if not exists group_messages_group_idx on public.group_messages (group_id, created_at);
+create index if not exists group_messages_sender_idx on public.group_messages (sender);
+
+create or replace function private.in_group(g uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.group_members m where m.group_id = g and m.user_id = (select auth.uid()))
+$$;
+create or replace function private.is_group_owner(g uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.group_chats c where c.id = g and c.owner = (select auth.uid()))
+$$;
+create or replace function private.group_size(g uuid) returns integer
+language sql stable security definer set search_path = '' as $$
+  select count(*)::int from public.group_members m where m.group_id = g
+$$;
+revoke all on function private.in_group(uuid), private.is_group_owner(uuid), private.group_size(uuid) from public, anon;
+grant execute on function private.in_group(uuid), private.is_group_owner(uuid), private.group_size(uuid) to authenticated;
+
+alter table public.group_chats enable row level security;
+alter table public.group_members enable row level security;
+alter table public.group_messages enable row level security;
+revoke all on public.group_chats, public.group_members, public.group_messages from anon, authenticated;
+grant select, delete on public.group_chats to authenticated;
+grant insert (id, title) on public.group_chats to authenticated;
+grant update (title) on public.group_chats to authenticated;
+grant select, delete on public.group_members to authenticated;
+grant insert (group_id, user_id) on public.group_members to authenticated;
+grant update (read_at) on public.group_members to authenticated;
+grant select, delete on public.group_messages to authenticated;
+grant insert (group_id, body, photo_path) on public.group_messages to authenticated;
+
+drop policy if exists "groups: read" on public.group_chats;
+create policy "groups: read" on public.group_chats for select to authenticated using (owner = (select auth.uid()) or private.in_group(id));
+drop policy if exists "groups: create" on public.group_chats;
+create policy "groups: create" on public.group_chats for insert to authenticated
+  with check (owner = (select auth.uid()) and not private.is_banned((select auth.uid())));
+drop policy if exists "groups: rename" on public.group_chats;
+create policy "groups: rename" on public.group_chats for update to authenticated
+  using (owner = (select auth.uid())) with check (owner = (select auth.uid()));
+drop policy if exists "groups: delete" on public.group_chats;
+create policy "groups: delete" on public.group_chats for delete to authenticated using (owner = (select auth.uid()));
+
+drop policy if exists "group members: read" on public.group_members;
+create policy "group members: read" on public.group_members for select to authenticated using (private.in_group(group_id));
+-- Добавляет только создатель; не больше 50 человек; нельзя добавить того, с кем есть блокировка.
+drop policy if exists "group members: add" on public.group_members;
+create policy "group members: add" on public.group_members for insert to authenticated with check (
+  private.is_group_owner(group_id) and not private.is_banned((select auth.uid()))
+  and not private.blocked_between(user_id, (select auth.uid()))
+  and private.group_size(group_id) < 50
+);
+-- Выйти может любой, кроме создателя (он удаляет группу); создатель может убрать любого другого.
+drop policy if exists "group members: leave or remove" on public.group_members;
+create policy "group members: leave or remove" on public.group_members for delete to authenticated using (
+  (user_id = (select auth.uid()) and not private.is_group_owner(group_id))
+  or (private.is_group_owner(group_id) and user_id <> (select auth.uid()))
+);
+drop policy if exists "group members: mark read" on public.group_members;
+create policy "group members: mark read" on public.group_members for update to authenticated
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+drop policy if exists "group messages: read" on public.group_messages;
+create policy "group messages: read" on public.group_messages for select to authenticated using (private.in_group(group_id));
+drop policy if exists "group messages: send" on public.group_messages;
+create policy "group messages: send" on public.group_messages for insert to authenticated with check (
+  sender = (select auth.uid()) and private.in_group(group_id) and not private.is_banned((select auth.uid()))
+);
+drop policy if exists "group messages: delete own" on public.group_messages;
+create policy "group messages: delete own" on public.group_messages for delete to authenticated
+  using (sender = (select auth.uid()) or private.is_group_owner(group_id));
+
+-- Фото в групповых чатах лежат в том же хранилище chat/<id группы>/.
+drop policy if exists "chat files: participants read" on storage.objects;
+create policy "chat files: participants read" on storage.objects for select to authenticated using (
+  bucket_id = 'chat' and (private.in_capsule(((storage.foldername(name))[1])::uuid) or private.in_group(((storage.foldername(name))[1])::uuid))
+);
+drop policy if exists "chat files: participants upload" on storage.objects;
+create policy "chat files: participants upload" on storage.objects for insert to authenticated with check (
+  bucket_id = 'chat' and (private.can_write(((storage.foldername(name))[1])::uuid)
+    or (private.in_group(((storage.foldername(name))[1])::uuid) and not private.is_banned((select auth.uid()))))
+);
+
+-- Push всем участникам группы, кроме отправителя.
+create or replace function private.on_group_message_push() returns trigger
+language plpgsql security definer set search_path = public, vault, extensions as $$
+begin
+  perform net.http_post(
+    url := 'https://mrivbqkqdaxtvwcsljzu.supabase.co/functions/v1/push',
+    body := json_build_object('group_message_id', new.id)::jsonb,
+    headers := json_build_object('Content-Type', 'application/json',
+      'x-push-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))::jsonb,
+    timeout_milliseconds := 5000
+  );
+  return new;
+exception when others then
+  return new;
+end $$;
+revoke all on function private.on_group_message_push() from public, anon, authenticated;
+drop trigger if exists group_messages_push on public.group_messages;
+create trigger group_messages_push after insert on public.group_messages for each row execute function private.on_group_message_push();
+
+do $$ begin
+  begin alter publication supabase_realtime add table public.group_chats; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.group_members; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.group_messages; exception when duplicate_object then null; end;
+end $$;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

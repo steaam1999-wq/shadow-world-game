@@ -14,6 +14,7 @@ import { Feed } from './screens/Feed'
 import { Reels } from './screens/Reels'
 import { NewPublication } from './screens/Shorts'
 import { CapsuleChat, CapsuleList, NewChatSheet } from './screens/Capsules'
+import { GroupChat } from './screens/Groups'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { CloudSync } from './cloud/CloudSync'
@@ -159,6 +160,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     dispatch({ type: 'directMessage', personId, capsuleId: id })
     openChatById(id)
   }
+  const closeChat = useCallback(() => setChat(null), [])
   const openChatById = useCallback((id: string) => { setPerson(null); setTab('capsules'); setChat(id) }, [])
 
   const respond = (a: Activity, text?: string) => {
@@ -166,7 +168,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
     setToast(a)
   }
 
-  const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length
+  const unread = state.capsules.filter((c) => c.unread > 0 && !isExpired(c, now)).length + (state.groups ?? []).filter((g) => g.unread > 0).length
   const inChat = tab === 'capsules' && chat
   const titles: Record<Tab, string> = { home: '', search: 'Поиск', reels: 'Планы', capsules: 'Сообщения', profile: me.name, music: 'Музыка' }
 
@@ -205,7 +207,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         {!person && tab === 'music' && <MusicPage />}
         {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
-        {!person && tab === 'capsules' && (chat ? <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} /> : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} onNew={messagePerson} /></div>)}
+        {!person && tab === 'capsules' && (chat && (state.capsules.some((c) => c.id === chat) || (state.groups ?? []).some((g) => g.id === chat)) ? ((state.groups ?? []).some((g) => g.id === chat) ? <GroupChat id={chat} onBack={closeChat} /> : <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} />) : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} onNew={messagePerson} /></div>)}
         {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
       </main>
 
@@ -220,7 +222,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           {[
             { icon: 'camera', title: 'Публикация', text: 'Фото или видео с подписью — появится на главной', go: () => setPosting(true) },
             { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
-            { icon: 'chat', title: 'Новый чат', text: 'Написать любому человеку лично', go: () => setNewChat(true) },
+            { icon: 'chat', title: 'Новый чат', text: 'Написать человеку лично или создать группу', go: () => setNewChat(true) },
           ].map((o) => (
             <button key={o.title} onClick={() => { setChoosing(false); o.go() }} className="flex items-center gap-3 p-3 rounded-2xl bg-surface-2 text-left cursor-pointer hover:brightness-95">
               <span className="grid place-items-center w-11 h-11 rounded-full bg-brand text-white shrink-0"><Icon name={o.icon} size={20} /></span>
@@ -229,7 +231,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           ))}
         </div>
       </Sheet>
-      <NewChatSheet open={newChat} onClose={() => setNewChat(false)} onPick={(id) => { setNewChat(false); messagePerson(id) }} />
+      <NewChatSheet open={newChat} onClose={() => setNewChat(false)} onPick={(id) => { setNewChat(false); messagePerson(id) }} onGroupCreated={(id) => { setNewChat(false); openChatById(id) }} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {state.cloudError && (

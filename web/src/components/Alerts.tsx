@@ -138,7 +138,7 @@ export async function enablePush(): Promise<boolean> {
   } catch { return false }
 }
 
-interface Incoming { chat: string; person: Person; text: string; key: string; profile?: boolean }
+interface Incoming { chat: string; person: Person; text: string; key: string; profile?: boolean; at?: number }
 
 /** Следит за новыми входящими и показывает баннер; `openChat` — какой чат сейчас открыт. */
 export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: string | null; onOpen: (chatId: string) => void; onOpenProfile: (personId: string) => void }) {
@@ -156,9 +156,19 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
       for (const m of c.messages) {
         if (m.from !== 'them' || m.at < since.current || seen.current.has(m.id)) continue
         seen.current.add(m.id)
-        fresh.push({ chat: c.id, person, text: m.text || '📷 Фото', key: m.id })
+        fresh.push({ chat: c.id, person, text: m.text || '📷 Фото', key: m.id, at: m.at })
       }
     }
+    // Сообщения в группах: баннер с автором, в тексте — название группы.
+    for (const g of state.groups ?? []) {
+      for (const m of g.messages) {
+        if (m.from !== 'them' || m.at < since.current || seen.current.has(m.id)) continue
+        seen.current.add(m.id)
+        const person = state.people.find((p) => p.id === m.senderId)
+        if (person) fresh.push({ chat: g.id, person, text: `${g.title}: ${m.text || '📷 Фото'}`, key: m.id, at: m.at })
+      }
+    }
+    fresh.sort((a, b) => (a.at ?? 0) - (b.at ?? 0))
     const last = fresh[fresh.length - 1]
     if (!last) return
     if (prefs.sound) playDrop()
@@ -167,7 +177,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
       void notifySystem(last.person.name, last.text, last.chat, last.person.photo)
     }
     if (last.chat !== openChat || document.hidden) setBanner(last)
-  }, [state.capsules, state.people, openChat, prefs.sound, prefs.system])
+  }, [state.capsules, state.groups, state.people, openChat, prefs.sound, prefs.system])
 
   // Новые подписчики и лайки — та же «капелька» и плашка сверху.
   useEffect(() => {
@@ -201,7 +211,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
   }, [onOpen, onOpenProfile])
 
   // Счётчик непрочитанных — в заголовке вкладки и на иконке приложения.
-  const unread = state.capsules.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0)
+  const unread = state.capsules.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) + (state.groups ?? []).reduce((n, g) => n + (g.unread > 0 ? 1 : 0), 0)
   useEffect(() => {
     document.title = unread ? `(${unread}) Match` : 'Match'
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> }

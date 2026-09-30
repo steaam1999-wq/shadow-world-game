@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Me, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
@@ -22,6 +22,17 @@ export type Action =
   | { type: 'sendPhoto'; capsuleId: string; photo: string; text?: string }
   | { type: 'deleteMessage'; capsuleId: string; messageId: string }
   | { type: 'hideChat'; capsuleId: string }
+  | { type: 'createGroup'; id: string; title: string; members: string[] }
+  | { type: 'sendGroup'; groupId: string; text: string }
+  | { type: 'sendGroupPhoto'; groupId: string; photo: string; text?: string }
+  | { type: 'deleteGroupMessage'; groupId: string; messageId: string }
+  | { type: 'readGroup'; groupId: string }
+  | { type: 'renameGroup'; groupId: string; title: string }
+  | { type: 'addGroupMembers'; groupId: string; members: string[] }
+  | { type: 'removeGroupMember'; groupId: string; personId: string }
+  | { type: 'leaveGroup'; groupId: string }
+  | { type: 'groupReply'; groupId: string }
+  | { type: 'cloudGroupMessage'; groupId: string; id: string; senderId: string; text: string; at: number }
   | { type: 'repost'; activityId: string }
   | { type: 'nowPlaying'; value: NowPlaying | null }
   | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
@@ -56,7 +67,7 @@ export type Action =
   | { type: 'deleteShortComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; groups?: Group[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -198,6 +209,35 @@ function reducer(state: State, action: Action): State {
       }
     case 'repost':
       return state // запись на сервер — в cloud/sync
+    case 'createGroup':
+      return { ...state, groups: [{ id: action.id, title: action.title, ownerId: 'me', members: action.members, messages: [{ id: `${action.id}-open`, from: 'system', text: 'Группа создана', at: now }], unread: 0, createdAt: now }, ...(state.groups ?? [])] }
+    case 'sendGroup':
+    case 'sendGroupPhoto':
+      return mapGroup(state, action.groupId, (g) => ({ ...g, messages: [...g.messages, { id: `tmp-${uid()}`, from: 'me', text: action.text ?? '', at: now, ...(action.type === 'sendGroupPhoto' ? { photo: action.photo } : {}) }] }))
+    case 'deleteGroupMessage':
+      return mapGroup(state, action.groupId, (g) => ({ ...g, messages: g.messages.filter((m) => m.id !== action.messageId) }))
+    case 'readGroup':
+      return mapGroup(state, action.groupId, (g) => (g.unread ? { ...g, unread: 0 } : g))
+    case 'renameGroup':
+      return mapGroup(state, action.groupId, (g) => ({ ...g, title: action.title }))
+    case 'addGroupMembers':
+      return mapGroup(state, action.groupId, (g) => ({ ...g, members: [...new Set([...g.members, ...action.members])] }))
+    case 'removeGroupMember':
+      return mapGroup(state, action.groupId, (g) => ({ ...g, members: g.members.filter((m) => m !== action.personId) }))
+    case 'leaveGroup':
+      return { ...state, groups: (state.groups ?? []).filter((g) => g.id !== action.groupId) }
+    case 'groupReply': {
+      // Демо: кто-то из участников отвечает.
+      const g = (state.groups ?? []).find((x) => x.id === action.groupId)
+      if (!g?.members.length) return state
+      const who = g.members[Math.floor(Math.random() * g.members.length)]
+      return mapGroup(state, g.id, (x) => ({ ...x, othersReadAt: now, messages: [...x.messages, { id: uid(), from: 'them', senderId: who, text: QUICK_REPLIES[Math.floor(Math.random() * QUICK_REPLIES.length)], at: now }] }))
+    }
+    case 'cloudGroupMessage': {
+      const g = (state.groups ?? []).find((x) => x.id === action.groupId)
+      if (!g || g.messages.some((m) => m.id === action.id) || action.senderId === 'me') return state
+      return mapGroup(state, g.id, (x) => ({ ...x, messages: [...x.messages, { id: action.id, from: 'them', senderId: action.senderId, text: action.text, at: action.at }], unread: x.unread + 1 }))
+    }
     case 'hideChat':
       return { ...state, capsules: state.capsules.map((c) => (c.id === action.capsuleId ? { ...c, hidden: true, messages: [], unread: 0 } : c)) }
     case 'deleteMessage':
@@ -324,6 +364,7 @@ function reducer(state: State, action: Action): State {
         people: state.people.filter((p) => !gone(p.id)),
         activities: state.activities.filter((a) => !gone(a.authorId)),
         capsules: state.capsules.filter((c) => !gone(c.personId)),
+        groups: (state.groups ?? []).map((g) => ({ ...g, members: g.members.filter((m) => !gone(m)) })),
         comments: (state.comments ?? []).filter((c) => !gone(c.authorId)),
         blocked: [...(state.blocked ?? []).filter((b) => !gone(b.id)), { id: action.personId, name: action.name }],
       }
@@ -342,12 +383,13 @@ function reducer(state: State, action: Action): State {
       return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], groups: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {
         ...state,
         people: action.people, activities: action.activities, capsules: action.capsules,
+        ...(action.groups ? { groups: action.groups } : {}),
         ...(action.blocked ? { blocked: action.blocked } : {}), ...(action.isAdmin !== undefined ? { isAdmin: action.isAdmin } : {}),
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),
@@ -390,6 +432,10 @@ function load(): State {
 }
 
 const Ctx = createContext<{ state: State; dispatch: (a: Action) => void } | null>(null)
+
+function mapGroup(state: State, id: string, f: (g: Group) => Group): State {
+  return { ...state, groups: (state.groups ?? []).map((g) => (g.id === id ? f(g) : g)) }
+}
 
 /** Удаляет комментарий вместе со всеми ответами на него (на сервере так же — каскадом). */
 function withoutThread(list: PlanComment[], id: string) {

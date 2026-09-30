@@ -53,7 +53,10 @@ export function CloudSync() {
     const channel = api.subscribe(soon, (m) => {
       if (m.photo_path) return // сообщение с фото придёт с перезагрузкой — там уже будет ссылка на фото
       dispatch({ type: 'cloudMessage', capsuleId: m.capsule_id, id: String(m.id), mine: m.sender === userId, text: m.body, at: new Date(m.created_at).getTime() })
-    }, (ok) => { live = ok })
+    }, (ok) => { live = ok }, (m) => {
+      if (m.photo_path) return
+      dispatch({ type: 'cloudGroupMessage', groupId: m.group_id, id: String(m.id), senderId: m.sender === userId ? 'me' : m.sender, text: m.body, at: new Date(m.created_at).getTime() })
+    })
 
     // Вернулись в приложение (iPhone рвёт соединение в фоне) — сразу проверяем новое и переподключаемся.
     const wake = () => {

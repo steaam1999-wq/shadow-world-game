@@ -77,6 +77,18 @@ export interface Message {
   photoPath?: string // путь фото в хранилище чата (облако)
 }
 
+/** Групповой чат. Сообщения — как в личном чате, у чужих указан автор (senderId). */
+export interface Group {
+  id: string
+  title: string
+  ownerId: string // 'me' или personId
+  members: string[] // другие участники (personId), без меня
+  messages: (Message & { senderId?: string })[]
+  unread: number
+  createdAt: number
+  othersReadAt?: number // когда кто-то из участников последний раз открывал группу — для «прочитано»
+}
+
 export interface Capsule {
   id: string
   personId: string
@@ -148,6 +160,7 @@ export interface State {
   people: Person[]
   activities: Activity[]
   capsules: Capsule[]
+  groups?: Group[] // групповые чаты
   liked: string[] // activityId, на которые я откликнулся
   hearts: string[] // activityId, которые я лайкнул
   saved: string[]

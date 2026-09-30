@@ -4,6 +4,7 @@ import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
 import { Avatar, Button, Icon, Pill, Sheet, readPhoto, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
+import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
 
@@ -70,10 +71,11 @@ function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
 }
 
 /** Новый чат: выбрать любого человека. Сначала те, с кем уже общались и на кого подписаны. */
-export function NewChatSheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (personId: string) => void }) {
+export function NewChatSheet({ open, onClose, onPick, onGroupCreated }: { open: boolean; onClose: () => void; onPick: (personId: string) => void; onGroupCreated: (groupId: string) => void }) {
   const { state } = useStore()
   const [query, setQuery] = useState('')
-  useEffect(() => { if (!open) setQuery('') }, [open])
+  const [grouping, setGrouping] = useState(false)
+  useEffect(() => { if (!open) { setQuery(''); setGrouping(false) } }, [open])
   const q = query.trim().toLowerCase()
   const following = new Set(state.following ?? [])
   const chatted = new Set(state.capsules.filter((c) => !c.hidden).map((c) => c.personId))
@@ -81,9 +83,14 @@ export function NewChatSheet({ open, onClose, onPick }: { open: boolean; onClose
   const people = state.people
     .filter((p) => !q || p.name.toLowerCase().includes(q))
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, 'ru'))
+  if (grouping) return <GroupCreateSheet open={open} onClose={onClose} onCreated={onGroupCreated} />
   return (
     <Sheet open={open} onClose={onClose} title="Новый чат">
       <div className="flex flex-col gap-3">
+        <button onClick={() => setGrouping(true)} className="flex items-center gap-3 p-2 -mx-2 rounded-2xl hover:bg-surface-2 text-left cursor-pointer">
+          <span className="grid place-items-center w-11 h-11 rounded-full bg-brand text-white shrink-0"><Icon name="people" size={20} /></span>
+          <span className="min-w-0"><span className="block font-semibold">Новая группа</span><span className="block text-[13px] text-muted">Чат на несколько человек</span></span>
+        </button>
         <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Кому написать?" aria-label="Поиск людей" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
@@ -118,13 +125,39 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   const [swiped, setSwiped] = useState<string | null>(null) // у какой строки открыта кнопка удаления
   const [deleting, setDeleting] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [leavingGroup, setLeavingGroup] = useState<string | null>(null)
   const deletingName = state.people.find((x) => x.id === state.capsules.find((c) => c.id === deleting)?.personId)?.name ?? ''
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
   const q = query.trim().toLowerCase()
-  const list = state.capsules
-    .filter((c) => !c.hidden && state.people.some((x) => x.id === c.personId))
-    .filter((c) => !q || state.people.find((x) => x.id === c.personId)!.name.toLowerCase().includes(q))
-    .sort((a, b) => lastAt(b) - lastAt(a))
+  const preview = (m: { from: string; text: string; photo?: string; photoPath?: string } | undefined, who = '') =>
+    m ? `${m.from === 'me' ? 'Вы: ' : who ? `${who}: ` : ''}${m.text || (m.photo || m.photoPath ? '📷 Фото' : '')}` : 'Нет сообщений'
+  // Личные чаты и группы — одним списком, свежие сверху.
+  const rows = [
+    ...state.capsules
+      .filter((c) => !c.hidden && state.people.some((x) => x.id === c.personId))
+      .filter((c) => !q || state.people.find((x) => x.id === c.personId)!.name.toLowerCase().includes(q))
+      .map((c) => ({ kind: 'direct' as const, id: c.id, at: lastAt(c), c })),
+    ...(state.groups ?? [])
+      .filter((g) => !q || g.title.toLowerCase().includes(q))
+      .map((g) => ({ kind: 'group' as const, id: g.id, at: g.messages[g.messages.length - 1]?.at ?? g.createdAt, g })),
+  ].sort((a, b) => b.at - a.at)
+  const leaving = (state.groups ?? []).find((g) => g.id === leavingGroup)
+
+  const row = (id: string, at: number, unread: number, avatar: React.ReactNode, title: string, text: string, label: string, onDelete: () => void) => (
+    <SwipeRow key={id} open={swiped === id} onOpenChange={(o) => setSwiped(o ? id : null)} onClick={() => onOpen(id)} onDelete={onDelete} label={label}>
+      {avatar}
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold truncate">{title}</span>
+          <span className={`shrink-0 text-[12px] tnum ${unread ? 'text-spark font-semibold' : 'text-muted'}`}>{when(at, now)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className={`text-[14px] truncate ${unread ? 'text-fg font-semibold' : 'text-muted'}`}>{text}</span>
+          {unread > 0 && <span className="shrink-0 grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold">{unread}</span>}
+        </div>
+      </div>
+    </SwipeRow>
+  )
 
   return (
     <div className="flex flex-col gap-3">
@@ -132,43 +165,43 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
         <h1 className="font-display font-bold text-2xl">Чаты</h1>
         <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-spark text-on-spark font-semibold text-[14px] cursor-pointer"><Icon name="plus" size={18} /> Новый чат</button>
       </div>
-      {state.capsules.length > 3 && (
+      {rows.length + (q ? 1 : 0) > 3 && (
         <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск по имени" aria-label="Поиск по чатам" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
         </label>
       )}
-      {list.length ? (
+      {rows.length ? (
         <ul className="flex flex-col">
-          {list.map((c) => {
+          {rows.map((r) => {
+            if (r.kind === 'group') {
+              const g = r.g
+              const last = [...g.messages].reverse().find((m) => m.from !== 'system')
+              const who = last?.from === 'them' ? (state.people.find((p) => p.id === last.senderId)?.name ?? '') : ''
+              return row(g.id, r.at, g.unread, <GroupAvatar group={g} />, g.title, last ? preview(last, who) : 'Группа создана', g.ownerId === 'me' ? `Удалить группу ${g.title}` : `Выйти из группы ${g.title}`, () => setLeavingGroup(g.id))
+            }
+            const c = r.c
             const p = state.people.find((x) => x.id === c.personId)!
             const last = [...c.messages].reverse().find((m) => m.from !== 'system') ?? c.messages[c.messages.length - 1]
-            return (
-              <SwipeRow key={c.id} open={swiped === c.id} onOpenChange={(o) => setSwiped(o ? c.id : null)} onClick={() => onOpen(c.id)} onDelete={() => setDeleting(c.id)} label={`Удалить чат с ${p.name}`}>
-                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />
-                  <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold truncate">{p.name}</span>
-                      <span className={`shrink-0 text-[12px] tnum ${c.unread ? 'text-spark font-semibold' : 'text-muted'}`}>{when(lastAt(c), now)}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-[14px] truncate ${c.unread ? 'text-fg font-semibold' : 'text-muted'}`}>
-                        {last ? `${last.from === 'me' ? 'Вы: ' : ''}${last.text || (last.photo || last.photoPath ? '📷 Фото' : '')}` : 'Нет сообщений'}
-                      </span>
-                      {c.unread > 0 && <span className="shrink-0 grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold">{c.unread}</span>}
-                    </div>
-                  </div>
-              </SwipeRow>
-            )
+            return row(c.id, r.at, c.unread, <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />, p.name, preview(last), `Удалить чат с ${p.name}`, () => setDeleting(c.id))
           })}
         </ul>
       ) : (
         <div className="rounded-[28px] bg-surface-2 p-8 flex flex-col items-center gap-3 text-center text-muted">
-          {q ? 'Никого не нашли.' : 'Здесь будут ваши переписки. Начните новый чат, напишите человеку из его профиля или откликнитесь на план.'}
+          {q ? 'Никого не нашли.' : 'Здесь будут ваши переписки. Начните новый чат или группу, напишите человеку из его профиля или откликнитесь на план.'}
           {!q && <Button onClick={() => setCreating(true)}><Icon name="edit" size={18} /> Новый чат</Button>}
         </div>
       )}
-      <NewChatSheet open={creating} onClose={() => setCreating(false)} onPick={(id) => { setCreating(false); onNew(id) }} />
+      <Sheet open={!!leaving} onClose={() => setLeavingGroup(null)} title={leaving?.ownerId === 'me' ? `Удалить группу «${leaving?.title}»?` : `Выйти из группы «${leaving?.title}»?`}>
+        <div className="flex flex-col gap-3">
+          <p className="text-muted">{leaving?.ownerId === 'me' ? 'Группа и вся переписка удалятся у всех участников.' : 'Вы больше не увидите эту переписку. Вернуть вас сможет только создатель.'}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => setLeavingGroup(null)}>Отмена</Button>
+            <Button variant="danger" onClick={() => { if (leaving) dispatch({ type: 'leaveGroup', groupId: leaving.id }); setLeavingGroup(null); setSwiped(null) }}>{leaving?.ownerId === 'me' ? 'Удалить' : 'Выйти'}</Button>
+          </div>
+        </div>
+      </Sheet>
+      <NewChatSheet open={creating} onClose={() => setCreating(false)} onPick={(id) => { setCreating(false); onNew(id) }} onGroupCreated={(id) => { setCreating(false); onOpen(id) }} />
       <Sheet open={!!deleting} onClose={() => setDeleting(null)} title={`Удалить чат с ${deletingName}?`}>
         <div className="flex flex-col gap-3">
           <p className="text-muted">Переписка исчезнет у вас. У {deletingName} она останется. Если {deletingName} напишет снова, чат появится — уже без старых сообщений.</p>

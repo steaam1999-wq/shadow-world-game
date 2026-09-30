@@ -45,6 +45,28 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     }
     case 'hideChat':
       return run(api.hideChat(a.capsuleId))
+    case 'createGroup':
+      return run(api.createGroup(uid, a.id, a.title, a.members))
+    case 'sendGroup':
+      return run(api.sendGroupMessage(a.groupId, a.text))
+    case 'sendGroupPhoto':
+      return run(api.sendGroupPhoto(a.groupId, a.photo, a.text ?? ''))
+    case 'deleteGroupMessage': {
+      const m = (s.groups ?? []).find((g) => g.id === a.groupId)?.messages.find((x) => x.id === a.messageId)
+      return m && /^\d+$/.test(m.id) ? run(api.deleteGroupMessage(m.id, m.photoPath)) : null
+    }
+    case 'readGroup':
+      return run(api.markGroupRead(uid, a.groupId))
+    case 'renameGroup':
+      return run(api.renameGroup(a.groupId, a.title))
+    case 'addGroupMembers':
+      return run(api.addGroupMembers(a.groupId, a.members))
+    case 'removeGroupMember':
+      return run(api.removeGroupMember(a.groupId, a.personId))
+    case 'leaveGroup': {
+      const g = (s.groups ?? []).find((x) => x.id === a.groupId)
+      return g ? run(api.leaveGroup(uid, g.id, g.ownerId === 'me')) : null
+    }
     case 'readCapsule':
       return run(api.markRead(a.capsuleId))
     case 'share': {
