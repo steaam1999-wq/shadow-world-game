@@ -16,12 +16,6 @@ export const DEMO_ME: Me = {
   privacy: { showExactAge: true, hideFromContacts: true, approxLocation: true }, radiusKm: 5,
 }
 
-const DEMO_PLANS = [
-  { id: 'demo-1', category: 'Кофе' },
-  { id: 'demo-2', category: 'Выставка' },
-  { id: 'demo-3', category: 'Прогулка' },
-]
-
 type Mode = 'login' | 'register'
 const LOGIN_KEY = 'iskra-last-login'
 
@@ -33,6 +27,8 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
 }) {
   const { state, dispatch } = useStore()
   const [mode, setMode] = useState<Mode>('login')
+  // Сначала — экран приветствия; форма открывается по кнопке «Начать» или «Войти».
+  const [stage, setStage] = useState<'welcome' | 'auth'>('welcome')
   const [login, setLogin] = useState(() => { try { return localStorage.getItem(LOGIN_KEY) ?? '' } catch { return '' } })
   const [remember, setRemember] = useState(state.remember !== false)
   const [otherAccount, setOtherAccount] = useState(false)
@@ -104,6 +100,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     } else { keepLogin(); onLogin(remember) }
   }
   const switchMode = (m: Mode) => { setMode(m); setError(''); setResetting(false) }
+  const openAuth = (m: Mode) => { switchMode(m); setStage('auth') }
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
   return (
@@ -113,11 +110,59 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
         <ThemeToggle />
       </header>
 
-      <main className="flex-1 grid grid-cols-[minmax(0,1fr)] place-items-center px-4 py-6">
-        <div className="w-full max-w-[400px] flex flex-col gap-6">
+      {stage === 'welcome' && (
+        <main className="flex-1 flex flex-col items-center px-4 pb-6">
+          <div className="w-full max-w-[420px] flex flex-col gap-6">
+            <HeroCollage />
+            <div className="flex flex-col gap-3 text-center anim-page">
+              <h1 className="font-display font-bold text-[29px] leading-[1.15]">Хватит свайпать.<br /><span className="text-brand">Время встречаться.</span></h1>
+              <p className="text-[15px] text-muted leading-snug">Планы на вечер рядом с вами — кофе, выставки, прогулки. Откликнитесь и встретьтесь в тот же день.</p>
+            </div>
+            <ul className="grid grid-cols-3 gap-2 text-center">
+              {[['☕', 'Планы рядом', 'на 48 часов'], ['🔒', 'Место — в чате', 'только участникам'], ['🎶', 'Общая музыка', 'и вайб-тест']].map(([e, t, d]) => (
+                <li key={t} className="rounded-2xl bg-surface/80 shadow-soft px-2 py-3 flex flex-col items-center gap-1">
+                  <span className="text-[22px]" aria-hidden="true">{e}</span>
+                  <span className="text-[12px] font-semibold leading-tight">{t}</span>
+                  <span className="text-[11px] text-muted leading-tight">{d}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col gap-2.5">
+              {state.savedMe && (
+                <button onClick={() => { if (cloudEnabled) { setOtherAccount(true); openAuth('login') } else onLogin(true) }}
+                  className="flex items-center gap-3 rounded-[22px] bg-surface shadow-soft p-3 text-left cursor-pointer hover:brightness-95">
+                  <Avatar name={state.savedMe.name} hue={state.savedMe.hue} src={state.savedMe.photo} size={44} verified={state.savedMe.verified} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-semibold truncate">Продолжить как {state.savedMe.name}</span>
+                    <span className="block text-[12px] text-muted truncate">{login || 'Сохранённый вход на этом устройстве'}</span>
+                  </span>
+                  <Icon name="arrow" size={18} />
+                </button>
+              )}
+              <Button onClick={() => openAuth('register')} className="h-14 text-[16px] !rounded-full">Начать — это бесплатно</Button>
+              <Button variant="secondary" onClick={() => openAuth('login')} className="h-14 text-[16px] !rounded-full">У меня уже есть аккаунт</Button>
+              {!cloudEnabled && (
+                <button onClick={() => onDemo(true)} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer inline-flex items-center justify-center gap-1.5">
+                  <Icon name="eye" size={16} /> Посмотреть без регистрации
+                </button>
+              )}
+            </div>
+            <p className="text-center text-[12px] text-muted">Только для тех, кому есть 18 · проверенные профили · блокировка и жалобы в один тап</p>
+          </div>
+        </main>
+      )}
+
+      {stage === 'auth' && <main className="flex-1 grid grid-cols-[minmax(0,1fr)] place-items-start justify-items-center px-4 py-4">
+        <div className="w-full max-w-[400px] flex flex-col gap-6 anim-page">
           {/* Вход и регистрация */}
           <section className="w-full flex flex-col gap-5">
-            <h1 className="text-center font-display font-semibold text-[28px] leading-tight">Хватит свайпать.<br /><span className="text-brand">Время встречаться.</span></h1>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setStage('welcome'); setError(''); setInfo(''); setOtherAccount(false) }} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Назад"><Icon name="back" size={22} /></button>
+              <div>
+                <h1 className="font-display font-bold text-[26px] leading-tight">{mode === 'login' ? 'С возвращением 👋' : 'Создайте аккаунт'}</h1>
+                <p className="text-[14px] text-muted">{mode === 'login' ? 'Войдите, чтобы увидеть планы рядом' : 'Минута — и можно звать людей на встречу'}</p>
+              </div>
+            </div>
 
             <div className="rounded-[32px] bg-surface shadow-soft p-5 flex flex-col gap-4">
               <div className="grid grid-cols-2 p-1 rounded-2xl bg-surface-2" role="tablist" aria-label="Вход или регистрация">
@@ -207,32 +252,43 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 : <>Уже есть аккаунт? <button onClick={() => switchMode('login')} className="font-semibold text-fg cursor-pointer">Войти</button></>}
             </p>
           </section>
-          {/* Пример аккаунта — только в демо без сервера: с сервером входят настоящие люди. */}
-          {!cloudEnabled && <section className="rounded-[28px] bg-surface/80 shadow-soft p-4 flex flex-col gap-3" aria-label="Пример аккаунта">
-            <div className="flex items-center gap-3">
-              <span className="rounded-full p-[2px] bg-brand shrink-0"><span className="block rounded-full bg-surface p-[2px]"><Avatar name={DEMO_ME.name} hue={DEMO_ME.hue} size={46} verified /></span></span>
-              <div className="flex-1 min-w-0 leading-tight">
-                <div className="font-semibold truncate">{DEMO_ME.name}, {DEMO_ME.age}</div>
-                <div className="text-[12px] text-muted truncate">Пример аккаунта · 3 плана</div>
-              </div>
-              <div className="flex gap-1 shrink-0">
-                {DEMO_PLANS.map((p) => (
-                  <div key={p.id} className="relative w-9 aspect-[3/4] rounded-md overflow-hidden"><PostArt activity={p} /></div>
-                ))}
-              </div>
-            </div>
-            <Button variant="secondary" onClick={() => onDemo(true)} className="w-full h-10 text-[14px]">
-              <Icon name="user" size={17} /> Посмотреть без регистрации
-            </Button>
-          </section>}
         </div>
-      </main>
+      </main>}
 
       <footer className="px-4 py-5 flex flex-wrap justify-center gap-x-5 gap-y-1 text-[12px] text-muted">
         <span>© 2026 Match{cloudEnabled ? '' : ' · демо-версия'}</span>
         <button onClick={() => setRules(true)} className="hover:text-fg cursor-pointer">Правила и конфиденциальность</button>
       </footer>
       <RulesSheet open={rules} onClose={() => setRules(false)} />
+    </div>
+  )
+}
+
+/** Живой коллаж на экране приветствия: карточки планов, люди и «точка встречи» в центре. */
+function HeroCollage() {
+  const cards = [
+    { id: 'hero-1', category: 'Кофе', cls: 'left-[4%] top-[8%] -rotate-[8deg] anim-float', label: '☕ Кофе' },
+    { id: 'hero-2', category: 'Выставка', cls: 'right-[4%] top-[2%] rotate-[7deg] anim-float-slow', label: '🖼 Выставка' },
+    { id: 'hero-3', category: 'Прогулка', cls: 'left-[calc(50%-62px)] bottom-0 rotate-[2deg] anim-float', label: '🚶 Прогулка' },
+  ]
+  const people = [
+    { name: 'Алина', hue: 330, cls: 'left-[9%] bottom-[4%] anim-float-slow' },
+    { name: 'Максим', hue: 220, cls: 'right-[9%] bottom-[10%] anim-float' },
+  ]
+  return (
+    <div className="relative h-[270px] mt-2" aria-hidden="true">
+      {cards.map((c) => (
+        <div key={c.id} className={`absolute w-[124px] aspect-[3/4] rounded-[22px] overflow-hidden shadow-soft ring-4 ring-surface ${c.cls}`}>
+          <PostArt activity={{ id: c.id, category: c.category }} />
+          <span className="absolute left-2 bottom-2 rounded-full bg-white/90 text-[#14152a] text-[11px] font-semibold px-2 py-0.5">{c.label}</span>
+        </div>
+      ))}
+      {people.map((p) => (
+        <span key={p.name} className={`absolute rounded-full ring-4 ring-surface shadow-soft ${p.cls}`}><Avatar name={p.name} hue={p.hue} size={44} /></span>
+      ))}
+      <span className="absolute left-1/2 top-0 -translate-x-1/2 z-10">
+        <span className="block rounded-full bg-surface shadow-soft px-3 py-1 text-[12px] font-semibold whitespace-nowrap anim-float-slow">🎶 95% совпадение</span>
+      </span>
     </div>
   )
 }
