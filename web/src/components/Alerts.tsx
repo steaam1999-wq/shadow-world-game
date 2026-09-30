@@ -176,7 +176,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
     const n = fresh[fresh.length - 1]
     const person = n && state.people.find((p) => p.id === n.personId)
     if (!n || !person) return
-    const text = n.kind === 'follow' ? 'подписал(ась) на вас' : n.kind === 'likePlan' ? 'нравится ваш план' : 'нравится ваша публикация'
+    const text = n.kind === 'follow' ? 'подписал(ась) на вас' : n.kind === 'repost' ? 'сделал(а) репост вашего плана' : n.kind === 'likePlan' ? 'нравится ваш план' : 'нравится ваша публикация'
     if (prefs.sound) playDrop()
     try { navigator.vibrate?.(35) } catch { /* ignore */ }
     setBanner({ chat: '', person, text, key: n.id, profile: true })

@@ -39,6 +39,10 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       const m = s.capsules.find((c) => c.id === a.capsuleId)?.messages.find((x) => x.id === a.messageId)
       return m && /^\d+$/.test(m.id) ? run(api.deleteMessage(m.id, m.photoPath)) : null
     }
+    case 'repost': {
+      const plan = s.activities.find((x) => x.id === a.activityId)
+      return plan && plan.authorId !== 'me' ? run(api.addRepost(a.activityId)) : null
+    }
     case 'hideChat':
       return run(api.hideChat(a.capsuleId))
     case 'readCapsule':

@@ -22,6 +22,7 @@ export type Action =
   | { type: 'sendPhoto'; capsuleId: string; photo: string; text?: string }
   | { type: 'deleteMessage'; capsuleId: string; messageId: string }
   | { type: 'hideChat'; capsuleId: string }
+  | { type: 'repost'; activityId: string }
   | { type: 'nowPlaying'; value: NowPlaying | null }
   | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
   | { type: 'report'; personId: string; reason: string; text: string; shortId?: string }
@@ -193,6 +194,8 @@ function reducer(state: State, action: Action): State {
         ...state,
         capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, hidden: false, messages: [...c.messages, { id: uid(), from: 'me' as const, text: action.text ?? '', photo: action.photo, at: now }] } : c),
       }
+    case 'repost':
+      return state // запись на сервер — в cloud/sync
     case 'hideChat':
       return { ...state, capsules: state.capsules.map((c) => (c.id === action.capsuleId ? { ...c, hidden: true, messages: [], unread: 0 } : c)) }
     case 'deleteMessage':

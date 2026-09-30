@@ -93,7 +93,7 @@ export interface Capsule {
 /** Уведомление: лайк моего плана или публикации, новая подписка. */
 export interface Notice {
   id: string
-  kind: 'likePlan' | 'likeShort' | 'follow'
+  kind: 'likePlan' | 'likeShort' | 'follow' | 'repost'
   personId: string
   targetId?: string
   at: number

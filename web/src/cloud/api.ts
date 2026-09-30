@@ -273,13 +273,15 @@ async function attachPhotos(profiles: ProfileRow[], plans: PlanRow[]) {
 
 type LikeRow = { user_id: string; created_at: string }
 async function loadSocial(db: SupabaseClient, userId: string, planIds: string[], shortIds: string[], hidden: Set<string>, myPlans: Set<string>, myShorts: Set<string>): Promise<Social> {
-  const [pl, sl, fo, sv] = await Promise.all([
+  const [pl, sl, fo, sv, sh] = await Promise.all([
     planIds.length ? db.from('plan_likes').select('plan_id, user_id, created_at').in('plan_id', planIds).limit(10000).returns<(LikeRow & { plan_id: string })[]>() : Promise.resolve({ data: [], error: null }),
     shortIds.length ? db.from('short_likes').select('short_id, user_id, created_at').in('short_id', shortIds).limit(10000).returns<(LikeRow & { short_id: string })[]>() : Promise.resolve({ data: [], error: null }),
     db.from('follows').select('follower, followee, created_at').limit(10000).returns<{ follower: string; followee: string; created_at: string }[]>(),
     db.from('saved_plans').select('plan_id').returns<{ plan_id: string }[]>(),
+    // Репосты моих планов: правила доступа отдают только их (и мои собственные).
+    db.from('plan_shares').select('id, plan_id, user_id, created_at').order('created_at', { ascending: false }).limit(500).returns<{ id: number; plan_id: string; user_id: string; created_at: string }[]>(),
   ])
-  for (const r of [pl, sl, fo, sv]) if (r.error) throw r.error
+  for (const r of [pl, sl, fo, sv, sh]) if (r.error) throw r.error
   const planLikes = (pl.data ?? []).filter((l) => !hidden.has(l.user_id))
   const shortLikes = (sl.data ?? []).filter((l) => !hidden.has(l.user_id))
   const follows = (fo.data ?? []).filter((f) => !hidden.has(f.follower) && !hidden.has(f.followee))
@@ -301,6 +303,7 @@ async function loadSocial(db: SupabaseClient, userId: string, planIds: string[],
     ...planLikes.filter((l) => l.user_id !== userId && myPlans.has(l.plan_id)).map((l) => ({ id: `lp-${l.plan_id}-${l.user_id}`, kind: 'likePlan' as const, personId: l.user_id, targetId: l.plan_id, at: ms(l.created_at) })),
     ...shortLikes.filter((l) => l.user_id !== userId && myShorts.has(l.short_id)).map((l) => ({ id: `ls-${l.short_id}-${l.user_id}`, kind: 'likeShort' as const, personId: l.user_id, targetId: l.short_id, at: ms(l.created_at) })),
     ...follows.filter((f) => f.followee === userId).map((f) => ({ id: `f-${f.follower}`, kind: 'follow' as const, personId: f.follower, at: ms(f.created_at) })),
+    ...(sh.data ?? []).filter((r) => r.user_id !== userId && !hidden.has(r.user_id) && myPlans.has(r.plan_id)).map((r) => ({ id: `r-${r.id}`, kind: 'repost' as const, personId: r.user_id, targetId: r.plan_id, at: ms(r.created_at) })),
   ].sort((a, b) => b.at - a.at).slice(0, 100)
   return {
     hearts: planLikes.filter((l) => l.user_id === userId).map((l) => l.plan_id),
@@ -374,6 +377,11 @@ export async function deleteMessage(id: string, photoPath?: string) {
   const { error } = await sb().from('messages').delete().eq('id', Number(id))
   if (error) throw error
   if (photoPath) await sb().storage.from('chat').remove([photoPath])
+}
+
+export async function addRepost(planId: string) {
+  const { error } = await sb().from('plan_shares').insert({ plan_id: planId })
+  if (error) throw error
 }
 
 export async function hideChat(capsuleId: string) {
@@ -516,7 +524,7 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     if (ch) void sb().removeChannel(ch)
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

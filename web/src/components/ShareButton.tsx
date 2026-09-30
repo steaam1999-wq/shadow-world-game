@@ -57,6 +57,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
     const t = (target ?? document.querySelector(`[data-share-person="${person.id}"]`))?.getBoundingClientRect()
     if (b && t) setFlights((f) => [...f, { id: Date.now(), from: center(b), to: center(t) }])
     dispatch({ type: 'share', personId: person.id, activityId: activity.id })
+    dispatch({ type: 'repost', activityId: activity.id })
     setTimeout(() => { setReceived(person.id); setToast(`Отправлено: ${person.name}`) }, 1000)
     setTimeout(() => { setReceived(null); if (fan) closeFan() }, 1550)
   }
@@ -83,12 +84,12 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
 
   const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в ISKRA`
   const copy = async () => {
-    try { await navigator.clipboard.writeText(text); setToast('Скопировано') } catch { setToast('Не удалось скопировать — выделите текст вручную') }
+    try { await navigator.clipboard.writeText(text); setToast('Скопировано'); dispatch({ type: 'repost', activityId: activity.id }) } catch { setToast('Не удалось скопировать — выделите текст вручную') }
     setSheet(false)
   }
   const shareOut = async () => {
     try {
-      if (navigator.share) { await navigator.share({ title: 'ISKRA', text }); setSheet(false); return }
+      if (navigator.share) { await navigator.share({ title: 'ISKRA', text }); dispatch({ type: 'repost', activityId: activity.id }); setSheet(false); return }
     } catch { /* отменили или недоступно — копируем */ }
     await copy()
   }

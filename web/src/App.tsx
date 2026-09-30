@@ -23,7 +23,7 @@ import { cloudEnabled } from './cloud/config'
 import { NewPassword } from './screens/NewPassword'
 import { Avatar, Icon, Logo, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
-import type { Activity, Me } from './types'
+import type { Activity, Me, Person } from './types'
 
 type View = 'landing' | 'onboarding' | 'app' | 'admin' | 'recovery'
 type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
@@ -183,7 +183,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
             </button>
             <button onClick={() => { setActivityOpen(true); dispatch({ type: 'seeNotices' }) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
               <Icon name="heart" size={25} />
-              {((state.announcement && state.announcement !== state.dismissedAnnouncement) || (state.notices ?? []).some((n) => n.at > (state.noticesSeenAt ?? 0))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
+              {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || (state.comments ?? []).some((c) => c.authorId !== 'me' && c.at > (state.noticesSeenAt ?? 0) && state.activities.some((a) => a.id === c.planId && a.authorId === 'me'))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
             </button>
             {tab !== 'capsules' && (
               <button onClick={() => { setTab('capsules'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
@@ -276,43 +276,49 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 }
 
 /** «Действия»: уведомления о сообщениях, лайках и системные объявления. */
-function ActivitySheet({ open, onClose, now, onOpenCapsule, openProfile }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void; openProfile: (id: string) => void }) {
-  const { state, dispatch } = useStore()
+/** Уведомления: только лайки, репосты и комментарии к моим планам и публикациям. */
+function ActivitySheet({ open, onClose, now, openProfile }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void; openProfile: (id: string) => void }) {
+  const { state } = useStore()
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
-  const items = [
-    ...(state.announcement ? [{ key: 'ann', person: null, text: state.announcement, at: now, onClick: () => dispatch({ type: 'dismissAnnouncement' }) }] : []),
-    ...state.capsules.filter((c) => !c.hidden && !isExpired(c, now) && state.people.some((x) => x.id === c.personId)).map((c) => {
-      const p = state.people.find((x) => x.id === c.personId)!
-      const last = [...c.messages].reverse().find((m) => m.from === 'them')
-      return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Чат с ${p.name}`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }
-    }),
-    // Лайки и подписки с сервера.
-    ...(state.notices ?? []).flatMap((n) => {
+  const planTitle = (id?: string) => { const a = state.activities.find((x) => x.id === id); return a ? ` «${a.title}»` : '' }
+  type Item = { key: string; person: Person; kind: 'like' | 'repost' | 'comment'; text: string; at: number }
+  const items: Item[] = [
+    // Лайки и репосты с сервера (подписки сюда не входят — они в списке подписчиков).
+    ...(state.notices ?? []).flatMap((n): Item[] => {
       const p = state.people.find((x) => x.id === n.personId)
-      if (!p) return []
-      const plan = n.kind === 'likePlan' ? state.activities.find((x) => x.id === n.targetId) : undefined
-      const text = n.kind === 'follow' ? `${p.name} подписал(ась) на вас` : n.kind === 'likePlan' ? `${p.name}: нравится ваш план${plan ? ` «${plan.title}»` : ''}` : `${p.name}: нравится ваша публикация`
-      return [{ key: n.id, person: p, text, at: n.at, onClick: () => { onClose(); openProfile(p.id) } }]
+      if (!p || n.kind === 'follow') return []
+      if (n.kind === 'repost') return [{ key: n.id, person: p, kind: 'repost', text: `сделал(а) репост вашего плана${planTitle(n.targetId)}`, at: n.at }]
+      return [{ key: n.id, person: p, kind: 'like', text: n.kind === 'likePlan' ? `нравится ваш план${planTitle(n.targetId)}` : 'нравится ваша публикация', at: n.at }]
     }),
-    // В демо отметки планов выдуманы, чтобы экран не пустовал.
-    ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i) => {
+    // Комментарии других людей под моими планами.
+    ...(state.comments ?? []).flatMap((c): Item[] => {
+      if (c.authorId === 'me' || !myPlans.some((a) => a.id === c.planId)) return []
+      const p = state.people.find((x) => x.id === c.authorId)
+      return p ? [{ key: `c-${c.id}`, person: p, kind: 'comment', text: `прокомментировал(а)${planTitle(c.planId)}: «${c.text.length > 80 ? c.text.slice(0, 79) + '…' : c.text}»`, at: c.at }] : []
+    }),
+    // В демо лайки выдуманы, чтобы экран не пустовал.
+    ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i): Item => {
       const p = state.people[(i * 3 + 1) % state.people.length]
-      return { key: `like-${a.id}`, person: p, text: `${p.name} и ещё ${4 + i} человек отметили ваш план «${a.title}»`, at: now - 25 * 60_000 * (i + 1), onClick: onClose }
+      return { key: `like-${a.id}`, person: p, kind: 'like', text: `и ещё ${4 + i} человек отметили ваш план «${a.title}»`, at: now - 25 * 60_000 * (i + 1) }
     }),
   ].sort((a, b) => b.at - a.at)
+  const badge = { like: ['heart', 'bg-danger'], repost: ['send', 'bg-cobalt'], comment: ['comment', 'bg-ok'] } as const
 
   return (
     <Sheet open={open} onClose={onClose} title="Уведомления">
       <ul className="flex flex-col -mx-2">
         {items.map((it) => (
           <li key={it.key}>
-            <button onClick={it.onClick} className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-surface-2 cursor-pointer">
-              {it.person ? <Avatar name={it.person.name} hue={it.person.hue} src={it.person.photo} size={44} /> : <span className="grid place-items-center w-11 h-11 rounded-full bg-cobalt-soft text-cobalt shrink-0"><Icon name="bell" /></span>}
-              <span className="flex-1 min-w-0 text-[14px]">{it.text} <span className="text-muted">{relative(it.at, now)}</span></span>
+            <button onClick={() => { onClose(); openProfile(it.person.id) }} className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-surface-2 cursor-pointer">
+              <span className="relative shrink-0">
+                <Avatar name={it.person.name} hue={it.person.hue} src={it.person.photo} size={44} />
+                <span className={`absolute -right-1 -bottom-1 grid place-items-center w-5 h-5 rounded-full text-white border-2 border-surface ${badge[it.kind][1]}`}><Icon name={badge[it.kind][0]} size={10} fill={it.kind === 'like'} /></span>
+              </span>
+              <span className="flex-1 min-w-0 text-[14px]"><b>{it.person.name}</b> {it.text} <span className="text-muted">{relative(it.at, now)}</span></span>
             </button>
           </li>
         ))}
-        {!items.length && <li className="p-4 text-center text-muted">Пока тихо. Откликнитесь на план, и здесь появятся ответы.</li>}
+        {!items.length && <li className="p-4 text-center text-muted">Пока тихо. Здесь появятся лайки, репосты и комментарии к вашим планам и публикациям.</li>}
       </ul>
     </Sheet>
   )

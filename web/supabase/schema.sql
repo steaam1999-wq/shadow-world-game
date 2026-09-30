@@ -600,6 +600,29 @@ revoke all on function private.on_follow_push() from public, anon, authenticated
 drop trigger if exists follows_push on public.follows;
 create trigger follows_push after insert on public.follows for each row execute function private.on_follow_push();
 
+-- Репосты планов: кто поделился планом (в чат, ссылкой или через телефон). Видят тот, кто поделился, и автор плана.
+create table if not exists public.plan_shares (
+  id bigint generated always as identity primary key,
+  plan_id uuid not null references public.plans (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists plan_shares_plan_idx on public.plan_shares (plan_id);
+create index if not exists plan_shares_user_idx on public.plan_shares (user_id);
+alter table public.plan_shares enable row level security;
+revoke all on public.plan_shares from anon, authenticated;
+grant select on public.plan_shares to authenticated;
+grant insert (plan_id) on public.plan_shares to authenticated;
+drop policy if exists "shares: read" on public.plan_shares;
+create policy "shares: read" on public.plan_shares for select to authenticated using (
+  user_id = (select auth.uid()) or exists (select 1 from public.plans p where p.id = plan_id and p.author = (select auth.uid()))
+);
+drop policy if exists "shares: add own" on public.plan_shares;
+create policy "shares: add own" on public.plan_shares for insert to authenticated with check (
+  user_id = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (select 1 from public.plans p where p.id = plan_id and not private.blocked_between(p.author, (select auth.uid())))
+);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
@@ -620,4 +643,5 @@ begin
   begin alter publication supabase_realtime add table public.plan_likes; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.short_likes; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.follows; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.plan_shares; exception when duplicate_object then null; end;
 end $$;
