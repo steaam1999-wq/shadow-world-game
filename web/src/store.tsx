@@ -53,7 +53,8 @@ export type Action =
   | { type: 'seeNotices' }
   | { type: 'setRemember'; remember: boolean }
   | { type: 'setFree'; until: number | null }
-  | { type: 'invite'; personId: string; text: string }
+  | { type: 'invite'; personId: string; text: string; capsuleId?: string }
+  | { type: 'noShow'; capsuleId: string; on: boolean }
   | { type: 'startSafety'; safety: Safety }
   | { type: 'extendSafety'; minutes: number }
   | { type: 'endSafety' }
@@ -304,19 +305,33 @@ function reducer(state: State, action: Action): State {
       return state.me ? { ...state, me: { ...state.me, freeUntil: action.until ?? undefined } } : state
     case 'invite': {
       // Спонтанное приглашение из «Свободны сейчас»: сообщение в капсулу с человеком, при необходимости новая капсула.
-      const existing = state.capsules.find((c) => c.personId === action.personId && c.status !== 'met')
+      // На сервере личная переписка с человеком одна — пишем в неё; в демо собеседник отвечает сам.
+      const existing = state.cloud
+        ? state.capsules.find((c) => c.personId === action.personId && !c.activityId)
+        : state.capsules.find((c) => c.personId === action.personId && c.status !== 'met')
+      const demoReply = (text: string, at: number) => (state.cloud ? [] : [{ id: uid(), from: 'them' as const, text, at }])
       if (existing) {
-        return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }, { id: uid(), from: 'them', text: 'Да, я как раз рядом! Давай через 20 минут?', at: now + 1 }] } : c)) }
+        return { ...state, capsules: state.capsules.map((c) => (c.id === existing.id ? { ...c, hidden: false, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }, ...demoReply('Да, я как раз рядом! Давай через 20 минут?', now + 1)] } : c)) }
       }
       const capsule = {
-        id: uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 1,
+        id: action.capsuleId ?? uid(), personId: action.personId, activityId: '', createdAt: now, expiresAt: now + CAPSULE_TTL, status: 'active' as const, unread: 1,
         messages: [
           { id: uid(), from: 'system' as const, text: 'Вы оба свободны прямо сейчас.', at: now },
           { id: uid(), from: 'me' as const, text: action.text, at: now + 1 },
-          { id: uid(), from: 'them' as const, text: 'О, давай! Я минутах в 15 от тебя. Где встречаемся?', at: now + 2 },
+          ...demoReply('О, давай! Я минутах в 15 от тебя. Где встречаемся?', now + 2),
         ],
       }
       return { ...state, capsules: [capsule, ...state.capsules] }
+    }
+    case 'noShow': {
+      const c = state.capsules.find((x) => x.id === action.capsuleId)
+      if (!c || !!c.noShow === action.on) return state
+      return {
+        ...state,
+        capsules: state.capsules.map((x) => (x.id === c.id ? { ...x, noShow: action.on, messages: [...x.messages, { id: uid(), from: 'system' as const, text: action.on ? 'Вы отметили, что встреча не состоялась. Это видно только вам; в надёжности собеседника станет на одну пропущенную встречу больше.' : 'Отметка «не пришёл(ла)» снята.', at: now }] } : x)),
+        // Демо: сразу меняем надёжность человека.
+        people: state.cloud ? state.people : state.people.map((p) => (p.id === c.personId ? { ...p, noShows: Math.max(0, (p.noShows ?? 0) + (action.on ? 1 : -1)) } : p)),
+      }
     }
     case 'startSafety':
       return {

@@ -106,8 +106,8 @@ export function planWhen(a: Pick<Activity, 'startsAt' | 'timeHidden'>, now = Dat
 // Надёжность: сколько встреч человек подтвердил кодом и сколько пропустил без предупреждения (демо-данные).
 const NO_SHOWS: Record<string, number> = { p3: 1, p6: 1, p8: 2 }
 
-export function reliability(p: Pick<Person, 'id' | 'meetings'>) {
-  const missed = NO_SHOWS[p.id] ?? 0
+export function reliability(p: { id: string; meetings: number; noShows?: number }) {
+  const missed = p.noShows ?? NO_SHOWS[p.id] ?? 0
   const total = p.meetings + missed
   return { came: p.meetings, total, pct: total ? Math.round((p.meetings / total) * 100) : 100 }
 }

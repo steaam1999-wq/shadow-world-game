@@ -225,6 +225,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [safety, setSafety] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
   const [menu, setMenu] = useState(false)
+  const [noShowAsk, setNoShowAsk] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
 
   // Открыли чат или пришло новое, пока он открыт, — отмечаем прочитанным (собеседник увидит ✓✓).
@@ -334,8 +335,20 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           ))}
           {canMeet && <Button variant="secondary" onClick={() => { setMenu(false); setCheckin(true) }}><Icon name="check" size={18} /> Отметить встречу</Button>}
           {canMeet && !safetyHere && <Button variant="secondary" onClick={() => { setMenu(false); setSafety(true) }}><Icon name="shield" size={18} /> Я на встрече</Button>}
+          {canMeet && (c.noShow
+            ? <Button variant="ghost" onClick={() => { dispatch({ type: 'noShow', capsuleId: c.id, on: false }); setMenu(false) }}><Icon name="x" size={18} /> Снять отметку «не пришёл(ла)»</Button>
+            : <Button variant="ghost" className="text-warn" onClick={() => { setMenu(false); setNoShowAsk(true) }}><Icon name="clock" size={18} /> {p.name} не пришёл(ла)</Button>)}
           <Button variant="secondary" onClick={() => { setMenu(false); openProfile(p.id) }}><Icon name="user" size={18} /> Профиль</Button>
           <Button variant="ghost" className="text-danger" onClick={() => { setMenu(false); setReporting(p) }}><Icon name="flag" size={18} /> Пожаловаться или заблокировать</Button>
+        </div>
+      </Sheet>
+      <Sheet open={noShowAsk} onClose={() => setNoShowAsk(false)} title={`${p.name} не пришёл(ла)?`}>
+        <div className="flex flex-col gap-3">
+          <p className="text-muted text-[14px]">Отметка честная и тихая: {p.name} не узнает, кто её поставил, а в надёжности станет на одну пропущенную встречу больше. Если потом всё-таки встретитесь и подтвердите встречу кодами — отметка перестанет считаться. Снять её можно в этом же меню.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => setNoShowAsk(false)}>Отмена</Button>
+            <Button variant="danger" onClick={() => { dispatch({ type: 'noShow', capsuleId: c.id, on: true }); setNoShowAsk(false) }}>Не пришёл(ла)</Button>
+          </div>
         </div>
       </Sheet>
       <ReportSheet person={reporting} onClose={() => setReporting(null)} onBlocked={onBack} />

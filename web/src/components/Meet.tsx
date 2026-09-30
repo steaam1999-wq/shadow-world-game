@@ -51,7 +51,7 @@ export function CheckinSheet({ capsule, person, open, onClose }: { capsule: Caps
 }
 
 /** Бейдж надёжности: доля встреч, на которые человек пришёл. */
-export function ReliabilityBadge({ person, compact = false }: { person: Person; compact?: boolean }) {
+export function ReliabilityBadge({ person, compact = false }: { person: { id: string; meetings: number; noShows?: number }; compact?: boolean }) {
   const r = reliability(person)
   if (!r.total) return compact ? null : <span className="text-[12px] text-muted">Пока без подтверждённых встреч</span>
   const tone = r.pct >= 90 ? 'text-ok' : r.pct >= 70 ? 'text-warn' : 'text-danger'
@@ -163,13 +163,12 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
   const [choosing, setChoosing] = useState(false)
   const [invited, setInvited] = useState<string[]>([])
   const iAmFree = !!me.freeUntil && me.freeUntil > now
-  // Статус «свободен» пока не хранится на сервере — в режиме с сервером блок не показываем, чтобы не обманывать.
+  // С сервером — настоящий статус людей, в демо — выдуманный.
   const free = state.people
-    .map((p) => ({ p, until: freeUntil(p.id, now) }))
+    .map((p) => ({ p, until: state.cloud ? (p.freeUntil && p.freeUntil > now ? p.freeUntil : null) : freeUntil(p.id, now) }))
     .filter((x): x is { p: Person; until: number } => !!x.until && (!knownKm(x.p.distanceKm) || x.p.distanceKm <= me.radiusKm + 2))
     .sort((a, b) => a.p.distanceKm - b.p.distanceKm)
 
-  if (state.cloud) return null
   return (
     <section className="mx-4 mb-4 rounded-[24px] bg-surface shadow-soft p-3.5 flex flex-col gap-3" aria-label="Свободны сейчас">
       {iAmFree ? (

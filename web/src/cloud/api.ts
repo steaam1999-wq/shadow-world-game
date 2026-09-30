@@ -13,7 +13,7 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
+interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
@@ -64,7 +64,7 @@ async function removePhoto(p: string) {
 }
 
 // Колонки без встроенных фото: так ленту не приходится скачивать вместе со всеми фото целиком.
-const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path'
+const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path,free_until'
 const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
 /** Загружает видео или фото в хранилище и публикует его. `thumb` — кадр-превью видео (JPEG). */
@@ -167,6 +167,7 @@ export function profileToMe(p: ProfileRow, local: Me | null): Me {
     name: p.name, age: p.age, bio: p.bio, district: p.district, hue: p.hue, tags: p.tags, answers: p.answers,
     photo: p.photo ?? undefined, photoPath: p.photo_path ?? undefined, verified: p.verified, meetings: p.meetings, authMethod: 'email',
     songs: local?.privacy?.hideSongs ? local.songs : safeTracks(p.songs),
+    freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
   }
 }
 
@@ -225,7 +226,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows] = await Promise.all([
     db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
     db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -237,8 +238,10 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.from('app_settings').select('key, value').returns<{ key: string; value: unknown }[]>(),
     db.from('profile_private').select('birth_date').eq('user_id', userId).maybeSingle<{ birth_date: string | null }>(),
     db.rpc('plan_companies'),
+    db.rpc('no_show_counts'),
+    db.from('no_shows').select('capsule_id').returns<{ capsule_id: string }[]>(),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies, missedRows, myNoShows]) if (r.error) throw r.error
   const settings = parseSettings(settingRows.data ?? [])
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
@@ -262,13 +265,16 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
 
   await attachPhotos(profiles.data ?? [], plans.data ?? [])
   const mine = (profiles.data ?? []).find((p) => p.id === userId) ?? null
-  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined } : null
+  const missed = new Map(((missedRows.data ?? []) as { user_id: string; missed: number }[]).map((x) => [x.user_id, x.missed]))
+  const reported = new Set((myNoShows.data ?? []).map((x) => x.capsule_id))
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0 } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
-    photo: p.photo ?? undefined, songs: safeTracks(p.songs),
+    photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0,
+    freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
 
@@ -304,6 +310,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
       id: c.id, personId: c.author === userId ? c.responder : c.author, activityId: c.plan_id ?? '',
       createdAt: created, expiresAt: ms(c.expires_at), status: c.status, messages: hiddenAt(c) ? msgs.filter((m) => m.from !== 'system') : msgs,
       hidden: !!hiddenAt(c) && !rows.length,
+      ...(reported.has(c.id) ? { noShow: true } : {}),
       theirReadAt: (() => { const r = c.author === userId ? c.responder_read_at : c.author_read_at; return r ? ms(r) : undefined })(),
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
@@ -586,6 +593,20 @@ export async function removeGroupMember(groupId: string, personId: string) {
 export async function leaveGroup(userId: string, groupId: string, owner: boolean) {
   const { error } = owner ? await sb().from('group_chats').delete().eq('id', groupId) : await sb().from('group_members').delete().eq('group_id', groupId).eq('user_id', userId)
   if (error) throw error
+}
+
+/** «Свободен сейчас» на столько минут (0 — снять). Время ставит сервер. */
+export async function setFree(minutes: number) {
+  const { error } = await sb().rpc('set_free', { minutes })
+  if (error) throw error
+}
+
+/** Отметить, что собеседник не пришёл на договорённую встречу (или снять отметку). */
+export async function setNoShow(capsuleId: string, target: string, on: boolean) {
+  const { error } = on
+    ? await sb().from('no_shows').insert({ capsule_id: capsuleId, target })
+    : await sb().from('no_shows').delete().eq('capsule_id', capsuleId)
+  if (error && error.code !== '23505') throw error
 }
 
 export async function sendMessage(userId: string, capsuleId: string, body: string) {

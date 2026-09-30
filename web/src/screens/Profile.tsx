@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
+import { ReliabilityBadge } from '../components/Meet'
 import { MeetingCards } from '../components/Met'
 import { LEVELS, level, plural, profileCompleteness, nameAge } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
@@ -68,7 +69,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
         </div>
         <div className="text-[14px] leading-snug flex flex-col gap-1">
           <PlayingChip />
-          {me.meetings > 0 && <span className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
+          {me.meetings + (me.noShows ?? 0) > 0 && <ReliabilityBadge person={{ id: 'me', meetings: me.meetings, noShows: me.noShows ?? 0 }} />}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>

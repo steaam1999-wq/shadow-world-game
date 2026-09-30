@@ -1016,6 +1016,59 @@ $$;
 revoke all on function public.plan_companies() from public, anon;
 grant execute on function public.plan_companies() to authenticated;
 
+-- «Свободен сейчас»: до какого времени человек готов встретиться. Ставится только через set_free —
+-- время берём серверное и ограничиваем 4 часами.
+alter table public.profiles add column if not exists free_until timestamptz;
+create or replace function public.set_free(minutes integer) returns timestamptz
+language plpgsql security definer set search_path = '' as $$
+declare t timestamptz;
+begin
+  if (select auth.uid()) is null or private.is_banned((select auth.uid())) then raise exception 'not allowed'; end if;
+  t := case when minutes is null or minutes <= 0 then null else now() + make_interval(mins => least(minutes, 240)) end;
+  update public.profiles set free_until = t where id = (select auth.uid());
+  return t;
+end $$;
+revoke all on function public.set_free(integer) from public, anon;
+grant execute on function public.set_free(integer) to authenticated;
+
+-- Надёжность: «не пришёл(ла)» можно отметить только в своей переписке, где вы договорились о встрече.
+-- Кто отметил — видит только сам отметивший; остальным доступно лишь число пропусков.
+-- Если потом встречу подтвердили кодами, отметка не считается.
+create table if not exists public.no_shows (
+  capsule_id uuid not null references public.capsules (id) on delete cascade,
+  reporter uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  target uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (capsule_id, reporter)
+);
+create index if not exists no_shows_target_idx on public.no_shows (target);
+alter table public.no_shows enable row level security;
+revoke all on public.no_shows from anon, authenticated;
+grant select, delete on public.no_shows to authenticated;
+grant insert (capsule_id, target) on public.no_shows to authenticated;
+drop policy if exists "no shows: own" on public.no_shows;
+create policy "no shows: own" on public.no_shows for select to authenticated using (reporter = (select auth.uid()));
+drop policy if exists "no shows: undo" on public.no_shows;
+create policy "no shows: undo" on public.no_shows for delete to authenticated using (reporter = (select auth.uid()));
+drop policy if exists "no shows: report" on public.no_shows;
+create policy "no shows: report" on public.no_shows for insert to authenticated with check (
+  reporter = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (
+    select 1 from public.capsules c
+    where c.id = capsule_id and c.status in ('agreed', 'contacts')
+      and ((c.author = (select auth.uid()) and c.responder = target) or (c.responder = (select auth.uid()) and c.author = target))
+  )
+);
+create or replace function public.no_show_counts() returns table (user_id uuid, missed integer)
+language sql stable security definer set search_path = '' as $$
+  select n.target, count(*)::int from public.no_shows n
+  join public.capsules c on c.id = n.capsule_id and c.status <> 'met'
+  where (select auth.uid()) is not null
+  group by n.target
+$$;
+revoke all on function public.no_show_counts() from public, anon;
+grant execute on function public.no_show_counts() to authenticated;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

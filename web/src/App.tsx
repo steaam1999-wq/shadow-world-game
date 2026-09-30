@@ -146,7 +146,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [pendingInvite, setPendingInvite] = useState<string | null>(null)
   const invite = (personId: string) => {
     const name = state.people.find((p) => p.id === personId)?.name ?? ''
-    dispatch({ type: 'invite', personId, text: `${name}, привет! Я тоже свободен(на) сейчас и рядом — может, кофе в ближайшие полчаса?` })
+    dispatch({ type: 'invite', personId, capsuleId: crypto.randomUUID(), text: `${name}, привет! Я тоже свободен(на) сейчас и рядом — может, кофе в ближайшие полчаса?` })
     setPendingInvite(personId)
   }
   useEffect(() => {

@@ -46,6 +46,16 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     }
     case 'hideChat':
       return run(api.hideChat(a.capsuleId))
+    case 'setFree':
+      return run(api.setFree(a.until ? Math.max(1, Math.round((a.until - Date.now()) / 60_000)) : 0))
+    case 'invite': {
+      const c = s.capsules.find((x) => x.personId === a.personId && !x.activityId)
+      return c ? run(api.sendMessage(uid, c.id, a.text)) : a.capsuleId ? run(api.openDirect(uid, a.capsuleId, a.personId, a.text)) : null
+    }
+    case 'noShow': {
+      const c = s.capsules.find((x) => x.id === a.capsuleId)
+      return c ? run(api.setNoShow(c.id, c.personId, a.on)) : null
+    }
     case 'createGroup':
       return run(api.createGroup(uid, a.id, a.title, a.members))
     case 'sendGroup':

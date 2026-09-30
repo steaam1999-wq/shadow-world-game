@@ -23,6 +23,8 @@ export interface Person {
   photo?: string
   songs?: Track[] // сохранённые онлайн-песни, которые видят другие
   nowPlaying?: NowPlaying | null
+  freeUntil?: number // «Свободен сейчас» до этого времени (облако)
+  noShows?: number // сколько раз не пришёл(ла) на договорённую встречу (облако)
 }
 
 export interface Me {
@@ -44,6 +46,7 @@ export interface Me {
   songs?: Track[]
   nowPlaying?: NowPlaying | null
   freeUntil?: number // «Свободен сейчас» до этого времени
+  noShows?: number // мои пропущенные встречи по отметкам других
   trustedContact?: string // кому сообщить, если встреча пошла не так
 }
 
@@ -102,6 +105,7 @@ export interface Capsule {
   again?: 'yes' | 'no' // мой тайный ответ «хочу встретиться ещё»
   theirReadAt?: number // когда собеседник последний раз открывал чат — для галочек «прочитано»
   hidden?: boolean // я удалил чат у себя и новых сообщений пока нет
+  noShow?: boolean // я отметил, что собеседник не пришёл на встречу
 }
 
 /** Уведомление: лайк моего плана или публикации, новая подписка. */
