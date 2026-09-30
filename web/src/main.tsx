@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { registerAlertsWorker } from './components/Alerts'
+import { Splash } from './components/Splash'
 
 // Сохранённую тему применяем до первого кадра: переключатель теперь живёт в настройках профиля.
 try {
@@ -13,6 +14,7 @@ try {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <Splash />
   </StrictMode>,
 )
 

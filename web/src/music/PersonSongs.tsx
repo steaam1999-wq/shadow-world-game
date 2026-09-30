@@ -5,6 +5,7 @@ import { GENRE_BPM } from './catalog'
 import { genreOf, personTrack, trackLabel, usePlayer } from './player'
 import type { Genre, Track } from './engine'
 import type { Person } from '../types'
+import { useTaste } from './taste'
 
 // В демо у людей нет настоящих сохранённых песен — показываем по несколько сгенерированных треков.
 const DEMO_TITLES = ['Утро на районе', 'Последний трамвай', 'Кофе с корицей', 'Огни набережной', 'Дождь по крышам', 'Субботний сет']
@@ -28,7 +29,10 @@ export function songsOf(p: Person, cloud: boolean) {
 export function PersonSongs({ person }: { person: Person }) {
   const { state } = useStore()
   const player = usePlayer()
-  const songs = songsOf(person, !!state.cloud)
+  const taste = useTaste()(person)
+  const common = new Set(taste.songs.map((t) => t.id))
+  // Общие песни — сверху.
+  const songs = [...songsOf(person, !!state.cloud)].sort((a, b) => Number(common.has(b.id)) - Number(common.has(a.id)))
 
   if (!songs.length) return <p className="py-10 px-6 text-center text-muted text-[14px]">{person.name} пока не сохранял(а) песни. Любимые песни из раздела «Музыка» появляются здесь.</p>
   return (
@@ -45,7 +49,7 @@ export function PersonSongs({ person }: { person: Person }) {
               </span>
               <span className="flex-1 min-w-0">
                 <span className={`block font-semibold truncate ${current ? 'text-spark' : ''}`}>{t.title}</span>
-                <span className="block text-[13px] text-muted truncate">{t.artist} · {trackLabel(t)}</span>
+                <span className="block text-[13px] text-muted truncate">{common.has(t.id) && <span className="text-spark font-semibold">У вас тоже · </span>}{t.artist} · {trackLabel(t)}</span>
               </span>
             </button>
             {t.source && (

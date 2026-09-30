@@ -132,14 +132,19 @@ function reducer(state: State, action: Action): State {
         messages: [
           { id: uid(), from: 'system' as const, text: 'Чат открыт. Договоритесь о встрече — точное место уже здесь.', at: now },
           { id: uid(), from: 'system' as const, text: `Точное место: ${activity.exactPlace}`, at: now },
-          ...(isGroup ? [{ id: uid(), from: 'system' as const, text: `Вы в компании: ${[author, ...others, 'вы'].join(', ')}. Пока переписка с организатором, общий чат компании — в рабочей версии.`, at: now }] : []),
+          ...(isGroup ? [{ id: uid(), from: 'system' as const, text: `Вы в компании: ${[author, ...others, 'вы'].join(', ')}. Здесь — переписка с организатором, общий чат компании «${activity.title}» — в «Чатах».`, at: now }] : []),
           ...(action.text ? [{ id: uid(), from: 'me' as const, text: action.text, at: now + 1 }] : []),
           // В демо собеседник отвечает сам; на сервере ответит живой человек.
           ...(state.cloud ? [] : [{ id: uid(), from: 'them' as const, text: 'Привет! План в силе. Во сколько тебе удобно подойти?', at: now + 2 }]),
         ].filter((m) => !(state.cloud && m.text.startsWith('Точное место: ') && !activity.exactPlace)),
       }
       const activities = isGroup ? state.activities.map((a) => (a.id === activity.id ? { ...a, members: [...(a.members ?? []), 'me'] } : a)) : state.activities
-      return { ...state, activities, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
+      // Демо: общий чат компании создаём сразу (на сервере его создаст join_plan_group).
+      const groups = isGroup && !state.cloud && !(state.groups ?? []).some((g) => g.planId === activity.id)
+        ? [{ id: `plan-${activity.id}`, planId: activity.id, title: activity.title.slice(0, 60), ownerId: activity.authorId, members: [activity.authorId, ...(activity.members ?? []).filter((m) => m !== 'me')], unread: 1, createdAt: now,
+            messages: [{ id: uid(), from: 'system' as const, text: 'Чат компании. Договоритесь, где встречаетесь.', at: now }, { id: uid(), from: 'them' as const, senderId: activity.authorId, text: 'Привет всем! Рада, что собираемся компанией 🙂', at: now + 1 }] }, ...(state.groups ?? [])]
+        : state.groups
+      return { ...state, activities, groups, liked: [...state.liked, activity.id], capsules: [capsule, ...state.capsules] }
     }
     case 'wantAgain': {
       // Ответ тайный: собеседник узнает о «да» только при взаимности, об отказе — никогда.

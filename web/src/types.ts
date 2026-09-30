@@ -86,6 +86,7 @@ export interface Group {
   messages: (Message & { senderId?: string })[]
   unread: number
   createdAt: number
+  planId?: string // чат компании группового плана
   othersReadAt?: number // когда кто-то из участников последний раз открывал группу — для «прочитано»
 }
 

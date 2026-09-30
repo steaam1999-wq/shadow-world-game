@@ -24,7 +24,8 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     case 'respond': {
       const plan = s.activities.find((x) => x.id === a.activityId)
       if (!plan || plan.authorId === 'me' || s.liked.includes(plan.id)) return null
-      return run(api.respond(uid, a.capsuleId!, plan, a.text))
+      // Групповой план: кроме переписки с автором — общий чат компании.
+      return run(api.respond(uid, a.capsuleId!, plan, a.text).then(() => (plan.groupSize ? api.joinPlanGroup(plan.id) : undefined)))
     }
     case 'directMessage': {
       const c = s.capsules.find((x) => x.personId === a.personId)

@@ -232,3 +232,18 @@ h1, h2, h3 { text-wrap: balance; }
 }
 /* Страница никогда не должна ездить вбок: широкие ленты прокручиваются внутри себя. */
 html, body { overflow-x: clip; }
+
+/* Заставка: два круга съезжаются, в пересечении загорается «точка встречи». */
+.logo-meet .logo-l { animation: meet-l .7s cubic-bezier(.2,.8,.2,1) both; }
+.logo-meet .logo-r { animation: meet-r .7s cubic-bezier(.2,.8,.2,1) both; }
+.logo-meet .logo-lens { animation: meet-lens .35s ease-out .55s both; transform-origin: 20px 21px; }
+.logo-meet .logo-star { animation: meet-lens .3s ease-out .75s both; transform-origin: 31px 9.5px; }
+@keyframes meet-l { from { transform: translateX(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes meet-r { from { transform: translateX(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes meet-lens { from { transform: scale(0); opacity: 0; } to { transform: none; opacity: 1; } }
+.splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--bg, #fbe6dc); transition: opacity .3s ease; }
+.splash-word { animation: splash-up .45s ease-out .45s both; }
+@keyframes splash-up { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .logo-meet .logo-l, .logo-meet .logo-r, .logo-meet .logo-lens, .logo-meet .logo-star, .splash-word { animation: none; }
+}

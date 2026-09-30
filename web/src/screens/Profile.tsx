@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
+import { MeetingCards } from '../components/Met'
 import { LEVELS, level, plural, profileCompleteness, nameAge } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
 import { PostArt } from '../components/PostArt'
@@ -97,6 +98,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
               : <button onClick={() => setVerifying(true)} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[13px] font-semibold cursor-pointer">{state.cloud && state.verification === 'rejected' ? 'Ещё раз' : 'Верификация'}</button>)}
           </div>
         )}
+        <MeetingCards />
         {/* Значки как «актуальное» */}
         <div className="flex gap-4 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
           {badges.map((b) => (

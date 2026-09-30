@@ -4,7 +4,8 @@ import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { ReliabilityBadge } from '../components/Meet'
 import { compatibility, planWhen, sharedAnswers, nameAge } from '../lib'
-import { Avatar, Button, Icon, Pill, Sheet, inputCls } from '../components/ui'
+import { Avatar, Button, Chip, Icon, Pill, Sheet, inputCls } from '../components/ui'
+import { tasteLine, useTaste } from '../music/taste'
 import type { Activity, Person } from '../types'
 
 const REASONS = ['Фейковый профиль', 'Спам или реклама', 'Грубость', 'Фото не совпадает', 'Другое']
@@ -16,19 +17,29 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
   const [hidden, setHidden] = useState<string[]>([])
   const [reporting, setReporting] = useState<Person | null>(null)
 
+  const [by, setBy] = useState<'vibe' | 'music'>('vibe')
+  const tasteOf = useTaste()
   const ranked = state.people
     .filter((p) => !hidden.includes(p.id))
-    .map((p) => ({ p, c: compatibility(me, p), act: state.activities.find((a) => a.authorId === p.id && a.expiresAt > now) }))
-    .sort((a, b) => b.c.score - a.c.score)
+    .map((p) => ({ p, c: compatibility(me, p), t: tasteOf(p), act: state.activities.find((a) => a.authorId === p.id && a.expiresAt > now) }))
+    .filter((x) => by === 'vibe' || x.t.score > 0)
+    .sort((a, b) => (by === 'music' ? b.t.score - a.t.score : 0) || b.c.score - a.c.score)
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <span className="eyebrow">По итогам вайб-теста</span>
         <h1 className="font-display font-bold text-2xl">На одной волне</h1>
+        <div className="flex gap-2 mt-3" role="tablist" aria-label="Как подбирать людей">
+          <Chip active={by === 'vibe'} onClick={() => setBy('vibe')}>По вайб-тесту</Chip>
+          <Chip active={by === 'music'} onClick={() => setBy('music')}><Icon name="note" size={14} /> По музыке</Chip>
+        </div>
       </div>
+      {by === 'music' && !ranked.length && (
+        <div className="rounded-[28px] bg-surface-2 p-6 text-center text-muted text-[14px]">Пока ни с кем не совпали. Добавляйте песни в «Любимые» в разделе «Музыка» — и здесь появятся люди с похожим вкусом.</div>
+      )}
 
-      {ranked.map(({ p, c, act }, i) => {
+      {ranked.map(({ p, c, t, act }, i) => {
         const shared = sharedAnswers(me.answers, p.answers)
         const responded = act && state.liked.includes(act.id)
         return (
@@ -54,6 +65,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
             </div>
 
             <p className="text-[14px] leading-relaxed">{p.bio}</p>
+            {t.score > 0 && <p className="flex items-center gap-1.5 text-[13px] text-spark font-semibold"><Icon name="note" size={14} /> {tasteLine(t)}</p>}
 
             {shared.length > 0 && (
               <div className="flex flex-wrap gap-1.5">

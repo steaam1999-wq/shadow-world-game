@@ -225,7 +225,7 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
-  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv] = await Promise.all([
+  const [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies] = await Promise.all([
     db.from('profiles').select(PROFILE_COLS).limit(500).returns<ProfileRow[]>(),
     db.from('plans').select(PLAN_COLS).gt('expires_at', since).order('starts_at').limit(500).returns<PlanRow[]>(),
     db.from('capsules').select('*').order('created_at', { ascending: false }).returns<CapsuleRow[]>(),
@@ -236,8 +236,9 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.from('shorts').select('*').order('created_at', { ascending: false }).limit(200).returns<ShortRow[]>(),
     db.from('app_settings').select('key, value').returns<{ key: string; value: unknown }[]>(),
     db.from('profile_private').select('birth_date').eq('user_id', userId).maybeSingle<{ birth_date: string | null }>(),
+    db.rpc('plan_companies'),
   ])
-  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv]) if (r.error) throw r.error
+  for (const r of [profiles, plans, capsules, secrets, blocks, admins, verif, shortRows, settingRows, priv, companies]) if (r.error) throw r.error
   const settings = parseSettings(settingRows.data ?? [])
   // Заблокированных не показываем нигде: ни в людях, ни в ленте, ни в сообщениях.
   const hidden = new Set((blocks.data ?? []).map((b) => b.blocked))
@@ -271,10 +272,14 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
 
+  // Кто уже в компании группового плана (без автора; я — 'me').
+  const companyOf = (planId: string, author: string) => ((companies.data ?? []) as { plan_id: string; user_id: string }[])
+    .filter((c) => c.plan_id === planId && c.user_id !== author && !hidden.has(c.user_id))
+    .map((c) => (c.user_id === userId ? 'me' : c.user_id))
   const activities: Activity[] = (plans.data ?? []).map((p) => ({
     id: p.id, authorId: p.author === userId ? 'me' : p.author, title: p.title, category: p.category, area: p.area,
     exactPlace: place.get(p.id) ?? '', startsAt: ms(p.starts_at), durationMin: p.duration_min, expiresAt: ms(p.expires_at),
-    x: p.x, y: p.y, photo: p.photo ?? undefined, timeHidden: p.time_hidden || undefined, groupSize: p.group_size ?? undefined, members: p.group_size ? [] : undefined, music: p.music?.track && safeTrack(p.music.track) ? { track: safeTrack(p.music.track)!, start: Math.max(0, Number(p.music.start) || 0) } : undefined,
+    x: p.x, y: p.y, photo: p.photo ?? undefined, timeHidden: p.time_hidden || undefined, groupSize: p.group_size ?? undefined, members: p.group_size ? companyOf(p.id, p.author) : undefined, music: p.music?.track && safeTrack(p.music.track) ? { track: safeTrack(p.music.track)!, start: Math.max(0, Number(p.music.start) || 0) } : undefined,
   }))
 
   const byCapsule = new Map<string, MessageRow[]>()
@@ -488,7 +493,7 @@ export type { GroupMessageRow }
 
 /** Мои группы с участниками и перепиской. Сообщения тех, кого я заблокировал, не показываем. */
 async function loadGroups(db: SupabaseClient, userId: string, hidden: Set<string>): Promise<Group[]> {
-  const chats = await db.from('group_chats').select('*').returns<{ id: string; title: string; owner: string; created_at: string }[]>()
+  const chats = await db.from('group_chats').select('*').returns<{ id: string; title: string; owner: string; created_at: string; plan_id: string | null }[]>()
   if (chats.error) throw chats.error
   const ids = (chats.data ?? []).map((g) => g.id)
   if (!ids.length) return []
@@ -508,7 +513,7 @@ async function loadGroups(db: SupabaseClient, userId: string, hidden: Set<string
     const rows = (msgs.data ?? []).filter((m) => m.group_id === g.id && !hidden.has(m.sender))
     const others = ms.filter((m) => m.user_id !== userId)
     return [{
-      id: g.id, title: g.title, ownerId: g.owner === userId ? 'me' : g.owner, createdAt: ms_(g.created_at),
+      id: g.id, title: g.title, ownerId: g.owner === userId ? 'me' : g.owner, createdAt: ms_(g.created_at), ...(g.plan_id ? { planId: g.plan_id } : {}),
       members: others.map((m) => m.user_id).filter((id) => !hidden.has(id)),
       othersReadAt: Math.max(0, ...others.map((m) => (m.read_at ? ms_(m.read_at) : 0))) || undefined,
       messages: [
@@ -529,6 +534,12 @@ export async function createGroup(userId: string, id: string, title: string, mem
   if (error) throw error
   const add = await sb().from('group_members').insert([userId, ...members].map((user_id) => ({ group_id: id, user_id })))
   if (add.error) { await sb().from('group_chats').delete().eq('id', id); throw add.error }
+}
+
+/** Войти в общий чат компании группового плана (создаётся при первом участнике). */
+export async function joinPlanGroup(planId: string) {
+  const { error } = await sb().rpc('join_plan_group', { p: planId })
+  if (error) throw new Error(/group full/.test(error.message) ? 'В компании уже нет мест.' : /expired/.test(error.message) ? 'План уже закончился.' : error.message)
 }
 
 export async function sendGroupMessage(groupId: string, body: string) {

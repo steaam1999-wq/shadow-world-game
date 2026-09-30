@@ -972,6 +972,50 @@ do $$ begin
   begin alter publication supabase_realtime add table public.group_messages; exception when duplicate_object then null; end;
 end $$;
 
+-- Чат компании: у группового плана один общий групповой чат. Создатель чата — автор плана.
+alter table public.group_chats add column if not exists plan_id uuid references public.plans (id) on delete set null;
+create unique index if not exists group_chats_plan_uniq on public.group_chats (plan_id) where plan_id is not null;
+
+-- Присоединиться к компании плана: создаёт чат, если его ещё нет, добавляет автора и меня.
+-- Проверяет места, срок плана, баны и блокировки. Возвращает id чата.
+create or replace function public.join_plan_group(p uuid) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := (select auth.uid());
+  pl record;
+  g uuid;
+begin
+  if me is null or private.is_banned(me) then raise exception 'not allowed'; end if;
+  select id, author, title, group_size, expires_at into pl from public.plans where id = p;
+  if pl.id is null or pl.group_size is null then raise exception 'not a group plan'; end if;
+  if private.blocked_between(pl.author, me) then raise exception 'not allowed'; end if;
+  select id into g from public.group_chats where plan_id = p;
+  if g is null then
+    if pl.expires_at < now() then raise exception 'plan expired'; end if;
+    insert into public.group_chats (title, owner, plan_id) values (left(pl.title, 60), pl.author, p) returning id into g;
+    insert into public.group_members (group_id, user_id) values (g, pl.author) on conflict do nothing;
+  end if;
+  if not exists (select 1 from public.group_members where group_id = g and user_id = me) then
+    if pl.expires_at < now() then raise exception 'plan expired'; end if;
+    if (select count(*) from public.group_members where group_id = g) >= pl.group_size then raise exception 'group full'; end if;
+    insert into public.group_members (group_id, user_id) values (g, me);
+  end if;
+  return g;
+end $$;
+revoke all on function public.join_plan_group(uuid) from public, anon;
+grant execute on function public.join_plan_group(uuid) to authenticated;
+
+-- Кто уже в компании у действующих групповых планов (видно всем: аватарки «Компания 2 из 4»).
+create or replace function public.plan_companies() returns table (plan_id uuid, user_id uuid)
+language sql stable security definer set search_path = '' as $$
+  select c.plan_id, m.user_id from public.group_chats c
+  join public.plans pl on pl.id = c.plan_id and pl.expires_at > now() - interval '7 days'
+  join public.group_members m on m.group_id = c.id
+  where (select auth.uid()) is not null
+$$;
+revoke all on function public.plan_companies() from public, anon;
+grant execute on function public.plan_companies() to authenticated;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

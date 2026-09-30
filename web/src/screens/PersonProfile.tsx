@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
+import { MetTogether } from '../components/Met'
 import { compatibility, level, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import { PersonSongs, songsOf } from '../music/PersonSongs'
+import { tasteLine, useTaste } from '../music/taste'
 import { NowPlayingCard, nowPlayingOf } from '../music/NowPlaying'
 import { Post } from './Feed'
 import { ReportSheet } from './Vibe'
@@ -45,6 +47,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const capsule = state.capsules.find((c) => c.personId === p.id)
   const songCount = songsOf(p, !!state.cloud).length
   const listening = nowPlayingOf(p, !!state.cloud)
+  const taste = useTaste()(p)
 
   const message = () => {
     if (capsule) { onOpenChat(capsule.id); return }
@@ -97,6 +100,13 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           <span className="font-display font-semibold text-xl text-brand tnum">{compat.score}%</span>
           <span className="text-muted">{shared.length ? `Совпало: ${shared.join(', ')}` : 'В тесте пока не совпали — тем интереснее'}</span>
         </div>
+        <MetTogether personId={p.id} />
+        {taste.score > 0 && (
+          <button onClick={() => setTab('songs')} className="rounded-2xl bg-spark-soft px-3.5 py-2.5 text-[13px] flex items-center gap-3 text-left cursor-pointer">
+            <span className="grid place-items-center w-8 h-8 rounded-full bg-spark text-on-spark shrink-0"><Icon name="note" size={16} /></span>
+            <span className="min-w-0"><b className="block text-fg">Совпадение по музыке</b><span className="text-muted">{tasteLine(taste)}</span></span>
+          </button>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <Button variant={following ? "secondary" : "primary"} className="h-10 text-[14px] whitespace-nowrap" onClick={() => dispatch({ type: 'toggleFollow', personId: p.id })} aria-pressed={following}>

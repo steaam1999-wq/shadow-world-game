@@ -1,13 +1,13 @@
 {
   "name": "Match — встречи рядом",
   "short_name": "Match",
-  "description": "Хватит свайпать. Время встречаться.",
+  "description": "Живые встречи рядом. Хватит свайпать — время встречаться.",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#fbe6dc",
-  "theme_color": "#fbe6dc",
+  "background_color": "#f2e1ec",
+  "theme_color": "#f2e1ec",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

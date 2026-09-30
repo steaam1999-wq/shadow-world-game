@@ -136,8 +136,11 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   useEffect(() => { window.scrollTo(0, 0) }, [tab, chat])
 
   const openCapsuleByActivity = (activityId: string) => {
+    // У группового плана сначала открываем общий чат компании.
+    const g = (state.groups ?? []).find((x) => x.planId === activityId)
     const c = state.capsules.find((x) => x.activityId === activityId)
-    if (c) { setTab('capsules'); setChat(c.id); setToast(null) }
+    const id = g?.id ?? c?.id
+    if (id) { setTab('capsules'); setChat(id); setToast(null) }
   }
   // «Позвать» из «Свободны сейчас»: создаём капсулу и открываем её, как только она появится.
   const [pendingInvite, setPendingInvite] = useState<string | null>(null)

@@ -142,7 +142,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
             <GroupAvatar group={g} size={40} />
             <span className="flex-1 min-w-0">
               <span className="block font-semibold truncate">{g.title}</span>
-              <span className="block text-[12px] text-muted truncate">{count} {plural(count)}</span>
+              <span className="block text-[12px] text-muted truncate">{g.planId ? 'Компания плана · ' : ''}{count} {plural(count)}</span>
             </span>
           </button>
           <button onClick={() => setInfo(true)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Настройки группы"><Icon name="more" size={20} /></button>
