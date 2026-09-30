@@ -9,8 +9,8 @@ import { RulesSheet } from '../components/Rules'
 
 // Пример аккаунта: открывается одной кнопкой, чтобы посмотреть приложение без регистрации.
 export const DEMO_ME: Me = {
-  name: 'Женя', age: 26, hue: 12, district: 'Чистые пруды',
-  bio: 'Дизайнер интерфейсов. Люблю кофе в 8 утра, выставки по выходным и длинные прогулки вдоль Яузы.',
+  name: 'Женя', age: 26, hue: 12, district: 'Минск, Центральный р-н',
+  bio: 'Дизайнер интерфейсов. Люблю кофе в 8 утра, выставки по выходным и длинные прогулки вдоль Свислочи.',
   answers: { evening: 'walk', music: 'indie', coffee: 'espresso', sport: 'yoga', weekend: 'museum', pace: 'fast' },
   tags: ['Кофе', 'Выставки', 'Прогулки', 'Фото'], verified: true, meetings: 4, authMethod: 'telegram',
   privacy: { showExactAge: true, hideFromContacts: true, approxLocation: true }, radiusKm: 5,

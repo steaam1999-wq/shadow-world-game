@@ -347,7 +347,12 @@ function load(): State {
     if (!localStorage.getItem(STORAGE_KEY)) sessionStorage.setItem(SESSION_KEY, '1')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as State
+      let parsed = JSON.parse(raw) as State
+      // Демо переехало из Москвы в Минск: обновляем демо-людей, их планы и переписку, свои планы оставляем.
+      if (parsed.version === 2 && !parsed.cloud && parsed.people?.some((p) => p.district === 'Чистые пруды')) {
+        const seed = seedState()
+        parsed = { ...parsed, people: seed.people, capsules: seed.capsules, activities: [...seed.activities, ...parsed.activities.filter((x) => x.authorId === 'me')] }
+      }
       if (parsed.version === 2) {
         // Без «Запомнить меня» вход живёт до закрытия браузера: новая сессия — снова экран входа.
         let sameSession = false

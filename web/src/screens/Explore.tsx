@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { PlaceOptions, placeDistanceKm, placeInfo, placeXY } from '../places'
+import { PlaceOptions, byXY, mapKindOf, minskXY, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
@@ -67,7 +67,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       <div className="px-4">
         <label htmlFor="search" className="flex items-center gap-2 h-11 rounded-2xl bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={18} />
-          <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск: выставка, кофе, Таганка…" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
+          <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск: выставка, кофе, Зыбицкая…" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
           {query && <button onClick={() => setQuery('')} aria-label="Очистить поиск" className="cursor-pointer"><Icon name="x" size={16} /></button>}
         </label>
       </div>
@@ -165,25 +165,52 @@ const BY_BORDER: [number, number][] = [[56.17, 28.15], [55.8, 30.9], [55.3, 30.9
   [52.1, 31.8], [51.6, 30.6], [51.3, 30.5], [51.5, 29.3], [51.4, 28.0], [51.6, 26.0], [51.5, 25.0], [51.6, 23.6], [52.2, 23.2], [52.7, 23.9], [53.4, 23.6],
   [53.9, 23.5], [54.15, 25.8], [54.9, 25.8], [55.6, 26.6], [55.8, 27.6]]
 const BY_CITIES = ['Минск', 'Брест', 'Гродно', 'Витебск', 'Могилёв', 'Гомель']
-const byXY = (lat: number, lon: number): [number, number] => [((lon - 23.0) / 10.2) * 90 + 5, ((56.3 - lat) / 5.2) * 90 + 5]
+// Схема Минска: МКАД и Свислочь (широта, долгота) — только чтобы было понятно, где точки.
+const MKAD: [number, number][] = [[53.975, 27.5], [53.965, 27.62], [53.93, 27.69], [53.87, 27.7], [53.83, 27.66], [53.82, 27.55], [53.84, 27.45], [53.885, 27.41], [53.94, 27.43]]
+const SVISLOCH: [number, number][] = [[53.975, 27.44], [53.945, 27.5], [53.915, 27.54], [53.905, 27.558], [53.89, 27.585], [53.875, 27.615], [53.855, 27.645], [53.835, 27.68]]
+const MINSK_LABELS: [string, number, number][] = [['Центр', 53.906, 27.555], ['Уручье', 53.945, 27.68], ['Серебрянка', 53.865, 27.62], ['Малиновка', 53.845, 27.47], ['Каменная Горка', 53.91, 27.44]]
+
+/** Небольшой сдвиг точки плана, чтобы планы из одного района не слипались. */
+function jitter(id: string, size: number): [number, number] {
+  let h = 0
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0
+  return [((h & 0xff) / 255 - 0.5) * size, (((h >> 8) & 0xff) / 255 - 0.5) * size]
+}
 
 function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[]; selected: string | null; onSelect: (id: string) => void; myDistrict: string }) {
-  const belarus = (placeInfo(myDistrict)?.country ?? 'by') === 'by'
-  const [dx, dy] = placeXY(myDistrict)
-  const [mx, my] = belarus ? [dx, dy] : [dx + 4, dy + 5] // в Москве смещаем, чтобы метка не совпадала с активностями района
-  const shown = items.filter((a) => (placeInfo(a.area)?.country ?? 'ru') === (belarus ? 'by' : 'ru'))
+  const kind = mapKindOf(myDistrict)
+  const [dx, dy] = placeXY(myDistrict, kind)
+  const [mx, my] = kind === 'ru' ? [dx + 4, dy + 5] : [dx, dy] // в Москве смещаем, чтобы метка не совпадала с активностями района
+  // На схеме Минска — только минские планы, на карте страны — белорусские, на схеме Москвы — московские.
+  const shown = items.flatMap((a) => {
+    const k = mapKindOf(a.area)
+    if (kind === 'ru' ? k !== 'ru' : kind === 'minsk' ? k !== 'minsk' : k === 'ru') return []
+    if (kind === 'ru') return [{ a, x: a.x, y: a.y }]
+    const [x, y] = placeXY(a.area, kind), [jx, jy] = jitter(a.id, kind === 'minsk' ? 18 : 5)
+    return [{ a, x: x + jx, y: y + jy }]
+  })
+  const path = (pts: [number, number][], f: (la: number, lo: number) => [number, number]) => pts.map(([la, lo]) => f(la, lo).map((v) => v.toFixed(1)).join(',')).join(' ')
+  const label = kind === 'minsk' ? 'Схема Минска с активностями' : kind === 'by' ? 'Карта Беларуси с активностями' : 'Схема центра Москвы с активностями'
   return (
     <div className="relative rounded-[28px] overflow-hidden bg-surface-2 aspect-square max-w-full">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" role="img" aria-label={belarus ? 'Карта Беларуси с активностями' : 'Схема центра Москвы с активностями'}>
-        {belarus ? (
+      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" role="img" aria-label={label}>
+        {kind === 'minsk' && (
           <>
-            <polygon points={BY_BORDER.map(([la, lo]) => byXY(la, lo).map((v) => v.toFixed(1)).join(',')).join(' ')} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.2" strokeLinejoin="round" />
+            <polygon points={path(MKAD, minskXY)} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.4" strokeLinejoin="round" />
+            <polyline points={path(SVISLOCH, minskXY)} fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            {MINSK_LABELS.map(([n, la, lo]) => { const [x, y] = minskXY(la, lo); return <text key={n} x={x} y={y} textAnchor="middle" fontSize="3.2" fill="var(--muted)" aria-hidden="true">{n}</text> })}
+          </>
+        )}
+        {kind === 'by' && (
+          <>
+            <polygon points={path(BY_BORDER, byXY)} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.2" strokeLinejoin="round" />
             {BY_CITIES.map((c) => {
-              const [x, y] = placeXY(c)
+              const [x, y] = placeXY(c, 'by')
               return <g key={c} aria-hidden="true"><circle cx={x} cy={y} r=".9" fill="var(--muted)" /><text x={x} y={y - 2.2} textAnchor="middle" fontSize="3.4" fill="var(--muted)">{c}</text></g>
             })}
           </>
-        ) : (
+        )}
+        {kind === 'ru' && (
           <>
             {/* Садовое кольцо и Бульварное */}
             <ellipse cx="50" cy="52" rx="38" ry="36" fill="none" stroke="var(--line)" strokeWidth="1.6" />
@@ -193,22 +220,22 @@ function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[];
           </>
         )}
         {/* Моё положение — приблизительно */}
-        <circle cx={mx} cy={my} r={belarus ? 5 : 9} fill="var(--cobalt)" fillOpacity=".12" />
+        <circle cx={mx} cy={my} r={kind === 'by' ? 5 : 9} fill="var(--cobalt)" fillOpacity=".12" />
         <circle cx={mx} cy={my} r="1.8" fill="var(--cobalt)" stroke="var(--surface)" strokeWidth=".8" />
-        {shown.map((a) => {
+        {shown.map(({ a, x, y }) => {
           const on = a.id === selected
           return (
             <g key={a.id} onClick={() => onSelect(a.id)} className="cursor-pointer" role="button" aria-label={a.title}>
-              <circle cx={a.x} cy={a.y} r="6" fill="transparent" />
-              {on && <circle cx={a.x} cy={a.y} r="5" fill="var(--spark)" fillOpacity=".2" />}
-              <circle cx={a.x} cy={a.y} r={on ? 3 : 2.3} fill={a.authorId === 'me' ? 'var(--fg)' : 'var(--spark)'} stroke="var(--surface)" strokeWidth=".8" />
+              <circle cx={x} cy={y} r="6" fill="transparent" />
+              {on && <circle cx={x} cy={y} r="5" fill="var(--spark)" fillOpacity=".2" />}
+              <circle cx={x} cy={y} r={on ? 3 : 2.3} fill={a.authorId === 'me' ? 'var(--fg)' : 'var(--spark)'} stroke="var(--surface)" strokeWidth=".8" />
             </g>
           )
         })}
       </svg>
       <div className="absolute left-3 bottom-3 flex gap-3 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-spark" /> активность</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы ({belarus ? 'город' : 'район'})</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы ({kind === 'by' ? 'город' : 'район'})</span>
       </div>
     </div>
   )
@@ -272,7 +299,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
           </div>
         </div>
         <Field id="act-title" label="Что вы предлагаете">
-          <input id="act-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Иду на лекцию в Гараж, пойдёшь со мной?" maxLength={80} required />
+          <input id="act-title" className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Иду на лекцию в Ok16, пойдёшь со мной?" maxLength={80} required />
         </Field>
         <div className="flex flex-wrap gap-2">
           {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => setCategory(c)}>{c}</Chip>)}

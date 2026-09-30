@@ -161,7 +161,7 @@ function Analytics() {
     <div className="flex flex-col gap-8">
       <header>
         <h1 className="font-display font-bold text-2xl">Аналитика</h1>
-        <p className="text-muted">15–28 сентября, Москва. Демо-данные.</p>
+        <p className="text-muted">15–28 сентября, Минск. Демо-данные.</p>
       </header>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

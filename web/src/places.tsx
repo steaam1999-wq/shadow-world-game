@@ -1,7 +1,12 @@
-import { DISTRICT_XY } from './data'
-
 // Где человек находится: все области Беларуси с крупными городами, районы Минска
 // и районы центра Москвы (на них построено демо). Координаты — центр места, для расстояний.
+
+// Координаты районов Москвы на схеме центра (0..100) — для старых демо-планов.
+const DISTRICT_XY: Record<string, [number, number]> = {
+  'Чистые пруды': [62, 30], 'Патриаршие': [28, 38], 'Китай-город': [58, 42], 'Хамовники': [22, 78],
+  'Замоскворечье': [52, 64], 'Басманный': [74, 34], 'Таганка': [72, 58], 'Парк Горького': [38, 84],
+}
+
 
 export interface PlaceGroup { region: string; country: 'by' | 'ru'; places: [string, number, number][] }
 
@@ -57,12 +62,22 @@ export function placeDistanceKm(from: string, to: string) {
   return Math.max(0.5, Math.round(12742 * Math.asin(Math.sqrt(h)) * 10) / 10)
 }
 
-/** Точка на схеме (0..100): Москва — схема центра, Беларусь — карта страны. */
-export function placeXY(name: string): [number, number] {
+export type MapKind = 'minsk' | 'by' | 'ru'
+/** Какую карту показывать человеку из этого места: схему Минска, карту Беларуси или схему центра Москвы. */
+export function mapKindOf(name: string): MapKind {
+  const p = INDEX.get(name)
+  return !p ? 'by' : p.country === 'ru' ? 'ru' : p.region === 'Минск' ? 'minsk' : 'by'
+}
+export const byXY = (lat: number, lon: number): [number, number] => [((lon - 23.0) / 10.2) * 90 + 5, ((56.3 - lat) / 5.2) * 90 + 5]
+export const minskXY = (lat: number, lon: number): [number, number] => [((lon - 27.40) / 0.32) * 84 + 8, ((53.98 - lat) / 0.16) * 84 + 8]
+
+/** Точка места на карте нужного вида (0..100). */
+export function placeXY(name: string, kind: MapKind = mapKindOf(name)): [number, number] {
   const p = INDEX.get(name)
   if (!p) return [50, 50]
-  if (p.country === 'ru') return DISTRICT_XY[name] ?? [50, 50]
-  return [Math.round(((p.lon - 23.0) / 10.2) * 90 + 5), Math.round(((56.3 - p.lat) / 5.2) * 90 + 5)]
+  if (kind === 'ru') return DISTRICT_XY[name] ?? [50, 50]
+  if (kind === 'minsk') return minskXY(p.lat, p.lon)
+  return byXY(p.lat, p.lon)
 }
 
 export const formatKm = (km: number) => (km >= 999 ? 'далеко' : km >= 20 ? `${Math.round(km)} км` : `${km.toFixed(1).replace('.', ',')} км`)
