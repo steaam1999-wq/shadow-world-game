@@ -91,7 +91,7 @@ export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond
   )
 }
 
-export function ReportSheet({ person, onClose, onBlocked }: { person: Person | null; onClose: () => void; onBlocked?: () => void }) {
+export function ReportSheet({ person, onClose, onBlocked, shortId }: { person: Person | null; onClose: () => void; onBlocked?: () => void; shortId?: string }) {
   const { dispatch } = useStore()
   const [reason, setReason] = useState(REASONS[0])
   const [text, setText] = useState('')
@@ -104,7 +104,7 @@ export function ReportSheet({ person, onClose, onBlocked }: { person: Person | n
     onBlocked?.()
   }
   return (
-    <Sheet open={!!person} onClose={close} title={sent ? 'Жалоба отправлена' : `Жалоба на ${person?.name ?? ''}`}>
+    <Sheet open={!!person} onClose={close} title={sent ? 'Жалоба отправлена' : shortId ? 'Жалоба на публикацию' : `Жалоба на ${person?.name ?? ''}`}>
       {sent ? (
         <div className="flex flex-col gap-4">
           <p className="text-muted">Спасибо. Модератор проверит жалобу и, если правила нарушены, заблокирует аккаунт. Чтобы {person?.name} не мог(ла) вам писать и пропал(а) из вашей ленты — заблокируйте.</p>
@@ -112,7 +112,7 @@ export function ReportSheet({ person, onClose, onBlocked }: { person: Person | n
           <Button variant="secondary" onClick={close}>Готово</Button>
         </div>
       ) : (
-        <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); if (person) dispatch({ type: 'report', personId: person.id, reason, text: text.trim() || '—' }); setSent(true) }}>
+        <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); if (person) dispatch({ type: 'report', personId: person.id, reason, text: text.trim() || '—', shortId }); setSent(true) }}>
           {REASONS.map((r) => (
             <label key={r} className="flex items-center gap-3 rounded-xl border border-line px-3 h-11 cursor-pointer has-[:checked]:border-spark">
               <input type="radio" name="reason" value={r} checked={reason === r} onChange={() => setReason(r)} className="accent-[var(--spark)]" />

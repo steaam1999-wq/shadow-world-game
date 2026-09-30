@@ -23,7 +23,7 @@ export type Action =
   | { type: 'deleteMessage'; capsuleId: string; messageId: string }
   | { type: 'nowPlaying'; value: NowPlaying | null }
   | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
-  | { type: 'report'; personId: string; reason: string; text: string }
+  | { type: 'report'; personId: string; reason: string; text: string; shortId?: string }
   | { type: 'resolveReport'; id: string; state: Report['state'] }
   | { type: 'verify'; id: string; state: Verification['state'] }
   | { type: 'setCategories'; categories: string[] }

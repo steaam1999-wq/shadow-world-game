@@ -445,19 +445,25 @@ export async function decideVerification(userId: string, approve: boolean) {
   const { error } = await sb().from('verification_requests').update({ status: approve ? 'approved' : 'rejected' }).eq('user_id', userId)
   if (error) throw error
 }
-export interface AdminReport { id: number; reason: string; body: string; status: 'open' | 'resolved'; createdAt: number; reporter: { id: string; name: string }; target: { id: string; name: string; banned: boolean } }
+export interface AdminReport { id: number; reason: string; body: string; status: 'open' | 'resolved'; createdAt: number; reporter: { id: string; name: string }; target: { id: string; name: string; banned: boolean }; post?: { id: string; path: string; kind: 'video' | 'photo'; caption: string; url: string } }
 
 export async function adminReports(): Promise<AdminReport[]> {
   const db = sb()
   const [reports, profiles, bans] = await Promise.all([
-    db.from('reports').select('*').order('created_at', { ascending: false }).limit(200).returns<{ id: number; reporter: string; target: string; reason: string; body: string; status: 'open' | 'resolved'; created_at: string }[]>(),
+    db.from('reports').select('*').order('created_at', { ascending: false }).limit(200).returns<{ id: number; reporter: string; target: string; reason: string; body: string; status: 'open' | 'resolved'; created_at: string; short_id: string | null }[]>(),
     db.from('profiles').select('id,name').returns<{ id: string; name: string }[]>(),
     db.from('bans').select('user_id').returns<{ user_id: string }[]>(),
   ])
   for (const r of [reports, profiles, bans]) if (r.error) throw r.error
   const name = new Map((profiles.data ?? []).map((p) => [p.id, p.name]))
   const banned = new Set((bans.data ?? []).map((b) => b.user_id))
+  // Публикации, на которые пожаловались: чтобы модератор видел, о чём речь.
+  const ids = [...new Set((reports.data ?? []).flatMap((r) => (r.short_id ? [r.short_id] : [])))]
+  const posts = ids.length ? (await db.from('shorts').select('id,path,kind,caption').in('id', ids).returns<{ id: string; path: string; kind: 'video' | 'photo'; caption: string }[]>()).data ?? [] : []
+  const urls = await sign('shorts', posts.map((p) => p.path))
+  const post = new Map(posts.map((p) => [p.id, { ...p, url: urls.get(p.path) ?? '' }]))
   return (reports.data ?? []).map((r) => ({
+    post: r.short_id ? post.get(r.short_id) : undefined,
     id: r.id, reason: r.reason, body: r.body, status: r.status, createdAt: ms(r.created_at),
     reporter: { id: r.reporter, name: name.get(r.reporter) ?? 'удалён' },
     target: { id: r.target, name: name.get(r.target) ?? 'удалён', banned: banned.has(r.target) },
@@ -475,8 +481,8 @@ export async function setBan(userId: string, ban: boolean, reason = '') {
   if (error && error.code !== '23505') throw error
 }
 
-export async function sendReport(target: string, reason: string, body: string) {
-  const { error } = await sb().from('reports').insert({ target, reason, body })
+export async function sendReport(target: string, reason: string, body: string, shortId?: string) {
+  const { error } = await sb().from('reports').insert({ target, reason, body, ...(shortId ? { short_id: shortId } : {}) })
   if (error) throw error
 }
 

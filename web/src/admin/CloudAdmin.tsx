@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { relative } from '../lib'
 import { Button, Icon, Logo, Pill } from '../components/ui'
-import { adminReports, adminVerifications, decideVerification, humanError, setBan, setReportStatus, type AdminReport, type AdminVerification } from '../cloud/api'
+import { adminReports, adminVerifications, decideVerification, deleteShort, humanError, setBan, setReportStatus, type AdminReport, type AdminVerification } from '../cloud/api'
 
 /** Модерация на сервере: жалобы пользователей и баны. Открывается только администраторам (таблица admins). */
 export function CloudAdmin({ onExit }: { onExit: () => void }) {
@@ -85,6 +85,15 @@ export function CloudAdmin({ onExit }: { onExit: () => void }) {
                 </div>
                 <p className="text-[14px]">На <b>{r.target.name}</b>{r.target.banned && <Pill tone="danger" className="ml-2">забанен</Pill>} · от {r.reporter.name}</p>
                 {r.body && r.body !== '—' && <p className="text-[14px] text-muted whitespace-pre-wrap">«{r.body}»</p>}
+                {r.post && (
+                  <div className="flex gap-3 items-start rounded-2xl bg-surface-2 p-2">
+                    {r.post.kind === 'photo' ? <img src={r.post.url} alt="Публикация" className="w-24 h-24 rounded-xl object-cover" /> : <video src={r.post.url} className="w-24 h-32 rounded-xl object-cover bg-black" controls playsInline preload="metadata" />}
+                    <div className="flex-1 min-w-0 flex flex-col gap-2">
+                      <p className="text-[13px] text-muted">Публикация{r.post.caption ? `: «${r.post.caption}»` : ''}</p>
+                      <Button variant="danger" className="h-9 text-[13px] self-start" disabled={busy === r.id} onClick={() => act(r.id, async () => { await deleteShort(r.post!.id, r.post!.path); await setReportStatus(r.id, 'resolved') })}><Icon name="trash" size={15} /> Удалить публикацию</Button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {r.status === 'open'
                     ? <Button variant="secondary" className="h-9 text-[13px]" disabled={busy === r.id} onClick={() => act(r.id, () => setReportStatus(r.id, 'resolved'))}><Icon name="check" size={15} /> Решено</Button>

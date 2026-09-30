@@ -559,6 +559,10 @@ create policy "chat files: delete own" on storage.objects for delete to authenti
   bucket_id = 'chat' and owner_id = (select auth.uid())::text
 );
 
+-- Жалоба может указывать на конкретную публикацию (шортс или пост с фото).
+alter table public.reports add column if not exists short_id uuid references public.shorts (id) on delete set null;
+create index if not exists reports_short_idx on public.reports (short_id);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

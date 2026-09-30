@@ -6,7 +6,8 @@ import { Avatar, Button, Field, Icon, Sheet, inputCls } from '../components/ui'
 import { LikeButton } from '../components/LikeButton'
 import { deleteShort, humanError, uploadShort } from '../cloud/api'
 import { requestReload } from '../cloud/sync'
-import type { Short } from '../types'
+import type { Person, Short } from '../types'
+import { ReportSheet } from './Vibe'
 
 // Шортсы: короткие вертикальные видео на весь экран. С сервером — общие для всех,
 // в демо — только ваши, хранятся в этом браузере.
@@ -109,6 +110,7 @@ function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage 
   const [paused, setPaused] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const mine = s.authorId === 'me'
+  const [reporting, setReporting] = useState<Person | null>(null)
   const author = usePublicationAuthor(s)
 
   // Играет только то видео, которое сейчас на экране.
@@ -151,6 +153,9 @@ function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage 
         {(mine || state.isAdmin) && (
           <button onClick={() => setConfirm(true)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Удалить шортс"><Icon name="trash" size={26} /></button>
         )}
+        {!mine && author && author.id !== 'me' && (
+          <button onClick={() => setReporting(author as Person)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Пожаловаться на шортс"><Icon name="flag" size={24} /></button>
+        )}
       </div>
 
       <div className="absolute left-0 right-16 bottom-0 p-4 pb-[calc(96px+env(safe-area-inset-bottom,0px))] flex flex-col gap-2">
@@ -173,6 +178,7 @@ function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage 
           </div>
         </div>
       </Sheet>
+      <div className="text-fg"><ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} /></div>
     </section>
   )
 }
@@ -323,6 +329,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   const [muted, setMuted] = useState(true)
   const video = useRef<HTMLVideoElement>(null)
   const mine = s.authorId === 'me'
+  const [reporting, setReporting] = useState<Person | null>(null)
 
   useEffect(() => {
     const v = video.current
@@ -344,6 +351,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
           </span>
         </button>
         {(mine || state.isAdmin) && <button onClick={() => setConfirm(true)} className="grid place-items-center w-9 h-9 rounded-full text-muted hover:text-danger cursor-pointer" aria-label="Удалить публикацию"><Icon name="trash" size={18} /></button>}
+        {!mine && author && author.id !== 'me' && <button onClick={() => setReporting(author as Person)} className="grid place-items-center w-9 h-9 rounded-full text-muted hover:text-danger cursor-pointer" aria-label="Пожаловаться на публикацию"><Icon name="flag" size={18} /></button>}
       </header>
       <div className="relative bg-black">
         {s.kind === 'photo'
@@ -370,6 +378,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
           </div>
         </div>
       </Sheet>
+      <ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} />
     </article>
   )
 }

@@ -68,7 +68,7 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     case 'unblock':
       return run(api.unblock(uid, a.personId))
     case 'report':
-      return run(api.sendReport(a.personId, a.reason, a.text))
+      return run(api.sendReport(a.personId, a.reason, a.text, a.shortId))
     case 'signOut':
       return run(api.signOut())
     default:
