@@ -61,31 +61,36 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
       </div>
 
       <section className="flex flex-col gap-3 px-4">
-        <div className="flex items-center gap-6">
-          <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={92}>
-            <Avatar name={p.name} hue={p.hue} src={p.photo} size={80} />
+        {/* Как в Threads: имя слева, фото справа */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="flex items-center gap-1.5 font-display font-bold text-[24px] leading-tight">
+              <span className="truncate">{p.name}, {p.age}</span>
+              {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
+            </h2>
+            <div className="text-[14px] text-muted truncate">{lv.name} · {p.district} · {formatKm(p.distanceKm)}</div>
+          </div>
+          <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
+            <Avatar name={p.name} hue={p.hue} src={p.photo} size={72} />
           </StoryRing>
-          <dl className="flex-1 grid grid-cols-3 text-center">
-            {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')], [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
-              String(l).startsWith('подписчик') ? (
-                <button key={String(l)} onClick={() => setShowFollowers(true)} className="cursor-pointer" aria-label="Показать подписчиков"><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></button>
-              ) : <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
-            ))}
-          </dl>
         </div>
 
-        <div className="text-[14px] leading-snug flex flex-col gap-0.5">
-          <div className="flex items-center gap-1 font-semibold">
-            {p.name}, {p.age}
-            {p.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
-          </div>
-          <div className="text-muted">{lv.name} · {p.district} · {formatKm(p.distanceKm)}</div>
+        <div className="text-[14px] leading-snug flex flex-col gap-1">
           <ReliabilityBadge person={p} />
           <TrackChip track={personTrack(p)} />
-          {listening && <div className="mt-1.5"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
-          <p className="mt-1">{p.bio}</p>
+          {listening && <div className="mt-0.5"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
+          {p.bio && <p>{p.bio}</p>}
           <p className="text-cobalt">{p.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>
+        <p className="flex flex-wrap items-center gap-x-1.5 text-[14px] text-muted">
+          <button onClick={() => setShowFollowers(true)} className="cursor-pointer hover:text-fg" aria-label="Показать подписчиков и подписки">
+            <b className="text-fg tnum">{followers.toLocaleString('ru-RU')}</b> {plural(followers, 'подписчик', 'подписчика', 'подписчиков')}
+          </button>
+          <span aria-hidden="true">·</span>
+          <span><b className="text-fg tnum">{plans.length}</b> {plural(plans.length, 'план', 'плана', 'планов')}</span>
+          <span aria-hidden="true">·</span>
+          <span><b className="text-fg tnum">{p.meetings}</b> {plural(p.meetings, 'встреча', 'встречи', 'встреч')}</span>
+        </p>
 
         <div className="rounded-2xl bg-surface-2 px-3.5 py-2.5 text-[13px] flex items-center gap-3">
           <span className="font-display font-semibold text-xl text-brand tnum">{compat.score}%</span>

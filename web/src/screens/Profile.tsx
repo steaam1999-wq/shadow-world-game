@@ -49,32 +49,38 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
 
   return (
     <div className="flex flex-col gap-3 pb-4">
-      {/* Шапка в духе Инстаграма: фото, счётчики, имя и био */}
+      {/* Шапка в духе Threads: имя слева, фото справа, счётчики строкой под описанием */}
       <section className="flex flex-col gap-3 px-4 pt-3">
-        <div className="flex items-center gap-6">
-          <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
-            <Avatar name={me.name} hue={me.hue} src={me.photo} size={86} />
-            <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
-          </button>
-          <dl className="flex-1 grid grid-cols-3 text-center">
-            {[[myPlans.length, plural(myPlans.length, 'план', 'плана', 'планов')], [me.meetings, plural(me.meetings, 'встреча', 'встречи', 'встреч')], (state.cloud ? [state.followers?.me ?? 0, plural(state.followers?.me ?? 0, 'подписчик', 'подписчика', 'подписчиков')] : [lv.idx, 'уровень'])].map(([v, l]) => (
-              String(l).startsWith('подписчик') ? (
-                <button key={String(l)} onClick={() => setShowFollowers(true)} className="cursor-pointer" aria-label="Показать подписчиков"><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></button>
-              ) : <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></div>
-            ))}
-          </dl>
-        </div>
-        <div className="text-[14px] leading-snug">
-          <div className="flex items-center gap-1 font-semibold">
-            {me.name}, {me.age}
-            {me.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="flex items-center gap-1.5 font-display font-bold text-[24px] leading-tight">
+              <span className="truncate">{me.name}, {me.age}</span>
+              {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
+            </h2>
+            <div className="text-[14px] text-muted truncate">{lv.name} · {me.district}</div>
           </div>
-          <div className="text-muted">{lv.name} · {me.district}</div>
+          <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
+            <Avatar name={me.name} hue={me.hue} src={me.photo} size={76} />
+            <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
+          </button>
+        </div>
+        <div className="text-[14px] leading-snug flex flex-col gap-1">
           <PlayingChip />
           {me.meetings > 0 && <span className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
           <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
         </div>
+        <p className="flex flex-wrap items-center gap-x-1.5 text-[14px] text-muted">
+          {state.cloud ? (
+            <button onClick={() => setShowFollowers(true)} className="cursor-pointer hover:text-fg" aria-label="Показать подписчиков и подписки">
+              <b className="text-fg tnum">{state.followers?.me ?? 0}</b> {plural(state.followers?.me ?? 0, 'подписчик', 'подписчика', 'подписчиков')}
+            </button>
+          ) : <span>уровень <b className="text-fg tnum">{lv.idx}</b></span>}
+          <span aria-hidden="true">·</span>
+          <span><b className="text-fg tnum">{myPlans.length}</b> {plural(myPlans.length, 'план', 'плана', 'планов')}</span>
+          <span aria-hidden="true">·</span>
+          <span><b className="text-fg tnum">{me.meetings}</b> {plural(me.meetings, 'встреча', 'встречи', 'встреч')}</span>
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => setEditing(true)} className="h-9 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">Редактировать</button>
           <button onClick={share} className="h-9 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">{copied ? 'Скопировано' : 'Поделиться'}</button>

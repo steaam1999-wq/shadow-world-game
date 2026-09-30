@@ -259,7 +259,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                     aria-current={active ? 'page' : undefined} aria-label={t.label}
                     className={`relative w-full h-13 grid place-items-center rounded-[26px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-fg/80 hover:text-fg'}`}>
                     {t.id === 'profile' ? (
-                      <span className={`rounded-full ${active ? 'ring-2 ring-fg ring-offset-2 ring-offset-transparent' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={26} /></span>
+                      <Avatar name={me.name} hue={me.hue} src={me.photo} size={28} />
                     ) : (
                       <Icon name={t.icon} size={26} fill={active && (t.id === 'home')} className="tab-icon" />
                     )}
