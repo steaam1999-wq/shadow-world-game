@@ -67,7 +67,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           </StoryRing>
           <dl className="flex-1 grid grid-cols-3 text-center">
             {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')], [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
-              state.cloud && String(l).startsWith('подписчик') ? (
+              String(l).startsWith('подписчик') ? (
                 <button key={String(l)} onClick={() => setShowFollowers(true)} className="cursor-pointer" aria-label="Показать подписчиков"><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></button>
               ) : <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
             ))}

@@ -288,8 +288,11 @@ async function loadSocial(db: SupabaseClient, userId: string, planIds: string[],
   for (const l of shortLikes) likeCounts[l.short_id] = (likeCounts[l.short_id] ?? 0) + 1
   const followers: Record<string, number> = {}
   const followersOf: Record<string, string[]> = {}
+  const followingOf: Record<string, string[]> = {}
   for (const f of follows) {
     const k = f.followee === userId ? 'me' : f.followee
+    const who = f.follower === userId ? 'me' : f.follower
+    followingOf[who] = [...(followingOf[who] ?? []), k]
     followers[k] = (followers[k] ?? 0) + 1
     followersOf[k] = [...(followersOf[k] ?? []), f.follower === userId ? 'me' : f.follower]
   }
@@ -304,7 +307,7 @@ async function loadSocial(db: SupabaseClient, userId: string, planIds: string[],
     shortHearts: shortLikes.filter((l) => l.user_id === userId).map((l) => l.short_id),
     saved: (sv.data ?? []).map((s) => s.plan_id),
     following: follows.filter((f) => f.follower === userId).map((f) => f.followee),
-    likeCounts, followers, notices, followersOf,
+    likeCounts, followers, notices, followersOf, followingOf,
   }
 }
 /** Отметка «нравится», подписка или «Сохранить»: on — поставить, иначе снять. Повтор не ошибка. */

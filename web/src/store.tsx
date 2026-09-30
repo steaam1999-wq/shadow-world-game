@@ -76,6 +76,7 @@ export interface Social {
   hearts: string[]; shortHearts: string[]; saved: string[]; following: string[]
   likeCounts: Record<string, number>; followers: Record<string, number>; notices: Notice[]
   followersOf: Record<string, string[]> // personId ('me' — я) → кто подписан
+  followingOf: Record<string, string[]> // personId ('me' — я) → на кого подписан
 }
 
 function bump(counts: Record<string, number> | undefined, id: string, d: number) {
@@ -295,6 +296,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state, following: toggle(state.following ?? [], action.personId), followers: bump(state.followers, action.personId, on ? 1 : -1),
         ...(state.followersOf ? { followersOf: { ...state.followersOf, [action.personId]: on ? [...list, 'me'] : list.filter((x) => x !== 'me') } } : {}),
+        ...(state.followingOf ? { followingOf: { ...state.followingOf, me: on ? [...(state.followingOf.me ?? []), action.personId] : (state.followingOf.me ?? []).filter((x) => x !== action.personId) } } : {}),
       }
     }
     case 'seeStory':
