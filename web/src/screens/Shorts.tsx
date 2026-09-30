@@ -70,8 +70,8 @@ function useHearts() {
   return [hearts, (id: string) => dispatch({ type: 'toggleShortHeart', shortId: id }), (id: string) => state.likeCounts?.[id] ?? (hearts.includes(id) ? 1 : 0)] as const
 }
 
-/** Лента шортсов. `onMessage` — написать автору. */
-export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => void }) {
+/** Лента шортсов. */
+export function ShortsFeed() {
   const list = usePublications().filter((s) => s.kind === 'video')
   const [muted, setMuted] = useState(true)
   const autoMute = useCallback(() => setMuted(true), [])
@@ -81,8 +81,7 @@ export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => voi
   return (
     <>
       {list.map((s) => (
-        <ShortItem key={s.id} s={s} muted={muted} onToggleMute={() => setMuted((m) => !m)} onAutoMute={autoMute} hearted={hearts.includes(s.id)} likes={likesOf(s.id)} onHeart={() => toggleHeart(s.id)}
-          onMessage={onMessage} />
+        <ShortItem key={s.id} s={s} muted={muted} onToggleMute={() => setMuted((m) => !m)} onAutoMute={autoMute} hearted={hearts.includes(s.id)} likes={likesOf(s.id)} onHeart={() => toggleHeart(s.id)} />
       ))}
       {!list.length && (
         <div className="h-full snap-start grid place-items-center text-white/80 p-8 text-center">
@@ -102,8 +101,8 @@ export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => voi
   )
 }
 
-function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart, onMessage }: {
-  s: Short; muted: boolean; onToggleMute: () => void; onAutoMute: () => void; hearted: boolean; likes: number; onHeart: () => void; onMessage: (personId: string) => void
+function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart }: {
+  s: Short; muted: boolean; onToggleMute: () => void; onAutoMute: () => void; hearted: boolean; likes: number; onHeart: () => void
 }) {
   const { state } = useStore()
   const openProfile = useOpenProfile()
@@ -175,11 +174,6 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
         <button onClick={() => setComments(true)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Комментарии">
           <Icon name="comment" size={30} />{commentCount > 0 && <span className="text-[12px] font-semibold tnum">{commentCount}</span>}
         </button>
-        {!mine && author && (
-          <button onClick={() => onMessage(author.id)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={`Написать ${author.name}`}>
-            <Icon name="chat" size={30} /><span className="text-[12px] font-semibold">Написать</span>
-          </button>
-        )}
         <button onClick={onToggleMute} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'} aria-pressed={!muted}>
           <Icon name={muted ? 'soundOff' : 'sound'} size={28} />
         </button>

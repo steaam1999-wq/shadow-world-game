@@ -11,7 +11,7 @@ import { ShortsFeed } from './Shorts'
 import { PlanMusicChip } from '../music/PlanMusic'
 
 /** Вертикальная лента на весь экран: один план — один экран, листается свайпом вверх. */
-export function Reels({ now, onRespond, onOpenCapsule, onMessage }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void; onMessage: (personId: string) => void }) {
+export function Reels({ now, onRespond, onOpenCapsule }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void }) {
   const { state } = useStore()
   const [mode, setMode] = useState<'plans' | 'shorts'>(() => { try { return sessionStorage.getItem('iskra-reels-mode') === 'shorts' ? 'shorts' : 'plans' } catch { return 'plans' } })
   const scroller = useRef<HTMLDivElement>(null)
@@ -35,7 +35,7 @@ export function Reels({ now, onRespond, onOpenCapsule, onMessage }: { now: numbe
         ))}
       </div>
       <div ref={scroller} className="h-[calc(100dvh-env(safe-area-inset-top,0px))] overflow-y-auto no-scrollbar snap-y snap-mandatory bg-black">
-        {mode === 'shorts' ? <ShortsFeed onMessage={onMessage} /> : (
+        {mode === 'shorts' ? <ShortsFeed /> : (
           <>
             {items.map(({ a, p }) => (
               <Reel key={a.id} a={a} p={p} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />
