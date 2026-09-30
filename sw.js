@@ -1,4 +1,4 @@
-// ISKRA: сервис-воркер нужен только для уведомлений о новых сообщениях (в том числе push при закрытом сайте).
+// Match: сервис-воркер нужен только для уведомлений о новых сообщениях (в том числе push при закрытом сайте).
 // Ничего не кэширует — сайт всегда грузится свежим.
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
@@ -22,7 +22,7 @@ self.addEventListener('push', (e) => {
     // Safari требует показывать уведомление на каждый push, поэтому там показываем всегда.
     const safari = /Safari/.test(self.navigator.userAgent) && !/Chrome|Chromium|Android/.test(self.navigator.userAgent)
     if (!safari && list.some((c) => c.visibilityState === 'visible' && c.focused)) return
-    return self.registration.showNotification(d.title || 'ISKRA', {
+    return self.registration.showNotification(d.title || 'Match', {
       body: d.body || 'Новое сообщение', tag: d.chat || d.kind || 'iskra', renotify: true,
       icon: 'icon-192.png', badge: 'icon-192.png', data: { chat: d.chat, person: d.person },
     })
