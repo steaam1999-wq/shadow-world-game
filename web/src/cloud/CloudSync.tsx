@@ -14,7 +14,7 @@ export function CloudSync() {
   useEffect(() => {
     if (!userId) return
     let alive = true, busy = false, again = false
-    let live = false, lastLoad = 0, migrated = false
+    let live = false, lastLoad = 0, migrated = false, movedAvatar = false
     const load = async () => {
       if (busy) { again = true; return }
       busy = true
@@ -28,6 +28,13 @@ export function CloudSync() {
         if (alive) dispatch({ type: 'cloudLoad', ...d })
         // Прошёл день рождения — пересчитываем возраст по дате рождения.
         if (alive && d.me?.birthDate && ageFrom(d.me.birthDate) !== d.me.age) dispatch({ type: 'updateMe', patch: { age: ageFrom(d.me.birthDate) } })
+        // Аватарка ещё в закрытом хранилище — один раз переносим в открытое, чтобы ссылка не устаревала.
+        if (alive && !movedAvatar && d.me?.photoPath && !d.me.photoPath.startsWith('avatars/') && d.me.photo?.startsWith('http')) {
+          movedAvatar = true
+          const src = d.me.photo
+          void fetch(src).then((r) => r.blob()).then((b) => new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.onerror = rej; fr.readAsDataURL(b) }))
+            .then((dataUrl) => { if (alive) dispatch({ type: 'updateMe', patch: { photo: dataUrl } }) }).catch(() => { movedAvatar = false })
+        }
         // Старое фото профиля лежит прямо в базе — один раз переносим его в хранилище.
         if (alive && !migrated && d.me?.photo?.startsWith('data:') && !d.me.photoPath) { migrated = true; dispatch({ type: 'updateMe', patch: {} }) }
       } catch (e) {

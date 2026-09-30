@@ -30,7 +30,7 @@ async function sign(bucket: 'shorts' | 'media' | 'chat', paths: string[]) {
   const key = (p: string) => `${bucket}:${p}`
   const need = [...new Set(paths)].filter((p) => (signed.get(key(p))?.until ?? 0) < now + 10 * 60_000)
   for (let i = 0; i < need.length; i += 500) {
-    // Фото профилей живут неделю: иначе на экране входа ссылка на аватарку быстро устаревает.
+    // Закрытые фото (планы, старые аватарки) — неделю; видео — 6 часов.
     const ttl = bucket === 'media' ? 7 * 24 * 3600 : 6 * 3600
     const { data, error } = await sb().storage.from(bucket).createSignedUrls(need.slice(i, i + 500), ttl)
     if (error) throw error
@@ -41,13 +41,26 @@ async function sign(bucket: 'shorts' | 'media' | 'chat', paths: string[]) {
 const signShorts = (paths: string[]) => sign('shorts', paths)
 
 /** Загружает фото (data URL) в хранилище и возвращает путь. */
-async function uploadImage(userId: string, dataUrl: string) {
+async function uploadImage(userId: string, dataUrl: string, bucket: 'media' | 'avatars' = 'media') {
   const blob = await (await fetch(dataUrl)).blob()
   const type = ['image/png', 'image/webp'].includes(blob.type) ? blob.type : 'image/jpeg'
   const path = `${userId}/${crypto.randomUUID()}.${type.split('/')[1].replace('jpeg', 'jpg')}`
-  const { error } = await sb().storage.from('media').upload(path, blob, { contentType: type, upsert: false })
+  const { error } = await sb().storage.from(bucket).upload(path, blob, { contentType: type, upsert: false })
   if (error) throw error
-  return path
+  return bucket === 'avatars' ? `avatars/${path}` : path
+}
+
+// Аватарки лежат в открытом хранилище («avatars/…» в photo_path) — у них постоянная ссылка.
+// Остальные фото (и старые аватарки) — в закрытом media, по временным ссылкам.
+const isPublicPhoto = (p: string) => p.startsWith('avatars/')
+const publicPhotoUrl = (p: string) => `${SUPABASE_URL}/storage/v1/object/public/${p}`
+async function photoUrls(paths: string[]) {
+  const signedUrls = await sign('media', paths.filter((p) => !isPublicPhoto(p)))
+  return new Map(paths.map((p) => [p, isPublicPhoto(p) ? publicPhotoUrl(p) : signedUrls.get(p)] as const).filter((e): e is readonly [string, string] => !!e[1]))
+}
+async function removePhoto(p: string) {
+  if (isPublicPhoto(p)) await sb().storage.from('avatars').remove([p.slice('avatars/'.length)])
+  else await sb().storage.from('media').remove([p])
 }
 
 // Колонки без встроенных фото: так ленту не приходится скачивать вместе со всеми фото целиком.
@@ -148,7 +161,7 @@ export async function saveProfile(userId: string, me: Me) {
   const old = me.photoPath ?? null
   const fresh = me.photo?.startsWith('data:') ? me.photo : null
   const photoPath = fresh
-    ? (lastUpload?.data === fresh ? lastUpload.path : (lastUpload = { data: fresh, path: await uploadImage(userId, fresh) }).path)
+    ? (lastUpload?.data === fresh ? lastUpload.path : (lastUpload = { data: fresh, path: await uploadImage(userId, fresh, 'avatars') }).path)
     : me.photo ? old : null
   const { error } = await sb().from('profiles').upsert({
     id: userId, name: me.name, age: me.age ?? null, bio: me.bio, district: me.district, hue: me.hue,
@@ -156,7 +169,7 @@ export async function saveProfile(userId: string, me: Me) {
     songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50),
   })
   if (error) throw error
-  if (old && old !== photoPath) await sb().storage.from('media').remove([old])
+  if (old && old !== photoPath) await removePhoto(old)
   // Дата рождения — в закрытой таблице, её видит только сам человек.
   const priv = await sb().from('profile_private').upsert({ user_id: userId, birth_date: me.birthDate ?? null })
   if (priv.error) throw priv.error
@@ -181,7 +194,7 @@ export async function setNowPlaying(userId: string, value: NowPlaying | null) {
 export async function fetchMyProfile(userId: string) {
   const { data, error } = await sb().from('profiles').select('*').eq('id', userId).maybeSingle<ProfileRow>()
   if (error) throw error
-  if (data?.photo_path) data.photo = (await sign('media', [data.photo_path])).get(data.photo_path) ?? null
+  if (data?.photo_path) data.photo = (await photoUrls([data.photo_path])).get(data.photo_path) ?? null
   return data
 }
 
@@ -295,7 +308,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
 async function attachPhotos(profiles: ProfileRow[], plans: PlanRow[]) {
   const db = sb()
   const [urls, oldProfiles, oldPlans] = await Promise.all([
-    sign('media', [...profiles, ...plans].flatMap((r) => (r.photo_path ? [r.photo_path] : []))),
+    photoUrls([...profiles, ...plans].flatMap((r) => (r.photo_path ? [r.photo_path] : []))),
     profiles.some((p) => !p.photo_path) ? db.from('profiles').select('id,photo').is('photo_path', null).not('photo', 'is', null).limit(500).returns<{ id: string; photo: string }[]>() : Promise.resolve({ data: [], error: null }),
     plans.some((p) => !p.photo_path) ? db.from('plans').select('id,photo').in('id', plans.filter((p) => !p.photo_path).map((p) => p.id)).not('photo', 'is', null).returns<{ id: string; photo: string }[]>() : Promise.resolve({ data: [], error: null }),
   ])
@@ -336,7 +349,7 @@ export async function adminUsers(q: string): Promise<AdminUser[]> {
   const { data, error } = await sb().rpc('admin_users', { q })
   if (error) throw error
   const rows = (data ?? []) as { id: string; name: string; age: number | null; district: string; photo_path: string | null; verified: boolean; created_at: string; email: string; last_sign_in_at: string | null; is_admin: boolean; banned: boolean; ban_reason: string | null; plans: number; posts: number; followers: number; reports: number }[]
-  const urls = await sign('media', rows.flatMap((r) => (r.photo_path ? [r.photo_path] : [])))
+  const urls = await photoUrls(rows.flatMap((r) => (r.photo_path ? [r.photo_path] : [])))
   return rows.map((r) => ({
     id: r.id, name: r.name, age: r.age, district: r.district, photo: r.photo_path ? urls.get(r.photo_path) ?? null : null, verified: r.verified,
     createdAt: ms(r.created_at), email: r.email, lastSignIn: r.last_sign_in_at ? ms(r.last_sign_in_at) : null, isAdmin: r.is_admin,
@@ -505,7 +518,7 @@ export async function deleteAccount() {
   // Видео и фото лежат в хранилище отдельно от базы — убираем свои файлы до удаления аккаунта.
   const user = await currentUser()
   if (user) {
-    for (const bucket of ['shorts', 'media']) {
+    for (const bucket of ['shorts', 'media', 'avatars']) {
       const { data } = await sb().storage.from(bucket).list(user.id, { limit: 1000 })
       if (data?.length) await sb().storage.from(bucket).remove(data.map((f) => `${user.id}/${f.name}`))
     }

@@ -787,6 +787,24 @@ create policy "short comments: delete" on public.short_comments for delete to au
   or exists (select 1 from public.shorts s where s.id = short_id and s.author = (select auth.uid()))
 );
 
+-- Аватарки — в открытом хранилище avatars/<владелец>/<файл>: постоянная ссылка, видна и на экране входа.
+-- В profiles.photo_path такие фото записаны как «avatars/<владелец>/<файл>». Фото планов остаются закрытыми (media).
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "avatar files: own list" on storage.objects;
+create policy "avatar files: own list" on storage.objects for select to authenticated using (
+  bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+drop policy if exists "avatar files: upload own" on storage.objects;
+create policy "avatar files: upload own" on storage.objects for insert to authenticated with check (
+  bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text and not private.is_banned((select auth.uid()))
+);
+drop policy if exists "avatar files: delete own" on storage.objects;
+create policy "avatar files: delete own" on storage.objects for delete to authenticated using (
+  bucket_id = 'avatars' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
+);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
