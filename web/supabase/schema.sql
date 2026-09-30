@@ -1248,6 +1248,12 @@ do $$ begin
   begin alter publication supabase_realtime add table public.stories; exception when duplicate_object then null; end;
 end $$;
 
+-- Камера историй: фильтр Match и стикеры («Позвать», трек).
+alter table public.stories add column if not exists filter text not null default 'none'
+  check (filter in ('none', 'spark', 'sunset', 'minsk', 'cold', 'vivid'));
+alter table public.stories add column if not exists sticker jsonb check (sticker is null or pg_column_size(sticker) < 3000);
+grant insert (filter, sticker) on public.stories to authenticated;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

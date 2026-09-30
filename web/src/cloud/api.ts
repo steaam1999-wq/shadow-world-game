@@ -240,7 +240,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.rpc('plan_companies'),
     db.rpc('no_show_counts'),
     db.from('no_shows').select('capsule_id').returns<{ capsule_id: string }[]>(),
-    db.from('stories').select('*').order('created_at').limit(1000).returns<{ id: string; author: string; kind: 'photo' | 'video' | 'text'; path: string | null; caption: string; hue: number; duration: number | null; created_at: string; expires_at: string }[]>(),
+    db.from('stories').select('*').order('created_at').limit(1000).returns<{ id: string; author: string; kind: 'photo' | 'video' | 'text'; path: string | null; caption: string; hue: number; duration: number | null; created_at: string; expires_at: string; filter?: string; sticker?: { invite?: boolean; track?: Track } | null }[]>(),
     db.from('story_views').select('story_id, viewer, viewed_at').limit(5000).returns<{ story_id: string; viewer: string; viewed_at: string }[]>(),
     db.from('message_reactions').select('chat_id, message_id, user_id, emoji').limit(5000).returns<{ chat_id: string; message_id: number; user_id: string; emoji: string }[]>(),
     db.from('chat_tracks').select('*').order('created_at').limit(3000).returns<{ id: number; chat_id: string; added_by: string; track: Track; created_at: string }[]>(),
@@ -352,6 +352,8 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const stories: Story[] = liveStories.map((x) => ({
     id: x.id, authorId: x.author === userId ? 'me' : x.author, kind: x.kind, caption: x.caption, hue: x.hue, at: ms(x.created_at), expiresAt: ms(x.expires_at),
     ...(x.path ? { path: x.path, url: storyUrls.get(x.path) } : {}), ...(x.duration ? { duration: x.duration } : {}),
+    ...(x.filter && x.filter !== 'none' ? { filter: x.filter } : {}),
+    ...(x.sticker ? { sticker: { invite: !!x.sticker.invite, ...(safeTrack(x.sticker.track) ? { track: safeTrack(x.sticker.track)! } : {}) } } : {}),
     ...(x.author === userId ? { views: views.filter((v) => v.story_id === x.id && v.viewer !== userId).map((v) => ({ personId: v.viewer, at: ms(v.viewed_at) })) } : {}),
   }))
   const storiesSeen = views.filter((v) => v.viewer === userId).map((v) => v.story_id)
@@ -642,7 +644,7 @@ export async function postStory(userId: string, story: Story, file?: Blob) {
     const up = await sb().storage.from('shorts').upload(path, file, { contentType: story.kind === 'photo' ? 'image/jpeg' : file.type || 'video/mp4', upsert: false })
     if (up.error) throw up.error
   }
-  const { error } = await sb().from('stories').insert({ id: story.id, kind: story.kind, path, caption: story.caption, hue: story.hue, duration: story.duration ?? null })
+  const { error } = await sb().from('stories').insert({ id: story.id, kind: story.kind, path, caption: story.caption, hue: story.hue, duration: story.duration ?? null, filter: story.filter ?? 'none', sticker: story.sticker ?? null })
   if (error) { if (path) await sb().storage.from('shorts').remove([path]); throw error }
 }
 

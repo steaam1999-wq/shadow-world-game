@@ -120,6 +120,8 @@ export interface Story {
   caption: string
   hue: number
   duration?: number
+  filter?: string // фильтр камеры Match (storyFilters)
+  sticker?: { invite?: boolean; track?: Track } // «Позвать» и трек на истории
   at: number
   expiresAt: number
   views?: { personId: string; at: number }[] // кто посмотрел (только у моих)

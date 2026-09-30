@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+export { StoryCreator } from './StoryCamera'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { compatibility, planWhen, relative } from '../lib'
@@ -7,7 +8,9 @@ import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
 import { ListeningBadge } from '../music/NowPlaying'
-import { compressPhoto, readVideoDuration } from './Shorts'
+import { StoryCreator } from './StoryCamera'
+import { filterOf, filterStyle } from '../components/storyFilters'
+import { usePlayer } from '../music/player'
 import type { Activity, Person, Story } from '../types'
 
 // Истории как в Instagram: у каждого человека — его истории за сутки и действующий план.
@@ -15,8 +18,6 @@ import type { Activity, Person, Story } from '../types'
 
 const STEP_MS = 6000
 const MAX_VIDEO_SEC = 60
-const MAX_MB = 50
-const HUES = [330, 12, 30, 150, 200, 230, 260, 290]
 
 type Item = { type: 'story'; story: Story } | { type: 'plan'; activity: Activity }
 interface Group { personId: string; person: { id: string; name: string; hue: number; photo?: string; verified?: boolean }; items: Item[]; unseen: boolean }
@@ -181,11 +182,11 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
         {s?.kind === 'photo' && (
           <>
             <img src={s.url} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-70" />
-            <img src={s.url} alt={s.caption || 'История'} className="absolute inset-0 w-full h-full object-contain" />
+            <img src={s.url} alt={s.caption || 'История'} className="absolute inset-0 w-full h-full object-contain" style={filterStyle(s.filter)} />
           </>
         )}
         {s?.kind === 'video' && (
-          <video ref={video} key={s.id} src={s.url} className="absolute inset-0 w-full h-full object-contain" autoPlay playsInline muted={false}
+          <video ref={video} key={s.id} src={s.url} className="absolute inset-0 w-full h-full object-contain" style={filterStyle(s.filter)} autoPlay playsInline muted={false}
             onLoadedMetadata={(e) => setVideoMs(Math.min(MAX_VIDEO_SEC, e.currentTarget.duration || 15) * 1000)} onEnded={() => nav.current.next()} />
         )}
         {s?.kind === 'text' && (
@@ -193,6 +194,7 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
             <p className="font-display font-bold text-[28px] leading-tight text-center whitespace-pre-wrap break-words drop-shadow" data-no-translate>{s.caption}</p>
           </div>
         )}
+        {s && filterOf(s.filter).overlay && <div className="absolute inset-0 pointer-events-none mix-blend-soft-light" style={{ background: filterOf(s.filter).overlay }} />}
         {a && <div className="absolute inset-0 opacity-90"><PostArt activity={a} /></div>}
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/70 pointer-events-none" />
 
@@ -225,6 +227,7 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
         </div>
 
         <div className="relative px-4 pb-4 flex flex-col gap-3">
+          {s?.sticker && <StorySticker story={s} mine={mine} name={p.name} onInvite={() => { reply('Пойду с тобой! 🙋'); setSent('Приглашение принято — написали в личку') }} />}
           {s && s.kind !== 'text' && s.caption && <p className="text-[16px] font-semibold drop-shadow whitespace-pre-wrap" data-no-translate>{s.caption}</p>}
           {a && (
             <div className="flex flex-col gap-2">
@@ -307,106 +310,23 @@ function plEnd(n: number) {
   return a === 1 && b !== 11 ? '' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'а' : 'ов'
 }
 
-/** Новая история: фото, видео до минуты или текст на цветном фоне. */
-export function StoryCreator({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { state, dispatch } = useStore()
-  const [mode, setMode] = useState<'media' | 'text'>('media')
-  const [file, setFile] = useState<Blob | null>(null)
-  const [kind, setKind] = useState<'photo' | 'video'>('photo')
-  const [preview, setPreview] = useState<string | null>(null)
-  const [duration, setDuration] = useState(0)
-  const [caption, setCaption] = useState('')
-  const [hue, setHue] = useState(330)
-  const [error, setError] = useState('')
-  const input = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (open) return
-    setFile(null); setCaption(''); setError(''); setMode('media')
-    setPreview(null) // ссылку не отзываем: её показывает только что опубликованная история
-  }, [open])
-
-  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    setError('')
-    const photo = f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name)
-    if (photo) {
-      try {
-        const blob = await compressPhoto(f)
-        setFile(blob); setKind('photo'); setPreview(URL.createObjectURL(blob))
-      } catch { setError('Не получилось открыть фото. Выберите JPG или PNG.') }
-      return
-    }
-    if (f.size > MAX_MB * 1024 * 1024) { setError(`Видео больше ${MAX_MB} МБ.`); return }
-    const url = URL.createObjectURL(f)
-    const d = await readVideoDuration(url)
-    if (d < 0) { URL.revokeObjectURL(url); setError('Браузер не может открыть это видео. Попробуйте MP4.'); return }
-    if (d > MAX_VIDEO_SEC + 0.5) { URL.revokeObjectURL(url); setError(`Видео длиннее ${MAX_VIDEO_SEC} секунд.`); return }
-    setFile(f); setKind('video'); setDuration(d); setPreview(url)
-  }
-
-  const publish = async () => {
-    const id = crypto.randomUUID()
-    const now = Date.now()
-    const base = { id, authorId: 'me', at: now, expiresAt: now + 24 * 3600_000, hue }
-    if (mode === 'text') {
-      if (!caption.trim()) return
-      dispatch({ type: 'addStory', story: { ...base, kind: 'text', caption: caption.trim().slice(0, 300) } })
-    } else {
-      if (!file || !preview) return
-      // В демо фото храним прямо в браузере (data URL), чтобы история пережила перезагрузку.
-      let url = preview
-      if (!state.cloud && kind === 'photo') url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.readAsDataURL(file) })
-      dispatch({ type: 'addStory', story: { ...base, kind, url, caption: caption.trim().slice(0, 300), ...(kind === 'video' ? { duration: Math.round(duration * 10) / 10 } : {}) }, file })
-    }
-    onClose()
-  }
-
+/** Стикеры на истории: «Позвать» (фирменный — зритель одним нажатием соглашается) и трек. */
+function StorySticker({ story, mine, name, onInvite }: { story: Story; mine: boolean; name: string; onInvite: () => void }) {
+  const player = usePlayer()
+  const t = story.sticker?.track
+  const playing = !!t && player.track?.id === t.id && player.playing
   return (
-    <Sheet open={open} onClose={onClose} title="Новая история">
-      <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-1 rounded-full bg-surface-2 p-1" role="tablist">
-          {([['media', 'Фото или видео'], ['text', 'Текст']] as const).map(([m, label]) => (
-            <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={`h-9 rounded-full text-[14px] font-semibold cursor-pointer ${mode === m ? 'bg-surface shadow-soft' : 'text-muted'}`}>{label}</button>
-          ))}
-        </div>
-        {mode === 'media' ? (
-          <>
-            {preview ? (
-              <div className="relative mx-auto w-44 aspect-[9/16] rounded-2xl overflow-hidden bg-black">
-                {kind === 'photo' ? <img src={preview} alt="Предпросмотр" className="w-full h-full object-cover" /> : <video src={preview} className="w-full h-full object-cover" autoPlay loop muted playsInline />}
-                <button onClick={() => input.current?.click()} className="absolute right-2 top-2 h-8 px-3 rounded-full bg-black/50 text-white text-[12px] font-semibold cursor-pointer">Заменить</button>
-              </div>
-            ) : (
-              <button onClick={() => input.current?.click()} className="mx-auto w-44 aspect-[9/16] rounded-2xl border-2 border-dashed border-line flex flex-col items-center justify-center gap-2 text-muted cursor-pointer hover:bg-surface-2">
-                <Icon name="camera" size={32} /><span className="text-[14px] font-semibold">Выбрать фото или видео</span><span className="text-[12px]">видео до {MAX_VIDEO_SEC} секунд</span>
-              </button>
-            )}
-            <input ref={input} type="file" accept="image/*,video/mp4,video/quicktime,video/webm,video/*" className="sr-only" onChange={pick} aria-label="Выбрать фото или видео для истории" />
-            <input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={300} placeholder="Подпись (необязательно)" aria-label="Подпись к истории"
-              className="h-11 rounded-2xl bg-surface-2 px-3.5 focus:outline-none focus:ring-2 focus:ring-cobalt" />
-          </>
-        ) : (
-          <>
-            <div className="mx-auto w-44 aspect-[9/16] rounded-2xl grid place-items-center p-4 text-white" style={{ background: `linear-gradient(160deg, hsl(${hue} 80% 55%), hsl(${(hue + 50) % 360} 75% 38%))` }}>
-              <p className="font-display font-bold text-[17px] leading-tight text-center whitespace-pre-wrap break-words">{caption || 'Ваш текст'}</p>
-            </div>
-            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={300} rows={3} placeholder="Куда зовёте, что делаете, настроение…" aria-label="Текст истории"
-              className="rounded-2xl bg-surface-2 p-3.5 resize-none focus:outline-none focus:ring-2 focus:ring-cobalt" />
-            <div className="flex gap-2 justify-center" role="radiogroup" aria-label="Цвет фона">
-              {HUES.map((h) => (
-                <button key={h} role="radio" aria-checked={hue === h} aria-label={`Фон ${h}`} onClick={() => setHue(h)}
-                  className={`w-8 h-8 rounded-full cursor-pointer ${hue === h ? 'ring-2 ring-fg ring-offset-2 ring-offset-surface' : ''}`}
-                  style={{ background: `linear-gradient(160deg, hsl(${h} 80% 55%), hsl(${(h + 50) % 360} 75% 38%))` }} />
-              ))}
-            </div>
-          </>
-        )}
-        {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-        <Button onClick={() => void publish()} disabled={mode === 'text' ? !caption.trim() : !file}>Опубликовать на 24 часа</Button>
-      </div>
-    </Sheet>
+    <div className="flex flex-col items-center gap-2">
+      {story.sticker?.invite && (
+        mine
+          ? <span className="rounded-2xl bg-white text-[#14152a] px-4 py-2 font-display font-bold rotate-[-3deg]">🙋 Пойдём со мной?</span>
+          : <button onClick={onInvite} className="rounded-2xl bg-white text-[#14152a] px-4 py-2 font-display font-bold rotate-[-3deg] shadow-soft cursor-pointer" aria-label={`Пойти с ${name}`}>🙋 Пойду с тобой!</button>
+      )}
+      {t && (
+        <button onClick={() => (player.track?.id === t.id ? player.toggle() : player.play(t, [t]))} className="inline-flex items-center gap-2 rounded-full bg-black/45 backdrop-blur px-3 py-1.5 text-[13px] cursor-pointer" aria-label={playing ? `Пауза: ${t.title}` : `Слушать: ${t.title}`}>
+          <Icon name={playing ? 'pause' : 'play'} size={14} fill /> 🎵 {t.title} · {t.artist}
+        </button>
+      )}
+    </div>
   )
 }
