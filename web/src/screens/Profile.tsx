@@ -7,13 +7,11 @@ import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls
 import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
 import type { Activity } from '../types'
-import { GENRE_LABEL, usePlayer } from '../music/player'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
 import { AlertSettings } from '../components/Alerts'
 import { NowPlayingCard } from '../music/NowPlaying'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
-import type { Genre } from '../music/engine'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   onSignOut: () => void
@@ -26,9 +24,6 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   const [editVibe, setEditVibe] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
-  const player = usePlayer()
-  const mySong = player.uploads.find((t) => t.id === player.mySongId) ?? null
-  const myGenre = (['indie', 'electro', 'jazz', 'hiphop'].includes(me.answers.music) ? me.answers.music : 'indie') as Genre
   const [tab, setTab] = useState<'plans' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
@@ -70,11 +65,6 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
             {me.name}, {me.age}
             {me.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
-          <div className="text-muted">{lv.name} · {me.district}</div>
-          <button onClick={() => player.play(mySong ?? { id: 't-me', title: 'Мой вайб', artist: me.name, genre: myGenre, hue: me.hue, bpm: myGenre === 'jazz' ? 96 : myGenre === 'hiphop' ? 86 : myGenre === 'electro' ? 124 : 118, root: 57, bars: 40 })}
-            className="inline-flex items-center gap-1.5 my-1 max-w-full rounded-full bg-surface-2 px-3 h-7 text-[12px] font-medium cursor-pointer hover:brightness-95">
-            <Icon name="note" size={13} /> <span className="truncate">Моя песня: {mySong ? `«${mySong.title}»${mySong.artist !== 'Моя песня' ? ` · ${mySong.artist}` : ''}` : `«Мой вайб» · ${GENRE_LABEL[myGenre]}`}</span>
-          </button>
           {me.nowPlaying && !me.privacy.hideNowPlaying && <div className="mb-1"><NowPlayingCard np={me.nowPlaying} who="Сейчас на вашей странице" /></div>}
           {me.meetings > 0 && <span className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
