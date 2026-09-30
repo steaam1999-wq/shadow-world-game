@@ -281,7 +281,7 @@ function ActivitySheet({ open, onClose, now, onOpenCapsule, openProfile }: { ope
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const items = [
     ...(state.announcement ? [{ key: 'ann', person: null, text: state.announcement, at: now, onClick: () => dispatch({ type: 'dismissAnnouncement' }) }] : []),
-    ...state.capsules.filter((c) => !isExpired(c, now) && state.people.some((x) => x.id === c.personId)).map((c) => {
+    ...state.capsules.filter((c) => !c.hidden && !isExpired(c, now) && state.people.some((x) => x.id === c.personId)).map((c) => {
       const p = state.people.find((x) => x.id === c.personId)!
       const last = [...c.messages].reverse().find((m) => m.from === 'them')
       return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Чат с ${p.name}`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }

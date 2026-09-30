@@ -21,13 +21,65 @@ function when(ts: number, now: number) {
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
+const REVEAL = 84 // ширина красной кнопки удаления
+
+/** Строка чата: свайп справа налево открывает кнопку удаления, свайп обратно или нажатие — закрывает. */
+function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
+  open: boolean; onOpenChange: (open: boolean) => void; onClick: () => void; onDelete: () => void; label: string; children: React.ReactNode
+}) {
+  const [dx, setDx] = useState<number | null>(null) // сдвиг во время жеста
+  const start = useRef<{ x: number; y: number; base: number; horizontal: boolean | null } | null>(null)
+  const moved = useRef(false)
+  const offset = dx ?? (open ? -REVEAL : 0)
+
+  const down = (e: React.PointerEvent) => { start.current = { x: e.clientX, y: e.clientY, base: open ? -REVEAL : 0, horizontal: null }; moved.current = false }
+  const move = (e: React.PointerEvent) => {
+    const st = start.current
+    if (!st) return
+    const ddx = e.clientX - st.x, ddy = e.clientY - st.y
+    if (st.horizontal === null && Math.hypot(ddx, ddy) > 8) {
+      st.horizontal = Math.abs(ddx) > Math.abs(ddy)
+      if (st.horizontal) (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    }
+    if (!st.horizontal) return
+    moved.current = true
+    setDx(Math.max(-REVEAL - 24, Math.min(0, st.base + ddx)))
+  }
+  const up = () => {
+    const st = start.current
+    start.current = null
+    if (st?.horizontal && dx !== null) onOpenChange(dx < -REVEAL / 2)
+    setDx(null)
+  }
+
+  return (
+    <li className="relative -mx-3 overflow-hidden rounded-2xl">
+      <button onClick={onDelete} tabIndex={open ? 0 : -1} aria-label={label} aria-hidden={offset === 0}
+        className={`absolute inset-y-0 right-0 grid place-items-center overflow-hidden bg-danger text-white cursor-pointer ${dx === null ? 'transition-[width] duration-200' : ''}`} style={{ width: Math.max(0, -offset) }}>
+        <span className="flex flex-col items-center gap-0.5 text-[12px] font-semibold shrink-0" style={{ width: REVEAL }}><Icon name="trash" size={22} /> Удалить</span>
+      </button>
+      <button onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+        onClick={() => { if (moved.current) { moved.current = false; return } if (open) onOpenChange(false); else onClick() }}
+        onKeyDown={(e) => { if (e.key === 'Delete' || e.key === 'Backspace') onDelete() }}
+        className={`relative w-full text-left flex items-center gap-3 py-2.5 px-3 hover:bg-surface/60 cursor-pointer touch-pan-y ${dx === null ? 'transition-transform duration-200' : ''}`}
+        style={{ transform: `translateX(${offset}px)` }}>
+        {children}
+      </button>
+    </li>
+  )
+}
+
 export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string) => void }) {
   const { state } = useStore()
+  const { dispatch } = useStore()
   const [query, setQuery] = useState('')
+  const [swiped, setSwiped] = useState<string | null>(null) // у какой строки открыта кнопка удаления
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const deletingName = state.people.find((x) => x.id === state.capsules.find((c) => c.id === deleting)?.personId)?.name ?? ''
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
   const q = query.trim().toLowerCase()
   const list = state.capsules
-    .filter((c) => state.people.some((x) => x.id === c.personId))
+    .filter((c) => !c.hidden && state.people.some((x) => x.id === c.personId))
     .filter((c) => !q || state.people.find((x) => x.id === c.personId)!.name.toLowerCase().includes(q))
     .sort((a, b) => lastAt(b) - lastAt(a))
 
@@ -46,8 +98,7 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
             const p = state.people.find((x) => x.id === c.personId)!
             const last = [...c.messages].reverse().find((m) => m.from !== 'system') ?? c.messages[c.messages.length - 1]
             return (
-              <li key={c.id}>
-                <button onClick={() => onOpen(c.id)} className="w-full text-left flex items-center gap-3 py-2.5 px-3 -mx-3 rounded-2xl hover:bg-surface cursor-pointer">
+              <SwipeRow key={c.id} open={swiped === c.id} onOpenChange={(o) => setSwiped(o ? c.id : null)} onClick={() => onOpen(c.id)} onDelete={() => setDeleting(c.id)} label={`Удалить чат с ${p.name}`}>
                   <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />
                   <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                     <div className="flex items-center justify-between gap-2">
@@ -61,14 +112,22 @@ export function CapsuleList({ now, onOpen }: { now: number; onOpen: (id: string)
                       {c.unread > 0 && <span className="shrink-0 grid place-items-center min-w-5 h-5 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold">{c.unread}</span>}
                     </div>
                   </div>
-                </button>
-              </li>
+              </SwipeRow>
             )
           })}
         </ul>
       ) : (
         <div className="rounded-[28px] bg-surface-2 p-8 text-center text-muted">{q ? 'Никого не нашли.' : 'Здесь будут ваши переписки. Напишите человеку из его профиля или откликнитесь на план.'}</div>
       )}
+      <Sheet open={!!deleting} onClose={() => setDeleting(null)} title={`Удалить чат с ${deletingName}?`}>
+        <div className="flex flex-col gap-3">
+          <p className="text-muted">Переписка исчезнет у вас. У {deletingName} она останется. Если {deletingName} напишет снова, чат появится — уже без старых сообщений.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => setDeleting(null)}>Отмена</Button>
+            <Button variant="danger" onClick={() => { if (deleting) dispatch({ type: 'hideChat', capsuleId: deleting }); setDeleting(null); setSwiped(null) }}>Удалить</Button>
+          </div>
+        </div>
+      </Sheet>
     </div>
   )
 }

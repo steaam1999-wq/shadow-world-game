@@ -15,7 +15,7 @@ export function sb() {
 
 interface ProfileRow { id: string; name: string; age: number; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
-interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null }
+interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
 
 const ms = (iso: string) => new Date(iso).getTime()
@@ -227,6 +227,9 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const chatPhotos = await sign('chat', (messages.data ?? []).flatMap((m) => (m.photo_path ? [m.photo_path] : [])))
   for (const m of messages.data ?? []) byCapsule.set(m.capsule_id, [...(byCapsule.get(m.capsule_id) ?? []), m])
 
+  // Чаты, которые я удалил у себя: старые сообщения не показываем; пока нет новых — чат скрыт из списка.
+  const hiddenAt = (c: CapsuleRow) => { const h = c.author === userId ? c.author_hidden_at : c.responder_hidden_at; return h ? ms(h) : 0 }
+  for (const c of capsules.data ?? []) { const h = hiddenAt(c); if (h) byCapsule.set(c.id, (byCapsule.get(c.id) ?? []).filter((m) => ms(m.created_at) > h)) }
   const caps: Capsule[] = (capsules.data ?? []).map((c) => {
     const created = ms(c.created_at)
     const exact = c.plan_id ? place.get(c.plan_id) : undefined
@@ -240,7 +243,8 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     const seen = read[c.id] ?? 0
     return {
       id: c.id, personId: c.author === userId ? c.responder : c.author, activityId: c.plan_id ?? '',
-      createdAt: created, expiresAt: ms(c.expires_at), status: c.status, messages: msgs,
+      createdAt: created, expiresAt: ms(c.expires_at), status: c.status, messages: hiddenAt(c) ? msgs.filter((m) => m.from !== 'system') : msgs,
+      hidden: !!hiddenAt(c) && !rows.length,
       theirReadAt: (() => { const r = c.author === userId ? c.responder_read_at : c.author_read_at; return r ? ms(r) : undefined })(),
       unread: rows.filter((m) => m.sender !== userId && ms(m.created_at) > seen).length,
     }
@@ -362,6 +366,11 @@ export async function deleteMessage(id: string, photoPath?: string) {
   const { error } = await sb().from('messages').delete().eq('id', Number(id))
   if (error) throw error
   if (photoPath) await sb().storage.from('chat').remove([photoPath])
+}
+
+export async function hideChat(capsuleId: string) {
+  const { error } = await sb().rpc('hide_chat', { c: capsuleId })
+  if (error) throw error
 }
 
 export async function markRead(capsuleId: string) {

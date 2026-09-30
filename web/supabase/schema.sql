@@ -568,6 +568,19 @@ create policy "chat files: delete own" on storage.objects for delete to authenti
 alter table public.reports add column if not exists short_id uuid references public.shorts (id) on delete set null;
 create index if not exists reports_short_idx on public.reports (short_id);
 
+-- «Удалить чат» у себя: переписка скрывается, пока не придёт новое сообщение; у собеседника всё остаётся.
+alter table public.capsules add column if not exists author_hidden_at timestamptz;
+alter table public.capsules add column if not exists responder_hidden_at timestamptz;
+create or replace function public.hide_chat(c uuid) returns void
+language sql security definer set search_path = public as $$
+  update public.capsules set
+    author_hidden_at = case when author = (select auth.uid()) then now() else author_hidden_at end,
+    responder_hidden_at = case when responder = (select auth.uid()) then now() else responder_hidden_at end
+  where id = c and (select auth.uid()) in (author, responder)
+$$;
+revoke all on function public.hide_chat(uuid) from public, anon;
+grant execute on function public.hide_chat(uuid) to authenticated;
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

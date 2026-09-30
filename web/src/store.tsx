@@ -21,6 +21,7 @@ export type Action =
   | { type: 'readCapsule'; capsuleId: string }
   | { type: 'sendPhoto'; capsuleId: string; photo: string; text?: string }
   | { type: 'deleteMessage'; capsuleId: string; messageId: string }
+  | { type: 'hideChat'; capsuleId: string }
   | { type: 'nowPlaying'; value: NowPlaying | null }
   | { type: 'cloudMessage'; capsuleId: string; id: string; mine: boolean; text: string; at: number }
   | { type: 'report'; personId: string; reason: string; text: string; shortId?: string }
@@ -150,7 +151,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         capsules: state.capsules.map((c) =>
-          c.id === action.capsuleId ? { ...c, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }] } : c,
+          c.id === action.capsuleId ? { ...c, hidden: false, messages: [...c.messages, { id: uid(), from: 'me', text: action.text, at: now }] } : c,
         ),
       }
     case 'nowPlaying':
@@ -163,7 +164,7 @@ function reducer(state: State, action: Action): State {
       if (action.mine) return state
       return {
         ...state,
-        capsules: state.capsules.map((x) => x.id === c.id ? { ...x, messages: [...x.messages, { id: action.id, from: 'them' as const, text: action.text, at: action.at }], unread: x.unread + 1 } : x),
+        capsules: state.capsules.map((x) => x.id === c.id ? { ...x, hidden: false, messages: [...x.messages, { id: action.id, from: 'them' as const, text: action.text, at: action.at }], unread: x.unread + 1 } : x),
       }
     }
     case 'reply':
@@ -188,8 +189,10 @@ function reducer(state: State, action: Action): State {
     case 'sendPhoto':
       return {
         ...state,
-        capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, messages: [...c.messages, { id: uid(), from: 'me' as const, text: action.text ?? '', photo: action.photo, at: now }] } : c),
+        capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, hidden: false, messages: [...c.messages, { id: uid(), from: 'me' as const, text: action.text ?? '', photo: action.photo, at: now }] } : c),
       }
+    case 'hideChat':
+      return { ...state, capsules: state.capsules.map((c) => (c.id === action.capsuleId ? { ...c, hidden: true, messages: [], unread: 0 } : c)) }
     case 'deleteMessage':
       return { ...state, capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, messages: c.messages.filter((m) => m.id !== action.messageId) } : c) }
     case 'readCapsule':
