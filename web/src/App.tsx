@@ -211,7 +211,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       {!inChat && (tab !== 'reels' || person) && <MiniPlayer />}
       <SafetyBanner now={now} top={inChat ? 104 : 64} />
       <FullPlayer />
-      <MessageAlerts openChat={tab === 'capsules' && !person ? chat : null} onOpen={openChatById} />
+      <MessageAlerts openChat={tab === 'capsules' && !person ? chat : null} onOpen={openChatById} onOpenProfile={openProfile} />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <NewPublication open={posting} onClose={() => setPosting(false)} onDone={() => { setPosting(false); setTab('home'); setPerson(null); window.scrollTo(0, 0) }} />
       <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что опубликовать?">

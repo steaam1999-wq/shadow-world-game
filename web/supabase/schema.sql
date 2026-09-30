@@ -581,6 +581,25 @@ $$;
 revoke all on function public.hide_chat(uuid) from public, anon;
 grant execute on function public.hide_chat(uuid) to authenticated;
 
+-- Новая подписка — push тому, на кого подписались.
+create or replace function private.on_follow_push() returns trigger
+language plpgsql security definer set search_path = public, vault, extensions as $$
+begin
+  perform net.http_post(
+    url := 'https://mrivbqkqdaxtvwcsljzu.supabase.co/functions/v1/push',
+    body := json_build_object('follower', new.follower, 'followee', new.followee)::jsonb,
+    headers := json_build_object('Content-Type', 'application/json',
+      'x-push-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))::jsonb,
+    timeout_milliseconds := 5000
+  );
+  return new;
+exception when others then
+  return new;
+end $$;
+revoke all on function private.on_follow_push() from public, anon, authenticated;
+drop trigger if exists follows_push on public.follows;
+create trigger follows_push after insert on public.follows for each row execute function private.on_follow_push();
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

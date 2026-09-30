@@ -287,7 +287,12 @@ async function loadSocial(db: SupabaseClient, userId: string, planIds: string[],
   for (const l of planLikes) likeCounts[l.plan_id] = (likeCounts[l.plan_id] ?? 0) + 1
   for (const l of shortLikes) likeCounts[l.short_id] = (likeCounts[l.short_id] ?? 0) + 1
   const followers: Record<string, number> = {}
-  for (const f of follows) { const k = f.followee === userId ? 'me' : f.followee; followers[k] = (followers[k] ?? 0) + 1 }
+  const followersOf: Record<string, string[]> = {}
+  for (const f of follows) {
+    const k = f.followee === userId ? 'me' : f.followee
+    followers[k] = (followers[k] ?? 0) + 1
+    followersOf[k] = [...(followersOf[k] ?? []), f.follower === userId ? 'me' : f.follower]
+  }
   // Уведомления: чужие лайки моих планов и публикаций и подписки на меня.
   const notices: Notice[] = [
     ...planLikes.filter((l) => l.user_id !== userId && myPlans.has(l.plan_id)).map((l) => ({ id: `lp-${l.plan_id}-${l.user_id}`, kind: 'likePlan' as const, personId: l.user_id, targetId: l.plan_id, at: ms(l.created_at) })),
@@ -299,7 +304,7 @@ async function loadSocial(db: SupabaseClient, userId: string, planIds: string[],
     shortHearts: shortLikes.filter((l) => l.user_id === userId).map((l) => l.short_id),
     saved: (sv.data ?? []).map((s) => s.plan_id),
     following: follows.filter((f) => f.follower === userId).map((f) => f.followee),
-    likeCounts, followers, notices,
+    likeCounts, followers, notices, followersOf,
   }
 }
 /** Отметка «нравится», подписка или «Сохранить»: on — поставить, иначе снять. Повтор не ошибка. */

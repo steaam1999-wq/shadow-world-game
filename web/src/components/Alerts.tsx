@@ -138,10 +138,10 @@ export async function enablePush(): Promise<boolean> {
   } catch { return false }
 }
 
-interface Incoming { chat: string; person: Person; text: string; key: string }
+interface Incoming { chat: string; person: Person; text: string; key: string; profile?: boolean }
 
 /** Следит за новыми входящими и показывает баннер; `openChat` — какой чат сейчас открыт. */
-export function MessageAlerts({ openChat, onOpen }: { openChat: string | null; onOpen: (chatId: string) => void }) {
+export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: string | null; onOpen: (chatId: string) => void; onOpenProfile: (personId: string) => void }) {
   const { state } = useStore()
   const [prefs] = usePrefs()
   const [banner, setBanner] = useState<Incoming | null>(null)
@@ -169,20 +169,36 @@ export function MessageAlerts({ openChat, onOpen }: { openChat: string | null; o
     if (last.chat !== openChat || document.hidden) setBanner(last)
   }, [state.capsules, state.people, openChat, prefs.sound, prefs.system])
 
+  // Новые подписчики и лайки — та же «капелька» и плашка сверху.
+  useEffect(() => {
+    const fresh = (state.notices ?? []).filter((n) => n.at >= since.current && !seen.current.has(n.id)).sort((a, b) => a.at - b.at)
+    fresh.forEach((n) => seen.current.add(n.id))
+    const n = fresh[fresh.length - 1]
+    const person = n && state.people.find((p) => p.id === n.personId)
+    if (!n || !person) return
+    const text = n.kind === 'follow' ? 'подписал(ась) на вас' : n.kind === 'likePlan' ? 'нравится ваш план' : 'нравится ваша публикация'
+    if (prefs.sound) playDrop()
+    try { navigator.vibrate?.(35) } catch { /* ignore */ }
+    setBanner({ chat: '', person, text, key: n.id, profile: true })
+  }, [state.notices, state.people, prefs.sound])
+
   useEffect(() => {
     if (!banner) return
     const t = setTimeout(() => setBanner(null), 4500)
     return () => clearTimeout(t)
   }, [banner])
-  useEffect(() => { if (banner && banner.chat === openChat) setBanner(null) }, [openChat, banner])
+  useEffect(() => { if (banner && !banner.profile && banner.chat === openChat) setBanner(null) }, [openChat, banner])
 
   // Клик по системному уведомлению — открыть нужный чат.
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
-    const on = (e: MessageEvent) => { if (e.data?.type === 'open-chat' && e.data.chat) onOpen(e.data.chat) }
+    const on = (e: MessageEvent) => {
+      if (e.data?.type === 'open-chat' && e.data.chat) onOpen(e.data.chat)
+      if (e.data?.type === 'open-chat' && e.data.person) onOpenProfile(e.data.person)
+    }
     navigator.serviceWorker.addEventListener('message', on)
     return () => navigator.serviceWorker.removeEventListener('message', on)
-  }, [onOpen])
+  }, [onOpen, onOpenProfile])
 
   // Счётчик непрочитанных — в заголовке вкладки и на иконке приложения.
   const unread = state.capsules.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0)
@@ -194,7 +210,7 @@ export function MessageAlerts({ openChat, onOpen }: { openChat: string | null; o
 
   if (!banner) return null
   return (
-    <button key={banner.key} onClick={() => { setBanner(null); onOpen(banner.chat) }}
+    <button key={banner.key} onClick={() => { setBanner(null); if (banner.profile) onOpenProfile(banner.person.id); else onOpen(banner.chat) }}
       className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(10px+env(safe-area-inset-top,0px))] z-[60] w-[calc(100%-24px)] max-w-[456px] glass glass-solid rounded-[22px] p-3 flex items-center gap-3 text-left shadow-soft cursor-pointer" role="status" aria-live="polite">
       <span className="relative shrink-0">
         <Avatar name={banner.person.name} hue={banner.person.hue} src={banner.person.photo} size={42} />

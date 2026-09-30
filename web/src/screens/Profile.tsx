@@ -9,6 +9,7 @@ import { PostsViewer } from '../components/PostsViewer'
 import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
+import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
 import { PlayingChip } from '../music/NowPlaying'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
@@ -24,6 +25,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   const [editVibe, setEditVibe] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [showFollowers, setShowFollowers] = useState(false)
   const [tab, setTab] = useState<'plans' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
@@ -56,7 +58,9 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
           </button>
           <dl className="flex-1 grid grid-cols-3 text-center">
             {[[myPlans.length, plural(myPlans.length, 'план', 'плана', 'планов')], [me.meetings, plural(me.meetings, 'встреча', 'встречи', 'встреч')], (state.cloud ? [state.followers?.me ?? 0, plural(state.followers?.me ?? 0, 'подписчик', 'подписчика', 'подписчиков')] : [lv.idx, 'уровень'])].map(([v, l]) => (
-              <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></div>
+              String(l).startsWith('подписчик') ? (
+                <button key={String(l)} onClick={() => setShowFollowers(true)} className="cursor-pointer" aria-label="Показать подписчиков"><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></button>
+              ) : <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></div>
             ))}
           </dl>
         </div>
@@ -209,6 +213,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
       </div>}
 
       <ProfileEditor open={editing} onClose={() => setEditing(false)} />
+      <FollowersSheet personId="me" open={showFollowers} onClose={() => setShowFollowers(false)} />
 
       <Sheet open={editVibe} onClose={() => setEditVibe(false)} title="Вайб-тест">
         <div className="flex flex-col gap-5">

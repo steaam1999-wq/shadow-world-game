@@ -75,6 +75,7 @@ const STATUS_TEXT: Record<CapsuleStatus, string> = {
 export interface Social {
   hearts: string[]; shortHearts: string[]; saved: string[]; following: string[]
   likeCounts: Record<string, number>; followers: Record<string, number>; notices: Notice[]
+  followersOf: Record<string, string[]> // personId ('me' — я) → кто подписан
 }
 
 function bump(counts: Record<string, number> | undefined, id: string, d: number) {
@@ -290,7 +291,11 @@ function reducer(state: State, action: Action): State {
       return { ...state, remember: action.remember }
     case 'toggleFollow': {
       const on = !(state.following ?? []).includes(action.personId)
-      return { ...state, following: toggle(state.following ?? [], action.personId), followers: bump(state.followers, action.personId, on ? 1 : -1) }
+      const list = state.followersOf?.[action.personId] ?? []
+      return {
+        ...state, following: toggle(state.following ?? [], action.personId), followers: bump(state.followers, action.personId, on ? 1 : -1),
+        ...(state.followersOf ? { followersOf: { ...state.followersOf, [action.personId]: on ? [...list, 'me'] : list.filter((x) => x !== 'me') } } : {}),
+      }
     }
     case 'seeStory':
       return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }

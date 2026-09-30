@@ -10,6 +10,7 @@ import { PersonSongs, songsOf } from '../music/PersonSongs'
 import { NowPlayingCard, nowPlayingOf } from '../music/NowPlaying'
 import { Post } from './Feed'
 import { ReportSheet } from './Vibe'
+import { FollowersSheet } from '../components/Followers'
 import { ReliabilityBadge } from '../components/Meet'
 import type { Activity, Person } from '../types'
 
@@ -31,6 +32,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const [open, setOpen] = useState<Activity | null>(null)
   const [reporting, setReporting] = useState<Person | null>(null)
   const [tab, setTab] = useState<'plans' | 'songs'>('plans')
+  const [showFollowers, setShowFollowers] = useState(false)
   if (!p) return null
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)
@@ -65,7 +67,9 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           </StoryRing>
           <dl className="flex-1 grid grid-cols-3 text-center">
             {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')], [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
-              <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
+              state.cloud && String(l).startsWith('подписчик') ? (
+                <button key={String(l)} onClick={() => setShowFollowers(true)} className="cursor-pointer" aria-label="Показать подписчиков"><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></button>
+              ) : <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
             ))}
           </dl>
         </div>
@@ -132,6 +136,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         </div>
       )}
       <ReportSheet person={reporting} onClose={() => setReporting(null)} onBlocked={onBack} />
+      <FollowersSheet personId={p.id} open={showFollowers} onClose={() => setShowFollowers(false)} />
     </div>
   )
 }

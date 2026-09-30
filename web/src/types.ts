@@ -169,6 +169,7 @@ export interface State {
   shortHearts?: string[] // id публикаций, которые я лайкнул
   likeCounts?: Record<string, number> // id плана или публикации → число лайков (облако)
   followers?: Record<string, number> // personId ('me' — я) → число подписчиков (облако)
+  followersOf?: Record<string, string[]> // personId ('me' — я) → кто подписан (облако)
   notices?: Notice[] // кто лайкнул мои планы и публикации, кто подписался
   noticesSeenAt?: number
 }
