@@ -424,11 +424,6 @@ export function ProfilePublications({ authorId, onMessage }: { authorId: string;
   return (
     <>
       <div className="grid grid-cols-3 gap-1 px-1">
-        {mine && (
-          <button onClick={() => setAdding(true)} className="aspect-[3/4] rounded-lg border-2 border-dashed border-line grid place-items-center text-muted cursor-pointer hover:border-cobalt" aria-label="Добавить фото или видео">
-            <span className="flex flex-col items-center gap-1 text-[12px] font-semibold"><Icon name="plus" size={26} /> Фото или видео</span>
-          </button>
-        )}
         {list.map((s) => (
           <button key={s.id} onClick={() => setOpen(s)} className="relative aspect-[3/4] rounded-lg overflow-hidden bg-black cursor-pointer" aria-label={s.caption || (s.kind === 'video' ? 'Видео' : 'Фото')}>
             {s.kind === 'photo' ? <img src={s.url} alt="" className="w-full h-full object-cover" loading="lazy" />
@@ -437,7 +432,14 @@ export function ProfilePublications({ authorId, onMessage }: { authorId: string;
           </button>
         ))}
       </div>
-      {!list.length && !mine && <p className="py-10 text-center text-muted text-[14px]">Публикаций пока нет</p>}
+      {!list.length && (
+        <div className="py-10 px-6 flex flex-col items-center gap-3 text-center">
+          <span className="grid place-items-center w-16 h-16 rounded-full border-2 border-fg"><Icon name="camera" size={28} /></span>
+          <p className="font-display font-bold text-lg">Пока нет фото и видео</p>
+          {mine && <p className="text-[13px] text-muted">Нажмите «+» внизу → «Публикация», чтобы добавить первое.</p>}
+          {mine && <Button variant="secondary" onClick={() => setAdding(true)}><Icon name="plus" size={18} /> Добавить</Button>}
+        </div>
+      )}
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Публикация">
           <button className="absolute inset-0 bg-black/60 cursor-default" aria-label="Закрыть" onClick={() => setOpen(null)} />

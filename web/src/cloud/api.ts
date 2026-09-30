@@ -30,9 +30,11 @@ async function sign(bucket: 'shorts' | 'media' | 'chat', paths: string[]) {
   const key = (p: string) => `${bucket}:${p}`
   const need = [...new Set(paths)].filter((p) => (signed.get(key(p))?.until ?? 0) < now + 10 * 60_000)
   for (let i = 0; i < need.length; i += 500) {
-    const { data, error } = await sb().storage.from(bucket).createSignedUrls(need.slice(i, i + 500), 6 * 3600)
+    // Фото профилей живут неделю: иначе на экране входа ссылка на аватарку быстро устаревает.
+    const ttl = bucket === 'media' ? 7 * 24 * 3600 : 6 * 3600
+    const { data, error } = await sb().storage.from(bucket).createSignedUrls(need.slice(i, i + 500), ttl)
     if (error) throw error
-    for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(key(d.path), { url: d.signedUrl, until: now + 6 * 3600_000 })
+    for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(key(d.path), { url: d.signedUrl, until: now + ttl * 1000 })
   }
   return new Map(paths.flatMap((p) => { const s = signed.get(key(p)); return s ? [[p, s.url] as const] : [] }))
 }

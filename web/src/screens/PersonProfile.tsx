@@ -32,7 +32,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const p = state.people.find((x) => x.id === personId)
   const [open, setOpen] = useState<Activity | null>(null)
   const [reporting, setReporting] = useState<Person | null>(null)
-  const [tab, setTab] = useState<'plans' | 'posts' | 'songs'>('plans')
+  const [tab, setTab] = useState<'plans' | 'posts' | 'songs'>('posts')
   const [showFollowers, setShowFollowers] = useState(false)
   if (!p) return null
   const me = state.me!
@@ -109,7 +109,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
       </section>
 
       <div className="grid grid-cols-3 border-t border-line mt-1" role="tablist">
-        {([['plans', 'grid', 'Планы'], ['posts', 'camera', 'Фото и видео'], ['songs', 'note', 'Песни']] as const).map(([id, icon, label]) => (
+        {([['posts', 'camera', 'Фото и видео'], ['plans', 'grid', 'Планы'], ['songs', 'note', 'Песни']] as const).map(([id, icon, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`h-11 grid place-items-center -mt-px text-[13px] font-semibold cursor-pointer ${tab === id ? 'border-t border-fg' : 'text-muted'}`}>
             <span className="inline-flex items-center gap-1.5"><Icon name={icon} size={18} /> {label}{id === 'songs' && songCount ? ` · ${songCount}` : ''}</span>
