@@ -12,6 +12,7 @@ import { ProfileEditor } from '../components/ProfileEditor'
 import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
 import { PlayingChip } from '../music/NowPlaying'
+import { ProfilePublications } from './Shorts'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
@@ -26,7 +27,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [showFollowers, setShowFollowers] = useState(false)
-  const [tab, setTab] = useState<'plans' | 'saved' | 'settings'>('plans')
+  const [tab, setTab] = useState<'plans' | 'posts' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const share = async () => {
@@ -109,14 +110,16 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
         </div>
       </section>
 
-      <div className="grid grid-cols-3 border-t border-line" role="tablist">
-        {([['plans', 'grid', 'Мои планы'], ['saved', 'bookmark', 'Сохранённое'], ['settings', 'settings', 'Настройки']] as const).map(([id, icon, label]) => (
+      <div className="grid grid-cols-4 border-t border-line" role="tablist">
+        {([['plans', 'grid', 'Мои планы'], ['posts', 'camera', 'Публикации'], ['saved', 'bookmark', 'Сохранённое'], ['settings', 'settings', 'Настройки']] as const).map(([id, icon, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} aria-label={label} onClick={() => setTab(id)}
             className={`h-11 grid place-items-center border-t -mt-px cursor-pointer ${tab === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
             <Icon name={icon} size={22} />
           </button>
         ))}
       </div>
+
+      {tab === 'posts' && <ProfilePublications authorId="me" onMessage={() => {}} />}
 
       {(tab === 'plans' || tab === 'saved') && (() => {
         const list = tab === 'plans' ? myPlans : state.activities.filter((a) => state.saved.includes(a.id))

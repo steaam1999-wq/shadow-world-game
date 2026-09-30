@@ -52,9 +52,11 @@ export type Action =
   | { type: 'block'; personId: string; name: string }
   | { type: 'addComment'; planId: string; text: string }
   | { type: 'deleteComment'; id: string }
+  | { type: 'addShortComment'; shortId: string; text: string }
+  | { type: 'deleteShortComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shortComments?: PlanComment[]; shorts?: Short[]; social?: Social; settings?: { announcement: string | null; categories: string[] | null; tags: string[] | null; registrationOpen: boolean } }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -330,6 +332,10 @@ function reducer(state: State, action: Action): State {
       return { ...state, comments: [...(state.comments ?? []), { id: `tmp-${uid()}`, planId: action.planId, authorId: 'me', text: action.text, at: now }] }
     case 'deleteComment':
       return { ...state, comments: (state.comments ?? []).filter((c) => c.id !== action.id) }
+    case 'addShortComment':
+      return { ...state, shortComments: [...(state.shortComments ?? []), { id: `tmp-${uid()}`, planId: action.shortId, authorId: 'me', text: action.text, at: now }] }
+    case 'deleteShortComment':
+      return { ...state, shortComments: (state.shortComments ?? []).filter((c) => c.id !== action.id) }
     case 'verificationSent':
       return { ...state, verification: 'pending' }
     case 'unblock':
@@ -346,6 +352,7 @@ function reducer(state: State, action: Action): State {
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),
         ...(action.shorts ? { shorts: action.shorts } : {}),
+        ...(action.shortComments ? { shortComments: action.shortComments } : {}),
         ...(action.social ?? {}),
         // Настройки из админки: объявление для всех, категории планов и интересы.
         ...(action.settings ? { registrationOpen: action.settings.registrationOpen, announcement: action.settings.announcement, ...(action.settings.categories ? { categories: action.settings.categories } : {}), ...(action.settings.tags ? { tags: action.settings.tags } : {}) } : {}),

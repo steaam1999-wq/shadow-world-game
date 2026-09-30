@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { relative } from '../lib'
@@ -8,6 +8,7 @@ import { deleteShort, humanError, uploadShort } from '../cloud/api'
 import { requestReload } from '../cloud/sync'
 import type { Person, Short } from '../types'
 import { ReportSheet } from './Vibe'
+import { ShortCommentsSheet, useShortComments } from '../components/Comments'
 
 // Шортсы: короткие вертикальные видео на весь экран. С сервером — общие для всех,
 // в демо — только ваши, хранятся в этом браузере.
@@ -73,13 +74,14 @@ function useHearts() {
 export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => void }) {
   const list = usePublications().filter((s) => s.kind === 'video')
   const [muted, setMuted] = useState(true)
+  const autoMute = useCallback(() => setMuted(true), [])
   const [hearts, toggleHeart, likesOf] = useHearts()
   const [uploading, setUploading] = useState(false)
 
   return (
     <>
       {list.map((s) => (
-        <ShortItem key={s.id} s={s} muted={muted} onToggleMute={() => setMuted((m) => !m)} hearted={hearts.includes(s.id)} likes={likesOf(s.id)} onHeart={() => toggleHeart(s.id)}
+        <ShortItem key={s.id} s={s} muted={muted} onToggleMute={() => setMuted((m) => !m)} onAutoMute={autoMute} hearted={hearts.includes(s.id)} likes={likesOf(s.id)} onHeart={() => toggleHeart(s.id)}
           onMessage={onMessage} />
       ))}
       {!list.length && (
@@ -100,8 +102,8 @@ export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => voi
   )
 }
 
-function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage }: {
-  s: Short; muted: boolean; onToggleMute: () => void; hearted: boolean; likes: number; onHeart: () => void; onMessage: (personId: string) => void
+function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart, onMessage }: {
+  s: Short; muted: boolean; onToggleMute: () => void; onAutoMute: () => void; hearted: boolean; likes: number; onHeart: () => void; onMessage: (personId: string) => void
 }) {
   const { state } = useStore()
   const openProfile = useOpenProfile()
@@ -113,16 +115,41 @@ function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage 
   const [reporting, setReporting] = useState<Person | null>(null)
   const author = usePublicationAuthor(s)
 
-  // Играет только то видео, которое сейчас на экране.
+  const [comments, setComments] = useState(false)
+  const commentCount = useShortComments(s.id).length
+  const [portrait, setPortrait] = useState(true)
+  const visible = useRef(false)
+
+  // iPhone запускает видео сам только без звука и с атрибутом muted в разметке — ставим его вручную.
+  useEffect(() => {
+    const v = video.current
+    if (!v) return
+    v.muted = true; v.defaultMuted = true; v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '')
+  }, [])
+
+  // Играет то видео, которое на экране. Не получилось с первого раза — пробуем, как только загрузится.
+  const tryPlay = useCallback(() => {
+    const v = video.current
+    if (!v || !visible.current) return
+    v.muted = muted
+    v.play().then(() => setPaused(false)).catch(() => {
+      // Со звуком без касания браузер не даёт — запускаем без звука.
+      if (!v.muted) { v.muted = true; onAutoMute(); v.play().then(() => setPaused(false)).catch(() => setPaused(true)) } else setPaused(true)
+    })
+  }, [muted, onAutoMute])
   useEffect(() => {
     const el = box.current, v = video.current
     if (!el || !v) return
     const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && e.intersectionRatio > 0.6) { v.play().then(() => setPaused(false)).catch(() => setPaused(true)) } else { v.pause() }
+      visible.current = e.isIntersecting && e.intersectionRatio > 0.6
+      if (visible.current) { v.preload = 'auto'; tryPlay() } else { v.pause(); if (e.intersectionRatio === 0) v.currentTime = 0 }
     }, { threshold: [0, 0.6, 1] })
     io.observe(el)
-    return () => io.disconnect()
-  }, [s.url])
+    const onReady = () => { if (visible.current && v.paused) tryPlay() }
+    v.addEventListener('loadeddata', onReady)
+    v.addEventListener('canplay', onReady)
+    return () => { io.disconnect(); v.removeEventListener('loadeddata', onReady); v.removeEventListener('canplay', onReady) }
+  }, [s.url, tryPlay])
   useEffect(() => { if (video.current) video.current.muted = muted }, [muted])
 
   const tap = () => {
@@ -136,12 +163,18 @@ function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage 
 
   return (
     <section ref={box} className="relative h-full snap-start snap-always overflow-hidden text-white bg-black" aria-label={s.caption || 'Шортс'}>
-      <video ref={video} src={s.url} className="absolute inset-0 w-full h-full object-cover" loop playsInline muted={muted} preload="metadata" onClick={tap} />
+      {/* Горизонтальное видео — целиком, по краям размытая копия; вертикальное — на весь экран. */}
+      {!portrait && <video src={s.url} className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />}
+      <video ref={video} src={s.url} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
+        onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setPortrait(v.videoHeight / v.videoWidth >= 1.3) }} />
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/30 via-transparent to-black/70" />
       {paused && <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="grid place-items-center w-20 h-20 rounded-full bg-black/35 backdrop-blur"><Icon name="play" size={36} fill /></span></span>}
 
       <div className="absolute right-3 bottom-44 flex flex-col items-center gap-5 drop-shadow">
         <LikeButton liked={hearted} onToggle={onHeart} size={30} className="gap-1">{likes > 0 && <span className="text-[12px] font-semibold tnum">{likes}</span>}</LikeButton>
+        <button onClick={() => setComments(true)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Комментарии">
+          <Icon name="comment" size={30} />{commentCount > 0 && <span className="text-[12px] font-semibold tnum">{commentCount}</span>}
+        </button>
         {!mine && author && (
           <button onClick={() => onMessage(author.id)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={`Написать ${author.name}`}>
             <Icon name="chat" size={30} /><span className="text-[12px] font-semibold">Написать</span>
@@ -179,6 +212,7 @@ function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage 
         </div>
       </Sheet>
       <div className="text-fg"><ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} /></div>
+      <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
     </section>
   )
 }
@@ -329,6 +363,8 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   const [muted, setMuted] = useState(true)
   const video = useRef<HTMLVideoElement>(null)
   const mine = s.authorId === 'me'
+  const [comments, setComments] = useState(false)
+  const commentCount = useShortComments(s.id).length
   const [reporting, setReporting] = useState<Person | null>(null)
 
   useEffect(() => {
@@ -358,7 +394,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
           ? <img src={s.url} alt={s.caption || 'Фото'} className="w-full max-h-[75vh] object-contain" loading="lazy" onDoubleClick={() => { if (!hearts.includes(s.id)) toggleHeart(s.id) }} />
           : (
             <>
-              <video ref={video} src={s.url} className="w-full max-h-[75vh] object-contain" loop playsInline muted preload="metadata" onClick={() => setMuted((m) => !m)} />
+              <video ref={(el) => { video.current = el; if (el) { el.muted = muted; el.setAttribute('muted', ''); el.setAttribute('playsinline', '') } }} src={s.url} className="w-full max-h-[75vh] object-contain" loop playsInline muted preload="metadata" onClick={() => setMuted((m) => !m)} />
               <button onClick={() => setMuted((m) => !m)} className="absolute right-3 bottom-3 grid place-items-center w-8 h-8 rounded-full bg-black/50 text-white cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'}><Icon name={muted ? 'soundOff' : 'sound'} size={16} /></button>
             </>
           )}
@@ -366,6 +402,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
       <div className="flex items-center gap-4 px-4">
         <LikeButton liked={hearts.includes(s.id)} onToggle={() => toggleHeart(s.id)} size={26} />
         {likesOf(s.id) > 0 && <span className="-ml-2 text-[14px] font-semibold tnum">{likesOf(s.id)}</span>}
+        <button onClick={() => setComments(true)} className="inline-flex items-center gap-1 cursor-pointer" aria-label="Комментарии"><Icon name="comment" size={26} />{commentCount > 0 && <span className="text-[14px] font-semibold tnum">{commentCount}</span>}</button>
         {!mine && author && <button onClick={() => onMessage(author.id)} className="cursor-pointer" aria-label={`Написать ${author.name}`}><Icon name="chat" size={26} /></button>}
       </div>
       {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}
@@ -379,6 +416,44 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
         </div>
       </Sheet>
       <ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} />
+      <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
     </article>
+  )
+}
+
+/** Сетка публикаций человека в профиле: фото и видео. `mine` — показать плитку «добавить». */
+export function ProfilePublications({ authorId, onMessage }: { authorId: string; onMessage: (personId: string) => void }) {
+  const list = usePublications().filter((s) => s.authorId === authorId)
+  const [open, setOpen] = useState<Short | null>(null)
+  const [adding, setAdding] = useState(false)
+  const mine = authorId === 'me'
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-1 px-1">
+        {mine && (
+          <button onClick={() => setAdding(true)} className="aspect-[3/4] rounded-lg border-2 border-dashed border-line grid place-items-center text-muted cursor-pointer hover:border-cobalt" aria-label="Добавить фото или видео">
+            <span className="flex flex-col items-center gap-1 text-[12px] font-semibold"><Icon name="plus" size={26} /> Фото или видео</span>
+          </button>
+        )}
+        {list.map((s) => (
+          <button key={s.id} onClick={() => setOpen(s)} className="relative aspect-[3/4] rounded-lg overflow-hidden bg-black cursor-pointer" aria-label={s.caption || (s.kind === 'video' ? 'Видео' : 'Фото')}>
+            {s.kind === 'photo' ? <img src={s.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+              : <video src={`${s.url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />}
+            {s.kind === 'video' && <span className="absolute right-1.5 top-1.5 text-white drop-shadow"><Icon name="reels" size={18} /></span>}
+          </button>
+        ))}
+      </div>
+      {!list.length && !mine && <p className="py-10 text-center text-muted text-[14px]">Публикаций пока нет</p>}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Публикация">
+          <button className="absolute inset-0 bg-black/60 cursor-default" aria-label="Закрыть" onClick={() => setOpen(null)} />
+          <div className="anim-rise relative w-full max-w-[480px] max-h-[92%] overflow-y-auto bg-surface rounded-t-[28px] sm:rounded-[28px] pt-2 pb-[env(safe-area-inset-bottom,0px)]">
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line" />
+            <FeedPublication s={open} onMessage={(id) => { setOpen(null); onMessage(id) }} />
+          </div>
+        </div>
+      )}
+      <NewPublication open={adding} onClose={() => setAdding(false)} onDone={() => setAdding(false)} />
+    </>
   )
 }

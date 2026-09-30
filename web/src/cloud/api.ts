@@ -257,13 +257,21 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     }
   })
   const visibleShorts = (shortRows.data ?? []).filter((s) => !hidden.has(s.author))
+  const shortIds = visibleShorts.map((s) => s.id)
+  const sc = shortIds.length
+    ? await db.from('short_comments').select('*').in('short_id', shortIds).order('created_at').limit(3000).returns<{ id: number; short_id: string; author: string; body: string; created_at: string }[]>()
+    : { data: [], error: null }
+  if (sc.error) throw sc.error
+  const shortComments: PlanComment[] = (sc.data ?? []).filter((c) => !hidden.has(c.author)).map((c) => ({
+    id: String(c.id), planId: c.short_id, authorId: c.author === userId ? 'me' : c.author, text: c.body, at: ms(c.created_at),
+  }))
   const urls = await signShorts(visibleShorts.map((s) => s.path))
   const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
     id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, kind: s.kind === 'photo' ? 'photo' : 'video', caption: s.caption, at: ms(s.created_at),
   }))
   const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,
     new Set(activities.filter((a) => a.authorId === 'me').map((a) => a.id)), new Set(shorts.filter((s) => s.authorId === 'me').map((s) => s.id)))
-  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, social, settings }
+  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, shortComments, social, settings }
 }
 
 /** Фото из хранилища — временными ссылками; старые (base64 в базе) — отдельным запросом, только где они ещё есть. */
@@ -506,6 +514,16 @@ export async function addComment(planId: string, body: string) {
   if (error) throw error
 }
 
+export async function addShortComment(shortId: string, body: string) {
+  const { error } = await sb().from('short_comments').insert({ short_id: shortId, body })
+  if (error) throw error
+}
+
+export async function deleteShortComment(id: string) {
+  const { error } = await sb().from('short_comments').delete().eq('id', Number(id))
+  if (error) throw error
+}
+
 export async function deleteComment(id: string) {
   const { error } = await sb().from('plan_comments').delete().eq('id', Number(id))
   if (error) throw error
@@ -591,7 +609,7 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     if (ch) void sb().removeChannel(ch)
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows', 'plan_shares', 'app_settings', 'short_comments']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

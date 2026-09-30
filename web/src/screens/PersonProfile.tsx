@@ -10,6 +10,7 @@ import { PersonSongs, songsOf } from '../music/PersonSongs'
 import { NowPlayingCard, nowPlayingOf } from '../music/NowPlaying'
 import { Post } from './Feed'
 import { ReportSheet } from './Vibe'
+import { ProfilePublications } from './Shorts'
 import { FollowersSheet } from '../components/Followers'
 import { ReliabilityBadge } from '../components/Meet'
 import type { Activity, Person } from '../types'
@@ -31,7 +32,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const p = state.people.find((x) => x.id === personId)
   const [open, setOpen] = useState<Activity | null>(null)
   const [reporting, setReporting] = useState<Person | null>(null)
-  const [tab, setTab] = useState<'plans' | 'songs'>('plans')
+  const [tab, setTab] = useState<'plans' | 'posts' | 'songs'>('plans')
   const [showFollowers, setShowFollowers] = useState(false)
   if (!p) return null
   const me = state.me!
@@ -107,15 +108,15 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         </div>
       </section>
 
-      <div className="grid grid-cols-2 border-t border-line mt-1" role="tablist">
-        {([['plans', 'grid', 'Планы'], ['songs', 'note', 'Песни']] as const).map(([id, icon, label]) => (
+      <div className="grid grid-cols-3 border-t border-line mt-1" role="tablist">
+        {([['plans', 'grid', 'Планы'], ['posts', 'camera', 'Фото и видео'], ['songs', 'note', 'Песни']] as const).map(([id, icon, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`h-11 grid place-items-center -mt-px text-[13px] font-semibold cursor-pointer ${tab === id ? 'border-t border-fg' : 'text-muted'}`}>
             <span className="inline-flex items-center gap-1.5"><Icon name={icon} size={18} /> {label}{id === 'songs' && songCount ? ` · ${songCount}` : ''}</span>
           </button>
         ))}
       </div>
-      {tab === 'songs' ? <PersonSongs person={p} /> : plans.length ? (
+      {tab === 'posts' ? <ProfilePublications authorId={p.id} onMessage={message} /> : tab === 'songs' ? <PersonSongs person={p} /> : plans.length ? (
         <div className="grid grid-cols-3 gap-1 px-1">
           {plans.map((a) => (
             <button key={a.id} onClick={() => setOpen(a)} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer" aria-label={a.title}>

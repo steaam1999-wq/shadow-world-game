@@ -183,7 +183,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
             </button>
             <button onClick={() => { setActivityOpen(true); dispatch({ type: 'seeNotices' }) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
               <Icon name="heart" size={25} />
-              {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || (state.comments ?? []).some((c) => c.authorId !== 'me' && c.at > (state.noticesSeenAt ?? 0) && state.activities.some((a) => a.id === c.planId && a.authorId === 'me'))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
+              {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || (state.comments ?? []).some((c) => c.authorId !== 'me' && c.at > (state.noticesSeenAt ?? 0) && state.activities.some((a) => a.id === c.planId && a.authorId === 'me')) || (state.shortComments ?? []).some((c) => c.authorId !== 'me' && c.at > (state.noticesSeenAt ?? 0) && (state.shorts ?? []).some((s) => s.id === c.planId && s.authorId === 'me'))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
             </button>
             {tab !== 'capsules' && (
               <button onClick={() => { setTab('capsules'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
@@ -295,6 +295,12 @@ function ActivitySheet({ open, onClose, now, openProfile }: { open: boolean; onC
       if (c.authorId === 'me' || !myPlans.some((a) => a.id === c.planId)) return []
       const p = state.people.find((x) => x.id === c.authorId)
       return p ? [{ key: `c-${c.id}`, person: p, kind: 'comment', text: `прокомментировал(а)${planTitle(c.planId)}: «${c.text.length > 80 ? c.text.slice(0, 79) + '…' : c.text}»`, at: c.at }] : []
+    }),
+    // Комментарии к моим публикациям и шортсам.
+    ...(state.shortComments ?? []).flatMap((c): Item[] => {
+      if (c.authorId === 'me' || !(state.shorts ?? []).some((s) => s.id === c.planId && s.authorId === 'me')) return []
+      const p = state.people.find((x) => x.id === c.authorId)
+      return p ? [{ key: `sc-${c.id}`, person: p, kind: 'comment', text: `прокомментировал(а) вашу публикацию: «${c.text.length > 80 ? c.text.slice(0, 79) + '…' : c.text}»`, at: c.at }] : []
     }),
     // В демо лайки выдуманы, чтобы экран не пустовал.
     ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i): Item => {

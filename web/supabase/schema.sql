@@ -752,6 +752,34 @@ drop policy if exists "private: own" on public.profile_private;
 create policy "private: own" on public.profile_private for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
+-- Комментарии к публикациям (шортсы и посты с фото), как к планам.
+create table if not exists public.short_comments (
+  id bigint generated always as identity primary key,
+  short_id uuid not null references public.shorts (id) on delete cascade,
+  author uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+create index if not exists short_comments_short_idx on public.short_comments (short_id, created_at);
+create index if not exists short_comments_author_idx on public.short_comments (author);
+alter table public.short_comments enable row level security;
+revoke all on public.short_comments from anon, authenticated;
+grant select, delete on public.short_comments to authenticated;
+grant insert (short_id, body) on public.short_comments to authenticated;
+drop policy if exists "short comments: read" on public.short_comments;
+create policy "short comments: read" on public.short_comments for select to authenticated
+  using (author = (select auth.uid()) or private.is_admin() or (not private.is_banned(author) and not private.blocked_between(author, (select auth.uid()))));
+drop policy if exists "short comments: write" on public.short_comments;
+create policy "short comments: write" on public.short_comments for insert to authenticated with check (
+  author = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (select 1 from public.shorts s where s.id = short_id and not private.blocked_between(s.author, (select auth.uid())))
+);
+drop policy if exists "short comments: delete" on public.short_comments;
+create policy "short comments: delete" on public.short_comments for delete to authenticated using (
+  author = (select auth.uid()) or private.is_admin()
+  or exists (select 1 from public.shorts s where s.id = short_id and s.author = (select auth.uid()))
+);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
@@ -774,4 +802,5 @@ begin
   begin alter publication supabase_realtime add table public.follows; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.plan_shares; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.app_settings; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.short_comments; exception when duplicate_object then null; end;
 end $$;
