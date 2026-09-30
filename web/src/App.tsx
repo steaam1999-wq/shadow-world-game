@@ -13,7 +13,7 @@ import { CreateActivity, Explore } from './screens/Explore'
 import { Feed } from './screens/Feed'
 import { Reels } from './screens/Reels'
 import { NewPublication } from './screens/Shorts'
-import { CapsuleChat, CapsuleList } from './screens/Capsules'
+import { CapsuleChat, CapsuleList, NewChatSheet } from './screens/Capsules'
 import { Profile } from './screens/Profile'
 import { Admin } from './admin/Admin'
 import { CloudSync } from './cloud/CloudSync'
@@ -107,6 +107,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
   const [choosing, setChoosing] = useState(false)
+  const [newChat, setNewChat] = useState(false)
   const [posting, setPosting] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   // Листаете ленту дальше — панель уезжает вверх; возвращаетесь — выезжает «жидким стеклом».
@@ -214,11 +215,12 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       <MessageAlerts openChat={tab === 'capsules' && !person ? chat : null} onOpen={openChatById} onOpenProfile={openProfile} />
       <CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} />
       <NewPublication open={posting} onClose={() => setPosting(false)} onDone={() => { setPosting(false); setTab('home'); setPerson(null); window.scrollTo(0, 0) }} />
-      <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что опубликовать?">
+      <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что создать?">
         <div className="flex flex-col gap-2">
           {[
             { icon: 'camera', title: 'Публикация', text: 'Фото или видео с подписью — появится на главной', go: () => setPosting(true) },
             { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
+            { icon: 'chat', title: 'Новый чат', text: 'Написать любому человеку лично', go: () => setNewChat(true) },
           ].map((o) => (
             <button key={o.title} onClick={() => { setChoosing(false); o.go() }} className="flex items-center gap-3 p-3 rounded-2xl bg-surface-2 text-left cursor-pointer hover:brightness-95">
               <span className="grid place-items-center w-11 h-11 rounded-full bg-brand text-white shrink-0"><Icon name={o.icon} size={20} /></span>
@@ -227,6 +229,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           ))}
         </div>
       </Sheet>
+      <NewChatSheet open={newChat} onClose={() => setNewChat(false)} onPick={(id) => { setNewChat(false); messagePerson(id) }} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {state.cloudError && (

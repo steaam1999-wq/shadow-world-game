@@ -70,7 +70,7 @@ function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
 }
 
 /** Новый чат: выбрать любого человека. Сначала те, с кем уже общались и на кого подписаны. */
-function NewChatSheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (personId: string) => void }) {
+export function NewChatSheet({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (personId: string) => void }) {
   const { state } = useStore()
   const [query, setQuery] = useState('')
   useEffect(() => { if (!open) setQuery('') }, [open])
@@ -130,7 +130,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-display font-bold text-2xl">Чаты</h1>
-        <button onClick={() => setCreating(true)} className="grid place-items-center w-10 h-10 rounded-full bg-surface-2 hover:bg-line cursor-pointer" aria-label="Новый чат"><Icon name="edit" size={19} /></button>
+        <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-spark text-on-spark font-semibold text-[14px] cursor-pointer"><Icon name="plus" size={18} /> Новый чат</button>
       </div>
       {state.capsules.length > 3 && (
         <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
