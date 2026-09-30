@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Me, Message, NowPlaying, Person, PlanComment, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Me, Message, Notice, NowPlaying, Person, PlanComment, Short } from '../types'
+import type { Social } from '../store'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
 
@@ -206,7 +207,50 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const shorts: Short[] = visibleShorts.filter((s) => urls.has(s.path)).map((s) => ({
     id: s.id, authorId: s.author === userId ? 'me' : s.author, url: urls.get(s.path)!, path: s.path, kind: s.kind === 'photo' ? 'photo' : 'video', caption: s.caption, at: ms(s.created_at),
   }))
-  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts }
+  const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,
+    new Set(activities.filter((a) => a.authorId === 'me').map((a) => a.id)), new Set(shorts.filter((s) => s.authorId === 'me').map((s) => s.id)))
+  return { me, people, activities, capsules: caps, comments, blocked, isAdmin: (admins.data ?? []).length > 0, verification: verif.data?.status ?? null, shorts, social }
+}
+
+type LikeRow = { user_id: string; created_at: string }
+async function loadSocial(db: SupabaseClient, userId: string, planIds: string[], shortIds: string[], hidden: Set<string>, myPlans: Set<string>, myShorts: Set<string>): Promise<Social> {
+  const [pl, sl, fo, sv] = await Promise.all([
+    planIds.length ? db.from('plan_likes').select('plan_id, user_id, created_at').in('plan_id', planIds).limit(10000).returns<(LikeRow & { plan_id: string })[]>() : Promise.resolve({ data: [], error: null }),
+    shortIds.length ? db.from('short_likes').select('short_id, user_id, created_at').in('short_id', shortIds).limit(10000).returns<(LikeRow & { short_id: string })[]>() : Promise.resolve({ data: [], error: null }),
+    db.from('follows').select('follower, followee, created_at').limit(10000).returns<{ follower: string; followee: string; created_at: string }[]>(),
+    db.from('saved_plans').select('plan_id').returns<{ plan_id: string }[]>(),
+  ])
+  for (const r of [pl, sl, fo, sv]) if (r.error) throw r.error
+  const planLikes = (pl.data ?? []).filter((l) => !hidden.has(l.user_id))
+  const shortLikes = (sl.data ?? []).filter((l) => !hidden.has(l.user_id))
+  const follows = (fo.data ?? []).filter((f) => !hidden.has(f.follower) && !hidden.has(f.followee))
+  const likeCounts: Record<string, number> = {}
+  for (const l of planLikes) likeCounts[l.plan_id] = (likeCounts[l.plan_id] ?? 0) + 1
+  for (const l of shortLikes) likeCounts[l.short_id] = (likeCounts[l.short_id] ?? 0) + 1
+  const followers: Record<string, number> = {}
+  for (const f of follows) { const k = f.followee === userId ? 'me' : f.followee; followers[k] = (followers[k] ?? 0) + 1 }
+  // Уведомления: чужие лайки моих планов и публикаций и подписки на меня.
+  const notices: Notice[] = [
+    ...planLikes.filter((l) => l.user_id !== userId && myPlans.has(l.plan_id)).map((l) => ({ id: `lp-${l.plan_id}-${l.user_id}`, kind: 'likePlan' as const, personId: l.user_id, targetId: l.plan_id, at: ms(l.created_at) })),
+    ...shortLikes.filter((l) => l.user_id !== userId && myShorts.has(l.short_id)).map((l) => ({ id: `ls-${l.short_id}-${l.user_id}`, kind: 'likeShort' as const, personId: l.user_id, targetId: l.short_id, at: ms(l.created_at) })),
+    ...follows.filter((f) => f.followee === userId).map((f) => ({ id: `f-${f.follower}`, kind: 'follow' as const, personId: f.follower, at: ms(f.created_at) })),
+  ].sort((a, b) => b.at - a.at).slice(0, 100)
+  return {
+    hearts: planLikes.filter((l) => l.user_id === userId).map((l) => l.plan_id),
+    shortHearts: shortLikes.filter((l) => l.user_id === userId).map((l) => l.short_id),
+    saved: (sv.data ?? []).map((s) => s.plan_id),
+    following: follows.filter((f) => f.follower === userId).map((f) => f.followee),
+    likeCounts, followers, notices,
+  }
+}
+/** Отметка «нравится», подписка или «Сохранить»: on — поставить, иначе снять. Повтор не ошибка. */
+export async function setMark(kind: 'plan_likes' | 'short_likes' | 'follows' | 'saved_plans', id: string, on: boolean, userId: string) {
+  const col = kind === 'plan_likes' ? 'plan_id' : kind === 'short_likes' ? 'short_id' : kind === 'follows' ? 'followee' : 'plan_id'
+  const own = kind === 'follows' ? 'follower' : 'user_id'
+  const row: Record<string, string> = { [col]: id }
+  const q = on ? sb().from(kind).insert(row as never) : sb().from(kind).delete().eq(col, id).eq(own, userId)
+  const { error } = await q
+  if (error && error.code !== '23505') throw error
 }
 
 export async function createPlan(userId: string, id: string, a: Omit<Activity, 'id' | 'authorId'>) {
@@ -367,7 +411,7 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
     if (ch) void sb().removeChannel(ch)
     ch = sb().channel(`iskra-live-${Date.now()}`)
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (p) => onMessage(p.new as MessageRow))
-    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
+    for (const table of ['messages', 'capsules', 'plans', 'profiles', 'plan_comments', 'shorts', 'plan_likes', 'short_likes', 'follows']) ch.on('postgres_changes', { event: '*', schema: 'public', table }, onChange)
     ch.subscribe((status) => {
       onStatus?.(status === 'SUBSCRIBED')
       if (status === 'SUBSCRIBED') onChange() // пока канала не было, могли прийти сообщения

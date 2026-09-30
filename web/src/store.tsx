@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
-import type { Activity, Capsule, CapsuleStatus, Me, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
+import type { Activity, Capsule, CapsuleStatus, Me, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import { cloudEffect, requestReload } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
@@ -34,6 +34,8 @@ export type Action =
   | { type: 'seeStory'; personId: string }
   | { type: 'share'; personId: string; activityId: string }
   | { type: 'toggleFollow'; personId: string }
+  | { type: 'toggleShortHeart'; shortId: string }
+  | { type: 'seeNotices' }
   | { type: 'setRemember'; remember: boolean }
   | { type: 'setFree'; until: number | null }
   | { type: 'invite'; personId: string; text: string }
@@ -48,7 +50,7 @@ export type Action =
   | { type: 'deleteComment'; id: string }
   | { type: 'unblock'; personId: string }
   | { type: 'cloudSignIn'; userId: string; email: string }
-  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shorts?: Short[] }
+  | { type: 'cloudLoad'; me: Me | null; people: Person[]; activities: Activity[]; capsules: Capsule[]; blocked?: { id: string; name: string }[]; isAdmin?: boolean; verification?: State['verification']; comments?: PlanComment[]; shorts?: Short[]; social?: Social }
   | { type: 'verificationSent' }
   | { type: 'cloudError'; message: string | null }
 
@@ -64,6 +66,17 @@ const STATUS_TEXT: Record<CapsuleStatus, string> = {
   agreed: 'Вы договорились о встрече.',
   contacts: 'Вы обменялись контактами.',
   met: 'Встреча состоялась. +1 к уровню доверия у обоих.',
+}
+
+/** Лайки и подписки с сервера: мои отметки, счётчики и уведомления. */
+export interface Social {
+  hearts: string[]; shortHearts: string[]; saved: string[]; following: string[]
+  likeCounts: Record<string, number>; followers: Record<string, number>; notices: Notice[]
+}
+
+function bump(counts: Record<string, number> | undefined, id: string, d: number) {
+  if (!counts) return counts
+  return { ...counts, [id]: Math.max(0, (counts[id] ?? 0) + d) }
 }
 
 function reducer(state: State, action: Action): State {
@@ -190,10 +203,18 @@ function reducer(state: State, action: Action): State {
       return { ...state, announcement: action.text }
     case 'dismissAnnouncement':
       return { ...state, dismissedAnnouncement: state.announcement }
-    case 'toggleHeart':
-      return { ...state, hearts: toggle(state.hearts, action.activityId) }
+    case 'toggleHeart': {
+      const on = !state.hearts.includes(action.activityId)
+      return { ...state, hearts: toggle(state.hearts, action.activityId), likeCounts: bump(state.likeCounts, action.activityId, on ? 1 : -1) }
+    }
     case 'heart':
-      return state.hearts.includes(action.activityId) ? state : { ...state, hearts: [...state.hearts, action.activityId] }
+      return state.hearts.includes(action.activityId) ? state : { ...state, hearts: [...state.hearts, action.activityId], likeCounts: bump(state.likeCounts, action.activityId, 1) }
+    case 'toggleShortHeart': {
+      const on = !(state.shortHearts ?? []).includes(action.shortId)
+      return { ...state, shortHearts: toggle(state.shortHearts ?? [], action.shortId), likeCounts: bump(state.likeCounts, action.shortId, on ? 1 : -1) }
+    }
+    case 'seeNotices':
+      return { ...state, noticesSeenAt: now }
     case 'toggleSave':
       return { ...state, saved: toggle(state.saved, action.activityId) }
     case 'share': {
@@ -255,8 +276,10 @@ function reducer(state: State, action: Action): State {
       }
     case 'setRemember':
       return { ...state, remember: action.remember }
-    case 'toggleFollow':
-      return { ...state, following: toggle(state.following ?? [], action.personId) }
+    case 'toggleFollow': {
+      const on = !(state.following ?? []).includes(action.personId)
+      return { ...state, following: toggle(state.following ?? [], action.personId), followers: bump(state.followers, action.personId, on ? 1 : -1) }
+    }
     case 'seeStory':
       return state.seenStories.includes(action.personId) ? state : { ...state, seenStories: [...state.seenStories, action.personId] }
     case 'directMessage': {
@@ -301,6 +324,7 @@ function reducer(state: State, action: Action): State {
         ...(action.verification !== undefined ? { verification: action.verification } : {}),
         ...(action.comments ? { comments: action.comments } : {}),
         ...(action.shorts ? { shorts: action.shorts } : {}),
+        ...(action.social ?? {}),
         liked: action.capsules.map((c) => c.activityId),
         ...(action.me ? { me: action.me, savedMe: action.me } : {}),
       }

@@ -61,24 +61,24 @@ export function usePublications() {
   return state.cloud ? (state.shorts ?? []) : demo
 }
 
-const HEARTS_KEY = 'iskra-short-hearts'
+/** Лайки публикаций: в облаке — на сервере со счётчиком, в демо — в этом браузере. */
 function useHearts() {
-  const [hearts, setHearts] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(HEARTS_KEY) ?? '[]') } catch { return [] } })
-  useEffect(() => { try { localStorage.setItem(HEARTS_KEY, JSON.stringify(hearts.slice(-500))) } catch { /* ignore */ } }, [hearts])
-  return [hearts, (id: string) => setHearts((h) => (h.includes(id) ? h.filter((x) => x !== id) : [...h, id]))] as const
+  const { state, dispatch } = useStore()
+  const hearts = state.shortHearts ?? []
+  return [hearts, (id: string) => dispatch({ type: 'toggleShortHeart', shortId: id }), (id: string) => state.likeCounts?.[id] ?? (hearts.includes(id) ? 1 : 0)] as const
 }
 
 /** Лента шортсов. `onMessage` — написать автору. */
 export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => void }) {
   const list = usePublications().filter((s) => s.kind === 'video')
   const [muted, setMuted] = useState(true)
-  const [hearts, toggleHeart] = useHearts()
+  const [hearts, toggleHeart, likesOf] = useHearts()
   const [uploading, setUploading] = useState(false)
 
   return (
     <>
       {list.map((s) => (
-        <ShortItem key={s.id} s={s} muted={muted} onToggleMute={() => setMuted((m) => !m)} hearted={hearts.includes(s.id)} onHeart={() => toggleHeart(s.id)}
+        <ShortItem key={s.id} s={s} muted={muted} onToggleMute={() => setMuted((m) => !m)} hearted={hearts.includes(s.id)} likes={likesOf(s.id)} onHeart={() => toggleHeart(s.id)}
           onMessage={onMessage} />
       ))}
       {!list.length && (
@@ -99,8 +99,8 @@ export function ShortsFeed({ onMessage }: { onMessage: (personId: string) => voi
   )
 }
 
-function ShortItem({ s, muted, onToggleMute, hearted, onHeart, onMessage }: {
-  s: Short; muted: boolean; onToggleMute: () => void; hearted: boolean; onHeart: () => void; onMessage: (personId: string) => void
+function ShortItem({ s, muted, onToggleMute, hearted, likes, onHeart, onMessage }: {
+  s: Short; muted: boolean; onToggleMute: () => void; hearted: boolean; likes: number; onHeart: () => void; onMessage: (personId: string) => void
 }) {
   const { state } = useStore()
   const openProfile = useOpenProfile()
@@ -139,7 +139,7 @@ function ShortItem({ s, muted, onToggleMute, hearted, onHeart, onMessage }: {
       {paused && <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="grid place-items-center w-20 h-20 rounded-full bg-black/35 backdrop-blur"><Icon name="play" size={36} fill /></span></span>}
 
       <div className="absolute right-3 bottom-44 flex flex-col items-center gap-5 drop-shadow">
-        <LikeButton liked={hearted} onToggle={onHeart} size={30} className="gap-1" />
+        <LikeButton liked={hearted} onToggle={onHeart} size={30} className="gap-1">{likes > 0 && <span className="text-[12px] font-semibold tnum">{likes}</span>}</LikeButton>
         {!mine && author && (
           <button onClick={() => onMessage(author.id)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={`Написать ${author.name}`}>
             <Icon name="chat" size={30} /><span className="text-[12px] font-semibold">Написать</span>
@@ -316,7 +316,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
 export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (personId: string) => void }) {
   const openProfile = useOpenProfile()
   const author = usePublicationAuthor(s)
-  const [hearts, toggleHeart] = useHearts()
+  const [hearts, toggleHeart, likesOf] = useHearts()
   const remove = useRemovePublication(s)
   const { state } = useStore()
   const [confirm, setConfirm] = useState(false)
@@ -357,6 +357,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
       </div>
       <div className="flex items-center gap-4 px-4">
         <LikeButton liked={hearts.includes(s.id)} onToggle={() => toggleHeart(s.id)} size={26} />
+        {likesOf(s.id) > 0 && <span className="-ml-2 text-[14px] font-semibold tnum">{likesOf(s.id)}</span>}
         {!mine && author && <button onClick={() => onMessage(author.id)} className="cursor-pointer" aria-label={`Написать ${author.name}`}><Icon name="chat" size={26} /></button>}
       </div>
       {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}

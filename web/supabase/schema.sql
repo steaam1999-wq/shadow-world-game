@@ -372,6 +372,80 @@ create policy "shorts files: delete own" on storage.objects for delete to authen
   bucket_id = 'shorts' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
 );
 
+-- Лайки планов и публикаций, подписки и «Сохранённое» — на сервере.
+create table if not exists public.plan_likes (
+  plan_id uuid not null references public.plans (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (plan_id, user_id)
+);
+create index if not exists plan_likes_user_idx on public.plan_likes (user_id);
+create table if not exists public.short_likes (
+  short_id uuid not null references public.shorts (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (short_id, user_id)
+);
+create index if not exists short_likes_user_idx on public.short_likes (user_id);
+create table if not exists public.follows (
+  follower uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  followee uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower, followee),
+  check (follower <> followee)
+);
+create index if not exists follows_followee_idx on public.follows (followee);
+create table if not exists public.saved_plans (
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  plan_id uuid not null references public.plans (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, plan_id)
+);
+create index if not exists saved_plans_plan_idx on public.saved_plans (plan_id);
+
+alter table public.plan_likes enable row level security;
+alter table public.short_likes enable row level security;
+alter table public.follows enable row level security;
+alter table public.saved_plans enable row level security;
+revoke all on public.plan_likes, public.short_likes, public.follows, public.saved_plans from anon, authenticated;
+grant select, delete on public.plan_likes, public.short_likes, public.follows, public.saved_plans to authenticated;
+grant insert (plan_id) on public.plan_likes to authenticated;
+grant insert (short_id) on public.short_likes to authenticated;
+grant insert (followee) on public.follows to authenticated;
+grant insert (plan_id) on public.saved_plans to authenticated;
+
+drop policy if exists "plan likes: read" on public.plan_likes;
+create policy "plan likes: read" on public.plan_likes for select to authenticated using (true);
+drop policy if exists "plan likes: add own" on public.plan_likes;
+create policy "plan likes: add own" on public.plan_likes for insert to authenticated with check (
+  user_id = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (select 1 from public.plans p where p.id = plan_id and not private.blocked_between(p.author, (select auth.uid())))
+);
+drop policy if exists "plan likes: remove own" on public.plan_likes;
+create policy "plan likes: remove own" on public.plan_likes for delete to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists "short likes: read" on public.short_likes;
+create policy "short likes: read" on public.short_likes for select to authenticated using (true);
+drop policy if exists "short likes: add own" on public.short_likes;
+create policy "short likes: add own" on public.short_likes for insert to authenticated with check (
+  user_id = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and exists (select 1 from public.shorts s where s.id = short_id and not private.blocked_between(s.author, (select auth.uid())))
+);
+drop policy if exists "short likes: remove own" on public.short_likes;
+create policy "short likes: remove own" on public.short_likes for delete to authenticated using (user_id = (select auth.uid()));
+
+drop policy if exists "follows: read" on public.follows;
+create policy "follows: read" on public.follows for select to authenticated using (true);
+drop policy if exists "follows: add own" on public.follows;
+create policy "follows: add own" on public.follows for insert to authenticated with check (
+  follower = (select auth.uid()) and not private.is_banned((select auth.uid())) and not private.blocked_between(followee, (select auth.uid()))
+);
+drop policy if exists "follows: remove own" on public.follows;
+create policy "follows: remove own" on public.follows for delete to authenticated using (follower = (select auth.uid()));
+
+drop policy if exists "saved: own" on public.saved_plans;
+create policy "saved: own" on public.saved_plans for all to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
@@ -389,4 +463,7 @@ begin
   begin alter publication supabase_realtime add table public.profiles; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.plan_comments; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.shorts; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.plan_likes; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.short_likes; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.follows; exception when duplicate_object then null; end;
 end $$;

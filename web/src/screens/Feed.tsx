@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
 import { useStore } from '../store'
-import { compatibility, planWhen, relative, sharedAnswers } from '../lib'
+import { compatibility, planWhen, plural, relative, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -136,6 +136,8 @@ function mixFeed(plans: Activity[], pubs: Short[]) {
   if (fresh > 0) out.unshift(...out.splice(fresh, 1))
   return out
 }
+
+const likesLabel = (n: number) => `${n.toLocaleString('ru-RU')} ${plural(n, 'отметка', 'отметки', 'отметок')} «Нравится»`
 
 function Announcement({ text }: { text: string }) {
   const { dispatch } = useStore()
@@ -278,9 +280,8 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       </div>
 
       <div className="px-4 flex flex-col gap-1 text-[14px]">
-        {/* Чужие лайки на сервере пока не хранятся — там показываем только свой. */}
-        {state.cloud ? hearted && <span className="font-semibold">Вам нравится</span>
-          : <span className="font-semibold tnum">{likeCount(a.id, hearted).toLocaleString('ru-RU')} отметок «Нравится»</span>}
+        {state.cloud ? (state.likeCounts?.[a.id] ?? 0) > 0 && <span className="font-semibold tnum">{likesLabel(state.likeCounts![a.id])}</span>
+          : <span className="font-semibold tnum">{likesLabel(likeCount(a.id, hearted))}</span>}
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}

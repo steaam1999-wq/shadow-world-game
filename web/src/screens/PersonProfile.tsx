@@ -38,7 +38,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const compat = compatibility(me, p)
   const shared = sharedAnswers(me.answers, p.answers)
   const lv = level(p.meetings)
-  const followers = followerBase(p) + (following ? 1 : 0)
+  const followers = state.cloud ? state.followers?.[p.id] ?? 0 : followerBase(p) + (following ? 1 : 0)
   const capsule = state.capsules.find((c) => c.personId === p.id)
   const songCount = songsOf(p, !!state.cloud).length
   const listening = nowPlayingOf(p, !!state.cloud)
@@ -64,7 +64,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             <Avatar name={p.name} hue={p.hue} src={p.photo} size={80} />
           </StoryRing>
           <dl className="flex-1 grid grid-cols-3 text-center">
-            {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], (state.cloud ? [`${compat.score}%`, 'совпадение'] : [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')]), [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
+            {[[plans.length, plural(plans.length, 'план', 'плана', 'планов')], [followers, plural(followers, 'подписчик', 'подписчика', 'подписчиков')], [p.meetings, plural(p.meetings, 'встреча', 'встречи', 'встреч')]].map(([v, l]) => (
               <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{typeof v === 'number' ? v.toLocaleString('ru-RU') : v}</dt><dd className="text-[12px] text-muted">{l}</dd></div>
             ))}
           </dl>

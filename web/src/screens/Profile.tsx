@@ -60,7 +60,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
             <span className="absolute right-0 bottom-0 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
           </button>
           <dl className="flex-1 grid grid-cols-3 text-center">
-            {[[myPlans.length, plural(myPlans.length, 'план', 'плана', 'планов')], [me.meetings, plural(me.meetings, 'встреча', 'встречи', 'встреч')], [lv.idx, 'уровень']].map(([v, l]) => (
+            {[[myPlans.length, plural(myPlans.length, 'план', 'плана', 'планов')], [me.meetings, plural(me.meetings, 'встреча', 'встречи', 'встреч')], (state.cloud ? [state.followers?.me ?? 0, plural(state.followers?.me ?? 0, 'подписчик', 'подписчика', 'подписчиков')] : [lv.idx, 'уровень'])].map(([v, l]) => (
               <div key={String(l)}><dt className="font-bold text-lg tnum leading-tight">{v}</dt><dd className="text-[13px] text-muted">{l}</dd></div>
             ))}
           </dl>

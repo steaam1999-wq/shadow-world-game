@@ -181,9 +181,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
               <Icon name="note" size={23} />
               {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
             </button>
-            <button onClick={() => setActivityOpen(true)} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
+            <button onClick={() => { setActivityOpen(true); dispatch({ type: 'seeNotices' }) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
               <Icon name="heart" size={25} />
-              {state.announcement && state.announcement !== state.dismissedAnnouncement && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
+              {((state.announcement && state.announcement !== state.dismissedAnnouncement) || (state.notices ?? []).some((n) => n.at > (state.noticesSeenAt ?? 0))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
             </button>
             {tab !== 'capsules' && (
               <button onClick={() => { setTab('capsules'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Сообщения">
@@ -227,7 +227,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           ))}
         </div>
       </Sheet>
-      <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
+      <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {state.cloudError && (
         <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[18px] bg-danger-soft text-danger p-3 pr-11 text-[14px] shadow-soft" role="alert">
@@ -276,7 +276,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 }
 
 /** «Действия»: уведомления о сообщениях, лайках и системные объявления. */
-function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void }) {
+function ActivitySheet({ open, onClose, now, onOpenCapsule, openProfile }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void; openProfile: (id: string) => void }) {
   const { state, dispatch } = useStore()
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const items = [
@@ -286,7 +286,15 @@ function ActivitySheet({ open, onClose, now, onOpenCapsule }: { open: boolean; o
       const last = [...c.messages].reverse().find((m) => m.from === 'them')
       return { key: c.id, person: p, text: last ? `${p.name}: «${last.text}»` : `Чат с ${p.name}`, at: last?.at ?? c.createdAt, onClick: () => onOpenCapsule(c.id) }
     }),
-    // Отметки планов в демо выдуманы; с сервером таких данных пока нет — не показываем.
+    // Лайки и подписки с сервера.
+    ...(state.notices ?? []).flatMap((n) => {
+      const p = state.people.find((x) => x.id === n.personId)
+      if (!p) return []
+      const plan = n.kind === 'likePlan' ? state.activities.find((x) => x.id === n.targetId) : undefined
+      const text = n.kind === 'follow' ? `${p.name} подписал(ась) на вас` : n.kind === 'likePlan' ? `${p.name}: нравится ваш план${plan ? ` «${plan.title}»` : ''}` : `${p.name}: нравится ваша публикация`
+      return [{ key: n.id, person: p, text, at: n.at, onClick: () => { onClose(); openProfile(p.id) } }]
+    }),
+    // В демо отметки планов выдуманы, чтобы экран не пустовал.
     ...(state.cloud || !state.people.length ? [] : myPlans).map((a, i) => {
       const p = state.people[(i * 3 + 1) % state.people.length]
       return { key: `like-${a.id}`, person: p, text: `${p.name} и ещё ${4 + i} человек отметили ваш план «${a.title}»`, at: now - 25 * 60_000 * (i + 1), onClick: onClose }

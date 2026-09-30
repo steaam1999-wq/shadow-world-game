@@ -81,6 +81,15 @@ export interface Capsule {
   again?: 'yes' | 'no' // мой тайный ответ «хочу встретиться ещё»
 }
 
+/** Уведомление: лайк моего плана или публикации, новая подписка. */
+export interface Notice {
+  id: string
+  kind: 'likePlan' | 'likeShort' | 'follow'
+  personId: string
+  targetId?: string
+  at: number
+}
+
 /** Шортс: короткое вертикальное видео. */
 export interface Short {
   id: string
@@ -148,6 +157,11 @@ export interface State {
   comments?: PlanComment[] // комментарии под планами
   verification?: 'pending' | 'approved' | 'rejected' | null // моя заявка на верификацию
   shorts?: Short[] // шортсы из облака (демо хранит свои в браузере)
+  shortHearts?: string[] // id публикаций, которые я лайкнул
+  likeCounts?: Record<string, number> // id плана или публикации → число лайков (облако)
+  followers?: Record<string, number> // personId ('me' — я) → число подписчиков (облако)
+  notices?: Notice[] // кто лайкнул мои планы и публикации, кто подписался
+  noticesSeenAt?: number
 }
 
 export interface Safety {

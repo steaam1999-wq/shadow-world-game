@@ -6,7 +6,7 @@ let reloader: (() => void) | null = null
 export function setReloader(fn: (() => void) | null) { reloader = fn }
 export function requestReload() { reloader?.() }
 
-/** Запись действия на сервер. null — действие только локальное (лайки, сохранённое, таймер безопасности). */
+/** Запись действия на сервер. null — действие только локальное (таймер безопасности, просмотренные сторис). */
 export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
   const cloud = s.cloud
   if (!cloud) return null
@@ -38,6 +38,16 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       const c = s.capsules.find((x) => x.personId === a.personId)
       return plan && c ? run(api.sendMessage(uid, c.id, `Смотри, какой план: «${plan.title}» — ${plan.area}`)) : null
     }
+    case 'toggleHeart':
+      return run(api.setMark('plan_likes', a.activityId, !s.hearts.includes(a.activityId), uid))
+    case 'heart':
+      return s.hearts.includes(a.activityId) ? null : run(api.setMark('plan_likes', a.activityId, true, uid))
+    case 'toggleShortHeart':
+      return run(api.setMark('short_likes', a.shortId, !(s.shortHearts ?? []).includes(a.shortId), uid))
+    case 'toggleSave':
+      return run(api.setMark('saved_plans', a.activityId, !s.saved.includes(a.activityId), uid))
+    case 'toggleFollow':
+      return run(api.setMark('follows', a.personId, !(s.following ?? []).includes(a.personId), uid))
     case 'setStatus':
       return run(api.setCapsuleStatus(a.capsuleId, a.status).then(() => (a.status === 'met' && s.me ? api.saveProfile(uid, { ...s.me, meetings: s.me.meetings + 1 }) : undefined)))
     case 'addComment':
