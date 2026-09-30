@@ -54,16 +54,16 @@ function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
 
   return (
     <li className="relative -mx-3 overflow-hidden rounded-2xl">
-      <button onClick={onDelete} tabIndex={open ? 0 : -1} aria-label={label} aria-hidden={offset === 0}
-        className={`absolute inset-y-0 right-0 grid place-items-center overflow-hidden bg-danger text-white cursor-pointer ${dx === null ? 'transition-[width] duration-200' : ''}`} style={{ width: Math.max(0, -offset) }}>
-        <span className="flex flex-col items-center gap-0.5 text-[12px] font-semibold shrink-0" style={{ width: REVEAL }}><Icon name="trash" size={22} /> Удалить</span>
-      </button>
       <button onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         onClick={() => { if (moved.current) { moved.current = false; return } if (open) onOpenChange(false); else onClick() }}
         onKeyDown={(e) => { if (e.key === 'Delete' || e.key === 'Backspace') onDelete() }}
         className={`relative w-full text-left flex items-center gap-3 py-2.5 px-3 hover:bg-surface/60 cursor-pointer touch-pan-y ${dx === null ? 'transition-transform duration-200' : ''}`}
         style={{ transform: `translateX(${offset}px)` }}>
         {children}
+      </button>
+      <button onClick={onDelete} tabIndex={open ? 0 : -1} aria-label={label} aria-hidden={offset === 0}
+        className={`absolute inset-y-0 right-0 grid place-items-center overflow-hidden bg-danger text-white cursor-pointer ${dx === null ? 'transition-[width] duration-200' : ''}`} style={{ width: Math.max(0, -offset) }}>
+        <span className="flex flex-col items-center gap-0.5 text-[12px] font-semibold shrink-0" style={{ width: REVEAL }}><Icon name="trash" size={22} /> Удалить</span>
       </button>
     </li>
   )
