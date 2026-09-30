@@ -29,6 +29,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const [mode, setMode] = useState<Mode>('login')
   // Сначала — экран приветствия; форма открывается по кнопке «Начать» или «Войти».
   const [stage, setStage] = useState<'welcome' | 'auth'>('welcome')
+  const [step, setStep] = useState(0) // шаг формы: по одному вопросу на экран
   const [login, setLogin] = useState(() => { try { return localStorage.getItem(LOGIN_KEY) ?? '' } catch { return '' } })
   const [remember, setRemember] = useState(state.remember !== false)
   const [otherAccount, setOtherAccount] = useState(false)
@@ -99,7 +100,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       onRegister(name.trim(), login.includes('@') ? 'google' : 'phone', remember)
     } else { keepLogin(); onLogin(remember) }
   }
-  const switchMode = (m: Mode) => { setMode(m); setError(''); setResetting(false) }
+  const switchMode = (m: Mode) => { setMode(m); setError(''); setResetting(false); setStep(0) }
   const openAuth = (m: Mode) => { switchMode(m); setStage('auth') }
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
@@ -118,15 +119,6 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <h1 className="font-display font-bold text-[29px] leading-[1.15]">Хватит свайпать.<br /><span className="text-brand">Время встречаться.</span></h1>
               <p className="text-[15px] text-muted leading-snug">Планы на вечер рядом с вами — кофе, выставки, прогулки. Откликнитесь и встретьтесь в тот же день.</p>
             </div>
-            <ul className="grid grid-cols-3 gap-2 text-center">
-              {[['☕', 'Планы рядом', 'на 48 часов'], ['🔒', 'Место — в чате', 'только участникам'], ['🎶', 'Общая музыка', 'и вайб-тест']].map(([e, t, d]) => (
-                <li key={t} className="rounded-2xl bg-surface/80 shadow-soft px-2 py-3 flex flex-col items-center gap-1">
-                  <span className="text-[22px]" aria-hidden="true">{e}</span>
-                  <span className="text-[12px] font-semibold leading-tight">{t}</span>
-                  <span className="text-[11px] text-muted leading-tight">{d}</span>
-                </li>
-              ))}
-            </ul>
             <div className="flex flex-col gap-2.5">
               {state.savedMe && (
                 <button onClick={() => { if (cloudEnabled) { setOtherAccount(true); openAuth('login') } else onLogin(true) }}
@@ -165,12 +157,6 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             </div>
 
             <div className="rounded-[32px] bg-surface shadow-soft p-5 flex flex-col gap-4">
-              <div className="grid grid-cols-2 p-1 rounded-2xl bg-surface-2" role="tablist" aria-label="Вход или регистрация">
-                {([['login', 'Вход'], ['register', 'Регистрация']] as const).map(([m, label]) => (
-                  <button key={m} role="tab" aria-selected={mode === m} onClick={() => switchMode(m)}
-                    className={`h-10 rounded-xl text-[14px] font-semibold cursor-pointer transition ${mode === m ? 'bg-surface shadow-soft' : 'text-muted'}`}>{label}</button>
-                ))}
-              </div>
 
               {quick && (
                 <div className="flex flex-col gap-2">
@@ -200,38 +186,70 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                   <button type="button" onClick={() => { setResetting(false); setError(''); setInfo('') }} className="self-center text-[13px] text-muted hover:text-fg cursor-pointer">Назад ко входу</button>
                 </form>
               )}
-              {!quick && !resetting && <form onSubmit={submit} method="post" action="#"  className="flex flex-col gap-3" noValidate>
-                {mode === 'register' && (
-                  <Field id="reg-name" label="Имя">
-                    <input id="reg-name" name="name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" placeholder="Как вас называть" />
-                  </Field>
-                )}
-                <Field id="auth-login" label={cloudEnabled ? 'Почта' : 'Телефон или почта'}>
-                  <input id="auth-login" name="username" type={cloudEnabled ? 'email' : 'text'} className={inputCls} value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" placeholder={cloudEnabled ? 'you@mail.ru' : '+7 900 000-00-00'} />
-                </Field>
-                <Field id="auth-password" label="Пароль">
-                  <div className="relative">
-                    <input id="auth-password" name="password" type={showPassword ? 'text' : 'password'} className={`${inputCls} pr-12`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Минимум 6 символов" />
-                    <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} aria-pressed={showPassword} aria-controls="auth-password"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-xl text-muted hover:text-fg cursor-pointer">
-                      <Icon name={showPassword ? 'eyeOff' : 'eye'} size={20} />
-                    </button>
-                  </div>
-                </Field>
-                <label htmlFor="auth-remember" className="flex items-start gap-3 cursor-pointer select-none">
-                  <input id="auth-remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="mt-0.5 w-5 h-5 shrink-0 rounded-md accent-[var(--spark)] cursor-pointer" />
-                  <span className="min-w-0 leading-tight">
-                    <span className="block text-[14px] font-medium">Запомнить меня</span>
-                    <span className="block text-[12px] text-muted">{remember ? 'Не придётся входить снова на этом устройстве' : 'Выйду, когда закрою браузер'}</span>
-                  </span>
-                </label>
-                {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-                {info && <p className="text-[13px] text-ok" role="status">{info}</p>}
-                {cloudEnabled && mode === 'login' && (
-                  <button type="button" onClick={() => { setResetting(true); setError(''); setInfo('') }} className="self-start -mt-1 text-[13px] font-semibold text-muted hover:text-fg cursor-pointer">Забыли пароль?</button>
-                )}
-                <Button type="submit" className="h-12 mt-1" disabled={busy}>{busy ? 'Минутку…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
-              </form>}
+              {!quick && !resetting && (() => {
+                // Один вопрос на экран: имя (только регистрация) → почта → пароль.
+                const steps = mode === 'register' ? (['name', 'login', 'password'] as const) : (['login', 'password'] as const)
+                const cur = steps[Math.min(step, steps.length - 1)]
+                const last = step >= steps.length - 1
+                const next = (e: React.FormEvent) => {
+                  e.preventDefault()
+                  setError('')
+                  if (cur === 'name' && !name.trim()) return setError('Как вас зовут?')
+                  if (cur === 'login') {
+                    if (!login.trim()) return setError(cloudEnabled ? 'Введите почту' : 'Введите телефон или почту')
+                    if (cloudEnabled && !login.includes('@')) return setError('Похоже, это не почта — проверьте, есть ли «@»')
+                  }
+                  if (!last) { setStep(step + 1); return }
+                  submit(e)
+                }
+                const q = cur === 'name' ? 'Как вас зовут?' : cur === 'login' ? (cloudEnabled ? 'Ваша почта' : 'Телефон или почта') : mode === 'login' ? 'Пароль' : 'Придумайте пароль'
+                const hint = cur === 'name' ? 'Так вас увидят другие. Можно только имя.' : cur === 'login' ? (mode === 'login' ? 'На неё зарегистрирован аккаунт' : 'Пришлём письмо для подтверждения') : mode === 'login' ? `Вход как ${login}` : 'Не короче 6 символов'
+                return (
+                  <form onSubmit={next} method="post" action="#" className="flex flex-col gap-4" noValidate>
+                    <div className="flex gap-1.5" aria-label={`Шаг ${step + 1} из ${steps.length}`}>
+                      {steps.map((x, i) => <span key={x} className={`h-1.5 flex-1 rounded-full transition ${i <= step ? 'bg-brand' : 'bg-surface-2'}`} />)}
+                    </div>
+                    <div key={cur} className="flex flex-col gap-2 anim-page">
+                      <label htmlFor={cur === 'name' ? 'reg-name' : cur === 'login' ? 'auth-login' : 'auth-password'} className="font-display font-bold text-[22px] leading-tight">{q}</label>
+                      <p className="text-[13px] text-muted -mt-1 truncate">{hint}</p>
+                      {cur === 'name' && (
+                        <input id="reg-name" name="name" className={`${inputCls} h-14 text-[17px]`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" placeholder="Например, Женя" autoFocus />
+                      )}
+                      {cur === 'login' && (
+                        <input id="auth-login" name="username" type={cloudEnabled ? 'email' : 'text'} inputMode={cloudEnabled ? 'email' : 'text'} className={`${inputCls} h-14 text-[17px]`} value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" placeholder={cloudEnabled ? 'you@mail.ru' : '+7 900 000-00-00'} autoFocus />
+                      )}
+                      {cur === 'password' && (
+                        <div className="relative">
+                          {/* Почта рядом с паролем — чтобы менеджер паролей сохранил пару */}
+                          <input type="text" name="username" autoComplete="username" value={login} readOnly className="sr-only" tabIndex={-1} aria-hidden="true" />
+                          <input id="auth-password" name="password" type={showPassword ? 'text' : 'password'} className={`${inputCls} h-14 text-[17px] pr-12`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder="Минимум 6 символов" autoFocus />
+                          <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'} aria-pressed={showPassword} aria-controls="auth-password"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-xl text-muted hover:text-fg cursor-pointer">
+                            <Icon name={showPassword ? 'eyeOff' : 'eye'} size={20} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {cur === 'password' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <label htmlFor="auth-remember" className="flex items-center gap-2 cursor-pointer select-none text-[14px]">
+                          <input id="auth-remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="w-5 h-5 rounded-md accent-[var(--spark)] cursor-pointer" />
+                          Запомнить меня
+                        </label>
+                        {cloudEnabled && mode === 'login' && (
+                          <button type="button" onClick={() => { setResetting(true); setError(''); setInfo('') }} className="text-[13px] font-semibold text-muted hover:text-fg cursor-pointer">Забыли пароль?</button>
+                        )}
+                      </div>
+                    )}
+                    {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+                    {info && <p className="text-[13px] text-ok" role="status">{info}</p>}
+                    <div className="flex gap-2">
+                      {step > 0 && <Button type="button" variant="secondary" onClick={() => { setStep(step - 1); setError('') }} className="h-13 !rounded-full px-5" aria-label="Предыдущий шаг"><Icon name="back" size={18} /></Button>}
+                      <Button type="submit" className="flex-1 h-13 !rounded-full text-[16px]" disabled={busy}>{busy ? 'Минутку…' : !last ? 'Далее' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}</Button>
+                    </div>
+                  </form>
+                )
+              })()}
 
               {!cloudEnabled && <>
               <div className="flex items-center gap-3 text-[12px] text-muted"><span className="flex-1 h-px bg-line" />или<span className="flex-1 h-px bg-line" /></div>
