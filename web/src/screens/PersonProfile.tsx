@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { formatKm } from '../places'
 import { useStore } from '../store'
-import { compatibility, planWhen, plural, sharedAnswers } from '../lib'
+import { compatibility, level, planWhen, plural, sharedAnswers } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
+import { TrackChip } from '../music/PlayerUI'
+import { personTrack } from '../music/player'
 import { PersonSongs, songsOf } from '../music/PersonSongs'
 import { NowPlayingCard, nowPlayingOf } from '../music/NowPlaying'
 import { Post } from './Feed'
@@ -35,6 +37,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const plans = state.activities.filter((a) => a.authorId === p.id && a.expiresAt > now).sort((a, b) => a.startsAt - b.startsAt)
   const compat = compatibility(me, p)
   const shared = sharedAnswers(me.answers, p.answers)
+  const lv = level(p.meetings)
   const followers = state.cloud ? state.followers?.[p.id] ?? 0 : followerBase(p) + (following ? 1 : 0)
   const capsule = state.capsules.find((c) => c.personId === p.id)
   const songCount = songsOf(p, !!state.cloud).length
@@ -72,8 +75,9 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             {p.name}, {p.age}
             {p.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
-          <div className="text-muted">{p.district} · {formatKm(p.distanceKm)}</div>
+          <div className="text-muted">{lv.name} · {p.district} · {formatKm(p.distanceKm)}</div>
           <ReliabilityBadge person={p} />
+          <TrackChip track={personTrack(p)} />
           {listening && <div className="mt-1.5"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
           <p className="mt-1">{p.bio}</p>
           <p className="text-cobalt">{p.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>

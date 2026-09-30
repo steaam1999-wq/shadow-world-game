@@ -120,9 +120,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const me = state.me
   const baseQueue = useMemo(() => {
-    const mine: Track[] = me ? [{ id: 't-me', title: 'Мой вайб', artist: me.name, genre: genreOf(me.answers), hue: me.hue, bpm: GENRE_BPM[genreOf(me.answers)], root: 57, bars: 40 }] : []
-    return [...uploads, ...online, ...mine, ...state.people.map(personTrack)]
-  }, [me, uploads, online, state.people])
+    return [...uploads, ...online, ...state.people.map(personTrack)]
+  }, [uploads, online, state.people])
   const queue = custom ?? baseQueue
 
   // «Сейчас слушает»: играющий трек виден на вашей странице. Пауза дольше 30 секунд — убираем.

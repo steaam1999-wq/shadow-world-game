@@ -65,6 +65,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
             {me.name}, {me.age}
             {me.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
           </div>
+          <div className="text-muted">{lv.name} · {me.district}</div>
           {me.nowPlaying && !me.privacy.hideNowPlaying && <div className="mb-1"><NowPlayingCard np={me.nowPlaying} who="Сейчас на вашей странице" /></div>}
           {me.meetings > 0 && <span className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-ok"><Icon name="shield" size={15} /> <b>Надёжность 100%</b> <span className="text-muted">— {me.meetings} {plural(me.meetings, 'подтверждённая встреча', 'подтверждённые встречи', 'подтверждённых встреч')}</span></span>}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
