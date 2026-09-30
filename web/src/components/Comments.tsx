@@ -120,7 +120,7 @@ function CommentsSheetBase({ list, ownerIsMe, open, onClose, empty, onAdd, onDel
           <Avatar name={a?.name ?? '?'} hue={a?.hue ?? 0} src={a?.photo} size={reply ? 26 : 34} />
         </button>
         <div className="flex-1 min-w-0 text-[14px]">
-          <p className="break-words">
+          <p className="break-words" data-no-translate>
             <span className="font-semibold">{a?.name ?? 'Кто-то'}</span>{' '}
             {parentName && <span className="text-cobalt">@{parentName} </span>}
             {c.text}

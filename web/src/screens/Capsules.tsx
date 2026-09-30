@@ -291,7 +291,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                     <img src={m.photo} alt="Фото" className="block max-w-[240px] max-h-[320px] rounded-[20px] object-cover" loading="lazy" />
                   </button>
                 )}
-                {m.text && <p className={`whitespace-pre-wrap break-words ${m.photo ? 'px-3 pt-1.5' : ''}`}>{m.text}</p>}
+                {m.text && <p data-no-translate className={`whitespace-pre-wrap break-words ${m.photo ? 'px-3 pt-1.5' : ''}`}>{m.text}</p>}
                 <span className={`flex items-center justify-end gap-1 text-[11px] tnum ${m.photo ? 'px-3 pb-1' : ''} ${m.from === 'me' ? 'opacity-80' : 'text-muted'}`}>
                   {hm(m.at)}
                   {m.from === 'me' && <span aria-label={(c.theirReadAt ?? 0) >= m.at ? 'Прочитано' : 'Отправлено'}>{(c.theirReadAt ?? 0) >= m.at ? '✓✓' : '✓'}</span>}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
+import { getLang, setLang } from '../i18n'
 import { ReliabilityBadge } from '../components/Meet'
 import { MeetingCards } from '../components/Met'
 import { LEVELS, level, plural, profileCompleteness, nameAge, profileTint } from '../lib'
@@ -194,6 +195,20 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
           <p className="text-[13px] text-muted">Светлая или тёмная тема</p>
         </div>
         <ThemeToggle />
+      </section>
+
+      {/* Мова інтэрфейсу */}
+      <section className="rounded-[28px] bg-surface shadow-soft p-5 flex items-center justify-between gap-3" data-no-translate>
+        <div>
+          <h2 className="font-display font-bold text-lg">Язык · Мова</h2>
+          <p className="text-[13px] text-muted">Русский или беларуская</p>
+        </div>
+        <div className="flex rounded-full bg-surface-2 p-1" role="radiogroup" aria-label="Язык интерфейса">
+          {([['ru', 'Рус'], ['be', 'Бел']] as const).map(([l, label]) => (
+            <button key={l} role="radio" aria-checked={getLang() === l} onClick={() => { if (getLang() !== l) setLang(l) }}
+              className={`h-9 px-4 rounded-full text-[14px] font-semibold cursor-pointer ${getLang() === l ? 'bg-surface shadow-soft' : 'text-muted'}`}>{label}</button>
+          ))}
+        </div>
       </section>
 
       {/* Приватность */}
