@@ -4,15 +4,22 @@ import { cloudEnabled, VAPID_PUBLIC_KEY } from '../cloud/config'
 import { savePushSubscription } from '../cloud/api'
 import { Avatar, Icon, Toggle } from './ui'
 import type { Person } from '../types'
+// Звук «Классика»: присланный файл, слегка изменённый (тон +4%, мягче верха, тише, без тишины по краям).
+import CLASSIC_URL from '../assets/match-notify.wav?inline'
 
 // Оповещения о новых сообщениях: звук «капелька», баннер сверху, счётчик на иконке
 // и системное уведомление, когда вкладка свёрнута.
 
 const KEY = 'iskra-alerts'
-interface Prefs { sound: boolean; system: boolean; tone: ToneId }
+interface Prefs { sound: boolean; system: boolean; tone: ToneId; v?: number }
 
 function readPrefs(): Prefs {
-  try { return { sound: true, system: false, tone: 'vk', ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { sound: true, system: false, tone: 'vk' } }
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Prefs> & { v?: number }
+    // Один раз переключаем всех на новый звук «Классика»; дальше выбор человека сохраняется.
+    if (raw.v !== 2) { raw.tone = 'classic'; raw.v = 2; try { localStorage.setItem(KEY, JSON.stringify(raw)) } catch { /* ignore */ } }
+    return { sound: true, system: false, tone: 'classic', ...raw }
+  } catch { return { sound: true, system: false, tone: 'classic' } }
 }
 const listeners = new Set<(p: Prefs) => void>()
 function writePrefs(p: Prefs) {
@@ -29,8 +36,9 @@ function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
 // Обычный аудиоэлемент iPhone играет даже при выключенном звонке (Web Audio там молчит),
 // но только если его однажды «разбудить» касанием экрана.
 
-export type ToneId = 'vk' | 'vkSoft' | 'vkUp' | 'drop' | 'bubble' | 'bell' | 'marimba' | 'crystal' | 'kalimba' | 'tap'
+export type ToneId = 'classic' | 'vk' | 'vkSoft' | 'vkUp' | 'drop' | 'bubble' | 'bell' | 'marimba' | 'crystal' | 'kalimba' | 'tap'
 export const TONES: { id: ToneId; name: string; desc: string }[] = [
+  { id: 'classic', name: 'Классика', desc: 'Ваш звук — чуть мягче и тише' },
   { id: 'vk', name: 'Ностальгия', desc: 'Как сообщение во ВКонтакте в 2017-м' },
   { id: 'vkSoft', name: 'Ностальгия · мягче', desc: 'Тот же «ту-дум», ниже и теплее' },
   { id: 'vkUp', name: 'Ностальгия · вверх', desc: '«Ту-дум» наоборот — ноты вверх' },
@@ -47,7 +55,7 @@ const RATE = 22050
 interface Note { at: number; from: number; to?: number; glide?: number; vol: number; attack: number; decay: number; len: number; partials?: [number, number][] }
 // Округлые ноты в духе старого звука ВК: основной тон + чуть второй и третьей гармоники.
 const ROUND: [number, number][] = [[2, 0.12], [3, 0.035]]
-const NOTES: Record<ToneId, Note[]> = {
+const NOTES: Record<Exclude<ToneId, 'classic'>, Note[]> = {
   vk: [{ at: 0, from: 1047, vol: 0.36, attack: 0.004, decay: 0.07, len: 0.3, partials: ROUND }, { at: 0.085, from: 784, vol: 0.34, attack: 0.004, decay: 0.09, len: 0.36, partials: ROUND }],
   vkSoft: [{ at: 0, from: 698, vol: 0.4, attack: 0.006, decay: 0.09, len: 0.34, partials: [[2, 0.18]] }, { at: 0.095, from: 523, vol: 0.38, attack: 0.006, decay: 0.11, len: 0.4, partials: [[2, 0.18]] }],
   vkUp: [{ at: 0, from: 784, vol: 0.34, attack: 0.004, decay: 0.07, len: 0.3, partials: ROUND }, { at: 0.085, from: 1175, vol: 0.32, attack: 0.004, decay: 0.09, len: 0.36, partials: ROUND }],
@@ -65,7 +73,7 @@ const ECHO: Partial<Record<ToneId, { delay: number; feedback: number; taps: numb
   vk: { delay: 0.075, feedback: 0.26, taps: 3 }, vkSoft: { delay: 0.09, feedback: 0.28, taps: 3 }, vkUp: { delay: 0.075, feedback: 0.26, taps: 3 },
 }
 const cache = new Map<ToneId, Float32Array>()
-function samples(id: ToneId): Float32Array {
+function samples(id: Exclude<ToneId, 'classic'>): Float32Array {
   const hit = cache.get(id)
   if (hit) return hit
   const notes = NOTES[id]
@@ -94,7 +102,7 @@ function samples(id: ToneId): Float32Array {
   return out
 }
 
-function wav(id: ToneId): string {
+function wav(id: Exclude<ToneId, 'classic'>): string {
   const data = samples(id)
   const len = data.length
   const buf = new ArrayBuffer(44 + len * 2), v = new DataView(buf)
@@ -113,7 +121,7 @@ const unlockedEls = new Set<ToneId>()
 function toneEl(id: ToneId) {
   if (typeof Audio === 'undefined') return null
   let el = els.get(id)
-  if (!el) { el = new Audio(wav(id)); el.preload = 'auto'; els.set(id, el) }
+  if (!el) { el = new Audio(id === 'classic' ? CLASSIC_URL : wav(id)); el.preload = 'auto'; els.set(id, el) }
   return el
 }
 let ctx: AudioContext | null = null
@@ -138,9 +146,16 @@ function unlock() {
 if (typeof window !== 'undefined') for (const ev of ['touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { capture: true, passive: true })
 
 /** Запасной вариант через Web Audio: когда уже играет музыка (второй аудиоэлемент на iPhone её бы остановил). */
+let classicBuf: AudioBuffer | null = null
 function playWebAudio(id: ToneId) {
   const ac = audioCtx()
   if (!ac) return
+  if (id === 'classic') {
+    const go = (b: AudioBuffer) => { const src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination); src.start() }
+    if (classicBuf) go(classicBuf)
+    else void fetch(CLASSIC_URL).then((r) => r.arrayBuffer()).then((ab) => ac.decodeAudioData(ab)).then((b) => { classicBuf = b; go(b) }).catch(() => {})
+    return
+  }
   const data = samples(id)
   const b = ac.createBuffer(1, data.length, RATE)
   b.getChannelData(0).set(data)
