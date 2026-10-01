@@ -12,7 +12,7 @@ const KEY = 'iskra-alerts'
 interface Prefs { sound: boolean; system: boolean; tone: ToneId }
 
 function readPrefs(): Prefs {
-  try { return { sound: true, system: false, tone: 'drop', ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { sound: true, system: false, tone: 'drop' } }
+  try { return { sound: true, system: false, tone: 'vk', ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { sound: true, system: false, tone: 'vk' } }
 }
 const listeners = new Set<(p: Prefs) => void>()
 function writePrefs(p: Prefs) {
@@ -29,8 +29,11 @@ function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
 // Обычный аудиоэлемент iPhone играет даже при выключенном звонке (Web Audio там молчит),
 // но только если его однажды «разбудить» касанием экрана.
 
-export type ToneId = 'drop' | 'bubble' | 'bell' | 'marimba' | 'crystal' | 'kalimba' | 'tap'
+export type ToneId = 'vk' | 'vkSoft' | 'vkUp' | 'drop' | 'bubble' | 'bell' | 'marimba' | 'crystal' | 'kalimba' | 'tap'
 export const TONES: { id: ToneId; name: string; desc: string }[] = [
+  { id: 'vk', name: 'Ностальгия', desc: 'Как сообщение во ВКонтакте в 2017-м' },
+  { id: 'vkSoft', name: 'Ностальгия · мягче', desc: 'Тот же «ту-дум», ниже и теплее' },
+  { id: 'vkUp', name: 'Ностальгия · вверх', desc: '«Ту-дум» наоборот — ноты вверх' },
   { id: 'drop', name: 'Капелька', desc: 'Фирменный звук Match' },
   { id: 'bubble', name: 'Пузырёк', desc: 'Лёгкий «бульк»' },
   { id: 'kalimba', name: 'Калимба', desc: 'Тёплая деревянная нота' },
@@ -42,7 +45,12 @@ export const TONES: { id: ToneId; name: string; desc: string }[] = [
 
 const RATE = 22050
 interface Note { at: number; from: number; to?: number; glide?: number; vol: number; attack: number; decay: number; len: number; partials?: [number, number][] }
+// Округлые ноты в духе старого звука ВК: основной тон + чуть второй и третьей гармоники.
+const ROUND: [number, number][] = [[2, 0.12], [3, 0.035]]
 const NOTES: Record<ToneId, Note[]> = {
+  vk: [{ at: 0, from: 1047, vol: 0.36, attack: 0.004, decay: 0.07, len: 0.3, partials: ROUND }, { at: 0.085, from: 784, vol: 0.34, attack: 0.004, decay: 0.09, len: 0.36, partials: ROUND }],
+  vkSoft: [{ at: 0, from: 698, vol: 0.4, attack: 0.006, decay: 0.09, len: 0.34, partials: [[2, 0.18]] }, { at: 0.095, from: 523, vol: 0.38, attack: 0.006, decay: 0.11, len: 0.4, partials: [[2, 0.18]] }],
+  vkUp: [{ at: 0, from: 784, vol: 0.34, attack: 0.004, decay: 0.07, len: 0.3, partials: ROUND }, { at: 0.085, from: 1175, vol: 0.32, attack: 0.004, decay: 0.09, len: 0.36, partials: ROUND }],
   drop: [{ at: 0, from: 520, to: 1350, glide: 0.07, vol: 0.55, attack: 0.006, decay: 0.045, len: 0.22 }, { at: 0.11, from: 900, to: 1700, glide: 0.07, vol: 0.2, attack: 0.006, decay: 0.045, len: 0.22 }],
   bubble: [{ at: 0, from: 260, to: 760, glide: 0.06, vol: 0.5, attack: 0.004, decay: 0.05, len: 0.2 }, { at: 0.09, from: 420, to: 1000, glide: 0.05, vol: 0.28, attack: 0.004, decay: 0.04, len: 0.15 }],
   kalimba: [{ at: 0, from: 784, vol: 0.42, attack: 0.002, decay: 0.16, len: 0.55, partials: [[5.4, 0.12]] }],
@@ -52,12 +60,17 @@ const NOTES: Record<ToneId, Note[]> = {
   tap: [{ at: 0, from: 600, to: 420, glide: 0.03, vol: 0.4, attack: 0.002, decay: 0.025, len: 0.1 }],
 }
 
+// Лёгкое эхо, как у «ностальгических» звуков: несколько тихих повторов.
+const ECHO: Partial<Record<ToneId, { delay: number; feedback: number; taps: number }>> = {
+  vk: { delay: 0.075, feedback: 0.26, taps: 3 }, vkSoft: { delay: 0.09, feedback: 0.28, taps: 3 }, vkUp: { delay: 0.075, feedback: 0.26, taps: 3 },
+}
 const cache = new Map<ToneId, Float32Array>()
 function samples(id: ToneId): Float32Array {
   const hit = cache.get(id)
   if (hit) return hit
   const notes = NOTES[id]
-  const total = Math.max(...notes.map((n) => n.at + n.len)) + 0.02
+  const echo = ECHO[id]
+  const total = Math.max(...notes.map((n) => n.at + n.len)) + 0.02 + (echo ? echo.delay * echo.taps : 0)
   const out = new Float32Array(Math.round(RATE * total))
   for (const n of notes) {
     const start = Math.round(n.at * RATE)
@@ -71,6 +84,10 @@ function samples(id: ToneId): Float32Array {
       parts.forEach(([mult, amp], k) => { phase[k] += (2 * Math.PI * f * mult) / RATE; v += Math.sin(phase[k]) * amp })
       out[start + i] += v * env * n.vol
     }
+  }
+  if (echo) {
+    const dry = out.slice(), d = Math.round(echo.delay * RATE)
+    for (let k = 1; k <= echo.taps; k++) { const g = Math.pow(echo.feedback, k); for (let i = k * d; i < out.length; i++) out[i] += dry[i - k * d] * g }
   }
   for (let i = 0; i < out.length; i++) out[i] = Math.max(-1, Math.min(1, out[i]))
   cache.set(id, out)
