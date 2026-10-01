@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { PlanMusicPicker } from '../music/PlanMusic'
 import { PlaceOptions, byXY, formatKm, knownKm, mapKindOf, minskXY, nearestPlace, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
@@ -283,30 +283,147 @@ function MapTab({ items, now, onRespond, onOpenCapsule }: { items: Activity[]; n
   )
 }
 
+const MAX_ZOOM = 8
+/** Размер аватарки на карте: маленькая на общем виде, растёт при приближении. */
+const markerPx = (z: number) => Math.round(Math.min(46, 15 * z ** 0.6))
+
+/** Масштаб и сдвиг карты: щипок двумя пальцами, перетаскивание, колёсико, двойное нажатие, кнопки. */
+function useMapZoom() {
+  const box = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState({ z: 1, cx: 50, cy: 50 })
+  const pts = useRef(new Map<number, { x: number; y: number }>())
+  const gesture = useRef<{ dist: number; mid: { x: number; y: number }; v: typeof view } | null>(null)
+  const drag = useRef<{ x: number; y: number; v: typeof view; moved: boolean } | null>(null)
+  const lastTap = useRef(0)
+  const suppressClick = useRef(false)
+
+  const clamp = (v: typeof view) => {
+    const z = Math.min(MAX_ZOOM, Math.max(1, v.z))
+    const half = 50 / z
+    return { z, cx: Math.min(100 - half, Math.max(half, v.cx)), cy: Math.min(100 - half, Math.max(half, v.cy)) }
+  }
+  const size = () => box.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: 1, height: 1 }
+  /** Точка экрана → координаты карты (0..100) при виде v. */
+  const toMap = (x: number, y: number, v: typeof view) => {
+    const r = size()
+    return { mx: v.cx - 50 / v.z + ((x - r.left) / r.width) * (100 / v.z), my: v.cy - 50 / v.z + ((y - r.top) / r.height) * (100 / v.z) }
+  }
+  /** Приблизить к точке экрана так, чтобы место под пальцем осталось под пальцем. */
+  const zoomAt = (x: number, y: number, z: number, v = view) => {
+    const r = size()
+    const { mx, my } = toMap(x, y, v)
+    const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height
+    const nz = Math.min(MAX_ZOOM, Math.max(1, z))
+    return clamp({ z: nz, cx: mx - (fx - 0.5) * (100 / nz), cy: my - (fy - 0.5) * (100 / nz) })
+  }
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      setView((v) => zoomAt(e.clientX, e.clientY, v.z * Math.exp(-e.deltaY * 0.0025), v))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent) => {
+      pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (pts.current.size === 2) {
+        const [a, b] = [...pts.current.values()]
+        gesture.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, v: view }
+        drag.current = null
+      } else if (pts.current.size === 1) {
+        drag.current = { x: e.clientX, y: e.clientY, v: view, moved: false }
+        suppressClick.current = false
+      }
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (!pts.current.has(e.pointerId)) return
+      pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const g = gesture.current
+      if (g && pts.current.size >= 2) {
+        const [a, b] = [...pts.current.values()]
+        const d = Math.hypot(a.x - b.x, a.y - b.y)
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+        const zoomed = zoomAt(g.mid.x, g.mid.y, g.v.z * (d / Math.max(1, g.dist)), g.v)
+        const r = size()
+        setView(clamp({ ...zoomed, cx: zoomed.cx - ((mid.x - g.mid.x) / r.width) * (100 / zoomed.z), cy: zoomed.cy - ((mid.y - g.mid.y) / r.height) * (100 / zoomed.z) }))
+        suppressClick.current = true
+        return
+      }
+      const dr = drag.current
+      if (!dr) return
+      const ddx = e.clientX - dr.x, ddy = e.clientY - dr.y
+      if (!dr.moved && Math.hypot(ddx, ddy) < 6) return
+      if (!dr.moved && dr.v.z === 1) { drag.current = null; return } // на общем виде — обычная прокрутка страницы
+      if (!dr.moved) { dr.moved = true; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) }
+      suppressClick.current = true
+      const r = size()
+      setView(clamp({ ...dr.v, cx: dr.v.cx - (ddx / r.width) * (100 / dr.v.z), cy: dr.v.cy - (ddy / r.height) * (100 / dr.v.z) }))
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      pts.current.delete(e.pointerId)
+      if (pts.current.size < 2) gesture.current = null
+      if (pts.current.size === 0) {
+        const tap = drag.current && !drag.current.moved && !suppressClick.current
+        drag.current = null
+        if (tap) {
+          const t = Date.now()
+          if (t - lastTap.current < 300) { setView((v) => zoomAt(e.clientX, e.clientY, v.z * 2, v)); lastTap.current = 0; suppressClick.current = true }
+          else lastTap.current = t
+        }
+      }
+    },
+    onPointerCancel: (e: React.PointerEvent) => { pts.current.delete(e.pointerId); gesture.current = null; drag.current = null },
+    onClickCapture: (e: React.MouseEvent) => { if (suppressClick.current) { e.stopPropagation(); e.preventDefault(); suppressClick.current = false } },
+  }
+  const step = (f: number) => setView((v) => clamp({ ...v, z: v.z * f }))
+  return { box, view, handlers, zoomIn: () => step(1.8), zoomOut: () => step(1 / 1.8), reset: () => setView({ z: 1, cx: 50, cy: 50 }) }
+}
+
 function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSelectCity }: { items: Activity[]; people: Person[]; me: Me; selected: string | null; onSelect: (id: string) => void; onSelectPerson: (id: string) => void; onSelectCity: (place: string) => void }) {
   const myDistrict = me.district
   const now = Date.now()
   const kind = mapKindOf(myDistrict)
   const [dx, dy] = placeXY(myDistrict, kind)
   const [mx, my] = kind === 'ru' ? [dx + 4, dy + 5] : [dx, dy] // в Москве смещаем, чтобы метка не совпадала с активностями района
+  const { box, view, handlers, zoomIn, zoomOut, reset } = useMapZoom()
+  const { z } = view
+  const vx = view.cx - 50 / z, vy = view.cy - 50 / z
+  /** Координаты карты → проценты на экране; null — точка за краем. */
+  const at = (x: number, y: number) => {
+    const sx = (x - vx) * z, sy = (y - vy) * z
+    return sx < -6 || sx > 106 || sy < -6 || sy > 106 ? null : { left: `${sx}%`, top: `${sy}%` }
+  }
+  const k = z ** -0.6 // точки и подписи растут медленнее карты
+  const px = markerPx(z)
   // На схеме Минска — только минские планы, на карте страны — белорусские, на схеме Москвы — московские.
   const shown = items.flatMap((a) => {
-    const k = mapKindOf(a.area)
-    if (kind === 'ru' ? k !== 'ru' : kind === 'minsk' ? k !== 'minsk' : k === 'ru') return []
+    const kk = mapKindOf(a.area)
+    if (kind === 'ru' ? kk !== 'ru' : kind === 'minsk' ? kk !== 'minsk' : kk === 'ru') return []
     if (kind === 'ru') return [{ a, x: a.x, y: a.y }]
     const [x, y] = placeXY(a.area, kind), [jx, jy] = jitter(a.id, kind === 'minsk' ? 18 : 5)
     return [{ a, x: x + jx, y: y + jy }]
   })
+  // На общем виде страны люди одного города — кружком с числом; при приближении кружок рассыпается.
+  const clustered = kind === 'by' && z < 2.5
+  const groups = clustered ? Object.entries(people.reduce<Record<string, Person[]>>((m, p) => { (m[cityOf(p.district)] ??= []).push(p); return m }, {})).filter(([, list]) => list.length > 1) : []
+  const inGroup = new Set(groups.flatMap(([, list]) => list.map((p) => p.id)))
   const path = (pts: [number, number][], f: (la: number, lo: number) => [number, number]) => pts.map(([la, lo]) => f(la, lo).map((v) => v.toFixed(1)).join(',')).join(' ')
   const label = kind === 'minsk' ? 'Схема Минска с активностями' : kind === 'by' ? 'Карта Беларуси с активностями' : 'Схема центра Москвы с активностями'
+  const meAt = myDistrict ? at(mx, my) : null
   return (
-    <div className="relative rounded-[28px] overflow-hidden bg-surface-2 aspect-square max-w-full">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" role="img" aria-label={label}>
+    <div ref={box} {...handlers} className="relative rounded-[28px] overflow-hidden bg-surface-2 aspect-square max-w-full select-none"
+      style={{ touchAction: z > 1 ? 'none' : 'pan-y' }}>
+      <svg viewBox={`${vx} ${vy} ${100 / z} ${100 / z}`} className="absolute inset-0 w-full h-full" role="img" aria-label={label}>
         {kind === 'minsk' && (
           <>
-            <polygon points={path(MKAD, minskXY)} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.4" strokeLinejoin="round" />
-            <polyline points={path(SVISLOCH, minskXY)} fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-            {MINSK_LABELS.map(([n, la, lo]) => { const [x, y] = minskXY(la, lo); return <text key={n} x={x} y={y} textAnchor="middle" fontSize="3.2" fill="var(--muted)" aria-hidden="true">{n}</text> })}
+            <polygon points={path(MKAD, minskXY)} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+            <polyline points={path(SVISLOCH, minskXY)} fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth={8 * z ** 0.35} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+            {MINSK_LABELS.map(([n, la, lo]) => { const [x, y] = minskXY(la, lo); return <text key={n} x={x} y={y} textAnchor="middle" fontSize={3.2 * k} fill="var(--muted)" aria-hidden="true">{n}</text> })}
           </>
         )}
         {kind === 'by' && (
@@ -318,8 +435,8 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
               </linearGradient>
             </defs>
             {/* Тень-подложка и сама страна */}
-            <polygon points={path(BY_BORDER, byXY)} transform="translate(.6 1)" fill="var(--fg)" fillOpacity=".06" />
-            <polygon points={path(BY_BORDER, byXY)} fill="var(--surface)" stroke="var(--fg)" strokeOpacity=".28" strokeWidth=".6" strokeLinejoin="round" />
+            <polygon points={path(BY_BORDER, byXY)} transform={`translate(${.6 * k} ${1 * k})`} fill="var(--fg)" fillOpacity=".06" />
+            <polygon points={path(BY_BORDER, byXY)} fill="var(--surface)" stroke="var(--fg)" strokeOpacity=".28" strokeWidth="1.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
             <polygon points={path(BY_BORDER, byXY)} fill="url(#by-fill)" />
             {BY_CITIES.map((c) => {
               const [x, y] = placeXY(c, 'by')
@@ -327,8 +444,8 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
               const above = c !== 'Гомель' && c !== 'Брест' && c !== 'Пинск'
               return (
                 <g key={c} aria-hidden="true">
-                  <circle cx={x} cy={y} r={c === 'Минск' ? 1.4 : big ? 1 : .7} fill="var(--fg)" fillOpacity={big ? .55 : .35} />
-                  <text x={x} y={c === 'Минск' ? y - 4.6 : above ? y - 2.2 : y + 4.4} textAnchor="middle" fontSize={c === 'Минск' ? 3.8 : big ? 3.2 : 2.6} fontWeight={c === 'Минск' ? 700 : 500} fill="var(--fg)" fillOpacity={big ? .7 : .5}>{c}</text>
+                  <circle cx={x} cy={y} r={(c === 'Минск' ? 1.4 : big ? 1 : .7) * k} fill="var(--fg)" fillOpacity={big ? .55 : .35} />
+                  <text x={x} y={c === 'Минск' ? y - 4.6 * k : above ? y - 2.2 * k : y + 4.4 * k} textAnchor="middle" fontSize={(c === 'Минск' ? 3.8 : big ? 3.2 : 2.6) * k} fontWeight={c === 'Минск' ? 700 : 500} fill="var(--fg)" fillOpacity={big ? .7 : .5}>{c}</text>
                 </g>
               )
             })}
@@ -337,59 +454,69 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
         {kind === 'ru' && (
           <>
             {/* Садовое кольцо и Бульварное */}
-            <ellipse cx="50" cy="52" rx="38" ry="36" fill="none" stroke="var(--line)" strokeWidth="1.6" />
-            <ellipse cx="50" cy="48" rx="20" ry="18" fill="none" stroke="var(--line)" strokeWidth="1" strokeDasharray="2 1.5" />
+            <ellipse cx="50" cy="52" rx="38" ry="36" fill="none" stroke="var(--line)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+            <ellipse cx="50" cy="48" rx="20" ry="18" fill="none" stroke="var(--line)" strokeWidth="1" vectorEffect="non-scaling-stroke" strokeDasharray="4 3" />
             {/* Москва-река */}
-            <path d="M-2 62 C 14 58, 22 92, 40 90 S 52 66, 50 58 S 66 50, 78 70 S 94 76, 102 70" fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth="4" strokeLinecap="round" />
+            <path d="M-2 62 C 14 58, 22 92, 40 90 S 52 66, 50 58 S 66 50, 78 70 S 94 76, 102 70" fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth={12 * z ** 0.35} vectorEffect="non-scaling-stroke" strokeLinecap="round" />
           </>
         )}
-        {/* Моё положение — приблизительно (если город указан) */}
         {shown.map(({ a, x, y }) => {
           const on = a.id === selected
           return (
             <g key={a.id} onClick={() => onSelect(a.id)} className="cursor-pointer" role="button" aria-label={a.title}>
-              <circle cx={x} cy={y} r="6" fill="transparent" />
-              {on && <circle cx={x} cy={y} r="5" fill="var(--spark)" fillOpacity=".2" />}
-              <circle cx={x} cy={y} r={on ? 3 : 2.3} fill={a.authorId === 'me' ? 'var(--fg)' : 'var(--spark)'} stroke="var(--surface)" strokeWidth=".8" />
+              <circle cx={x} cy={y} r={6 * k} fill="transparent" />
+              {on && <circle cx={x} cy={y} r={5 * k} fill="var(--spark)" fillOpacity=".2" />}
+              <circle cx={x} cy={y} r={(on ? 2.4 : 1.7) * k} fill={a.authorId === 'me' ? 'var(--fg)' : 'var(--spark)'} stroke="var(--surface)" strokeWidth={.6 * k} />
             </g>
           )
         })}
       </svg>
-      {/* Люди рядом — аватарки в их районе (со сдвигом, чтобы не слипались) */}
       {/* На карте страны люди одного города — одним кружком с числом */}
-      {kind === 'by' && Object.entries(people.reduce<Record<string, Person[]>>((m, p) => { (m[cityOf(p.district)] ??= []).push(p); return m }, {})).filter(([, list]) => list.length > 1).map(([place, list]) => {
+      {groups.map(([place, list]) => {
         const [x, y] = placeXY(place, kind)
+        const pos = at(x, y)
+        if (!pos) return null
         const on = selected === `city:${place}`
         return (
           <button key={place} onClick={() => onSelectCity(place)} aria-label={`${place}: ${list.length} чел.`}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center cursor-pointer transition-transform ${on ? 'z-20 scale-110' : 'z-10'}`}
-            style={{ left: `${x}%`, top: `${y}%` }}>
-            {list.slice(0, 2).map((p, i) => <span key={p.id} className={`rounded-full p-[2px] bg-surface shadow-soft ${i ? '-ml-3' : ''}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={26} /></span>)}
-            <span className="-ml-2 grid place-items-center min-w-6 h-6 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold ring-2 ring-surface">{list.length}</span>
+            className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center cursor-pointer ${on ? 'z-20' : 'z-10'}`} style={pos}>
+            {list.slice(0, 2).map((p, i) => <span key={p.id} className={`rounded-full p-[1.5px] ${on ? 'bg-brand' : 'bg-surface'} shadow-soft`} style={{ marginLeft: i ? -px / 2 : 0 }}><Avatar name={p.name} hue={p.hue} src={p.photo} size={px} /></span>)}
+            <span className="-ml-1.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-spark text-on-spark text-[10px] font-bold ring-2 ring-surface">{list.length}</span>
           </button>
         )
       })}
-      {people.filter((p) => kind !== 'by' || people.filter((q) => cityOf(q.district) === cityOf(p.district)).length === 1).map((p) => {
+      {/* Люди рядом — аватарки в их районе (со сдвигом, чтобы не слипались) */}
+      {people.filter((p) => !inGroup.has(p.id)).map((p) => {
         const [x, y] = placeXY(p.district, kind), [jx, jy] = jitter(p.id, kind === 'minsk' ? 14 : 4)
+        const pos = at(Math.min(97, Math.max(3, x + jx)), Math.min(97, Math.max(3, y + jy)))
+        if (!pos) return null
         const on = selected === p.id
         const free = !!p.freeUntil && p.freeUntil > now
         return (
           <button key={p.id} onClick={() => onSelectPerson(p.id)} aria-label={`${p.name}, ${p.district}`}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full p-[2px] cursor-pointer transition-transform ${on ? 'z-20 scale-125 bg-brand' : 'z-10 bg-surface shadow-soft'}`}
-            style={{ left: `${Math.min(96, Math.max(4, x + jx))}%`, top: `${Math.min(96, Math.max(4, y + jy))}%` }}>
-            <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />
-            {free && <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-[#22c55e] ring-2 ring-surface" />}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full cursor-pointer ${on ? 'z-20 p-[2.5px] bg-brand' : 'z-10 p-[1.5px] bg-surface shadow-soft'}`} style={pos}>
+            <Avatar name={p.name} hue={p.hue} src={p.photo} size={on ? Math.round(px * 1.3) : px} />
+            {free && <span className="absolute -right-0.5 -bottom-0.5 rounded-full bg-[#22c55e] ring-2 ring-surface" style={{ width: Math.max(7, px / 3.5), height: Math.max(7, px / 3.5) }} />}
           </button>
         )
       })}
       {/* Я — аватарка с пульсом */}
-      {myDistrict && (
-        <span className="absolute z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ left: `${mx}%`, top: `${my}%` }} aria-label={`Вы: ${myDistrict}`} role="img">
-          <span className="absolute inset-0 -m-2 rounded-full bg-cobalt/30 animate-ping" />
-          <span className="relative block rounded-full p-[2.5px] bg-cobalt shadow-soft"><Avatar name={me.name} hue={me.hue} src={me.photo} size={34} /></span>
+      {meAt && (
+        <span className="absolute z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={meAt} aria-label={`Вы: ${myDistrict}`} role="img">
+          <span className="absolute inset-0 -m-1.5 rounded-full bg-cobalt/30 animate-ping" />
+          <span className="relative block rounded-full p-[2px] bg-cobalt shadow-soft"><Avatar name={me.name} hue={me.hue} src={me.photo} size={px + 4} /></span>
         </span>
       )}
-      <div className="absolute left-3 bottom-3 z-30 flex gap-3 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium">
+      {/* Кнопки масштаба */}
+      <div className="absolute right-3 top-3 z-30 flex flex-col rounded-2xl bg-surface/90 backdrop-blur shadow-soft overflow-hidden" onPointerDown={(e) => e.stopPropagation()}>
+        <button onClick={zoomIn} disabled={z >= MAX_ZOOM} className="grid place-items-center w-9 h-9 text-[20px] font-semibold cursor-pointer disabled:opacity-35" aria-label="Приблизить">+</button>
+        <span className="h-px bg-line" />
+        <button onClick={zoomOut} disabled={z <= 1} className="grid place-items-center w-9 h-9 text-[20px] font-semibold cursor-pointer disabled:opacity-35" aria-label="Отдалить">−</button>
+      </div>
+      {z > 1 && (
+        <button onPointerDown={(e) => e.stopPropagation()} onClick={reset} className="absolute right-3 top-[92px] z-30 grid place-items-center w-9 h-9 rounded-2xl bg-surface/90 backdrop-blur shadow-soft cursor-pointer" aria-label="Показать всю карту"><Icon name="map" size={17} /></button>
+      )}
+      <div className="absolute left-3 bottom-3 z-30 flex gap-3 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium pointer-events-none">
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-spark" /> план</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#22c55e]" /> свободен</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы</span>
