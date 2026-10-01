@@ -459,7 +459,10 @@ function load(): State {
     if (!localStorage.getItem(STORAGE_KEY)) sessionStorage.setItem(SESSION_KEY, '1')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      let parsed = JSON.parse(raw) as State
+      // Временные ссылки на закрытые файлы (фото, видео шортсов) живут несколько часов — старые не берём,
+      // иначе после перерыва телефон показывал бы «просроченные» видео и фото. Свежие придут с сервера.
+      let parsed = JSON.parse(raw, (_k, v) => (typeof v === 'string' && v.includes('/storage/v1/object/sign/') ? undefined : v)) as State
+      if (parsed.cloud) parsed = { ...parsed, shorts: [], stories: [] }
       // Демо переехало из Москвы в Минск: обновляем демо-людей, их планы и переписку, свои планы оставляем.
       if (parsed.version === 2 && !parsed.cloud && parsed.people?.some((p) => p.district === 'Чистые пруды')) {
         const seed = seedState()

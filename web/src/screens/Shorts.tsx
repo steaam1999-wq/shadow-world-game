@@ -121,6 +121,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
   const [comments, setComments] = useState(false)
   const commentCount = useShortComments(s.id).length
   const [portrait, setPortrait] = useState(true)
+  const rf = useVideoFallback(s.url)
   const visible = useRef(false)
 
   // iPhone запускает видео сам только без звука и с атрибутом muted в разметке — ставим его вручную.
@@ -170,8 +171,9 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
       {!portrait && (s.thumb
         ? <img src={s.thumb} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" aria-hidden="true" />
         : <video src={s.url} className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />)}
-      <video ref={video} src={s.url} poster={s.thumb} style={filterStyle(s.filter)} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
+      <video ref={video} src={s.url} poster={s.thumb} onError={rf.onError} style={filterStyle(s.filter)} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
         onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setPortrait(v.videoHeight / v.videoWidth >= 1.3) }} />
+      {rf.broken && <VideoBroken />}
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/30 via-transparent to-black/70" />
       {paused && <span className="absolute inset-0 grid place-items-center pointer-events-none"><span className="grid place-items-center w-20 h-20 rounded-full bg-black/35 backdrop-blur"><Icon name="play" size={36} fill /></span></span>}
 
@@ -319,6 +321,33 @@ function MusicTag({ track }: { track: Track }) {
   )
 }
 
+/**
+ * Видео не открылось: первый раз — берём свежие ссылки с сервера (старая могла истечь),
+ * если и после этого не играет — показываем понятную надпись вместо чёрного экрана.
+ */
+export function useVideoFallback(src?: string) {
+  const tried = useRef(false)
+  const [broken, setBroken] = useState(false)
+  useEffect(() => { setBroken(false) }, [src])
+  const onError = () => {
+    if (!tried.current) { tried.current = true; requestReload(); return }
+    setBroken(true)
+  }
+  return { broken, onError }
+}
+
+export function VideoBroken() {
+  return (
+    <div className="absolute inset-0 grid place-items-center bg-black/70 text-white text-center p-6 pointer-events-none">
+      <div className="flex flex-col items-center gap-2">
+        <Icon name="soundOff" size={28} />
+        <p className="font-semibold">Видео не открывается в этом браузере</p>
+        <p className="text-[13px] text-white/70">Попробуйте Google Chrome или Safari. Возможно, формат видео не поддерживается телефоном.</p>
+      </div>
+    </div>
+  )
+}
+
 /** Публикация в ленте главной: фото или видео с подписью. */
 export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (personId: string) => void }) {
   const openProfile = useOpenProfile()
@@ -330,6 +359,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   const [muted, setMuted] = useState(true)
   const video = useRef<HTMLVideoElement>(null)
   const mine = s.authorId === 'me'
+  const vf = useVideoFallback(s.url)
   const [comments, setComments] = useState(false)
   const commentCount = useShortComments(s.id).length
   const [reporting, setReporting] = useState<Person | null>(null)
@@ -362,8 +392,9 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
           ? <img src={s.url} alt={s.caption || 'Фото'} className="w-full max-h-[75vh] object-contain" style={filterStyle(s.filter)} onError={() => requestReload()} onDoubleClick={() => { if (!hearts.includes(s.id)) toggleHeart(s.id) }} />
           : (
             <>
-              <video ref={(el) => { video.current = el; if (el) { el.muted = muted; el.setAttribute('muted', ''); el.setAttribute('playsinline', '') } }} src={s.url} poster={s.thumb} className="w-full max-h-[75vh] object-contain" style={filterStyle(s.filter)} loop playsInline muted preload="metadata" onClick={() => setMuted((m) => !m)} />
+              <video ref={(el) => { video.current = el; if (el) { el.muted = muted; el.setAttribute('muted', ''); el.setAttribute('playsinline', '') } }} src={s.url} poster={s.thumb} onError={vf.onError} className="w-full max-h-[75vh] object-contain" style={filterStyle(s.filter)} loop playsInline muted preload="metadata" onClick={() => setMuted((m) => !m)} />
               <button onClick={() => setMuted((m) => !m)} className="absolute right-3 bottom-3 grid place-items-center w-8 h-8 rounded-full bg-black/50 text-white cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'}><Icon name={muted ? 'soundOff' : 'sound'} size={16} /></button>
+              {vf.broken && <VideoBroken />}
             </>
           )}
         {filterOf(s.filter).overlay && <div className="absolute inset-0 pointer-events-none mix-blend-soft-light" style={{ background: filterOf(s.filter).overlay }} />}

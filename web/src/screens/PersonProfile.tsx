@@ -36,6 +36,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const [reporting, setReporting] = useState<Person | null>(null)
   const [tab, setTab] = useState<'plans' | 'posts' | 'songs'>('posts')
   const [showFollowers, setShowFollowers] = useState(false)
+  const tasteOf = useTaste() // до раннего выхода: хуки вызываются всегда в одном порядке
   if (!p) return null
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)
@@ -47,7 +48,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const capsule = state.capsules.find((c) => c.personId === p.id)
   const songCount = songsOf(p, !!state.cloud).length
   const listening = nowPlayingOf(p, !!state.cloud)
-  const taste = useTaste()(p)
+  const taste = tasteOf(p)
 
   const message = () => {
     if (capsule) { onOpenChat(capsule.id); return }

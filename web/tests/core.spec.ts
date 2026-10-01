@@ -236,3 +236,13 @@ test('«Мои планы»: карточки со статусом и удал�
   await page.getByRole('alertdialog').getByRole('button', { name: 'Удалить план' }).click()
   await expect(page.locator('li button[aria-label^="Удалить план"]')).toHaveCount(count - 1)
 })
+
+test('просроченные ссылки на файлы не берутся из памяти телефона', async ({ page }) => {
+  await enterDemo(page)
+  await patchState(page, (s) => {
+    s.capsules[0].messages.push({ id: 'old', from: 'them', text: 'старое фото', photo: 'https://x.supabase.co/storage/v1/object/sign/chat/a/b.jpg?token=old', at: Date.now() })
+  })
+  const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('iskra-state')!).capsules[0].messages.find((m: { id: string }) => m.id === 'old'))
+  expect(kept.text).toBe('старое фото')
+  expect(kept.photo).toBeUndefined()
+})

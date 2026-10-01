@@ -1318,6 +1318,14 @@ create policy "report shots: read own or admin" on storage.objects for select to
 drop policy if exists "report shots: admin deletes" on storage.objects;
 create policy "report shots: admin deletes" on storage.objects for delete to authenticated using (bucket_id = 'reports' and private.is_admin());
 
+-- Индексы по внешним ключам на пользователя: удаление аккаунта не перебирает таблицы целиком.
+create index if not exists plan_reminders_sent_user_idx on private.plan_reminders_sent (user_id);
+create index if not exists bug_reports_user_idx on public.bug_reports (user_id);
+create index if not exists chat_tracks_added_by_idx on public.chat_tracks (added_by);
+create index if not exists message_reactions_user_idx on public.message_reactions (user_id);
+create index if not exists no_shows_reporter_idx on public.no_shows (reporter);
+create index if not exists story_views_viewer_idx on public.story_views (viewer);
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$
