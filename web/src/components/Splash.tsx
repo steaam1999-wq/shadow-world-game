@@ -21,7 +21,7 @@ export function Splash() {
       <div className="flex flex-col items-center gap-4">
         <LogoMark size={104} animate />
         <div className="splash-word flex flex-col items-center gap-1">
-          <span className="logo-word text-[40px] leading-none">Match</span>
+          <span className="logo-word text-[40px] leading-none">Match<span className="ml-[0.18em] bg-[image:var(--brand)] bg-clip-text text-transparent">Go</span></span>
           <span className="text-[15px] text-muted">Живые встречи рядом</span>
         </div>
       </div>

@@ -92,9 +92,9 @@ export function LogoMark({ size = 34, animate = false }: { size?: number; animat
 
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Match">
+    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Match Go">
       <LogoMark size={className.includes('text-xl') ? 36 : 32} />
-      <span aria-hidden="true">Match</span>
+      <span aria-hidden="true">Match<span className="ml-[0.18em] bg-[image:var(--brand)] bg-clip-text text-transparent">Go</span></span>
     </span>
   )
 }

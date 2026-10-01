@@ -7,7 +7,7 @@ import { Sheet } from './ui'
 export const DOCS_DATE = '1 октября 2026 года'
 /** Согласие действует, если дано не раньше этой даты (поменяли документы — спросим снова). */
 export const CONSENT_SINCE = Date.UTC(2026, 9, 1)
-const OPERATOR = 'владелец сервиса Match (сведения об операторе будут указаны перед публичным запуском)'
+const OPERATOR = 'владелец сервиса Match Go (сведения об операторе будут указаны перед публичным запуском)'
 const CONTACT = 'через «Профиль → Настройки → Сообщить об ошибке»'
 
 export type DocId = 'terms' | 'privacy' | 'consent'
@@ -27,7 +27,7 @@ function Terms() {
   return (
     <>
       <Part title="1. О сервисе">
-        <p>Match — сервис для встреч с людьми рядом: планы на встречу, чаты, публикации, истории, музыка и карта. Сервис находится в стадии тестирования, предоставляется бесплатно и «как есть»: возможны ошибки и перерывы в работе.</p>
+        <p>Match Go — сервис для встреч с людьми рядом: планы на встречу, чаты, публикации, истории, музыка и карта. Сервис находится в стадии тестирования, предоставляется бесплатно и «как есть»: возможны ошибки и перерывы в работе.</p>
       </Part>
       <Part title="2. Кто может пользоваться">
         <p>Только люди, которым исполнилось <b>18 лет</b>. Один человек — один аккаунт, с настоящим именем и своими фото. Регистрируясь, вы подтверждаете свой возраст и принимаете это соглашение.</p>
@@ -147,7 +147,7 @@ export function DocsSheet({ open, onClose, initial = 'terms' }: { open: boolean;
   const [doc, setDoc] = useState<DocId>(initial)
   useEffect(() => { if (open) setDoc(initial) }, [open, initial])
   return (
-    <Sheet open={open} onClose={onClose} title="Документы Match">
+    <Sheet open={open} onClose={onClose} title="Документы Match Go">
       <div className="flex flex-col gap-5 pb-2">
         <div className="flex p-1 rounded-full bg-surface-2 -mt-1" role="tablist" aria-label="Документы">
           {(Object.keys(DOC_TITLES) as DocId[]).map((id) => (
@@ -155,7 +155,7 @@ export function DocsSheet({ open, onClose, initial = 'terms' }: { open: boolean;
               className={`flex-1 h-9 rounded-full text-[13px] font-semibold cursor-pointer transition ${doc === id ? 'bg-surface shadow-soft' : 'text-muted'}`}>{DOC_TITLES[id]}</button>
           ))}
         </div>
-        <p className="text-[12.5px] text-muted">Редакция от {DOCS_DATE}. Match — проект в стадии тестирования.</p>
+        <p className="text-[12.5px] text-muted">Редакция от {DOCS_DATE}. Match Go — проект в стадии тестирования.</p>
         {doc === 'terms' ? <Terms /> : doc === 'privacy' ? <Privacy /> : <Consent />}
       </div>
     </Sheet>

@@ -457,7 +457,7 @@ function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Shor
             if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text: `${text}\n${link}` }); onClose(); return }
           } catch (e) { if ((e as Error).name === 'AbortError') return }
         }
-        await navigator.share({ title: 'Match', text, url: link }); onClose(); return
+        await navigator.share({ title: 'Match Go', text, url: link }); onClose(); return
       }
     } catch (e) { if ((e as Error).name === 'AbortError') return }
     await copy(link, 'Ссылка скопирована')

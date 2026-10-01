@@ -358,7 +358,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
   // Счётчик непрочитанных — в заголовке вкладки и на иконке приложения.
   const unread = state.capsules.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) + (state.groups ?? []).reduce((n, g) => n + (g.unread > 0 ? 1 : 0), 0)
   useEffect(() => {
-    document.title = unread ? `(${unread}) Match` : 'Match'
+    document.title = unread ? `(${unread}) Match Go` : 'Match Go'
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
     try { void (unread ? nav.setAppBadge?.(unread) : nav.clearAppBadge?.())?.catch(() => {}) } catch { /* ignore */ }
   }, [unread])

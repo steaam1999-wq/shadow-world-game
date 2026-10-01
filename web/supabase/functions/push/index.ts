@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     if (!f) return new Response('no follow', { status: 404 })
     const { data: who } = await db.from('profiles').select('name').eq('id', body.follower).maybeSingle()
     to = [body.followee]
-    payload = JSON.stringify({ title: 'Match', body: `${who?.name ?? 'Кто-то'} подписал(ась) на вас`, kind: 'follow', person: body.follower })
+    payload = JSON.stringify({ title: 'Match Go', body: `${who?.name ?? 'Кто-то'} подписал(ась) на вас`, kind: 'follow', person: body.follower })
     topic = 'follow'
   } else {
     const message_id = body.message_id
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     to = [c.author === m.sender ? c.responder : c.author]
     const { data: sender } = await db.from('profiles').select('name').eq('id', m.sender).maybeSingle()
     const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : 'Новое сообщение')
-    payload = JSON.stringify({ title: sender?.name ?? 'Match', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
+    payload = JSON.stringify({ title: sender?.name ?? 'Match Go', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
     topic = String(m.capsule_id).replace(/-/g, '').slice(0, 32)
   }
   if (!to.length) return new Response('no recipients', { status: 200 })

@@ -139,7 +139,7 @@ test('без галочки 18+ и согласия регистрация не 
 test('документы открываются по ссылке из согласия', async ({ page }) => {
   await page.goto('./')
   await page.getByRole('button', { name: 'политику конфиденциальности' }).click()
-  const docs = page.getByRole('dialog', { name: 'Документы Match' })
+  const docs = page.getByRole('dialog', { name: 'Документы Match Go' })
   await expect(docs.getByRole('tab', { name: 'Конфиденциальность' })).toHaveAttribute('aria-selected', 'true')
   await expect(docs.getByText('Геопозиция')).toBeVisible()
   await docs.getByRole('tab', { name: 'Согласие' }).click()

@@ -200,7 +200,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
   }
   const shareOut = async () => {
     try {
-      if (navigator.share) { await navigator.share({ title: 'Match', text }); dispatch({ type: 'repost', activityId: activity.id }); setSheet(false); return }
+      if (navigator.share) { await navigator.share({ title: 'Match Go', text }); dispatch({ type: 'repost', activityId: activity.id }); setSheet(false); return }
     } catch { /* отменили или недоступно — копируем */ }
     await copy()
   }
