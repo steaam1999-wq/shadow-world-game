@@ -30,3 +30,10 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Автотесты
+
+`npm test` — собирает демо-версию (`npm run build:demo`, без сервера) и проверяет в браузере главное:
+вход, создание плана, чат, удаление чата с «Вернуть», историю на весь экран, окна подтверждения,
+карту (GPS, люди рядом, приближение) и самолётик «Поделиться». Тесты лежат в `tests/`.
+Если Chromium установлен не там, где его ищет Playwright, укажите путь: `CHROMIUM_PATH=/путь/к/chromium npm test`.

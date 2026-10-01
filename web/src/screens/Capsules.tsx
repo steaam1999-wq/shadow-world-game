@@ -149,10 +149,13 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
     setSwiped(null)
     setRemoving(id)
     setTimeout(() => { setRemoving(null); setUndo({ id, name }) }, 300)
-    const timer = setTimeout(() => { commit.current?.() }, 4500)
-    commit.current = () => { clearTimeout(timer); commit.current = null; setUndo(null); dispatch({ type: 'hideChat', capsuleId: id }) }
+    const timer = setTimeout(() => { if (commit.current === done) done() }, 4500) // только своё удаление, не следующее
+    const done = () => { clearTimeout(timer); commit.current = null; setUndo(null); dispatch({ type: 'hideChat', capsuleId: id }) }
+    commit.current = done
+    cancel.current = () => clearTimeout(timer)
   }
-  const restore = () => { const id = undo?.id; commit.current = null; setUndo(null); if (id) setSwiped(null) }
+  const cancel = useRef<(() => void) | null>(null)
+  const restore = () => { cancel.current?.(); commit.current = null; setUndo(null); setSwiped(null) }
   const [creating, setCreating] = useState(false)
   const [leavingGroup, setLeavingGroup] = useState<string | null>(null)
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt

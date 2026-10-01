@@ -8,5 +8,12 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 export default defineConfig(({ mode }) => ({
   base: './',
   plugins: [react(), tailwindcss(), ...(mode === 'single' ? [viteSingleFile()] : [])],
-  build: mode === 'single' ? { outDir: 'dist-single' } : {},
+  // Библиотеки — отдельными файлами: они почти не меняются и остаются в кэше телефона после обновлений сайта.
+  build: mode === 'single' ? { outDir: 'dist-single' } : {
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => (/node_modules\/(react|react-dom|scheduler)\//.test(id) ? 'react' : /node_modules\/@supabase\//.test(id) ? 'supabase' : undefined),
+      },
+    },
+  },
 }))

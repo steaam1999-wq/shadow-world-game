@@ -11,7 +11,7 @@ import type { Person, Short } from '../types'
 import type { Track } from '../music/engine'
 import { ReportSheet } from './Vibe'
 import { ShortCommentsSheet, useShortComments } from '../components/Comments'
-import { NewPublication } from './Composer'
+import { NewPublication } from './LazyComposer'
 import { filterOf, filterStyle } from '../components/storyFilters'
 import { usePlayer } from '../music/player'
 import { PlaneSend } from '../components/ShareButton'
@@ -306,7 +306,7 @@ function useBackfillThumbs(list: Short[]) {
   }, [userId, list])
 }
 
-export { NewPublication } from './Composer'
+export { NewPublication } from './LazyComposer'
 
 /** Песня публикации: плашка поверх фото, нажатие включает её. */
 function MusicTag({ track }: { track: Track }) {

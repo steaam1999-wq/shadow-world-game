@@ -10,4 +10,5 @@ export const SUPABASE_ANON_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY 
 // Публичный ключ для push-уведомлений (закрытая пара хранится в секретах Supabase).
 export const VAPID_PUBLIC_KEY = 'BNFGUbBGFotZRRYiTQB7yIAHgNtchaFnh9y4D5MMfhsumLndmotqVJfwp5qEOnLcQu9SkkAgMjT6aF1ajqDF0jM'
 
-export const cloudEnabled = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
+// Сборка `--mode demo` (для автотестов) всегда работает без сервера, на демо-данных.
+export const cloudEnabled = import.meta.env.MODE !== 'demo' && !!(SUPABASE_URL && SUPABASE_ANON_KEY)
