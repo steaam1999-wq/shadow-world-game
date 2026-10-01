@@ -62,6 +62,19 @@ export function placeDistanceKm(from: string, to: string) {
   return Math.max(0.5, Math.round(12742 * Math.asin(Math.sqrt(h)) * 10) / 10)
 }
 
+/** Ближайшее известное место к координатам (для «Определить по GPS»). Сами координаты нигде не сохраняются. */
+export function nearestPlace(lat: number, lon: number): { name: string; km: number } | null {
+  let best: { name: string; km: number } | null = null
+  const r = Math.PI / 180
+  for (const [name, p] of INDEX) {
+    if (name === 'Минск') continue // в Минске — сразу район
+    const h = Math.sin(((p.lat - lat) * r) / 2) ** 2 + Math.cos(lat * r) * Math.cos(p.lat * r) * Math.sin(((p.lon - lon) * r) / 2) ** 2
+    const km = 12742 * Math.asin(Math.sqrt(h))
+    if (!best || km < best.km) best = { name, km }
+  }
+  return best
+}
+
 export type MapKind = 'minsk' | 'by' | 'ru'
 /** Какую карту показывать человеку из этого места: схему Минска, карту Беларуси или схему центра Москвы. */
 export function mapKindOf(name: string): MapKind {

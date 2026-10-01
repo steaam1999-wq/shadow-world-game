@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PlanMusicPicker } from '../music/PlanMusic'
-import { PlaceOptions, byXY, knownKm, mapKindOf, minskXY, placeDistanceKm, placeInfo, placeXY } from '../places'
+import { PlaceOptions, byXY, formatKm, knownKm, mapKindOf, minskXY, nearestPlace, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { ActivityCard } from '../components/ActivityCard'
 import { PostArt } from '../components/PostArt'
-import { Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
+import { useOpenProfile } from '../nav'
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
-import type { Activity, PlanMusic } from '../types'
+import type { Activity, Me, Person, PlanMusic } from '../types'
 
 const RADII = [3, 10, 50, 500]
 const TIMES = [
@@ -30,7 +31,6 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
   const [time, setTime] = useState<(typeof TIMES)[number]['id']>('all')
   const [cats, setCats] = useState<string[]>([])
   const [groupsOnly, setGroupsOnly] = useState(false)
-  const [selected, setSelected] = useState<string | null>(null)
   const [open, setOpen] = useState<string | null>(null)
 
   const items = useMemo(() => {
@@ -61,7 +61,6 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       .sort((a, b) => a.startsAt - b.startsAt)
   }, [state.activities, state.people, me.radiusKm, cats, time, now, query, groupsOnly])
 
-  const selectedItem = items.find((a) => a.id === selected) ?? null
   const opened = state.activities.find((a) => a.id === open) ?? null
 
   return (
@@ -127,16 +126,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
 
       {mode === 'people' && <div className="px-4"><Vibe now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} /></div>}
 
-      {mode === 'map' && (
-        <div className="px-4 flex flex-col gap-3">
-          <CityMap items={items} selected={selected} onSelect={setSelected} myDistrict={me.district} />
-          {selectedItem ? (
-            <ActivityCard activity={selectedItem} person={state.people.find((p) => p.id === selectedItem.authorId) ?? null} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} compact />
-          ) : (
-            <p className="text-center text-[13px] text-muted">Нажмите на точку, чтобы увидеть план. На карте показаны районы, не точные адреса.</p>
-          )}
-        </div>
-      )}
+      {mode === 'map' && <MapTab items={items} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />}
 
       {opened && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="План">
@@ -178,7 +168,124 @@ function jitter(id: string, size: number): [number, number] {
   return [((h & 0xff) / 255 - 0.5) * size, (((h >> 8) & 0xff) / 255 - 0.5) * size]
 }
 
-function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[]; selected: string | null; onSelect: (id: string) => void; myDistrict: string }) {
+/** Город места: районы Минска на карте страны собираются в «Минск». */
+const cityOf = (place: string) => (place.startsWith('Минск') ? 'Минск' : place)
+
+/** Кто рядом: люди с указанным городом/районом в пределах радиуса (на этой же карте). */
+function useNearbyPeople(me: Me) {
+  const { state } = useStore()
+  return useMemo(() => {
+    const kind = mapKindOf(me.district)
+    return state.people
+      .filter((p) => p.district && placeInfo(p.district))
+      .filter((p) => { const k = mapKindOf(p.district); return kind === 'ru' ? k === 'ru' : kind === 'minsk' ? k === 'minsk' : k !== 'ru' })
+      .map((p) => ({ p, km: me.district ? placeDistanceKm(me.district, p.district) : 999 }))
+      .filter((x) => !me.district || x.km <= Math.max(me.radiusKm, kind === 'minsk' ? 50 : me.radiusKm))
+      .sort((a, b) => a.km - b.km)
+      .slice(0, 60)
+  }, [state.people, me.district, me.radiusKm])
+}
+
+/** Вкладка «Карта»: я, люди рядом и планы. */
+function MapTab({ items, now, onRespond, onOpenCapsule }: { items: Activity[]; now: number; onRespond: (a: Activity, text?: string) => void; onOpenCapsule: (activityId: string) => void }) {
+  const { state, dispatch } = useStore()
+  const me = state.me!
+  const openProfile = useOpenProfile()
+  const people = useNearbyPeople(me)
+  const [layers, setLayers] = useState({ people: true, plans: true })
+  const [selected, setSelected] = useState<{ kind: 'plan' | 'person' | 'city'; id: string } | null>(null)
+  const [city, setCity] = useState<string | null>(null) // открытый кружок города на карте страны
+  const [locating, setLocating] = useState(false)
+  const [geoError, setGeoError] = useState('')
+  const selPlan = selected?.kind === 'plan' ? items.find((a) => a.id === selected.id) ?? null : null
+  const selPerson = selected?.kind === 'person' ? people.find((x) => x.p.id === selected.id) ?? null : null
+
+  const locate = () => {
+    if (!navigator.geolocation) { setGeoError('Этот браузер не умеет определять место — выберите город из списка.'); return }
+    setLocating(true); setGeoError('')
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setLocating(false)
+      const near = nearestPlace(pos.coords.latitude, pos.coords.longitude)
+      if (!near || near.km > 60) { setGeoError('Рядом с вами пока нет городов из списка — выберите ближайший вручную.'); return }
+      dispatch({ type: 'updateMe', patch: { district: near.name } })
+    }, (e) => {
+      setLocating(false)
+      setGeoError(e.code === 1 ? 'Доступ к геопозиции запрещён — разрешите его в настройках браузера или выберите город из списка.' : 'Не получилось определить место — выберите город из списка.')
+    }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 })
+  }
+
+  return (
+    <div className="px-4 flex flex-col gap-3">
+      {!me.district ? (
+        <section className="rounded-[24px] bg-surface shadow-soft p-4 flex flex-col gap-3" aria-label="Ваше место">
+          <div className="flex items-start gap-3">
+            <span className="grid place-items-center w-10 h-10 shrink-0 rounded-xl bg-cobalt text-white"><Icon name="pin" size={20} /></span>
+            <div>
+              <h2 className="font-display font-bold text-[16px]">Покажите себя на карте</h2>
+              <p className="text-[13.5px] text-muted leading-snug mt-0.5">Укажите район или город — вы появитесь на карте, а мы покажем, кто рядом. Точный адрес никто не увидит.</p>
+            </div>
+          </div>
+          <button onClick={locate} disabled={locating} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"><Icon name="pin" size={18} /> {locating ? 'Определяем…' : 'Определить по GPS'}</button>
+          <select aria-label="Мой город или район" className={inputCls} value="" onChange={(e) => e.target.value && dispatch({ type: 'updateMe', patch: { district: e.target.value } })}>
+            <option value="">Или выберите из списка…</option>
+            <PlaceOptions none={false} />
+          </select>
+          {geoError && <p className="text-[13px] text-danger" role="alert">{geoError}</p>}
+        </section>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="flex-1 min-w-0 text-[13px] text-muted truncate"><Icon name="pin" size={13} className="inline -mt-0.5" /> Вы: <b className="text-fg">{me.district}</b></span>
+          <button onClick={locate} disabled={locating} className="shrink-0 h-8 px-3 rounded-full bg-surface-2 text-[12.5px] font-semibold cursor-pointer disabled:opacity-60">{locating ? 'Определяем…' : 'Обновить по GPS'}</button>
+        </div>
+      )}
+      {me.district && geoError && <p className="text-[13px] text-danger" role="alert">{geoError}</p>}
+
+      <div className="flex gap-2">
+        <Chip active={layers.people} onClick={() => setLayers((l) => ({ ...l, people: !l.people }))}>Люди · {people.length}</Chip>
+        <Chip active={layers.plans} onClick={() => setLayers((l) => ({ ...l, plans: !l.plans }))}>Планы · {items.length}</Chip>
+      </div>
+
+      <CityMap items={layers.plans ? items : []} people={layers.people ? people.map((x) => x.p) : []} me={me}
+        selected={selected?.kind === 'person' && city ? `city:${city}` : selected?.kind === 'city' ? `city:${selected.id}` : selected?.id ?? null}
+        onSelect={(id) => { setCity(null); setSelected({ kind: 'plan', id }) }} onSelectPerson={(id) => { setCity(null); setSelected({ kind: 'person', id }) }}
+        onSelectCity={(place) => { setCity(place); setSelected({ kind: 'city', id: place }) }} />
+
+      {city && (
+        <div className="anim-rise flex flex-col gap-2">
+          <p className="text-[13px] font-semibold">{city} · {people.filter((x) => cityOf(x.p.district) === city).length} чел.</p>
+          <div className="-mx-4 px-4 flex gap-3 overflow-x-auto no-scrollbar">
+            {people.filter((x) => cityOf(x.p.district) === city).map(({ p }) => (
+              <button key={p.id} onClick={() => setSelected({ kind: 'person', id: p.id })} className="flex flex-col items-center gap-1 w-16 shrink-0 cursor-pointer" aria-label={p.name}>
+                <span className={`rounded-full p-[2px] ${selected?.id === p.id ? 'bg-brand' : ''}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={52} /></span>
+                <span className="text-[12px] truncate w-full text-center">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selPerson ? (
+        <section className="anim-rise rounded-[24px] bg-surface shadow-soft p-4 flex items-center gap-3" aria-label={selPerson.p.name}>
+          <Avatar name={selPerson.p.name} hue={selPerson.p.hue} src={selPerson.p.photo} size={56} verified={selPerson.p.verified} />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold truncate">{selPerson.p.name}{selPerson.p.age ? `, ${selPerson.p.age}` : ''}</div>
+            <div className="text-[13px] text-muted truncate">{selPerson.p.district}{knownKm(selPerson.km) ? ` · ${formatKm(selPerson.km)}` : ''}</div>
+            <div className="text-[12.5px] font-semibold text-spark">{compatibility(me, selPerson.p).score}% вайб{selPerson.p.freeUntil && selPerson.p.freeUntil > now ? ' · свободен сейчас' : ''}</div>
+          </div>
+          <button onClick={() => openProfile(selPerson.p.id)} className="shrink-0 h-10 px-4 rounded-full bg-brand text-white font-semibold text-[14px] cursor-pointer">Профиль</button>
+        </section>
+      ) : selPlan ? (
+        <ActivityCard activity={selPlan} person={state.people.find((p) => p.id === selPlan.authorId) ?? null} now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} compact />
+      ) : (
+        <p className="text-center text-[13px] text-muted">Нажмите на человека или точку плана. На карте — районы, не точные адреса.</p>
+      )}
+    </div>
+  )
+}
+
+function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSelectCity }: { items: Activity[]; people: Person[]; me: Me; selected: string | null; onSelect: (id: string) => void; onSelectPerson: (id: string) => void; onSelectCity: (place: string) => void }) {
+  const myDistrict = me.district
+  const now = Date.now()
   const kind = mapKindOf(myDistrict)
   const [dx, dy] = placeXY(myDistrict, kind)
   const [mx, my] = kind === 'ru' ? [dx + 4, dy + 5] : [dx, dy] // в Москве смещаем, чтобы метка не совпадала с активностями района
@@ -237,8 +344,6 @@ function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[];
           </>
         )}
         {/* Моё положение — приблизительно (если город указан) */}
-        {myDistrict && <circle cx={mx} cy={my} r={kind === 'by' ? 5 : 9} fill="var(--cobalt)" fillOpacity=".12" />}
-        {myDistrict && <circle cx={mx} cy={my} r="1.8" fill="var(--cobalt)" stroke="var(--surface)" strokeWidth=".8" />}
         {shown.map(({ a, x, y }) => {
           const on = a.id === selected
           return (
@@ -250,9 +355,44 @@ function CityMap({ items, selected, onSelect, myDistrict }: { items: Activity[];
           )
         })}
       </svg>
-      <div className="absolute left-3 bottom-3 flex gap-3 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-spark" /> активность</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы ({kind === 'by' ? 'город' : 'район'})</span>
+      {/* Люди рядом — аватарки в их районе (со сдвигом, чтобы не слипались) */}
+      {/* На карте страны люди одного города — одним кружком с числом */}
+      {kind === 'by' && Object.entries(people.reduce<Record<string, Person[]>>((m, p) => { (m[cityOf(p.district)] ??= []).push(p); return m }, {})).filter(([, list]) => list.length > 1).map(([place, list]) => {
+        const [x, y] = placeXY(place, kind)
+        const on = selected === `city:${place}`
+        return (
+          <button key={place} onClick={() => onSelectCity(place)} aria-label={`${place}: ${list.length} чел.`}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center cursor-pointer transition-transform ${on ? 'z-20 scale-110' : 'z-10'}`}
+            style={{ left: `${x}%`, top: `${y}%` }}>
+            {list.slice(0, 2).map((p, i) => <span key={p.id} className={`rounded-full p-[2px] bg-surface shadow-soft ${i ? '-ml-3' : ''}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={26} /></span>)}
+            <span className="-ml-2 grid place-items-center min-w-6 h-6 px-1.5 rounded-full bg-spark text-on-spark text-[11px] font-bold ring-2 ring-surface">{list.length}</span>
+          </button>
+        )
+      })}
+      {people.filter((p) => kind !== 'by' || people.filter((q) => cityOf(q.district) === cityOf(p.district)).length === 1).map((p) => {
+        const [x, y] = placeXY(p.district, kind), [jx, jy] = jitter(p.id, kind === 'minsk' ? 14 : 4)
+        const on = selected === p.id
+        const free = !!p.freeUntil && p.freeUntil > now
+        return (
+          <button key={p.id} onClick={() => onSelectPerson(p.id)} aria-label={`${p.name}, ${p.district}`}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full p-[2px] cursor-pointer transition-transform ${on ? 'z-20 scale-125 bg-brand' : 'z-10 bg-surface shadow-soft'}`}
+            style={{ left: `${Math.min(96, Math.max(4, x + jx))}%`, top: `${Math.min(96, Math.max(4, y + jy))}%` }}>
+            <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />
+            {free && <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-[#22c55e] ring-2 ring-surface" />}
+          </button>
+        )
+      })}
+      {/* Я — аватарка с пульсом */}
+      {myDistrict && (
+        <span className="absolute z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ left: `${mx}%`, top: `${my}%` }} aria-label={`Вы: ${myDistrict}`} role="img">
+          <span className="absolute inset-0 -m-2 rounded-full bg-cobalt/30 animate-ping" />
+          <span className="relative block rounded-full p-[2.5px] bg-cobalt shadow-soft"><Avatar name={me.name} hue={me.hue} src={me.photo} size={34} /></span>
+        </span>
+      )}
+      <div className="absolute left-3 bottom-3 z-30 flex gap-3 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-spark" /> план</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#22c55e]" /> свободен</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cobalt" /> вы</span>
       </div>
     </div>
   )
