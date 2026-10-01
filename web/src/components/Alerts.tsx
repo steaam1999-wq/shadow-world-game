@@ -2,17 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { cloudEnabled, VAPID_PUBLIC_KEY } from '../cloud/config'
 import { savePushSubscription } from '../cloud/api'
-import { Avatar, Button, Icon, Toggle } from './ui'
+import { Avatar, Icon, Toggle } from './ui'
 import type { Person } from '../types'
 
 // Оповещения о новых сообщениях: звук «капелька», баннер сверху, счётчик на иконке
 // и системное уведомление, когда вкладка свёрнута.
 
 const KEY = 'iskra-alerts'
-interface Prefs { sound: boolean; system: boolean }
+interface Prefs { sound: boolean; system: boolean; tone: ToneId }
 
 function readPrefs(): Prefs {
-  try { return { sound: true, system: false, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { sound: true, system: false } }
+  try { return { sound: true, system: false, tone: 'drop', ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { sound: true, system: false, tone: 'drop' } }
 }
 const listeners = new Set<(p: Prefs) => void>()
 function writePrefs(p: Prefs) {
@@ -25,38 +25,78 @@ function usePrefs(): [Prefs, (p: Partial<Prefs>) => void] {
   return [prefs, (p) => writePrefs({ ...readPrefs(), ...p })]
 }
 
-// «Капелька» — готовый WAV в памяти. Обычный аудиоэлемент iPhone играет даже при выключенном
-// звонке (Web Audio там молчит), но только если его однажды «разбудить» касанием экрана.
-function dropWav(): string {
-  const rate = 22050, len = Math.round(rate * 0.34)
-  const data = new Int16Array(len)
-  const drop = (start: number, from: number, to: number, vol: number) => {
-    let phase = 0
-    for (let i = 0; i < rate * 0.22 && start + i < len; i++) {
-      const t = i / rate
-      const f = from * Math.pow(to / from, Math.min(1, t / 0.07))
-      phase += (2 * Math.PI * f) / rate
-      const env = Math.min(1, t / 0.006) * Math.exp(-t / 0.045)
-      data[start + i] = Math.max(-32767, Math.min(32767, data[start + i] + Math.sin(phase) * env * vol * 32767))
+// Звуки уведомлений — короткие и мягкие, собираются прямо в браузере (готовый WAV в памяти).
+// Обычный аудиоэлемент iPhone играет даже при выключенном звонке (Web Audio там молчит),
+// но только если его однажды «разбудить» касанием экрана.
+
+export type ToneId = 'drop' | 'bubble' | 'bell' | 'marimba' | 'crystal' | 'kalimba' | 'tap'
+export const TONES: { id: ToneId; name: string; desc: string }[] = [
+  { id: 'drop', name: 'Капелька', desc: 'Фирменный звук Match' },
+  { id: 'bubble', name: 'Пузырёк', desc: 'Лёгкий «бульк»' },
+  { id: 'kalimba', name: 'Калимба', desc: 'Тёплая деревянная нота' },
+  { id: 'marimba', name: 'Маримба', desc: 'Две мягкие ноты' },
+  { id: 'bell', name: 'Колокольчик', desc: 'Тихий и долгий' },
+  { id: 'crystal', name: 'Хрусталь', desc: 'Три высокие искры' },
+  { id: 'tap', name: 'Тихий тап', desc: 'Почти неслышный' },
+]
+
+const RATE = 22050
+interface Note { at: number; from: number; to?: number; glide?: number; vol: number; attack: number; decay: number; len: number; partials?: [number, number][] }
+const NOTES: Record<ToneId, Note[]> = {
+  drop: [{ at: 0, from: 520, to: 1350, glide: 0.07, vol: 0.55, attack: 0.006, decay: 0.045, len: 0.22 }, { at: 0.11, from: 900, to: 1700, glide: 0.07, vol: 0.2, attack: 0.006, decay: 0.045, len: 0.22 }],
+  bubble: [{ at: 0, from: 260, to: 760, glide: 0.06, vol: 0.5, attack: 0.004, decay: 0.05, len: 0.2 }, { at: 0.09, from: 420, to: 1000, glide: 0.05, vol: 0.28, attack: 0.004, decay: 0.04, len: 0.15 }],
+  kalimba: [{ at: 0, from: 784, vol: 0.42, attack: 0.002, decay: 0.16, len: 0.55, partials: [[5.4, 0.12]] }],
+  marimba: [{ at: 0, from: 659, vol: 0.42, attack: 0.003, decay: 0.09, len: 0.35, partials: [[4, 0.15]] }, { at: 0.13, from: 988, vol: 0.36, attack: 0.003, decay: 0.09, len: 0.35, partials: [[4, 0.15]] }],
+  bell: [{ at: 0, from: 1318, vol: 0.26, attack: 0.008, decay: 0.35, len: 0.9, partials: [[2.01, 0.25], [3, 0.08]] }],
+  crystal: [1568, 2093, 2637].map((f, i) => ({ at: i * 0.08, from: f, vol: 0.17, attack: 0.004, decay: 0.12, len: 0.4, partials: [[2, 0.2]] as [number, number][] })),
+  tap: [{ at: 0, from: 600, to: 420, glide: 0.03, vol: 0.4, attack: 0.002, decay: 0.025, len: 0.1 }],
+}
+
+const cache = new Map<ToneId, Float32Array>()
+function samples(id: ToneId): Float32Array {
+  const hit = cache.get(id)
+  if (hit) return hit
+  const notes = NOTES[id]
+  const total = Math.max(...notes.map((n) => n.at + n.len)) + 0.02
+  const out = new Float32Array(Math.round(RATE * total))
+  for (const n of notes) {
+    const start = Math.round(n.at * RATE)
+    const parts: [number, number][] = [[1, 1], ...(n.partials ?? [])]
+    const phase = parts.map(() => 0)
+    for (let i = 0; i < n.len * RATE && start + i < out.length; i++) {
+      const t = i / RATE
+      const f = n.to ? n.from * Math.pow(n.to / n.from, Math.min(1, t / (n.glide ?? 0.05))) : n.from
+      const env = Math.min(1, t / n.attack) * Math.exp(-t / n.decay)
+      let v = 0
+      parts.forEach(([mult, amp], k) => { phase[k] += (2 * Math.PI * f * mult) / RATE; v += Math.sin(phase[k]) * amp })
+      out[start + i] += v * env * n.vol
     }
   }
-  drop(0, 520, 1350, 0.55)
-  drop(Math.round(rate * 0.11), 900, 1700, 0.2) // тихое «эхо» капли
+  for (let i = 0; i < out.length; i++) out[i] = Math.max(-1, Math.min(1, out[i]))
+  cache.set(id, out)
+  return out
+}
+
+function wav(id: ToneId): string {
+  const data = samples(id)
+  const len = data.length
   const buf = new ArrayBuffer(44 + len * 2), v = new DataView(buf)
   const str = (o: number, t: string) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)) }
   str(0, 'RIFF'); v.setUint32(4, 36 + len * 2, true); str(8, 'WAVE'); str(12, 'fmt ')
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true)
-  v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, len * 2, true)
-  data.forEach((x, i) => v.setInt16(44 + i * 2, x, true))
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, RATE, true)
+  v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, len * 2, true)
+  data.forEach((x, i) => v.setInt16(44 + i * 2, Math.round(x * 32767), true))
   let bin = ''
   new Uint8Array(buf).forEach((x) => (bin += String.fromCharCode(x)))
   return 'data:audio/wav;base64,' + btoa(bin)
 }
 
-let el: HTMLAudioElement | null = null
-let unlocked = false
-function dropEl() {
-  if (!el && typeof Audio !== 'undefined') { el = new Audio(dropWav()); el.preload = 'auto' }
+const els = new Map<ToneId, HTMLAudioElement>()
+const unlockedEls = new Set<ToneId>()
+function toneEl(id: ToneId) {
+  if (typeof Audio === 'undefined') return null
+  let el = els.get(id)
+  if (!el) { el = new Audio(wav(id)); el.preload = 'auto'; els.set(id, el) }
   return el
 }
 let ctx: AudioContext | null = null
@@ -69,43 +109,37 @@ function audioCtx() {
   if (ctx.state !== 'running') void ctx.resume().catch(() => {})
   return ctx
 }
-// Браузеры дают играть звук только после касания: «будим» звук на каждом касании, пока не получится.
+// Браузеры дают играть звук только после касания: «будим» выбранный звук на каждом касании, пока не получится.
 function unlock() {
   audioCtx()
-  const a = dropEl()
-  if (!a || unlocked) return
+  const id = readPrefs().tone
+  const a = toneEl(id)
+  if (!a || unlockedEls.has(id)) return
   a.muted = true
-  a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; unlocked = true }).catch(() => { a.muted = false })
+  a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; unlockedEls.add(id) }).catch(() => { a.muted = false })
 }
 if (typeof window !== 'undefined') for (const ev of ['touchend', 'click', 'keydown']) window.addEventListener(ev, unlock, { capture: true, passive: true })
 
 /** Запасной вариант через Web Audio: когда уже играет музыка (второй аудиоэлемент на iPhone её бы остановил). */
-function dropWebAudio() {
+function playWebAudio(id: ToneId) {
   const ac = audioCtx()
   if (!ac) return
-  const t = ac.currentTime + 0.01
-  const drop = (at: number, from: number, to: number, vol: number) => {
-    const o = ac.createOscillator(), g = ac.createGain()
-    o.type = 'sine'
-    o.frequency.setValueAtTime(from, at)
-    o.frequency.exponentialRampToValueAtTime(to, at + 0.07)
-    g.gain.setValueAtTime(0.0001, at)
-    g.gain.exponentialRampToValueAtTime(vol, at + 0.008)
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.22)
-    o.connect(g).connect(ac.destination)
-    o.start(at); o.stop(at + 0.25)
-  }
-  drop(t, 520, 1350, 0.35)
-  drop(t + 0.11, 900, 1700, 0.12)
+  const data = samples(id)
+  const b = ac.createBuffer(1, data.length, RATE)
+  b.getChannelData(0).set(data)
+  const src = ac.createBufferSource()
+  src.buffer = b
+  src.connect(ac.destination)
+  src.start()
 }
 
-/** Звук «капелька». */
-export function playDrop() {
+/** Звук уведомления (выбранный в настройках или переданный — для «послушать»). */
+export function playDrop(id: ToneId = readPrefs().tone) {
   const busy = Array.from(document.querySelectorAll('audio, video')).some((m) => !(m as HTMLMediaElement).paused && !(m as HTMLMediaElement).muted)
-  const a = dropEl()
-  if (busy || !a) { dropWebAudio(); return }
+  const a = toneEl(id)
+  if (busy || !a) { playWebAudio(id); return }
   a.currentTime = 0
-  a.play().catch(() => dropWebAudio())
+  a.play().catch(() => playWebAudio(id))
 }
 
 async function notifySystem(title: string, body: string, chat: string, icon?: string) {
@@ -259,8 +293,27 @@ export function AlertSettings() {
     <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
       <h2 className="font-display font-bold text-lg py-3">Уведомления</h2>
       <div>
-        <Toggle id="al-sound" checked={prefs.sound} onChange={(v) => { set({ sound: v }); if (v) playDrop() }} label="Звук «капелька»" hint="Когда приходит новое сообщение" />
-        {prefs.sound && <Button variant="ghost" className="!h-9 !px-3 mb-2 self-start" onClick={playDrop}><Icon name="drop" size={16} /> Послушать</Button>}
+        <Toggle id="al-sound" checked={prefs.sound} onChange={(v) => { set({ sound: v }); if (v) playDrop() }} label="Звук уведомлений" hint={`Сейчас: ${TONES.find((t) => t.id === prefs.tone)?.name ?? 'Капелька'} — нажмите на звук, чтобы послушать и выбрать`} />
+        {prefs.sound && (
+          <ul className="flex flex-col gap-1 pb-3" role="radiogroup" aria-label="Звук уведомлений">
+            {TONES.map((t) => {
+              const on = prefs.tone === t.id
+              return (
+                <li key={t.id}>
+                  <button role="radio" aria-checked={on} onClick={() => { set({ tone: t.id }); playDrop(t.id) }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left cursor-pointer transition ${on ? 'bg-spark-soft' : 'hover:bg-surface-2'}`}>
+                    <span className={`grid place-items-center w-9 h-9 rounded-full shrink-0 ${on ? 'bg-brand text-white' : 'bg-surface-2 text-muted'}`}><Icon name={on ? 'check' : 'drop'} size={16} /></span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-semibold text-[14px]">{t.name}</span>
+                      <span className="block text-[12px] text-muted">{t.desc}</span>
+                    </span>
+                    <Icon name="play" size={14} className="text-muted" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
       {supported ? (
         <Toggle id="al-system" checked={prefs.system && perm === 'granted'} onChange={(v) => { void toggleSystem(v) }} label="Уведомления на устройстве"
