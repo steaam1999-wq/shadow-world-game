@@ -505,7 +505,8 @@ alter table public.push_subscriptions enable row level security;
 revoke all on public.push_subscriptions from anon, authenticated;
 grant select, delete on public.push_subscriptions to authenticated;
 grant insert (endpoint, p256dh, auth) on public.push_subscriptions to authenticated;
-grant update (p256dh, auth) on public.push_subscriptions to authenticated;
+-- endpoint тоже: «вставить или обновить» (upsert) переписывает все поля, без этого подписка не сохранялась.
+grant update (endpoint, p256dh, auth) on public.push_subscriptions to authenticated;
 drop policy if exists "push: own" on public.push_subscriptions;
 create policy "push: own" on public.push_subscriptions for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));

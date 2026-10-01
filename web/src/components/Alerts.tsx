@@ -238,15 +238,16 @@ export function PushPrompt() {
   const [perm, setPerm] = useState(supported ? Notification.permission : 'denied')
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(PROMPT_KEY) === '1' } catch { return false } })
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
   const iosBrowser = isIos() && !isStandalone()
   if (!cloudEnabled || !state.cloud || hidden) return null
-  if (!iosBrowser && (!supported || perm === 'denied' || (perm === 'granted' && prefs.system))) return null
+  if (!iosBrowser && !failed && (!supported || perm === 'denied' || (perm === 'granted' && prefs.system))) return null
   const close = () => { setHidden(true); try { localStorage.setItem(PROMPT_KEY, '1') } catch { /* ignore */ } }
   const turnOn = async () => {
     setBusy(true)
     const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
     setPerm(p)
-    if (p === 'granted') { set({ system: true, asked: true }); await enablePush(); playDrop() }
+    if (p === 'granted') { set({ system: true, asked: true }); const ok = await enablePush(); setFailed(!ok); if (ok) playDrop() }
     setBusy(false)
   }
   return (
@@ -270,9 +271,12 @@ export function PushPrompt() {
           <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">3</span><span>Откройте Match с иконки и нажмите «Включить» здесь</span></li>
         </ol>
       ) : (
+        <>
+        {failed && <p className="text-[13px] text-danger leading-snug" role="alert">Не получилось подписать это устройство. {/Android/.test(navigator.userAgent) ? 'На Android откройте Match в Google Chrome — в некоторых браузерах уведомления сайтов не работают.' : 'Проверьте интернет и попробуйте ещё раз.'}</p>}
         <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
-          {busy ? 'Включаем…' : 'Включить уведомления'}
+          {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}
         </button>
+        </>
       )}
     </section>
   )
