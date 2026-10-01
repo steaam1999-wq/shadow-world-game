@@ -114,3 +114,14 @@ test('самолётик: веер из 5 человек и отправка п�
   await expect(page.getByRole('status').filter({ hasText: 'Отправлено' })).toBeVisible()
   await expect(fan).toBeHidden()
 })
+
+test('«Сообщить об ошибке»: окно открывается, в демо не отправляет', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Профиль/)
+  await page.getByRole('tab', { name: /Настройки/ }).click()
+  await page.getByRole('button', { name: /Сообщить об ошибке/ }).click()
+  const dlg = page.getByRole('dialog', { name: 'Сообщить об ошибке' })
+  await dlg.getByLabel('Описание ошибки').fill('Тестовая ошибка')
+  await dlg.getByRole('button', { name: 'Отправить' }).click()
+  await expect(page.getByRole('dialog', { name: 'Спасибо!' })).toContainText('демо-режим')
+})

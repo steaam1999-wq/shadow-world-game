@@ -1261,6 +1261,59 @@ alter table public.shorts add column if not exists music jsonb check (music is n
 alter table public.shorts add column if not exists place text check (place is null or char_length(place) <= 60);
 grant insert (filter, music, place) on public.shorts to authenticated;
 
+-- Сообщения об ошибках от тестировщиков: текст, где случилось, устройство и скриншот.
+-- Видят только автор и модераторы; скриншоты — в закрытом хранилище reports.
+create table if not exists public.bug_reports (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  page text check (char_length(page) <= 200),
+  device text check (char_length(device) <= 400),
+  version text check (char_length(version) <= 40),
+  shot_path text check (char_length(shot_path) <= 200),
+  status text not null default 'new' check (status in ('new', 'done')),
+  created_at timestamptz not null default now()
+);
+create index if not exists bug_reports_created_idx on public.bug_reports (created_at desc);
+alter table public.bug_reports enable row level security;
+revoke all on public.bug_reports from anon, authenticated;
+grant select on public.bug_reports to authenticated;
+grant insert (body, page, device, version, shot_path) on public.bug_reports to authenticated;
+grant update (status) on public.bug_reports to authenticated;
+grant delete on public.bug_reports to authenticated;
+-- Не больше 20 сообщений в час. Счёт — в отдельной функции: обращение к самой таблице внутри её правила зациклилось бы.
+create or replace function private.bug_reports_last_hour(u uuid) returns integer language sql stable security definer set search_path = '' as $$
+  select count(*)::int from public.bug_reports where user_id = u and created_at > now() - interval '1 hour'
+$$;
+revoke all on function private.bug_reports_last_hour(uuid) from public, anon;
+grant execute on function private.bug_reports_last_hour(uuid) to authenticated;
+drop policy if exists "bugs: send" on public.bug_reports;
+create policy "bugs: send" on public.bug_reports for insert to authenticated with check (
+  user_id = (select auth.uid()) and not private.is_banned((select auth.uid()))
+  and (shot_path is null or shot_path like (select auth.uid())::text || '/%')
+  and private.bug_reports_last_hour((select auth.uid())) < 20
+);
+drop policy if exists "bugs: read own or admin" on public.bug_reports;
+create policy "bugs: read own or admin" on public.bug_reports for select to authenticated using (user_id = (select auth.uid()) or private.is_admin());
+drop policy if exists "bugs: admin marks" on public.bug_reports;
+create policy "bugs: admin marks" on public.bug_reports for update to authenticated using (private.is_admin()) with check (private.is_admin());
+drop policy if exists "bugs: admin deletes" on public.bug_reports;
+create policy "bugs: admin deletes" on public.bug_reports for delete to authenticated using (private.is_admin());
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('reports', 'reports', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "report shots: upload own" on storage.objects;
+create policy "report shots: upload own" on storage.objects for insert to authenticated with check (
+  bucket_id = 'reports' and (storage.foldername(name))[1] = (select auth.uid())::text and not private.is_banned((select auth.uid()))
+);
+drop policy if exists "report shots: read own or admin" on storage.objects;
+create policy "report shots: read own or admin" on storage.objects for select to authenticated using (
+  bucket_id = 'reports' and ((storage.foldername(name))[1] = (select auth.uid())::text or private.is_admin())
+);
+drop policy if exists "report shots: admin deletes" on storage.objects;
+create policy "report shots: admin deletes" on storage.objects for delete to authenticated using (bucket_id = 'reports' and private.is_admin());
+
 -- Удаление своего аккаунта со всеми данными (профиль, планы, переписка удаляются каскадом).
 create or replace function public.delete_my_account() returns void
 language sql security definer set search_path = public as $$

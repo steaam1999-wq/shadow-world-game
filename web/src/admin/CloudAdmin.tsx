@@ -5,17 +5,19 @@ import { Avatar, Button, Icon, Logo, Pill, Sheet, Toggle, inputCls } from '../co
 import { PostArt } from '../components/PostArt'
 import { DEFAULT_CATEGORIES, DEFAULT_TAGS } from '../data'
 import { requestReload } from '../cloud/sync'
+import { adminBugReports, setBugStatus, type BugReport } from '../cloud/api'
 import {
   adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUsers, adminVerifications, adminWipeContent,
   decideVerification, deletePlan, deleteShort, humanError, setBan, setReportStatus,
   type AdminReport, type AdminStats, type AdminUser, type AdminVerification,
 } from '../cloud/api'
 
-type Tab = 'overview' | 'users' | 'moderation' | 'content' | 'settings'
+type Tab = 'overview' | 'users' | 'moderation' | 'bugs' | 'content' | 'settings'
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Обзор', icon: 'grid' },
   { id: 'users', label: 'Люди', icon: 'user' },
   { id: 'moderation', label: 'Модерация', icon: 'flag' },
+  { id: 'bugs', label: 'Ошибки', icon: 'bell' },
   { id: 'content', label: 'Контент', icon: 'reels' },
   { id: 'settings', label: 'Настройки', icon: 'settings' },
 ]
@@ -57,6 +59,7 @@ export function CloudAdmin({ onExit }: { onExit: () => void }) {
           {tab === 'overview' && <Overview onError={setError} onPending={setPending} go={setTab} />}
           {tab === 'users' && <Users onError={setError} />}
           {tab === 'moderation' && <Moderation onError={setError} />}
+          {tab === 'bugs' && <Bugs onError={setError} />}
           {tab === 'content' && <Content onError={setError} />}
           {tab === 'settings' && <Settings onError={setError} />}
         </>
@@ -428,6 +431,48 @@ function Settings({ onError }: { onError: (e: string) => void }) {
 
       <ListEditor title="Категории планов" hint="Из них выбирают при создании плана и фильтруют поиск." value={state.categories} fallback={DEFAULT_CATEGORIES} onSave={(v) => save('categories', v, 'Категории обновлены')} />
       <ListEditor title="Интересы" hint="Из них выбирают интересы в анкете и профиле." value={state.tags} fallback={DEFAULT_TAGS} onSave={(v) => save('tags', v, 'Интересы обновлены')} />
+    </div>
+  )
+}
+
+/** Сообщения об ошибках от тестировщиков: новые сверху, со скриншотом и устройством. */
+function Bugs({ onError }: { onError: (e: string) => void }) {
+  const [list, setList] = useState<BugReport[] | null>(null)
+  const [showDone, setShowDone] = useState(false)
+  const [zoom, setZoom] = useState<string | null>(null)
+  const load = useCallback(() => { adminBugReports().then(setList, (e) => onError(humanError(e))) }, [onError])
+  useEffect(load, [load])
+  const mark = async (b: BugReport) => {
+    try { await setBugStatus(b.id, b.status === 'new' ? 'done' : 'new'); load() } catch (e) { onError(humanError(e)) }
+  }
+  const fresh = (list ?? []).filter((b) => b.status === 'new')
+  const shown = showDone ? list ?? [] : fresh
+  const now = Date.now()
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-display font-bold text-xl">Ошибки {fresh.length > 0 && <span className="text-danger tnum">· {fresh.length}</span>}</h2>
+        <Toggle id="bugs-done" checked={showDone} onChange={setShowDone} label="Показать решённые" />
+      </div>
+      {list === null && <p className="text-muted text-[14px]">Загружаем…</p>}
+      {list && !shown.length && <p className="rounded-[24px] bg-surface-2 p-4 text-center text-muted text-[14px]">{showDone ? 'Сообщений пока нет.' : 'Новых сообщений нет.'}</p>}
+      <ul className="flex flex-col gap-3">
+        {shown.map((b) => (
+          <li key={b.id} className={`${card} flex flex-col gap-2 ${b.status === 'done' ? 'opacity-60' : ''}`}>
+            <div className="flex items-center justify-between gap-2 text-[13px]">
+              <span className="font-semibold">{b.author}</span>
+              <span className="text-muted">{relative(b.at, now)}{b.page ? ` · ${b.page}` : ''}</span>
+            </div>
+            <p className="whitespace-pre-wrap break-words text-[15px]">{b.body}</p>
+            {b.shot && <button onClick={() => setZoom(b.shot!)} className="self-start cursor-zoom-in"><img src={b.shot} alt="Скриншот" className="max-h-56 rounded-2xl border border-line" loading="lazy" /></button>}
+            <p className="text-[12px] text-muted">{b.device}{b.version ? ` · сборка ${b.version}` : ''}</p>
+            <Button variant={b.status === 'new' ? 'primary' : 'secondary'} onClick={() => { void mark(b) }} className="self-start h-9 text-[13px]">
+              <Icon name="check" size={15} /> {b.status === 'new' ? 'Исправлено' : 'Вернуть в новые'}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <Sheet open={!!zoom} onClose={() => setZoom(null)} title="Скриншот">{zoom && <img src={zoom} alt="Скриншот" className="w-full rounded-2xl" />}</Sheet>
     </div>
   )
 }

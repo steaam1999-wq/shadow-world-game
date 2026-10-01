@@ -25,7 +25,7 @@ interface ShortRow { id: string; author: string; path: string; caption: string; 
 // Ссылки на закрытые файлы выдаются на время. Кэшируем их, иначе при каждом обновлении
 // ссылка менялась бы: видео начиналось бы заново, а фото скачивались повторно.
 const signed = new Map<string, { url: string; until: number }>()
-async function sign(bucket: 'shorts' | 'media' | 'chat', paths: string[]) {
+async function sign(bucket: 'shorts' | 'media' | 'chat' | 'reports', paths: string[]) {
   const now = Date.now()
   const key = (p: string) => `${bucket}:${p}`
   const need = [...new Set(paths)].filter((p) => (signed.get(key(p))?.until ?? 0) < now + 10 * 60_000)
@@ -921,3 +921,39 @@ export function subscribe(onChange: () => void, onMessage: (m: MessageRow) => vo
   }
 }
 export type { MessageRow }
+
+// --- Сообщения об ошибках от тестировщиков ---
+
+export interface BugReport { id: number; userId: string; author: string; body: string; page: string; device: string; version: string; shot?: string; status: 'new' | 'done'; at: number }
+
+/** Отправить сообщение об ошибке; скриншот — в закрытое хранилище reports. */
+export async function sendBugReport(userId: string, r: { body: string; page: string; device: string; version: string; shot?: Blob | null }) {
+  let shotPath: string | null = null
+  if (r.shot) {
+    const type = ['image/png', 'image/webp'].includes(r.shot.type) ? r.shot.type : 'image/jpeg'
+    shotPath = `${userId}/${crypto.randomUUID()}.${type.split('/')[1].replace('jpeg', 'jpg')}`
+    const { error } = await sb().storage.from('reports').upload(shotPath, r.shot, { contentType: type, upsert: false })
+    if (error) throw error
+  }
+  const { error } = await sb().from('bug_reports').insert({ body: r.body.slice(0, 2000), page: r.page.slice(0, 200), device: r.device.slice(0, 400), version: r.version.slice(0, 40), shot_path: shotPath })
+  if (error) {
+    if (shotPath) await sb().storage.from('reports').remove([shotPath])
+    throw new Error(/row-level security/.test(error.message) ? 'Слишком много сообщений за час — попробуйте позже.' : error.message)
+  }
+}
+
+export async function adminBugReports(): Promise<BugReport[]> {
+  const { data, error } = await sb().from('bug_reports').select('id, user_id, body, page, device, version, shot_path, status, created_at').order('created_at', { ascending: false }).limit(200)
+  if (error) throw error
+  const rows = (data ?? []) as { id: number; user_id: string; body: string; page: string | null; device: string | null; version: string | null; shot_path: string | null; status: 'new' | 'done'; created_at: string }[]
+  const ids = [...new Set(rows.map((x) => x.user_id))]
+  const { data: profs } = ids.length ? await sb().from('profiles').select('id, name').in('id', ids) : { data: [] }
+  const names = new Map((profs ?? []).map((x: { id: string; name: string }) => [x.id, x.name]))
+  const shots = await sign('reports', rows.flatMap((x) => (x.shot_path ? [x.shot_path] : []))).catch(() => new Map<string, string>())
+  return rows.map((x) => ({ id: x.id, userId: x.user_id, author: names.get(x.user_id) ?? 'Удалённый аккаунт', body: x.body, page: x.page ?? '', device: x.device ?? '', version: x.version ?? '', shot: x.shot_path ? shots.get(x.shot_path) : undefined, status: x.status, at: ms(x.created_at) }))
+}
+
+export async function setBugStatus(id: number, status: 'new' | 'done') {
+  const { error } = await sb().from('bug_reports').update({ status }).eq('id', id)
+  if (error) throw error
+}

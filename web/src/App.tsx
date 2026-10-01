@@ -144,6 +144,8 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [tab, setTab] = useState<Tab>('home')
   const [chat, setChat] = useState<string | null>(null)
   const [person, setPerson] = useState<string | null>(null)
+  // Где сейчас человек — уходит в «Сообщить об ошибке».
+  useEffect(() => { document.body.dataset.page = person ? 'профиль человека' : chat ? 'чат' : tab }, [tab, person, chat])
   const openProfile = (id: string) => { setPerson(id); setChat(null); window.scrollTo(0, 0) }
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)

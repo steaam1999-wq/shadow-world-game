@@ -14,6 +14,7 @@ import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
 import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
+import { BugReportSheet } from '../components/BugReport'
 import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
@@ -27,6 +28,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   const { state, dispatch } = useStore()
   const me = state.me!
   const [editVibe, setEditVibe] = useState(false)
+  const [bugOpen, setBugOpen] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [showFollowers, setShowFollowers] = useState(false)
@@ -230,6 +232,13 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
       <AlertSettings />
 
       <SafetySection onSignOut={onSignOut} />
+
+      <button onClick={() => setBugOpen(true)} className="rounded-[28px] bg-surface shadow-soft p-4 flex items-center gap-3 text-left cursor-pointer">
+        <span className="grid place-items-center w-11 h-11 rounded-2xl bg-brand text-white shrink-0"><Icon name="flag" size={20} /></span>
+        <span className="flex-1 min-w-0"><span className="block font-semibold">Сообщить об ошибке</span><span className="block text-[13px] text-muted">Что-то сломалось или неудобно? Напишите — исправим</span></span>
+        <Icon name="arrow" size={18} className="text-muted" />
+      </button>
+      <BugReportSheet open={bugOpen} onClose={() => setBugOpen(false)} />
 
       <div className="flex flex-col gap-2">
         {(!state.cloud || state.isAdmin) && <Button variant="ghost" onClick={onAdmin} className="border border-line"><Icon name="settings" size={18} /> Админ-панель{state.cloud ? '' : ' (демо)'}</Button>}
