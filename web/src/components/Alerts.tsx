@@ -42,7 +42,7 @@ export const TONES: { id: ToneId; name: string; desc: string }[] = [
   { id: 'vk', name: 'Ностальгия', desc: 'Как сообщение во ВКонтакте в 2017-м' },
   { id: 'vkSoft', name: 'Ностальгия · мягче', desc: 'Тот же «ту-дум», ниже и теплее' },
   { id: 'vkUp', name: 'Ностальгия · вверх', desc: '«Ту-дум» наоборот — ноты вверх' },
-  { id: 'drop', name: 'Капелька', desc: 'Фирменный звук Match' },
+  { id: 'drop', name: 'Капелька', desc: 'Фирменный звук Komeeta' },
   { id: 'bubble', name: 'Пузырёк', desc: 'Лёгкий «бульк»' },
   { id: 'kalimba', name: 'Калимба', desc: 'Тёплая деревянная нота' },
   { id: 'marimba', name: 'Маримба', desc: 'Две мягкие ноты' },
@@ -258,8 +258,8 @@ export function PushPrompt() {
           <h2 className="font-display font-bold text-[16px]">Не пропускайте сообщения</h2>
           <p className="text-[13.5px] text-muted leading-snug mt-0.5">
             {iosBrowser
-              ? 'На iPhone уведомления приходят, только если открыть Match с экрана «Домой».'
-              : 'Включите уведомления — они придут на экран, даже когда Match закрыт.'}
+              ? 'На iPhone уведомления приходят, только если открыть Komeeta с экрана «Домой».'
+              : 'Включите уведомления — они придут на экран, даже когда Komeeta закрыта.'}
           </p>
         </div>
         <button onClick={close} className="grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть"><Icon name="x" size={16} /></button>
@@ -268,11 +268,11 @@ export function PushPrompt() {
         <ol className="flex flex-col gap-2 text-[14px] leading-snug">
           <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">1</span><span>Нажмите <b>«Поделиться»</b> <span aria-hidden>⎋</span> внизу Safari</span></li>
           <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">2</span><span>Выберите <b>«На экран „Домой“»</b></span></li>
-          <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">3</span><span>Откройте Match с иконки и нажмите «Включить» здесь</span></li>
+          <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">3</span><span>Откройте Komeeta с иконки и нажмите «Включить» здесь</span></li>
         </ol>
       ) : (
         <>
-        {failed && <p className="text-[13px] text-danger leading-snug" role="alert">Не получилось подписать это устройство. {/Android/.test(navigator.userAgent) ? 'На Android откройте Match в Google Chrome — в некоторых браузерах уведомления сайтов не работают.' : 'Проверьте интернет и попробуйте ещё раз.'}</p>}
+        {failed && <p className="text-[13px] text-danger leading-snug" role="alert">Не получилось подписать это устройство. {/Android/.test(navigator.userAgent) ? 'На Android откройте Komeeta в Google Chrome — в некоторых браузерах уведомления сайтов не работают.' : 'Проверьте интернет и попробуйте ещё раз.'}</p>}
         <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
           {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}
         </button>
@@ -358,7 +358,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
   // Счётчик непрочитанных — в заголовке вкладки и на иконке приложения.
   const unread = state.capsules.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0) + (state.groups ?? []).reduce((n, g) => n + (g.unread > 0 ? 1 : 0), 0)
   useEffect(() => {
-    document.title = unread ? `(${unread}) Match Go` : 'Match Go'
+    document.title = unread ? `(${unread}) Komeeta` : 'Komeeta'
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
     try { void (unread ? nav.setAppBadge?.(unread) : nav.clearAppBadge?.())?.catch(() => {}) } catch { /* ignore */ }
   }, [unread])
@@ -428,10 +428,10 @@ export function AlertSettings() {
       </div>
       {supported ? (
         <Toggle id="al-system" checked={prefs.system && perm === 'granted'} onChange={(v) => { void toggleSystem(v) }} label="Уведомления на устройстве"
-          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : pushOk ? 'Придут, даже когда Match закрыта' : 'Когда Match открыта в фоне или свёрнута'} />
+          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : pushOk ? 'Придут, даже когда Komeeta закрыта' : 'Когда Komeeta открыта в фоне или свёрнута'} />
       ) : (
         <p className="py-3 text-[13px] text-muted">
-          {ios && !standalone ? 'На iPhone уведомления работают, если добавить сайт на экран «Домой»: «Поделиться» → «На экран Домой», и открыть Match оттуда.' : 'Этот браузер не показывает системные уведомления — остаются звук и баннер.'}
+          {ios && !standalone ? 'На iPhone уведомления работают, если добавить сайт на экран «Домой»: «Поделиться» → «На экран Домой», и открыть Komeeta оттуда.' : 'Этот браузер не показывает системные уведомления — остаются звук и баннер.'}
         </p>
       )}
     </section>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LogoMark } from './ui'
 
-// Заставка при запуске: знак Match «встречается» и появляется название. Один раз за сеанс.
+// Заставка при запуске: знак Komeeta «встречается» и появляется название. Один раз за сеанс.
 const KEY = 'match-splash'
 
 export function Splash() {
@@ -21,7 +21,7 @@ export function Splash() {
       <div className="flex flex-col items-center gap-4">
         <LogoMark size={104} animate />
         <div className="splash-word flex flex-col items-center gap-1">
-          <span className="logo-word text-[40px] leading-none">Match<span className="ml-[0.18em] bg-[image:var(--brand)] bg-clip-text text-transparent">Go</span></span>
+          <span className="logo-word text-[40px] leading-none">Ko<span className="bg-[image:var(--brand)] bg-clip-text text-transparent">meet</span>a</span>
           <span className="text-[15px] text-muted">Живые встречи рядом</span>
         </div>
       </div>

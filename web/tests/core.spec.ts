@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { enterDemo, nav, patchState } from './helpers'
 
-// Главные сценарии Match. Каждый тест — с чистого листа, на демо-данных.
+// Главные сценарии Komeeta. Каждый тест — с чистого листа, на демо-данных.
 
 test('вход в демо и главная', async ({ page }) => {
   const errors: string[] = []
@@ -139,7 +139,7 @@ test('без галочки 18+ и согласия регистрация не 
 test('документы открываются по ссылке из согласия', async ({ page }) => {
   await page.goto('./')
   await page.getByRole('button', { name: 'политику конфиденциальности' }).click()
-  const docs = page.getByRole('dialog', { name: 'Документы Match Go' })
+  const docs = page.getByRole('dialog', { name: 'Документы Komeeta' })
   await expect(docs.getByRole('tab', { name: 'Конфиденциальность' })).toHaveAttribute('aria-selected', 'true')
   await expect(docs.getByText('Геопозиция')).toBeVisible()
   await docs.getByRole('tab', { name: 'Согласие' }).click()

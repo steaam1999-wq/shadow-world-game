@@ -121,7 +121,7 @@ export interface Story {
   caption: string
   hue: number
   duration?: number
-  filter?: string // фильтр камеры Match (storyFilters)
+  filter?: string // фильтр камеры Komeeta (storyFilters)
   sticker?: { invite?: boolean; track?: Track } // «Позвать» и трек на истории
   at: number
   expiresAt: number
@@ -163,7 +163,7 @@ export interface Short {
   kind: 'video' | 'photo'
   caption: string
   at: number
-  filter?: string // фильтр Match (storyFilters)
+  filter?: string // фильтр Komeeta (storyFilters)
   music?: Track // песня к публикации
   place?: string // где снято
 }

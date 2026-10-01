@@ -8,7 +8,7 @@ export function birthProblem(text: string): string | null {
   const iso = parseBirth(text)
   if (!iso) return text.replace(/\D/g, '').length < 8 ? 'Введите дату полностью: ДД.ММ.ГГГГ' : 'Такой даты нет'
   const a = ageFrom(iso)
-  if (a < 18) return 'Match Go — только для тех, кому есть 18'
+  if (a < 18) return 'Komeeta — только для тех, кому есть 18'
   if (a > 100) return 'Проверьте год рождения'
   return null
 }

@@ -295,7 +295,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <Avatar name={p.name} hue={p.hue} src={p.photo} size={40} verified={p.verified} />
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{nameAge(p.name, p.age)}</div>
-            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Match'}</div>
+            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Komeeta'}</div>
           </div>
           </button>
           <PlaylistButton chatId={c.id} />

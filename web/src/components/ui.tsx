@@ -68,7 +68,7 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
   )
 }
 
-/** Знак Match: два круга — два человека, их пересечение — точка встречи. На фирменном градиенте. */
+/** Знак Komeeta: два круга — два человека, их пересечение — точка встречи. На фирменном градиенте. */
 export function LogoMark({ size = 34, animate = false }: { size?: number; animate?: boolean }) {
   const id = useId().replace(/:/g, '')
   return (
@@ -92,9 +92,9 @@ export function LogoMark({ size = 34, animate = false }: { size?: number; animat
 
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Match Go">
+    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Komeeta">
       <LogoMark size={className.includes('text-xl') ? 36 : 32} />
-      <span aria-hidden="true">Match<span className="ml-[0.18em] bg-[image:var(--brand)] bg-clip-text text-transparent">Go</span></span>
+      <span aria-hidden="true">Ko<span className="bg-[image:var(--brand)] bg-clip-text text-transparent">meet</span>a</span>
     </span>
   )
 }

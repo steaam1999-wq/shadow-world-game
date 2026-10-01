@@ -67,7 +67,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
       {step === 0 && (
         <div className="anim-rise flex flex-col gap-6 pt-6 flex-1">
           <div className="flex flex-col gap-2">
-            <h1 className="font-display font-bold text-3xl leading-tight">Вход в Match</h1>
+            <h1 className="font-display font-bold text-3xl leading-tight">Вход в Komeeta</h1>
             <p className="text-muted">Займёт минуту. Потом шесть вопросов, чтобы найти людей на одной волне.</p>
           </div>
           <div className="flex flex-col gap-3">

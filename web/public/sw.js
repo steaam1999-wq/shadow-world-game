@@ -1,4 +1,4 @@
-// Match: сервис-воркер — уведомления (в том числе push при закрытом сайте) и быстрый повторный запуск.
+// Komeeta: сервис-воркер — уведомления (в том числе push при закрытом сайте) и быстрый повторный запуск.
 // Кэш: файлы сборки (assets/ с хэшем в имени) — из кэша, они не меняются; страница — сначала из сети
 // (чтобы обновления приходили сразу), а без сети или при медленной сети — из кэша.
 const CACHE = 'match-v1'
@@ -75,7 +75,7 @@ self.addEventListener('push', (e) => {
     // Safari требует показывать уведомление на каждый push, поэтому там показываем всегда.
     const safari = /Safari/.test(self.navigator.userAgent) && !/Chrome|Chromium|Android/.test(self.navigator.userAgent)
     if (!safari && list.some((c) => c.visibilityState === 'visible' && c.focused)) return
-    return self.registration.showNotification(d.title || 'Match Go', {
+    return self.registration.showNotification(d.title || 'Komeeta', {
       body: d.body || 'Новое сообщение', tag: d.chat || d.kind || 'iskra', renotify: true,
       icon: 'icon-192.png', badge: 'icon-192.png', data: { chat: d.chat, person: d.person },
     })

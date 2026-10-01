@@ -52,7 +52,7 @@ export function BugReportSheet({ open, onClose }: { open: boolean; onClose: () =
             {shot && <button type="button" onClick={(e) => { e.preventDefault(); setShot(null) }} className="grid place-items-center w-8 h-8 rounded-full text-muted cursor-pointer" aria-label="Убрать скриншот"><Icon name="x" size={16} /></button>}
             <input type="file" accept="image/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f && f.size <= 5 * 1024 * 1024) setShot(f); else if (f) setError('Скриншот больше 5 МБ'); e.target.value = '' }} />
           </label>
-          <p className="text-[11.5px] text-muted">Вместе с сообщением уйдёт: раздел приложения, модель системы и браузер, размер экрана, версия Match.</p>
+          <p className="text-[11.5px] text-muted">Вместе с сообщением уйдёт: раздел приложения, модель системы и браузер, размер экрана, версия Komeeta.</p>
           {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
           <Button onClick={() => { void send() }} disabled={busy || !text.trim()} className="h-12">{busy ? 'Отправляем…' : 'Отправить'}</Button>
         </div>

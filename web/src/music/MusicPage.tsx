@@ -43,7 +43,7 @@ const MIX_TITLES = ['Огни проспекта', 'Тёплый вечер', '�
 function moodTracks(m: (typeof MOODS)[number]): Track[] {
   return MIX_TITLES.map((title, i) => {
     const g = m.genres[i % m.genres.length]
-    return { id: `mix-${m.id}-${i}`, title, artist: `Match · ${m.name}`, genre: g, hue: (m.name.length * 37 + i * 53) % 360, bpm: GENRE_BPM[g], root: 52 + ((i * 3) % 9), bars: 40 }
+    return { id: `mix-${m.id}-${i}`, title, artist: `Komeeta · ${m.name}`, genre: g, hue: (m.name.length * 37 + i * 53) % 360, bpm: GENRE_BPM[g], root: 52 + ((i * 3) % 9), bars: 40 }
   })
 }
 

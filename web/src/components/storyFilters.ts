@@ -7,7 +7,7 @@ export type FilterId = 'none' | 'spark' | 'sunset' | 'minsk' | 'cold' | 'vivid'
 
 export const FILTERS: { id: FilterId; name: string; css: string; overlay?: string }[] = [
   { id: 'none', name: 'Обычный', css: 'none' },
-  // Фирменный: тёплое свечение в цветах Match.
+  // Фирменный: тёплое свечение в цветах Komeeta.
   { id: 'spark', name: 'Искра', css: 'saturate(1.25) contrast(1.06) brightness(1.04)', overlay: 'linear-gradient(45deg, rgb(255 196 87 / .28), rgb(255 79 134 / .22) 55%, rgb(154 116 255 / .26))' },
   { id: 'sunset', name: 'Закат', css: 'sepia(.35) saturate(1.45) hue-rotate(-12deg) contrast(1.05)' },
   { id: 'minsk', name: 'Минск ч/б', css: 'grayscale(1) contrast(1.18) brightness(1.03)' },

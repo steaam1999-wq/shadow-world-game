@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from './ui'
 
-// Подсказка новичку: как устроен Match. Показывается, пока её не закроют.
+// Подсказка новичку: как устроен Komeeta. Показывается, пока её не закроют.
 const KEY = 'match-tips-v1'
 
 export function WelcomeTips() {
@@ -14,9 +14,9 @@ export function WelcomeTips() {
     { icon: 'chat', title: '«Чаты»', text: 'договориться о встрече; точное место — только там' },
   ]
   return (
-    <section className="mx-4 mb-4 rounded-[24px] bg-surface shadow-soft p-4 flex flex-col gap-3" aria-label="Как пользоваться Match">
+    <section className="mx-4 mb-4 rounded-[24px] bg-surface shadow-soft p-4 flex flex-col gap-3" aria-label="Как пользоваться Komeeta">
       <div className="flex items-center justify-between">
-        <h2 className="font-display font-bold text-[17px]">Как пользоваться Match</h2>
+        <h2 className="font-display font-bold text-[17px]">Как пользоваться Komeeta</h2>
         <button onClick={close} className="grid place-items-center w-8 h-8 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть подсказку"><Icon name="x" size={16} /></button>
       </div>
       <ol className="flex flex-col gap-2.5">

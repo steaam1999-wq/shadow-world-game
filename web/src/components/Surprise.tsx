@@ -6,7 +6,7 @@ import { formatKm, knownKm } from '../places'
 import { tasteLine, useTaste } from '../music/taste'
 import { Avatar, Icon } from './ui'
 
-// «Сюрприз недели»: раз в неделю Match предлагает познакомиться с одним человеком рядом —
+// «Сюрприз недели»: раз в неделю Komeeta предлагает познакомиться с одним человеком рядом —
 // лучшее сочетание вайб-теста, музыки и расстояния среди тех, с кем вы ещё не общались.
 
 const KEY = 'match-surprise'

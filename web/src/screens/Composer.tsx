@@ -11,7 +11,7 @@ import { idbRun, reloadDemoPublications, videoFrame, type StoredShort } from './
 import type { Track } from '../music/engine'
 
 // Новая публикация в три шага, как в современных соцсетях:
-// 1) камера Match или галерея, 2) кадр и фильтр, 3) подпись, хештеги, место, песня и «также в историю».
+// 1) камера Komeeta или галерея, 2) кадр и фильтр, 3) подпись, хештеги, место, песня и «также в историю».
 
 const MAX_SEC = 60
 const MAX_MB = 50

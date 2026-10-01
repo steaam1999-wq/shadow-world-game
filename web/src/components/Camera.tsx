@@ -3,8 +3,8 @@ import { Icon } from './ui'
 import { FILTERS, filterOf, filterStyle, type FilterId } from './storyFilters'
 import { compressPhoto, readVideoDuration } from '../screens/Shorts'
 
-// Камера Match для историй и публикаций. Касание кнопки — фото, удержание — видео.
-// Кнопка — знак Match: два круга сходятся, пока идёт запись. Фильтры видны прямо в видоискателе.
+// Камера Komeeta для историй и публикаций. Касание кнопки — фото, удержание — видео.
+// Кнопка — знак Komeeta: два круга сходятся, пока идёт запись. Фильтры видны прямо в видоискателе.
 
 export type Shot = { file: Blob; kind: 'photo' | 'video'; url: string; duration: number; mirrored: boolean }
 
@@ -16,7 +16,7 @@ function recorderType() {
   return ''
 }
 
-/** Кнопка съёмки в виде знака Match: круги расходятся, при записи — сходятся, по краю — прогресс. */
+/** Кнопка съёмки в виде знака Komeeta: круги расходятся, при записи — сходятся, по краю — прогресс. */
 export function Shutter({ recording, progress, videoOnly = false }: { recording: boolean; progress: number; videoOnly?: boolean }) {
   const r = 38, c = 2 * Math.PI * r
   return (

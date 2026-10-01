@@ -416,9 +416,9 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   )
 }
 
-/** Ссылка на публикацию: открывает Match и прокручивает ленту к ней. */
+/** Ссылка на публикацию: открывает Komeeta и прокручивает ленту к ней. */
 export const publicationLink = (id: string) => `${location.origin}${location.pathname}#pub=${id}`
-const pubText = (s: Short, authorName?: string) => (s.caption ? `${authorName ? authorName + ': ' : ''}${s.caption}` : `Публикация${authorName ? ' ' + authorName : ''} в Match`)
+const pubText = (s: Short, authorName?: string) => (s.caption ? `${authorName ? authorName + ': ' : ''}${s.caption}` : `Публикация${authorName ? ' ' + authorName : ''} в Komeeta`)
 const pubMessage = (s: Short, authorName?: string) => `Смотри публикацию: ${pubText(s, authorName).slice(0, 140)}\n${publicationLink(s.id)}`
 
 /** «Поделиться»: отправить в чат, скопировать ссылку или текст, системное меню телефона. */
@@ -457,7 +457,7 @@ function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Shor
             if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text: `${text}\n${link}` }); onClose(); return }
           } catch (e) { if ((e as Error).name === 'AbortError') return }
         }
-        await navigator.share({ title: 'Match Go', text, url: link }); onClose(); return
+        await navigator.share({ title: 'Komeeta', text, url: link }); onClose(); return
       }
     } catch (e) { if ((e as Error).name === 'AbortError') return }
     await copy(link, 'Ссылка скопирована')

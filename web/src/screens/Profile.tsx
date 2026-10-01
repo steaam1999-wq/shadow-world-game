@@ -39,7 +39,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const now = useNow()
   const share = async () => {
-    try { await navigator.clipboard.writeText(`${me.name} в Match: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
+    try { await navigator.clipboard.writeText(`${me.name} в Komeeta: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
     setCopied(true)
     setTimeout(() => setCopied(false), 1600)
   }
