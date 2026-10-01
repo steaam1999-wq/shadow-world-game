@@ -179,3 +179,22 @@ test('фото в чате: на весь экран, листание, приб
   await page.mouse.move(200, 300); await page.mouse.down(); await page.mouse.move(205, 560, { steps: 10 }); await page.mouse.up()
   await expect(v).toHaveCount(0)
 })
+
+test('новый подписчик: число на сердечке и запись «подписался(ась) на вас»', async ({ page }) => {
+  await enterDemo(page)
+  await patchState(page, (s) => {
+    s.noticesSeenAt = Date.now() - 60_000
+    s.following = (s.following ?? []).filter((x: string) => x !== s.people[0].id)
+    s.notices = [{ id: 'f1', kind: 'follow', personId: s.people[0].id, at: Date.now() }]
+  })
+  const bell = page.getByRole('button', { name: /^Уведомления: \d+ новых/ })
+  await expect(bell).toBeVisible()
+  await expect(bell).toContainText(/\d/)
+  await bell.click()
+  const sheet = page.getByRole('dialog', { name: 'Уведомления' })
+  await expect(sheet.getByText('подписался(ась) на вас')).toBeVisible()
+  await sheet.getByRole('button', { name: 'Подписаться' }).click()
+  await expect(sheet.getByText('Вы подписаны')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Уведомления', exact: true })).toBeVisible()
+})

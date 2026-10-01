@@ -165,6 +165,10 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const [storying, setStorying] = useState(false)
   const [posting, setPosting] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
+  const [seenBefore, setSeenBefore] = useState(0) // что было новым на момент открытия — подсвечиваем в списке
+  // Новое с прошлого просмотра: лайки, репосты, подписки, комментарии и ответы.
+  const freshNotices = (state.notices ?? []).filter((n) => n.at > (state.noticesSeenAt ?? 0) && state.people.some((p) => p.id === n.personId)).length
+    + commentNotices(state).filter((c) => c.at > (state.noticesSeenAt ?? 0)).length
   // Листаете ленту дальше — панель уезжает вверх; возвращаетесь — выезжает «жидким стеклом».
   const [hideTop, setHideTop] = useState(false)
   useEffect(() => {
@@ -241,9 +245,9 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
               <Icon name="note" size={23} />
               {player.playing && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-spark anim-flick" />}
             </button>
-            <button onClick={() => { setActivityOpen(true); dispatch({ type: 'seeNotices' }) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Уведомления">
+            <button onClick={() => { setSeenBefore(state.noticesSeenAt ?? 0); setActivityOpen(true); dispatch({ type: 'seeNotices' }) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label={freshNotices ? `Уведомления: ${freshNotices} новых` : 'Уведомления'}>
               <Icon name="heart" size={25} />
-              {((state.notices ?? []).some((n) => n.kind !== 'follow' && n.at > (state.noticesSeenAt ?? 0)) || commentNotices(state).some((c) => c.at > (state.noticesSeenAt ?? 0))) && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-danger" />}
+              {freshNotices > 0 && <span className="anim-rise absolute top-0.5 right-0 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10.5px] font-bold tnum ring-2 ring-bg">{freshNotices > 9 ? '9+' : freshNotices}</span>}
             </button>
             <button onClick={() => { setTab('reels'); setChat(null); setPerson(null) }} className="relative grid place-items-center w-10 h-10 cursor-pointer" aria-label="Шортсы и планы на весь экран">
               <Icon name="reels" size={24} />
@@ -293,7 +297,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       {storying && <Suspense fallback={null}><StoryCreator open={storying} onClose={() => { setStorying(false); setTab('home'); setPerson(null) }} /></Suspense>}
       {!consentOk && !localConsent() && <ConsentGate onAccept={acceptNow} onDecline={() => { dispatch({ type: 'signOut' }); onSignOut() }} />}
       <NewChatSheet open={newChat} onClose={() => setNewChat(false)} onPick={(id) => { setNewChat(false); messagePerson(id) }} onGroupCreated={(id) => { setNewChat(false); openChatById(id) }} />
-      <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
+      <ActivitySheet open={activityOpen} seenBefore={seenBefore} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 
       {state.cloudError && (
         <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-40 w-[calc(100%-32px)] max-w-[448px] rounded-[18px] bg-danger-soft text-danger p-3 pr-11 text-[14px] shadow-soft" role="alert">
@@ -372,16 +376,17 @@ function commentNotices(state: State) {
   ]
 }
 
-function ActivitySheet({ open, onClose, now, openProfile }: { open: boolean; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void; openProfile: (id: string) => void }) {
-  const { state } = useStore()
+function ActivitySheet({ open, seenBefore, onClose, now, openProfile }: { open: boolean; seenBefore: number; onClose: () => void; now: number; onOpenCapsule: (capsuleId: string) => void; openProfile: (id: string) => void }) {
+  const { state, dispatch } = useStore()
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const planTitle = (id?: string) => { const a = state.activities.find((x) => x.id === id); return a ? ` «${a.title}»` : '' }
-  type Item = { key: string; person: Person; kind: 'like' | 'repost' | 'comment'; text: string; at: number }
+  type Item = { key: string; person: Person; kind: 'like' | 'repost' | 'comment' | 'follow'; text: string; at: number }
   const items: Item[] = [
-    // Лайки и репосты с сервера (подписки сюда не входят — они в списке подписчиков).
+    // Лайки, репосты и новые подписчики с сервера.
     ...(state.notices ?? []).flatMap((n): Item[] => {
       const p = state.people.find((x) => x.id === n.personId)
-      if (!p || n.kind === 'follow') return []
+      if (!p) return []
+      if (n.kind === 'follow') return [{ key: n.id, person: p, kind: 'follow', text: 'подписался(ась) на вас', at: n.at }]
       if (n.kind === 'repost') return [{ key: n.id, person: p, kind: 'repost', text: `сделал(а) репост вашего плана${planTitle(n.targetId)}`, at: n.at }]
       return [{ key: n.id, person: p, kind: 'like', text: n.kind === 'likePlan' ? `нравится ваш план${planTitle(n.targetId)}` : 'нравится ваша публикация', at: n.at }]
     }),
@@ -398,20 +403,25 @@ function ActivitySheet({ open, onClose, now, openProfile }: { open: boolean; onC
       return { key: `like-${a.id}`, person: p, kind: 'like', text: `и ещё ${4 + i} человек отметили ваш план «${a.title}»`, at: now - 25 * 60_000 * (i + 1) }
     }),
   ].sort((a, b) => b.at - a.at)
-  const badge = { like: ['heart', 'bg-danger'], repost: ['send', 'bg-cobalt'], comment: ['comment', 'bg-ok'] } as const
+  const badge = { like: ['heart', 'bg-danger'], repost: ['send', 'bg-cobalt'], comment: ['comment', 'bg-ok'], follow: ['user', 'bg-violet'] } as const
+  const following = state.following ?? []
 
   return (
     <Sheet open={open} onClose={onClose} title="Уведомления">
       <ul className="flex flex-col -mx-2">
         {items.map((it) => (
-          <li key={it.key}>
-            <button onClick={() => { onClose(); openProfile(it.person.id) }} className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-surface-2 cursor-pointer">
+          <li key={it.key} className={`relative flex items-center rounded-xl ${it.at > seenBefore ? 'bg-spark/[.07]' : ''}`}>
+            {it.at > seenBefore && <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-spark" aria-label="Новое" />}
+            <button onClick={() => { onClose(); openProfile(it.person.id) }} className="flex-1 min-w-0 flex items-center gap-3 p-2 pl-3 rounded-xl text-left hover:bg-surface-2 cursor-pointer">
               <span className="relative shrink-0">
                 <Avatar name={it.person.name} hue={it.person.hue} src={it.person.photo} size={44} />
                 <span className={`absolute -right-1 -bottom-1 grid place-items-center w-5 h-5 rounded-full text-white border-2 border-surface ${badge[it.kind][1]}`}><Icon name={badge[it.kind][0]} size={10} fill={it.kind === 'like'} /></span>
               </span>
               <span className="flex-1 min-w-0 text-[14px]"><b>{it.person.name}</b> {it.text} <span className="text-muted">{relative(it.at, now)}</span></span>
             </button>
+            {it.kind === 'follow' && (following.includes(it.person.id)
+              ? <span className="shrink-0 mr-2 h-8 px-3 rounded-full bg-surface-2 text-[12.5px] font-semibold inline-flex items-center">Вы подписаны</span>
+              : <button onClick={() => dispatch({ type: 'toggleFollow', personId: it.person.id })} className="shrink-0 mr-2 h-8 px-3 rounded-full bg-brand text-white text-[12.5px] font-semibold cursor-pointer">Подписаться</button>)}
           </li>
         ))}
         {!items.length && <li className="p-4 text-center text-muted">Пока тихо. Здесь появятся лайки, репосты и комментарии к вашим планам и публикациям.</li>}
