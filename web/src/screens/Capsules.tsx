@@ -8,7 +8,7 @@ import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
-import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, readPhoto, type Tone } from '../components/ui'
+import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, readPhotoFull, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
@@ -344,7 +344,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             const f = e.target.files?.[0]
             e.target.value = ''
             if (!f) return
-            try { dispatch({ type: 'sendPhoto', capsuleId: c.id, photo: await readPhoto(f, 1280) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
+            try { dispatch({ type: 'sendPhoto', capsuleId: c.id, photo: await readPhotoFull(f) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
           }} />
               <input id="chat-input" aria-label="Сообщение" className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение…" autoComplete="off" />
               <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>

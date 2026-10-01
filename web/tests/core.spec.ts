@@ -198,3 +198,29 @@ test('новый подписчик: число на сердечке и зап�
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: 'Уведомления', exact: true })).toBeVisible()
 })
+
+test('фото в чате: отправляется целиком (без обрезки в квадрат) и открывается на весь экран', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Чаты/)
+  await page.locator('main ul > li > button:not([aria-hidden])').first().click()
+  // Вытянутое фото 600×1200, как с телефона.
+  const png = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 600; c.height = 1200
+    const g = c.getContext('2d')!; g.fillStyle = '#2a6'; g.fillRect(0, 0, 600, 1200)
+    const b: Blob = await new Promise((r) => c.toBlob((x) => r(x!), 'image/png'))
+    return Array.from(new Uint8Array(await b.arrayBuffer()))
+  })
+  await page.locator('input[type=file][accept^="image"]').last().setInputFiles({ name: 'tall.png', mimeType: 'image/png', buffer: Buffer.from(png) })
+  const thumb = page.getByRole('button', { name: 'Открыть фото' }).last()
+  await expect(thumb).toBeVisible()
+  const ratio = await thumb.locator('img').evaluate((i: HTMLImageElement) => i.naturalHeight / i.naturalWidth)
+  expect(ratio).toBeCloseTo(2, 1)
+  await thumb.click()
+  const img = page.getByRole('dialog', { name: 'Просмотр фото' }).locator('img').last()
+  await page.waitForTimeout(400)
+  const box = (await img.boundingBox())!
+  expect(Math.round(box.height)).toBe(page.viewportSize()!.height)
+  // Само изображение (с учётом пропорций) упирается в экран по высоте и целиком видно.
+  const drawn = await img.evaluate((i: HTMLImageElement) => { const r = i.getBoundingClientRect(); const k = Math.min(r.width / i.naturalWidth, r.height / i.naturalHeight); return { w: i.naturalWidth * k, h: i.naturalHeight * k } })
+  expect(Math.round(drawn.h)).toBe(page.viewportSize()!.height)
+})

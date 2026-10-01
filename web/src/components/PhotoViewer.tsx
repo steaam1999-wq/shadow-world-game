@@ -166,7 +166,7 @@ export function PhotoViewer({ photos, start, onClose }: { photos: ViewerPhoto[];
             <div key={i + d} className={`absolute inset-0 grid place-items-center ${anim}`}
               style={{ transform: `translate3d(${tx}px, ${cur ? drag.y : 0}px, 0) scale(${cur ? 1 - drag.y / 2000 : 1})` }}>
               <img src={ph.src} alt={ph.caption || 'Фото'} draggable={false}
-                className={`max-w-full max-h-full object-contain ${cur ? anim : ''}`}
+                className={`absolute inset-0 w-full h-full object-contain ${cur ? anim : ''}`}
                 style={cur ? { transform: `translate3d(${z.x}px, ${z.y}px, 0) scale(${z.s})` } : undefined} />
             </div>
           )

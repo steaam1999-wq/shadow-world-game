@@ -279,6 +279,27 @@ export function readPhoto(file: File, max = 720): Promise<string> {
   })
 }
 
+/** Фото для чата: целиком, с исходными пропорциями; длинная сторона — не больше max пикселей. */
+export function readPhotoFull(file: File, max = 1600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не удалось открыть изображение')) }
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.naturalWidth * k)
+      canvas.height = Math.round(img.naturalHeight * k)
+      const g = canvas.getContext('2d')!
+      g.imageSmoothingQuality = 'high'
+      g.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      resolve(canvas.toDataURL('image/jpeg', 0.86))
+    }
+    img.src = url
+  })
+}
+
 const THEME_KEY = 'iskra-theme'
 
 function systemDark() {
