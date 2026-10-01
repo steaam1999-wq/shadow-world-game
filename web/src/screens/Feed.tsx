@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
 import { PlanMusicChip } from '../music/PlanMusic'
@@ -29,10 +29,39 @@ interface Props {
   onMessage: (personId: string) => void
 }
 
+/** Открыли ссылку на публикацию (#pub=…) — ждём, пока она загрузится, и прокручиваем к ней. */
+function useOpenSharedPublication() {
+  useEffect(() => {
+    let t = 0
+    const open = () => {
+      let id = /^#pub=([\w-]+)$/.exec(location.hash)?.[1]
+      try { id ??= sessionStorage.getItem('match-open-pub') ?? undefined; sessionStorage.removeItem('match-open-pub') } catch { /* ignore */ }
+      if (!id) return
+      clearInterval(t)
+      let tries = 0
+      t = window.setInterval(() => {
+        const el = document.querySelector<HTMLElement>(`[data-pub="${CSS.escape(id)}"]`)
+        if (el || ++tries > 40) {
+          clearInterval(t)
+          if (location.hash.startsWith('#pub=')) history.replaceState(null, '', '#app')
+          if (!el) return
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          el.classList.add('ring-2', 'ring-spark')
+          setTimeout(() => el.classList.remove('ring-2', 'ring-spark'), 2500)
+        }
+      }, 250)
+    }
+    open()
+    window.addEventListener('hashchange', open)
+    return () => { clearInterval(t); window.removeEventListener('hashchange', open) }
+  }, [])
+}
+
 export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMessage }: Props) {
   const { state, dispatch } = useStore()
   const publications = usePublications()
   const [hidden, setHidden] = useState<string[]>([])
+  useOpenSharedPublication()
 
   const live = state.activities.filter((a) => a.expiresAt > now && !hidden.includes(a.id))
   const storyGroups = useStoryGroups(now).others

@@ -77,6 +77,8 @@ function Root() {
 
   useEffect(() => {
     if (view === 'recovery' || view === 'callback') return // токен из адреса ещё нужен
+    // Ссылка на публикацию: запоминаем, лента откроет её после входа.
+    try { if (location.hash.startsWith('#pub=')) sessionStorage.setItem('match-open-pub', location.hash.slice(5)) } catch { /* ignore */ }
     try { history.replaceState(null, '', view === 'admin' ? '#admin' : view === 'app' ? '#app' : ' ') } catch { /* ignore */ }
     window.scrollTo(0, 0)
   }, [view])

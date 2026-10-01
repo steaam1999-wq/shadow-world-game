@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { relative } from '../lib'
@@ -339,6 +340,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   const [comments, setComments] = useState(false)
   const commentCount = useShortComments(s.id).length
   const [reporting, setReporting] = useState<Person | null>(null)
+  const [share, setShare] = useState(false)
 
   useEffect(() => {
     const v = video.current
@@ -350,7 +352,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   useEffect(() => { if (video.current) video.current.muted = muted }, [muted])
 
   return (
-    <article className="flex flex-col gap-2.5 pb-5" aria-label={s.caption || 'Публикация'}>
+    <article data-pub={s.id} className="flex flex-col gap-2.5 pb-5 scroll-mt-20 rounded-2xl transition-shadow" aria-label={s.caption || 'Публикация'}>
       <header className="flex items-center gap-2.5 px-4">
         <button onClick={() => { if (author && author.id !== 'me') openProfile(author.id) }} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer">
           <Avatar name={author?.name ?? '?'} hue={author?.hue ?? 0} src={author?.photo} size={36} verified={author?.verified} />
@@ -378,7 +380,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
         <LikeButton liked={hearts.includes(s.id)} onToggle={() => toggleHeart(s.id)} size={26} />
         {likesOf(s.id) > 0 && <span className="-ml-2 text-[14px] font-semibold tnum">{likesOf(s.id)}</span>}
         <button onClick={() => setComments(true)} className="inline-flex items-center gap-1 cursor-pointer" aria-label="Комментарии"><Icon name="comment" size={26} />{commentCount > 0 && <span className="text-[14px] font-semibold tnum">{commentCount}</span>}</button>
-        {!mine && author && <button onClick={() => onMessage(author.id)} className="cursor-pointer" aria-label={`Написать ${author.name}`}><Icon name="chat" size={26} /></button>}
+        <button onClick={() => setShare(true)} className="cursor-pointer" aria-label="Поделиться публикацией"><Icon name="send" size={25} /></button>
       </div>
       {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}
       <Sheet open={confirm} onClose={() => setConfirm(false)} title="Удалить публикацию?">
@@ -392,7 +394,89 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
       </Sheet>
       <ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} />
       <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
+      <PublicationShare s={s} authorName={author?.name} open={share} onClose={() => setShare(false)} onMessage={onMessage} />
     </article>
+  )
+}
+
+/** Ссылка на публикацию: открывает Match и прокручивает ленту к ней. */
+export const publicationLink = (id: string) => `${location.origin}${location.pathname}#pub=${id}`
+
+/** «Поделиться»: отправить в чат, скопировать ссылку или текст, системное меню телефона. */
+function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Short; authorName?: string; open: boolean; onClose: () => void; onMessage: (personId: string) => void }) {
+  const { state, dispatch } = useStore()
+  const [toast, setToast] = useState<string | null>(null)
+  const [sent, setSent] = useState<string[]>([])
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2000); return () => clearTimeout(t) }, [toast])
+  useEffect(() => { if (open) setSent([]) }, [open])
+  const link = publicationLink(s.id)
+  const text = s.caption ? `${authorName ? authorName + ': ' : ''}${s.caption}` : `Публикация${authorName ? ' ' + authorName : ''} в Match`
+  // Сначала те, с кем больше переписки.
+  const people = state.people
+    .filter((p) => p.id !== s.authorId)
+    .map((p) => ({ p, n: state.capsules.filter((c) => c.personId === p.id).reduce((n, c) => n + c.messages.length, 0) }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 12)
+    .map((x) => x.p)
+
+  const copy = async (value: string, done: string) => {
+    try { await navigator.clipboard.writeText(value); setToast(done) } catch { setToast('Не удалось скопировать') }
+  }
+  const sendTo = (p: Person) => {
+    dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: `Смотри публикацию: ${text.slice(0, 140)}\n${link}` })
+    setSent((x) => [...x, p.id])
+    setToast(`Отправлено: ${p.name}`)
+  }
+  const shareOut = async () => {
+    try {
+      if (navigator.share) {
+        // Фото отправляем файлом, если телефон умеет — тогда его можно сохранить или переслать в любой мессенджер.
+        if (s.kind === 'photo') {
+          try {
+            const blob = await (await fetch(s.url)).blob()
+            const file = new File([blob], 'match.jpg', { type: blob.type || 'image/jpeg' })
+            if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], text: `${text}\n${link}` }); onClose(); return }
+          } catch (e) { if ((e as Error).name === 'AbortError') return }
+        }
+        await navigator.share({ title: 'Match', text, url: link }); onClose(); return
+      }
+    } catch (e) { if ((e as Error).name === 'AbortError') return }
+    await copy(link, 'Ссылка скопирована')
+  }
+
+  return createPortal(
+    <>
+      <Sheet open={open} onClose={onClose} title="Поделиться">
+        <div className="flex flex-col gap-4">
+          {people.length > 0 && (
+            <div className="-mx-5 px-5 flex gap-3 overflow-x-auto pb-1" aria-label="Отправить в чат">
+              {people.map((p) => {
+                const done = sent.includes(p.id)
+                return (
+                  <button key={p.id} onClick={() => { if (!done) sendTo(p) }} className="flex flex-col items-center gap-1 w-[64px] shrink-0 cursor-pointer" aria-label={done ? `Отправлено ${p.name}` : `Отправить ${p.name}`}>
+                    <span className="relative">
+                      <Avatar name={p.name} hue={p.hue} src={p.photo} size={56} />
+                      {done && <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center w-6 h-6 rounded-full bg-brand text-white ring-2 ring-surface"><Icon name="check" size={13} /></span>}
+                    </span>
+                    <span className="text-[12px] truncate w-full text-center">{p.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => { void copy(link, 'Ссылка скопирована') }} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-surface-2 text-[13px] font-medium cursor-pointer"><Icon name="link" size={22} />Ссылка</button>
+            <button onClick={() => { void copy(s.caption ? `${s.caption}\n${link}` : link, 'Текст скопирован') }} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-surface-2 text-[13px] font-medium cursor-pointer"><Icon name="copy" size={22} />Копировать</button>
+            <button onClick={() => { void shareOut() }} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-surface-2 text-[13px] font-medium cursor-pointer"><Icon name="share" size={22} />Ещё…</button>
+          </div>
+          {s.authorId !== 'me' && authorName && (
+            <button onClick={() => { onClose(); onMessage(s.authorId) }} className="h-11 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer inline-flex items-center justify-center gap-2"><Icon name="chat" size={18} /> Написать {authorName}</button>
+          )}
+        </div>
+      </Sheet>
+      {toast && <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[70] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">{toast}</div>}
+    </>,
+    document.body,
   )
 }
 
