@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { relative } from '../lib'
-import { Avatar, Button, Icon, Sheet } from '../components/ui'
+import { Avatar, Button, ConfirmSheet, Icon, Sheet } from '../components/ui'
 import { LikeButton } from '../components/LikeButton'
 import { deleteShort, humanError, setShortThumb } from '../cloud/api'
 import { requestReload } from '../cloud/sync'
@@ -202,15 +202,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
         {s.caption && <p className="text-[15px] leading-snug whitespace-pre-wrap break-words drop-shadow">{s.caption}</p>}
       </div>
 
-      <Sheet open={confirm} onClose={() => setConfirm(false)} title="Удалить шортс?">
-        <div className="flex flex-col gap-3 text-fg">
-          <p className="text-muted">Видео удалится для всех, вернуть его нельзя.</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setConfirm(false)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { setConfirm(false); void remove() }}>Удалить</Button>
-          </div>
-        </div>
-      </Sheet>
+      <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Удалить шортс?" text="Видео исчезнет у всех. Вернуть его будет нельзя." action="Удалить" onConfirm={() => { setConfirm(false); void remove() }} />
       <div className="text-fg"><ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} /></div>
       <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
     </section>
@@ -385,15 +377,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
           onSend={(p) => dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: pubMessage(s, author?.name) })} />
       </div>
       {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}
-      <Sheet open={confirm} onClose={() => setConfirm(false)} title="Удалить публикацию?">
-        <div className="flex flex-col gap-3">
-          <p className="text-muted">Публикация удалится для всех, вернуть её нельзя.</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setConfirm(false)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { setConfirm(false); void remove() }}>Удалить</Button>
-          </div>
-        </div>
-      </Sheet>
+      <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Удалить публикацию?" text="Публикация исчезнет у всех. Вернуть её будет нельзя." action="Удалить" onConfirm={() => { setConfirm(false); void remove() }} />
       <ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} />
       <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
       <PublicationShare s={s} authorName={author?.name} open={share} onClose={() => setShare(false)} onMessage={onMessage} />
@@ -478,7 +462,7 @@ function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Shor
           )}
         </div>
       </Sheet>
-      {toast && <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[70] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">{toast}</div>}
+      {toast && <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">{toast}</div>}
     </>,
     document.body,
   )

@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 const PATHS: Record<string, string> = {
   spark: 'M13 2 4 14h7l-1 8 9-12h-7z',
@@ -188,8 +189,9 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
   if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
+  // Всегда поверх всего: внутри шапки с размытием или анимированной страницы окно иначе обрезалось.
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
       <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px] cursor-default" aria-label="Закрыть" onClick={onClose} />
       <div className="anim-rise relative w-full sm:max-w-md max-h-[90%] overflow-y-auto bg-surface rounded-t-[28px] sm:rounded-[28px] px-5 pt-3 shadow-soft pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" />
@@ -201,7 +203,36 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
+  )
+}
+
+/** Подтверждение опасного действия: крупно, по центру, одна красная кнопка и «Отмена». */
+export function ConfirmSheet({ open, onClose, onConfirm, icon, title, text, action }: {
+  open: boolean; onClose: () => void; onConfirm: () => void; icon?: ReactNode; title: string; text?: string; action: string
+}) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+  if (!open) return null
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))]" role="alertdialog" aria-modal="true" aria-label={title}>
+      <button className="anim-fade absolute inset-0 bg-black/45 backdrop-blur-[3px] cursor-default" aria-label="Закрыть" onClick={onClose} />
+      <div className="anim-sheet relative w-full sm:max-w-sm flex flex-col gap-2">
+        <div className="rounded-[26px] bg-surface shadow-soft px-5 pt-6 pb-5 flex flex-col items-center text-center gap-2">
+          {icon && <div className="mb-1 flex justify-center">{icon}</div>}
+          <h2 className="font-display text-[19px] font-bold leading-tight">{title}</h2>
+          {text && <p className="text-[14px] text-muted leading-snug max-w-[300px]">{text}</p>}
+          <button onClick={onConfirm} autoFocus className="mt-3 w-full h-12 rounded-2xl bg-danger text-white font-semibold text-[16px] inline-flex items-center justify-center gap-2 cursor-pointer active:scale-[.98] transition"><Icon name="trash" size={18} /> {action}</button>
+        </div>
+        <button onClick={onClose} className="h-13 min-h-12 rounded-[22px] bg-surface shadow-soft font-semibold text-[16px] cursor-pointer active:scale-[.98] transition">Отмена</button>
+      </div>
+    </div>,
+    document.body,
   )
 }
 

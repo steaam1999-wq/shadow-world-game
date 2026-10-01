@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
-import { Avatar, Button, Icon, Pill, Sheet, readPhoto, type Tone } from '../components/ui'
+import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, readPhoto, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
@@ -26,14 +27,19 @@ function when(ts: number, now: number) {
 
 const REVEAL = 84 // ширина красной кнопки удаления
 
-/** Строка чата: свайп справа налево открывает кнопку удаления, свайп обратно или нажатие — закрывает. */
-function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
-  open: boolean; onOpenChange: (open: boolean) => void; onClick: () => void; onDelete: () => void; label: string; children: React.ReactNode
+const FULL = 0.55 // доля ширины: протянули дальше — удаляем сразу, как в «Почте» и Telegram
+
+/** Строка чата: свайп справа налево открывает «Удалить», длинный свайп — удаляет сразу. */
+function SwipeRow({ open, onOpenChange, onClick, onDelete, label, removing, children }: {
+  open: boolean; onOpenChange: (open: boolean) => void; onClick: () => void; onDelete: () => void; label: string; removing?: boolean; children: React.ReactNode
 }) {
   const [dx, setDx] = useState<number | null>(null) // сдвиг во время жеста
+  const li = useRef<HTMLLIElement>(null)
   const start = useRef<{ x: number; y: number; base: number; horizontal: boolean | null } | null>(null)
   const moved = useRef(false)
-  const offset = dx ?? (open ? -REVEAL : 0)
+  const width = () => li.current?.offsetWidth ?? 360
+  const offset = removing ? -width() : dx ?? (open ? -REVEAL : 0)
+  const full = dx !== null && -dx > width() * FULL
 
   const down = (e: React.PointerEvent) => { start.current = { x: e.clientX, y: e.clientY, base: open ? -REVEAL : 0, horizontal: null }; moved.current = false }
   const move = (e: React.PointerEvent) => {
@@ -46,27 +52,33 @@ function SwipeRow({ open, onOpenChange, onClick, onDelete, label, children }: {
     }
     if (!st.horizontal) return
     moved.current = true
-    setDx(Math.max(-REVEAL - 24, Math.min(0, st.base + ddx)))
+    const next = Math.min(0, st.base + ddx)
+    if (dx !== null && (-next > width() * FULL) !== full) { try { navigator.vibrate?.(10) } catch { /* ignore */ } }
+    setDx(next)
   }
   const up = () => {
     const st = start.current
     start.current = null
-    if (st?.horizontal && dx !== null) onOpenChange(dx < -REVEAL / 2)
+    if (st?.horizontal && dx !== null) { if (full) onDelete(); else onOpenChange(dx < -REVEAL / 2) }
     setDx(null)
   }
 
   return (
-    <li className="relative -mx-3 overflow-hidden rounded-2xl">
+    <li ref={li} className="relative -mx-3 overflow-hidden rounded-2xl transition-[max-height,opacity] duration-300 ease-out"
+      style={{ maxHeight: removing ? 0 : 96, opacity: removing ? 0 : 1 }}>
+      <button onClick={onDelete} tabIndex={open ? 0 : -1} aria-label={label} aria-hidden={offset === 0}
+        className={`absolute inset-y-0 right-0 flex items-center justify-end overflow-hidden bg-danger text-white cursor-pointer ${dx === null ? 'transition-[width] duration-300 ease-out' : ''}`} style={{ width: Math.max(0, -offset) }}>
+        <span className={`flex flex-col items-center gap-0.5 text-[12px] font-semibold transition-transform duration-200 ${full ? 'scale-110' : ''}`}
+          style={{ width: REVEAL, flex: 'none', marginRight: full ? Math.max(0, -offset - REVEAL) : 0, transition: 'margin .2s ease-out' }}>
+          <Icon name="trash" size={22} /> Удалить
+        </span>
+      </button>
       <button onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         onClick={() => { if (moved.current) { moved.current = false; return } if (open) onOpenChange(false); else onClick() }}
         onKeyDown={(e) => { if (e.key === 'Delete' || e.key === 'Backspace') onDelete() }}
-        className={`relative w-full text-left flex items-center gap-3 py-2.5 px-3 hover:bg-surface/60 cursor-pointer touch-pan-y ${dx === null ? 'transition-transform duration-200' : ''}`}
+        className={`relative w-full text-left flex items-center gap-3 py-2.5 px-3 hover:bg-surface/60 cursor-pointer touch-pan-y ${dx === null ? 'transition-transform duration-300 ease-out' : ''}`}
         style={{ transform: `translateX(${offset}px)` }}>
         {children}
-      </button>
-      <button onClick={onDelete} tabIndex={open ? 0 : -1} aria-label={label} aria-hidden={offset === 0}
-        className={`absolute inset-y-0 right-0 grid place-items-center overflow-hidden bg-danger text-white cursor-pointer ${dx === null ? 'transition-[width] duration-200' : ''}`} style={{ width: Math.max(0, -offset) }}>
-        <span className="flex flex-col items-center gap-0.5 text-[12px] font-semibold shrink-0" style={{ width: REVEAL }}><Icon name="trash" size={22} /> Удалить</span>
       </button>
     </li>
   )
@@ -125,10 +137,22 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   const { dispatch } = useStore()
   const [query, setQuery] = useState('')
   const [swiped, setSwiped] = useState<string | null>(null) // у какой строки открыта кнопка удаления
-  const [deleting, setDeleting] = useState<string | null>(null)
+  // Удалённый чат сначала уезжает и прячется; пока висит «Вернуть», его можно восстановить.
+  const [removing, setRemoving] = useState<string | null>(null)
+  const [undo, setUndo] = useState<{ id: string; name: string } | null>(null)
+  const commit = useRef<(() => void) | null>(null)
+  useEffect(() => () => { commit.current?.() }, [])
+  const deleteChat = (id: string, name: string) => {
+    commit.current?.()
+    setSwiped(null)
+    setRemoving(id)
+    setTimeout(() => { setRemoving(null); setUndo({ id, name }) }, 300)
+    const timer = setTimeout(() => { commit.current?.() }, 4500)
+    commit.current = () => { clearTimeout(timer); commit.current = null; setUndo(null); dispatch({ type: 'hideChat', capsuleId: id }) }
+  }
+  const restore = () => { const id = undo?.id; commit.current = null; setUndo(null); if (id) setSwiped(null) }
   const [creating, setCreating] = useState(false)
   const [leavingGroup, setLeavingGroup] = useState<string | null>(null)
-  const deletingName = state.people.find((x) => x.id === state.capsules.find((c) => c.id === deleting)?.personId)?.name ?? ''
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
   const q = query.trim().toLowerCase()
   const preview = (m: { from: string; text: string; photo?: string; photoPath?: string } | undefined, who = '') =>
@@ -136,7 +160,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   // Личные чаты и группы — одним списком, свежие сверху.
   const rows = [
     ...state.capsules
-      .filter((c) => !c.hidden && state.people.some((x) => x.id === c.personId))
+      .filter((c) => !c.hidden && c.id !== undo?.id && state.people.some((x) => x.id === c.personId))
       .filter((c) => !q || state.people.find((x) => x.id === c.personId)!.name.toLowerCase().includes(q))
       .map((c) => ({ kind: 'direct' as const, id: c.id, at: lastAt(c), c })),
     ...(state.groups ?? [])
@@ -146,7 +170,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   const leaving = (state.groups ?? []).find((g) => g.id === leavingGroup)
 
   const row = (id: string, at: number, unread: number, avatar: React.ReactNode, title: string, text: string, label: string, onDelete: () => void) => (
-    <SwipeRow key={id} open={swiped === id} onOpenChange={(o) => setSwiped(o ? id : null)} onClick={() => onOpen(id)} onDelete={onDelete} label={label}>
+    <SwipeRow key={id} removing={removing === id} open={swiped === id} onOpenChange={(o) => setSwiped(o ? id : null)} onClick={() => onOpen(id)} onDelete={onDelete} label={label}>
       {avatar}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         <div className="flex items-center justify-between gap-2">
@@ -183,7 +207,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
             const c = r.c
             const p = state.people.find((x) => x.id === c.personId)!
             const last = [...c.messages].reverse().find((m) => m.from !== 'system') ?? c.messages[c.messages.length - 1]
-            return row(c.id, r.at, c.unread, <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />, p.name, preview(last), `Удалить чат с ${p.name}`, () => setDeleting(c.id))
+            return row(c.id, r.at, c.unread, <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />, p.name, preview(last), `Удалить чат с ${p.name}`, () => deleteChat(c.id, p.name))
           })}
         </ul>
       ) : (
@@ -192,25 +216,21 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
           {!q && <Button onClick={() => setCreating(true)}><Icon name="edit" size={18} /> Новый чат</Button>}
         </div>
       )}
-      <Sheet open={!!leaving} onClose={() => setLeavingGroup(null)} title={leaving?.ownerId === 'me' ? `Удалить группу «${leaving?.title}»?` : `Выйти из группы «${leaving?.title}»?`}>
-        <div className="flex flex-col gap-3">
-          <p className="text-muted">{leaving?.ownerId === 'me' ? 'Группа и вся переписка удалятся у всех участников.' : 'Вы больше не увидите эту переписку. Вернуть вас сможет только создатель.'}</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setLeavingGroup(null)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { if (leaving) dispatch({ type: 'leaveGroup', groupId: leaving.id }); setLeavingGroup(null); setSwiped(null) }}>{leaving?.ownerId === 'me' ? 'Удалить' : 'Выйти'}</Button>
-          </div>
-        </div>
-      </Sheet>
+      <ConfirmSheet open={!!leaving} onClose={() => { setLeavingGroup(null); setSwiped(null) }}
+        icon={leaving ? <GroupAvatar group={leaving} /> : null}
+        title={leaving?.ownerId === 'me' ? `Удалить «${leaving?.title}»?` : `Выйти из «${leaving?.title}»?`}
+        text={leaving?.ownerId === 'me' ? 'Группа и переписка исчезнут у всех участников.' : 'Переписка пропадёт у вас. Вернуть сможет только создатель.'}
+        action={leaving?.ownerId === 'me' ? 'Удалить группу' : 'Выйти из группы'}
+        onConfirm={() => { if (leaving) dispatch({ type: 'leaveGroup', groupId: leaving.id }); setLeavingGroup(null); setSwiped(null) }} />
       <NewChatSheet open={creating} onClose={() => setCreating(false)} onPick={(id) => { setCreating(false); onNew(id) }} onGroupCreated={(id) => { setCreating(false); onOpen(id) }} />
-      <Sheet open={!!deleting} onClose={() => setDeleting(null)} title={`Удалить чат с ${deletingName}?`}>
-        <div className="flex flex-col gap-3">
-          <p className="text-muted">Переписка исчезнет у вас. У {deletingName} она останется. Если {deletingName} напишет снова, чат появится — уже без старых сообщений.</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setDeleting(null)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { if (deleting) dispatch({ type: 'hideChat', capsuleId: deleting }); setDeleting(null); setSwiped(null) }}>Удалить</Button>
-          </div>
-        </div>
-      </Sheet>
+      {undo && createPortal(
+        <div className="anim-sheet fixed left-3 right-3 bottom-[calc(100px+env(safe-area-inset-bottom,0px))] z-[55] mx-auto max-w-md flex items-center gap-3 rounded-2xl bg-fg text-bg pl-4 pr-2 h-13 min-h-12 shadow-soft" role="status">
+          <Icon name="trash" size={18} />
+          <span className="flex-1 min-w-0 truncate text-[14px] font-medium"><b>{undo.name}</b> — чат удалён</span>
+          <button onClick={restore} className="h-9 px-3 rounded-xl font-semibold text-[14px] text-spark cursor-pointer">Вернуть</button>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }

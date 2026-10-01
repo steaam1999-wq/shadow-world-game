@@ -172,7 +172,7 @@ export function PlaneSend({ excludeId, onSend, onMore, size = 24, className = 'w
       {flights.map((f) => createPortal(<PlaneFlight key={f.id} from={f.from} to={f.to} onDone={() => setFlights((x) => x.filter((y) => y.id !== f.id))} />, document.body))}
 
       {toast && createPortal(
-        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[70] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center gap-2 text-[14px] font-medium shadow-soft" role="status">
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center gap-2 text-[14px] font-medium shadow-soft" role="status">
           <Icon name="send" size={16} /> {toast}
         </div>,
         document.body,
@@ -209,7 +209,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
     <>
       <PlaneSend excludeId={activity.authorId} onSend={sendTo} onMore={() => setSheet(true)} label="Поделиться планом" />
       {toast && createPortal(
-        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[70] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">{toast}</div>,
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">{toast}</div>,
         document.body,
       )}
       {createPortal(

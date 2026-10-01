@@ -105,10 +105,14 @@ h1, h2, h3 { text-wrap: balance; }
 @keyframes float { 0%,100% { transform: translateY(0) rotate(var(--r, 0deg)) } 50% { transform: translateY(-8px) rotate(var(--r, 0deg)) } }
 @keyframes flick { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
 .anim-rise { animation: rise .35s ease-out both; }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+.anim-sheet { animation: sheet-up .32s cubic-bezier(.2,.9,.3,1.1) both; }
+.anim-fade { animation: fade-in .2s ease-out both; }
 .anim-float { animation: float 6s ease-in-out infinite; }
 .anim-flick { animation: flick 1.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .anim-rise, .anim-float, .anim-flick { animation: none; }
+  .anim-rise, .anim-float, .anim-flick, .anim-sheet, .anim-fade { animation: none; }
 }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }

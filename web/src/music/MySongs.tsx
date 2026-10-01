@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Button, Field, Icon, Sheet, inputCls } from '../components/ui'
+import { Button, ConfirmSheet, Field, Icon, Sheet, inputCls } from '../components/ui'
 import { formatTime, usePlayer } from './player'
 import { Disc } from './PlayerUI'
 import type { Track } from './engine'
@@ -96,15 +96,9 @@ export function MySongs() {
       )}
 
       <EditSheet track={editing} onClose={() => setEditing(null)} />
-      <Sheet open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Удалить песню?">
-        <div className="flex flex-col gap-4">
-          <p className="text-muted">«{confirmDelete?.title}» пропадёт из «Моих песен» в этом браузере. Сам файл на устройстве останется.</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Отмена</Button>
-            <Button variant="danger" onClick={() => { if (confirmDelete) p.removeUpload(confirmDelete.id); setConfirmDelete(null) }}>Удалить</Button>
-          </div>
-        </div>
-      </Sheet>
+      <ConfirmSheet open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title={`Удалить «${confirmDelete?.title ?? ''}»?`}
+        text="Песня пропадёт из «Моих песен» в этом браузере. Сам файл на устройстве останется." action="Удалить песню"
+        onConfirm={() => { if (confirmDelete) p.removeUpload(confirmDelete.id); setConfirmDelete(null) }} />
     </section>
   )
 }

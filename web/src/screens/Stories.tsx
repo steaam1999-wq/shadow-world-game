@@ -3,7 +3,7 @@ export { StoryCreator } from './StoryCamera'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { compatibility, planWhen, relative } from '../lib'
-import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
+import { Avatar, Button, ConfirmSheet, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
@@ -290,15 +290,8 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
               </ul>
             ) : <p className="py-6 text-center text-muted">Пока никто не посмотрел. История видна 24 часа.</p>}
           </Sheet>
-          <Sheet open={confirmDelete} onClose={() => { setConfirmDelete(false); setPaused(false) }} title="Удалить историю?">
-            <div className="flex flex-col gap-3">
-              <p className="text-muted">История исчезнет у всех прямо сейчас.</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => { setConfirmDelete(false); setPaused(false) }}>Отмена</Button>
-                <Button variant="danger" onClick={() => { dispatch({ type: 'deleteStory', id: s.id }); setConfirmDelete(false); setPaused(false); if (ii > 0) setIi(ii - 1) }}>Удалить</Button>
-              </div>
-            </div>
-          </Sheet>
+          <ConfirmSheet open={confirmDelete} onClose={() => { setConfirmDelete(false); setPaused(false) }} title="Удалить историю?" text="История исчезнет у всех прямо сейчас." action="Удалить историю"
+            onConfirm={() => { dispatch({ type: 'deleteStory', id: s.id }); setConfirmDelete(false); setPaused(false); if (ii > 0) setIi(ii - 1) }} />
         </>
       )}
     </div>
