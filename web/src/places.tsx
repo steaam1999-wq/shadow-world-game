@@ -68,7 +68,11 @@ export function mapKindOf(name: string): MapKind {
   const p = INDEX.get(name)
   return !p ? 'by' : p.country === 'ru' ? 'ru' : p.region === 'Минск' ? 'minsk' : 'by'
 }
-export const byXY = (lat: number, lon: number): [number, number] => [((lon - 23.0) / 10.2) * 90 + 5, ((56.3 - lat) / 5.2) * 90 + 5]
+// Карта Беларуси без искажений: градус долготы на широте Беларуси короче градуса широты (× cos 53,7°),
+// поэтому страна шире, чем выше. Вписываем её в квадрат 100×100 с полями.
+const BY_K = Math.cos((53.7 * Math.PI) / 180)
+const BY_S = 88 / ((32.72 - 23.16) * BY_K)
+export const byXY = (lat: number, lon: number): [number, number] => [6 + (lon - 23.16) * BY_K * BY_S, (100 - (56.16 - 51.24) * BY_S) / 2 + (56.16 - lat) * BY_S]
 export const minskXY = (lat: number, lon: number): [number, number] => [((lon - 27.40) / 0.32) * 84 + 8, ((53.98 - lat) / 0.16) * 84 + 8]
 
 /** Точка места на карте нужного вида (0..100). */
