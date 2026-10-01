@@ -32,6 +32,25 @@ function fromSlug(url: string): { title: string; artist: string } {
   return { title: nice(a === 'sets' ? b : a) || 'Трек SoundCloud', artist: nice(user) || 'SoundCloud' }
 }
 
+// Плеер SoundCloud не понимает короткие ссылки on.soundcloud.com из кнопки «Поделиться».
+// oEmbed отдаёт готовый код плеера с постоянным адресом трека (api.soundcloud.com/tracks/…) — берём его.
+const widgetUrls = new Map<string, string>()
+function rememberWidgetUrl(url: string, html?: string) {
+  const src = /src="([^"]+)"/.exec(html ?? '')?.[1]?.replace(/&amp;/g, '&')
+  try { const u = src && new URL(src).searchParams.get('url'); if (u) widgetUrls.set(url, u) } catch { /* ignore */ }
+}
+/** Адрес, который понимает плеер: постоянный адрес трека; в худшем случае — сама ссылка. */
+export async function widgetUrl(url: string): Promise<string> {
+  if (/api\.soundcloud\.com\//.test(url)) return url
+  const hit = widgetUrls.get(url)
+  if (hit) return hit
+  try {
+    const r = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
+    if (r.ok) rememberWidgetUrl(url, ((await r.json()) as { html?: string }).html)
+  } catch { /* нет ответа — пробуем саму ссылку */ }
+  return widgetUrls.get(url) ?? url
+}
+
 /** Трек по ссылке: название, исполнитель и обложка из официального oEmbed SoundCloud. */
 export async function soundCloudTrack(url: string, signal?: AbortSignal): Promise<Track> {
   const base: Track = { id: soundCloudId(url), ...fromSlug(url), genre: 'file', source: 'soundcloud', hue: hueOf(url), bpm: 0, root: 0, bars: 0, url }
@@ -42,7 +61,8 @@ export async function soundCloudTrack(url: string, signal?: AbortSignal): Promis
   }
   if (r.status === 404 || r.status === 403) throw new Error('not-found') // удалён, приватный или встраивание запрещено
   if (!r.ok) return base
-  const o = (await r.json()) as { title?: string; author_name?: string; thumbnail_url?: string }
+  const o = (await r.json()) as { title?: string; author_name?: string; thumbnail_url?: string; html?: string }
+  rememberWidgetUrl(url, o.html)
   const artist = o.author_name?.trim() || base.artist
   // oEmbed отдаёт «Название by Исполнитель».
   const title = (o.title ?? '').replace(new RegExp(`\\s+by\\s+${artist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), '').trim() || base.title
@@ -89,21 +109,34 @@ function host() {
   document.body.appendChild(el)
   return el
 }
-function showHost(show: boolean) {
+function showHost(mode: false | 'tap' | 'error', link?: string) {
   const el = host()
-  if (show) {
-    Object.assign(el.style, { left: '12px', right: '12px', width: 'auto', bottom: 'calc(112px + env(safe-area-inset-bottom, 0px))', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 12px 40px -12px rgb(0 0 0 / .45)', background: '#fff' })
-    if (!el.querySelector('[data-sc-hint]')) {
-      const hint = document.createElement('div')
-      hint.dataset.scHint = ''
-      hint.textContent = 'Нажмите ▶ в плеере SoundCloud — телефон просит одно касание'
-      Object.assign(hint.style, { font: '600 13px system-ui, sans-serif', padding: '10px 14px', color: '#222' })
-      el.prepend(hint)
-    }
-  } else {
+  el.querySelector('[data-sc-hint]')?.remove()
+  if (!mode) {
     Object.assign(el.style, { left: '-10000px', right: 'auto', width: '320px', bottom: '0', boxShadow: 'none' })
-    el.querySelector('[data-sc-hint]')?.remove()
+    return
   }
+  Object.assign(el.style, { left: '12px', right: '12px', width: 'auto', bottom: 'calc(112px + env(safe-area-inset-bottom, 0px))', borderRadius: '18px', overflow: 'hidden', boxShadow: '0 12px 40px -12px rgb(0 0 0 / .45)', background: '#fff' })
+  const hint = document.createElement('div')
+  hint.dataset.scHint = ''
+  Object.assign(hint.style, { display: 'flex', alignItems: 'center', gap: '10px', font: '600 13px system-ui, sans-serif', padding: '10px 10px 10px 14px', color: '#222' })
+  const text = document.createElement('span')
+  text.style.flex = '1'
+  text.textContent = mode === 'tap' ? 'Нажмите ▶ в плеере SoundCloud — телефон просит одно касание' : 'SoundCloud не даёт проиграть этот трек здесь.'
+  hint.appendChild(text)
+  if (mode === 'error' && link) {
+    const a = document.createElement('a')
+    a.href = link; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'Открыть'
+    Object.assign(a.style, { color: '#ff5500', textDecoration: 'none', whiteSpace: 'nowrap' })
+    hint.appendChild(a)
+  }
+  const close = document.createElement('button')
+  close.textContent = '✕'
+  close.setAttribute('aria-label', 'Скрыть плеер SoundCloud')
+  Object.assign(close.style, { border: '0', background: 'transparent', font: '600 16px system-ui', color: '#666', cursor: 'pointer', padding: '4px 6px' })
+  close.onclick = () => showHost(false)
+  hint.appendChild(close)
+  el.prepend(hint)
 }
 
 /**
@@ -119,6 +152,8 @@ export class SoundCloudAudio {
   private vol = 0.8
   private wantPlay = false
   private started = false
+  private failed = false
+  private link: string
   paused = true
   onended: (() => void) | null = null
 
@@ -130,11 +165,12 @@ export class SoundCloudAudio {
     this.frame.height = '120'
     this.frame.style.border = '0'
     this.frame.style.display = 'block'
-    this.frame.src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false&color=%23ff4f86`
+    this.link = url
     const h = host()
     h.querySelectorAll('iframe').forEach((f) => f.remove())
     h.appendChild(this.frame)
-    this.ready = loadApi().then((SC) => new Promise<Widget>((resolve) => {
+    this.ready = Promise.all([widgetUrl(url), loadApi()]).then(([src, SC]) => new Promise<Widget>((resolve) => {
+      this.frame.src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(src)}&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false&color=%23ff4f86`
       const w = SC.Widget(this.frame)
       const E = SC.Widget.Events
       w.bind(E.READY, () => {
@@ -147,6 +183,7 @@ export class SoundCloudAudio {
       w.bind(E.PLAY, () => { this.paused = false; this.started = true; showHost(false); w.getDuration((ms) => { if (ms > 0) this.dur = ms / 1000 }) })
       w.bind(E.PAUSE, () => { this.paused = true })
       w.bind(E.FINISH, () => { this.paused = true; this.onended?.() })
+      if (E.ERROR) w.bind(E.ERROR, () => { this.failed = true; if (this.wantPlay) showHost('error', this.link) })
     }))
   }
 
@@ -164,11 +201,15 @@ export class SoundCloudAudio {
   async play() {
     this.wantPlay = true
     this.paused = false
+    // Плеер так и не загрузился (неверная ссылка, трек скрыт) — говорим об этом, а не ждём молча.
+    const stuck = setTimeout(() => { if (this.wantPlay && !this.widget) showHost('error', this.link) }, 8000)
     const w = await this.ready
+    clearTimeout(stuck)
     if (!this.wantPlay) return
+    if (this.failed) { showHost('error', this.link); return }
     w.play()
     // iPhone не даёт стороннему плееру включить звук без касания — показываем сам плеер SoundCloud.
-    setTimeout(() => { if (this.wantPlay && !this.started) showHost(true) }, 1800)
+    setTimeout(() => { if (this.wantPlay && !this.started && !this.failed) showHost('tap') }, 1800)
   }
   pause() {
     this.wantPlay = false
