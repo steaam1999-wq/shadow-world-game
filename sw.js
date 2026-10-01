@@ -1,7 +1,60 @@
-// Match: сервис-воркер нужен только для уведомлений о новых сообщениях (в том числе push при закрытом сайте).
-// Ничего не кэширует — сайт всегда грузится свежим.
+// Match: сервис-воркер — уведомления (в том числе push при закрытом сайте) и быстрый повторный запуск.
+// Кэш: файлы сборки (assets/ с хэшем в имени) — из кэша, они не меняются; страница — сначала из сети
+// (чтобы обновления приходили сразу), а без сети или при медленной сети — из кэша.
+const CACHE = 'match-v1'
+const MAX_ASSETS = 80
+
 self.addEventListener('install', () => self.skipWaiting())
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
+self.addEventListener('activate', (e) => e.waitUntil((async () => {
+  for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k)
+  await self.clients.claim()
+})()))
+
+async function trim(cache) {
+  const keys = (await cache.keys()).filter((r) => r.url.includes('/assets/'))
+  for (const r of keys.slice(0, Math.max(0, keys.length - MAX_ASSETS))) await cache.delete(r)
+}
+
+self.addEventListener('fetch', (e) => {
+  const req = e.request
+  if (req.method !== 'GET') return
+  const url = new URL(req.url)
+  if (url.origin !== self.location.origin) return // Supabase, музыка, шрифты — как обычно, без кэша
+
+  if (url.pathname.includes('/assets/')) {
+    e.respondWith(caches.open(CACHE).then(async (cache) => {
+      const hit = await cache.match(req)
+      if (hit) return hit
+      const res = await fetch(req)
+      if (res.ok) { cache.put(req, res.clone()); trim(cache) }
+      return res
+    }))
+    return
+  }
+
+  if (req.mode === 'navigate') {
+    const key = new Request(new URL('./', self.registration.scope).href)
+    e.respondWith(caches.open(CACHE).then(async (cache) => {
+      const net = fetch(req).then((res) => { if (res.ok) cache.put(key, res.clone()); return res })
+      // Медленная сеть — через 3 секунды показываем сохранённую версию, свежая подхватится в следующий раз.
+      const slow = new Promise((resolve) => setTimeout(resolve, 3000)).then(() => cache.match(key))
+      try {
+        const first = await Promise.race([net, slow])
+        return first || await net
+      } catch {
+        return (await cache.match(key)) || Response.error()
+      }
+    }))
+    return
+  }
+
+  // Иконки, манифест, звуки: отдаём сохранённое и тихо обновляем.
+  e.respondWith(caches.open(CACHE).then(async (cache) => {
+    const hit = await cache.match(req)
+    const net = fetch(req).then((res) => { if (res.ok) cache.put(req, res.clone()); return res }).catch(() => hit)
+    return hit || net
+  }))
+})
 self.addEventListener('notificationclick', (e) => {
   e.notification.close()
   const chat = e.notification.data && e.notification.data.chat
