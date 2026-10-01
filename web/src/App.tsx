@@ -305,7 +305,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                     className={`relative w-full h-14 flex flex-col items-center justify-center gap-0.5 rounded-[24px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-muted hover:text-fg'}`}>
                     <span className="relative">
                       {t.id === 'profile' ? (
-                        <span className={`block rounded-full ${active ? 'ring-2 ring-fg ring-offset-1 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
+                        <span className="block rounded-full"><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
                       ) : (
                         <Icon name={t.icon} size={24} fill={active && (t.id === 'home')} className="tab-icon" />
                       )}
