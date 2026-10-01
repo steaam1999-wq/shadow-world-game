@@ -13,7 +13,9 @@ import { NewPublication } from './screens/LazyComposer'
 import { StoryCreator } from './screens/Stories' // ещё нужен ленте (кружки историй), отдельно не грузится
 import { CloudSync } from './cloud/CloudSync'
 import { MessageAlerts } from './components/Alerts'
-import { fetchMyProfile, profileToMe, sessionFromUrl } from './cloud/api'
+import { acceptConsent, fetchMyProfile, profileToMe, sessionFromUrl } from './cloud/api'
+import { ConsentGate, localConsent, saveLocalConsent } from './components/Consent'
+import { CONSENT_SINCE } from './components/Rules'
 import { cloudEnabled } from './cloud/config'
 import { Avatar, Icon, Logo, LogoMark, Sheet } from './components/ui'
 import { isExpired, relative } from './lib'
@@ -142,6 +144,15 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const now = useNow()
   const me = state.me!
   const [tab, setTab] = useState<Tab>('home')
+  // 18+ и согласие на обработку данных: у новых — с экрана входа, у зарегистрированных раньше — разовое окно.
+  const consentOk = !state.cloud || (me.consentAt ?? 0) >= CONSENT_SINCE
+  const cloudId = state.cloud?.userId
+  const acceptNow = useCallback(() => {
+    const at = saveLocalConsent()
+    dispatch({ type: 'updateMe', patch: { consentAt: at } })
+    if (cloudId) void acceptConsent(cloudId).catch(() => { /* отметим при следующем входе */ })
+  }, [cloudId, dispatch])
+  useEffect(() => { if (!consentOk && localConsent()) acceptNow() }, [consentOk, acceptNow])
   const [chat, setChat] = useState<string | null>(null)
   const [person, setPerson] = useState<string | null>(null)
   // Где сейчас человек — уходит в «Сообщить об ошибке».
@@ -280,6 +291,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </div>
       </Sheet>
       {storying && <Suspense fallback={null}><StoryCreator open={storying} onClose={() => { setStorying(false); setTab('home'); setPerson(null) }} /></Suspense>}
+      {!consentOk && !localConsent() && <ConsentGate onAccept={acceptNow} onDecline={() => { dispatch({ type: 'signOut' }); onSignOut() }} />}
       <NewChatSheet open={newChat} onClose={() => setNewChat(false)} onPick={(id) => { setNewChat(false); messagePerson(id) }} onGroupCreated={(id) => { setNewChat(false); openChatById(id) }} />
       <ActivitySheet open={activityOpen} onClose={() => setActivityOpen(false)} now={now} openProfile={openProfile} onOpenCapsule={(id) => { setActivityOpen(false); setTab('capsules'); setChat(id) }} />
 

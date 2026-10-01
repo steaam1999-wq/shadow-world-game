@@ -125,3 +125,33 @@ test('«Сообщить об ошибке»: окно открывается, �
   await dlg.getByRole('button', { name: 'Отправить' }).click()
   await expect(page.getByRole('dialog', { name: 'Спасибо!' })).toContainText('демо-режим')
 })
+
+test('без галочки 18+ и согласия регистрация не начинается', async ({ page }) => {
+  await page.goto('./')
+  await page.getByRole('button', { name: 'Продолжить с почтой' }).click()
+  await expect(page.getByText('Отметьте, что вам есть 18')).toBeVisible()
+  await page.getByRole('checkbox').check({ force: true })
+  await page.getByRole('button', { name: 'Продолжить с почтой' }).click()
+  await expect(page.getByText('Отметьте, что вам есть 18')).toBeHidden()
+  expect(await page.evaluate(() => Number(localStorage.getItem('match-consent')))).toBeGreaterThan(0)
+})
+
+test('документы открываются по ссылке из согласия', async ({ page }) => {
+  await page.goto('./')
+  await page.getByRole('button', { name: 'политику конфиденциальности' }).click()
+  const docs = page.getByRole('dialog', { name: 'Документы Match' })
+  await expect(docs.getByRole('tab', { name: 'Конфиденциальность' })).toHaveAttribute('aria-selected', 'true')
+  await expect(docs.getByText('Геопозиция')).toBeVisible()
+  await docs.getByRole('tab', { name: 'Согласие' }).click()
+  await expect(docs.getByText('О защите персональных данных')).toBeVisible()
+})
+
+test('повторный запуск без интернета', async ({ page, context }) => {
+  await page.goto('./')
+  await page.evaluate(() => navigator.serviceWorker.ready)
+  await page.reload() // теперь страницу обслуживает воркер и кладёт в кэш
+  await page.waitForTimeout(500)
+  await context.setOffline(true)
+  await page.reload()
+  await expect(page.getByText('Встречи рядом.')).toBeVisible()
+})

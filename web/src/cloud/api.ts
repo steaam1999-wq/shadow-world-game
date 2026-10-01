@@ -13,7 +13,7 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null }
+interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null; consent_at?: string | null }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
@@ -196,6 +196,7 @@ export function profileToMe(p: ProfileRow, local: Me | null): Me {
     photo: p.photo ?? undefined, photoPath: p.photo_path ?? undefined, verified: p.verified, meetings: p.meetings, authMethod: 'email',
     songs: local?.privacy?.hideSongs ? local.songs : safeTracks(p.songs),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
+    consentAt: p.consent_at ? new Date(p.consent_at).getTime() : local?.consentAt,
   }
 }
 
@@ -955,5 +956,11 @@ export async function adminBugReports(): Promise<BugReport[]> {
 
 export async function setBugStatus(id: number, status: 'new' | 'done') {
   const { error } = await sb().from('bug_reports').update({ status }).eq('id', id)
+  if (error) throw error
+}
+
+/** Отметка: человек подтвердил 18+ и дал согласие на обработку данных (время — на сервере). */
+export async function acceptConsent(userId: string) {
+  const { error } = await sb().from('profiles').update({ consent_at: new Date().toISOString() }).eq('id', userId)
   if (error) throw error
 }

@@ -184,7 +184,7 @@ async function notifySystem(title: string, body: string, chat: string, icon?: st
 }
 
 export function registerAlertsWorker() {
-  if (!('serviceWorker' in navigator) || location.protocol !== 'https:') return
+  if (!('serviceWorker' in navigator) || (location.protocol !== 'https:' && location.hostname !== 'localhost')) return
   navigator.serviceWorker.register('sw.js').catch(() => { /* без воркера — только баннер и звук */ })
 }
 

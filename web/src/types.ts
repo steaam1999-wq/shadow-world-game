@@ -46,6 +46,7 @@ export interface Me {
   songs?: Track[]
   nowPlaying?: NowPlaying | null
   freeUntil?: number // «Свободен сейчас» до этого времени
+  consentAt?: number // когда подтвердил 18+ и согласие на обработку данных
   noShows?: number // мои пропущенные встречи по отметкам других
   trustedContact?: string // кому сообщить, если встреча пошла не так
 }

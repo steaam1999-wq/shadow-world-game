@@ -181,6 +181,9 @@ create policy "reports: send" on public.reports for insert to authenticated with
 revoke insert, update on public.profiles from authenticated;
 grant insert (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing, photo_path) on public.profiles to authenticated;
 grant update (id, name, age, bio, district, hue, tags, answers, photo, meetings, songs, now_playing, photo_path) on public.profiles to authenticated;
+-- Когда человек подтвердил 18+ и дал согласие на обработку персональных данных.
+alter table public.profiles add column if not exists consent_at timestamptz;
+grant insert (consent_at), update (consent_at) on public.profiles to authenticated;
 
 create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade

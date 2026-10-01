@@ -5,6 +5,7 @@ import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
 import { authProviders, humanError, requestPasswordReset, sendMagicLink, signIn, signInWithProvider, signUp } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
+import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
 
 // Пример аккаунта: открывается одной кнопкой, чтобы посмотреть приложение без регистрации.
 export const DEMO_ME: Me = {
@@ -54,6 +55,14 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
+  const [agreed, setAgreed] = useState(() => !!localConsent())
+  const [needAgree, setNeedAgree] = useState(false)
+  /** Новый вход или регистрация — только после галочки «18+ и согласие». */
+  const agreeFirst = (go: () => void) => () => {
+    if (!agreed) { setNeedAgree(true); return }
+    saveLocalConsent()
+    go()
+  }
 
   // С сервером: настоящий вход по почте и паролю через Supabase.
   const cloudSubmit = async () => {
@@ -148,9 +157,9 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             )}
             {(cloudEnabled ? providers : ['telegram', 'google']).map((pv) => (
               <AuthOption key={pv} icon={<ProviderIcon id={pv} />} disabled={busy}
-                onClick={() => (cloudEnabled ? void oauth(pv) : social(pv === 'telegram' ? 'telegram' : 'google'))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
+                onClick={agreeFirst(() => (cloudEnabled ? void oauth(pv) : social(pv === 'telegram' ? 'telegram' : 'google')))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
             ))}
-            <AuthOption primary icon={<Icon name="send" size={18} />} onClick={() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register'))}>Продолжить с почтой</AuthOption>
+            <AuthOption primary icon={<Icon name="send" size={18} />} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}>Продолжить с почтой</AuthOption>
             <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Войти с паролем</button>
             {!cloudEnabled && (
               <button onClick={() => onDemo(true)} className="-mt-2 h-10 text-[13px] text-muted hover:text-fg cursor-pointer inline-flex items-center justify-center gap-1.5">
@@ -159,7 +168,10 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             )}
             {error && <p className="text-center text-[13px] text-danger" role="alert">{error}</p>}
           </div>
-          <p className="mt-4 text-center text-[12px] text-muted">Продолжая, вы принимаете <button onClick={() => setRules(true)} className="underline underline-offset-2 cursor-pointer">правила</button>. Только 18+.</p>
+          <div className="mt-4">
+            <ConsentCheck checked={agreed} onChange={(v) => { setAgreed(v); if (v) { setNeedAgree(false); saveLocalConsent() } }} highlight={needAgree} />
+            {needAgree && !agreed && <p className="mt-2 text-center text-[13px] text-danger" role="alert">Отметьте, что вам есть 18 и вы согласны с документами</p>}
+          </div>
         </main>
       )}
 
@@ -247,6 +259,8 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                     if (cloudEnabled && !login.includes('@')) return setError('Похоже, это не почта — проверьте, есть ли «@»')
                   }
                   if (!last) { setStep(step + 1); return }
+                  if (mode === 'register' && !agreed) { setNeedAgree(true); return setError('Отметьте, что вам есть 18 и вы согласны с документами') }
+                  if (mode === 'register') saveLocalConsent()
                   submit(e)
                 }
                 const q = cur === 'name' ? 'Как вас зовут?' : cur === 'login' ? (cloudEnabled ? 'Ваша почта' : 'Телефон или почта') : mode === 'login' ? 'Пароль' : 'Придумайте пароль'
@@ -288,6 +302,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                         )}
                       </div>
                     )}
+                    {last && mode === 'register' && <ConsentCheck checked={agreed} onChange={(v) => { setAgreed(v); if (v) { setNeedAgree(false); setError('') } }} highlight={needAgree} />}
                     {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
                     {info && <p className="text-[13px] text-ok" role="status">{info}</p>}
                     <div className="flex gap-2">
