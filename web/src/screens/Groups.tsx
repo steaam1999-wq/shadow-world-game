@@ -7,7 +7,7 @@ import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm } from '../lib'
-import { Avatar, Button, Icon, Sheet, readPhotoFull } from '../components/ui'
+import { Avatar, Button, Icon, Sheet, readPhotoFull, useKeyboardInset } from '../components/ui'
 import type { Group, Person } from '../types'
 
 // Групповые чаты: создание, переписка, участники. Создатель добавляет и убирает людей,
@@ -109,6 +109,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
   const [picked, setPicked] = useState<string | null>(null)
   const [viewing, setViewing] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState('')
+  const kb = useKeyboardInset() // высота клавиатуры — строка ввода остаётся над ней
   const [typing, setTyping] = useState<string | null>(null)
   const photoInput = useRef<HTMLInputElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
@@ -139,7 +140,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
   const count = g.members.length + 1
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-[100dvh]">
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-surface/55 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
@@ -172,7 +173,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
               <div className={`flex flex-col gap-1 min-w-0 ${mine ? 'items-end' : 'items-start'}`}>
                 {first && <span className="px-3 text-[12px] font-semibold text-muted">{who?.name ?? 'Бывший участник'}</span>}
                 <div onClick={() => setPicked(picked === m.id ? null : m.id)}
-                  className={`rounded-3xl cursor-pointer ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${mine ? 'bg-brand text-white rounded-br-md' : 'bg-surface-2 rounded-bl-md'}`}>
+                  className={`rounded-3xl cursor-pointer ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${mine ? 'bg-brand text-white rounded-br-md' : 'bg-surface text-fg rounded-bl-md shadow-[0_1px_3px_rgb(0_0_0/.08)] ring-1 ring-line/70'}`}>
                   {m.photo && (
                     <button onClick={(e) => { e.stopPropagation(); setViewing(m.photo!) }} className="block cursor-zoom-in" aria-label="Открыть фото">
                       <img src={m.photo} alt="Фото" className="block max-w-[240px] max-h-[320px] rounded-[20px] object-cover" loading="lazy" />
@@ -199,7 +200,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
         <div ref={endRef} />
       </div>
 
-      <div className="sticky bottom-0 bg-surface/70 backdrop-blur-xl -mx-4 px-4 pt-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] flex flex-col gap-2 border-t border-line">
+      <div className={`sticky bottom-0 bg-surface/80 backdrop-blur-xl -mx-4 px-4 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line z-10`} style={kb ? { bottom: kb } : undefined}>
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
         <form onSubmit={send} className="flex gap-2">
           <button type="button" onClick={() => photoInput.current?.click()} className="grid place-items-center w-11 h-11 shrink-0 rounded-full bg-surface-2 text-muted hover:text-fg cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
@@ -209,7 +210,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
             if (!f) return
             try { dispatch({ type: 'sendGroupPhoto', groupId: g.id, photo: await readPhotoFull(f) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
           }} />
-          <input id="chat-input" aria-label="Сообщение" className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение в группу…" autoComplete="off" />
+          <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение в группу…" autoComplete="off" />
           <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
         </form>
       </div>
