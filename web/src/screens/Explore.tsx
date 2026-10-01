@@ -415,6 +415,21 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
   const path = (pts: [number, number][], f: (la: number, lo: number) => [number, number]) => pts.map(([la, lo]) => f(la, lo).map((v) => v.toFixed(1)).join(',')).join(' ')
   const label = kind === 'minsk' ? 'Схема Минска с активностями' : kind === 'by' ? 'Карта Беларуси с активностями' : 'Схема центра Москвы с активностями'
   const meAt = myDistrict ? at(mx, my) : null
+  // Сколько людей в каждом городе (на карте страны) или районе (на схеме Минска) — все, кто указал место, вместе со мной.
+  const { state } = useStore()
+  const showCounts = kind !== 'ru' && z >= (kind === 'by' ? 1.6 : 2)
+  const counts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const d of [...state.people.map((p) => p.district), myDistrict]) {
+      if (!d || !placeInfo(d)) continue
+      const kk = mapKindOf(d)
+      if (kind === 'minsk' ? kk !== 'minsk' : kk === 'ru') continue
+      const key = kind === 'by' ? cityOf(d) : d
+      m.set(key, (m.get(key) ?? 0) + 1)
+    }
+    return m
+  }, [state.people, myDistrict, kind])
+  const countLabel = (place: string) => place.replace(/^Минск, /, '').replace(/ р-н$/, '')
   return (
     <div ref={box} {...handlers} className="relative rounded-[28px] overflow-hidden bg-surface-2 aspect-square max-w-full select-none"
       style={{ touchAction: z > 1 ? 'none' : 'pan-y' }}>
@@ -423,7 +438,7 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
           <>
             <polygon points={path(MKAD, minskXY)} fill="var(--surface)" fillOpacity=".6" stroke="var(--line)" strokeWidth="1.4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
             <polyline points={path(SVISLOCH, minskXY)} fill="none" stroke="var(--cobalt)" strokeOpacity=".35" strokeWidth={8 * z ** 0.35} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-            {MINSK_LABELS.map(([n, la, lo]) => { const [x, y] = minskXY(la, lo); return <text key={n} x={x} y={y} textAnchor="middle" fontSize={3.2 * k} fill="var(--muted)" aria-hidden="true">{n}</text> })}
+            {!showCounts && MINSK_LABELS.map(([n, la, lo]) => { const [x, y] = minskXY(la, lo); return <text key={n} x={x} y={y} textAnchor="middle" fontSize={3.2 * k} fill="var(--muted)" aria-hidden="true">{n}</text> })}
           </>
         )}
         {kind === 'by' && (
@@ -445,7 +460,7 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
               return (
                 <g key={c} aria-hidden="true">
                   <circle cx={x} cy={y} r={(c === 'Минск' ? 1.4 : big ? 1 : .7) * k} fill="var(--fg)" fillOpacity={big ? .55 : .35} />
-                  <text x={x} y={c === 'Минск' ? y - 4.6 * k : above ? y - 2.2 * k : y + 4.4 * k} textAnchor="middle" fontSize={(c === 'Минск' ? 3.8 : big ? 3.2 : 2.6) * k} fontWeight={c === 'Минск' ? 700 : 500} fill="var(--fg)" fillOpacity={big ? .7 : .5}>{c}</text>
+                  {!(showCounts && counts.has(c)) && <text x={x} y={c === 'Минск' ? y - 4.6 * k : above ? y - 2.2 * k : y + 4.4 * k} textAnchor="middle" fontSize={(c === 'Минск' ? 3.8 : big ? 3.2 : 2.6) * k} fontWeight={c === 'Минск' ? 700 : 500} fill="var(--fg)" fillOpacity={big ? .7 : .5}>{c}</text>}
                 </g>
               )
             })}
@@ -481,7 +496,7 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
           <button key={place} onClick={() => onSelectCity(place)} aria-label={`${place}: ${list.length} чел.`}
             className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center cursor-pointer ${on ? 'z-20' : 'z-10'}`} style={pos}>
             {list.slice(0, 2).map((p, i) => <span key={p.id} className={`rounded-full p-[1.5px] ${on ? 'bg-brand' : 'bg-surface'} shadow-soft`} style={{ marginLeft: i ? -px / 2 : 0 }}><Avatar name={p.name} hue={p.hue} src={p.photo} size={px} /></span>)}
-            <span className="-ml-1.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-spark text-on-spark text-[10px] font-bold ring-2 ring-surface">{list.length}</span>
+            {!(showCounts && counts.has(place)) && <span className="-ml-1.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-spark text-on-spark text-[10px] font-bold ring-2 ring-surface">{list.length}</span>}
           </button>
         )
       })}
@@ -498,6 +513,24 @@ function CityMap({ items, people, me, selected, onSelect, onSelectPerson, onSele
             <Avatar name={p.name} hue={p.hue} src={p.photo} size={on ? Math.round(px * 1.3) : px} />
             {free && <span className="absolute -right-0.5 -bottom-0.5 rounded-full bg-[#22c55e] ring-2 ring-surface" style={{ width: Math.max(7, px / 3.5), height: Math.max(7, px / 3.5) }} />}
           </button>
+        )
+      })}
+      {/* При приближении — подписи с числом людей в городе или районе */}
+      {showCounts && [...counts].map(([place, n]) => {
+        const [x, y] = placeXY(place, kind)
+        const pos = at(x, y - (kind === 'minsk' ? 7 : 2)) // над облаком аватарок этого места (сдвиг jitter)
+        if (!pos) return null
+        const lift = px / 2 + 4
+        // У края карты подпись прижимается внутрь, а не обрезается.
+        const sx = Math.min(97, Math.max(3, parseFloat(pos.left)))
+        pos.left = `${sx}%`
+        const shift = sx < 22 ? 0 : sx > 78 ? -100 : -50
+        return (
+          <span key={place} className="absolute z-[25] -translate-x-1/2 pointer-events-none whitespace-nowrap rounded-full bg-surface/95 backdrop-blur shadow-soft px-2 h-6 inline-flex items-center gap-1 text-[11.5px] font-semibold"
+            style={{ ...pos, transform: `translate(${shift}%, calc(-100% - ${lift}px))` }}>
+            {countLabel(place)}
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-spark text-on-spark px-1.5 h-[18px] text-[10.5px] font-bold tnum"><Icon name="people" size={11} />{n}</span>
+          </span>
         )
       })}
       {/* Я — аватарка с пульсом */}
