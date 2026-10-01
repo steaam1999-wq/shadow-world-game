@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 export { StoryCreator } from './StoryCamera'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
@@ -175,7 +176,7 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
   const s = item.type === 'story' ? item.story : null
   const a = item.type === 'plan' ? item.activity : null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-black flex justify-center" role="dialog" aria-modal="true" aria-label={`Истории ${p.name}`}>
       <div className="relative w-full max-w-[480px] h-full flex flex-col text-white pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] overflow-hidden">
         {/* Содержимое */}
@@ -294,7 +295,8 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
             onConfirm={() => { dispatch({ type: 'deleteStory', id: s.id }); setConfirmDelete(false); setPaused(false); if (ii > 0) setIi(ii - 1) }} />
         </>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
