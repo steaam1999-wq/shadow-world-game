@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PhotoViewer } from '../components/PhotoViewer'
 import { soundCloudLink } from '../music/soundcloud'
 import { SoundCloudCard } from '../music/SoundCloudCard'
 import { useStore } from '../store'
@@ -212,12 +213,13 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
           <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
         </form>
       </div>
-      {viewing && (
-        <div className="fixed inset-0 z-[70] bg-black/90 grid place-items-center p-4" role="dialog" aria-modal="true" aria-label="Фото" onClick={() => setViewing(null)}>
-          <img src={viewing} alt="Фото" className="max-w-full max-h-full object-contain rounded-xl" />
-          <button className="absolute right-4 top-[calc(16px+env(safe-area-inset-top,0px))] grid place-items-center w-10 h-10 rounded-full bg-white/15 text-white cursor-pointer" aria-label="Закрыть"><Icon name="x" size={20} /></button>
-        </div>
-      )}
+      {viewing && (() => {
+        const photos = g.messages.filter((m) => m.photo).map((m) => {
+          const who = m.from === 'me' ? null : person(m.senderId)
+          return { src: m.photo!, who: who ? who.name : 'Вы', hue: who ? who.hue : state.me?.hue, avatar: who ? who.photo : state.me?.photo, at: m.at, caption: m.text }
+        })
+        return <PhotoViewer photos={photos} start={Math.max(0, photos.findIndex((x) => x.src === viewing))} onClose={() => setViewing(null)} />
+      })()}
       <GroupInfoSheet group={g} open={info} onClose={() => setInfo(false)} onLeft={onBack} />
     </div>
   )

@@ -155,3 +155,27 @@ test('повторный запуск без интернета', async ({ page,
   await page.reload()
   await expect(page.getByText('Встречи рядом.')).toBeVisible()
 })
+
+test('фото в чате: на весь экран, листание, приближение, смахнуть — закрыть', async ({ page }) => {
+  await enterDemo(page)
+  await patchState(page, (s) => {
+    const mk = (c: string) => { const cv = document.createElement('canvas'); cv.width = 400; cv.height = 300; const g = cv.getContext('2d')!; g.fillStyle = c; g.fillRect(0, 0, 400, 300); return cv.toDataURL('image/jpeg') }
+    const now = Date.now()
+    s.capsules[0].messages.push({ id: 'ph1', from: 'them', text: 'Фото 1', photo: mk('#c33'), at: now - 60000 }, { id: 'ph2', from: 'me', text: '', photo: mk('#36c'), at: now })
+  })
+  await nav(page, /^Чаты/)
+  await page.locator('main ul > li > button:not([aria-hidden])').first().click()
+  await page.getByRole('button', { name: 'Открыть фото' }).first().click()
+  const v = page.getByRole('dialog', { name: 'Просмотр фото' })
+  const box = (await v.boundingBox())!
+  expect(Math.round(box.height)).toBe(page.viewportSize()!.height)
+  await expect(v.getByText('1 / 2')).toBeVisible()
+  await page.mouse.move(300, 420); await page.mouse.down(); await page.mouse.move(60, 425, { steps: 8 }); await page.mouse.up()
+  await expect(v.getByText('2 / 2')).toBeVisible()
+  await page.mouse.click(200, 420); await page.mouse.click(200, 420)
+  await expect(v.locator('img').last()).toHaveAttribute('style', /scale\(2\.5\)/)
+  await page.mouse.click(200, 420); await page.mouse.click(200, 420)
+  await page.waitForTimeout(400)
+  await page.mouse.move(200, 300); await page.mouse.down(); await page.mouse.move(205, 560, { steps: 10 }); await page.mouse.up()
+  await expect(v).toHaveCount(0)
+})
