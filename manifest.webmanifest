@@ -1,6 +1,6 @@
 {
-  "name": "Match — встречи рядом",
-  "short_name": "Match",
+  "name": "Match Go — встречи рядом",
+  "short_name": "Match Go",
   "description": "Живые встречи рядом. Хватит свайпать — время встречаться.",
   "lang": "ru",
   "start_url": "./",
