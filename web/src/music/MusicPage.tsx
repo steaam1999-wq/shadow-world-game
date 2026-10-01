@@ -3,6 +3,8 @@ import { useStore } from '../store'
 import { Avatar, Icon } from '../components/ui'
 import { GENRE_LABEL, formatTime, personTrack, trackLabel, usePlayer } from './player'
 import { searchOnline, trendingOnline, type OnlineLists } from './online'
+import { soundCloudLink } from './soundcloud'
+import { SoundCloudCard } from './SoundCloudCard'
 import { Artwork, Bars, Disc } from './PlayerUI'
 import { MySongs } from './MySongs'
 import { trackDuration, type Genre, type Track } from './engine'
@@ -78,6 +80,7 @@ export function MusicPage() {
   const liked = p.library.filter((x) => p.likes.includes(x.id))
   const q = query.trim().toLowerCase()
   const spotify = parseEmbed(query)
+  const soundcloud = !spotify && !!soundCloudLink(query)
   const all = q ? p.library.filter((x) => `${x.title} ${x.artist} ${GENRE_LABEL[x.genre]}`.toLowerCase().includes(q)) : []
   const tabs: [Tab, string][] = [['home', 'Для вас'], ['likes', `Любимые${liked.length ? ` · ${liked.length}` : ''}`], ['mine', `Мои файлы${p.uploads.length ? ` · ${p.uploads.length}` : ''}`], ['radio', 'Радио']]
   const playAll = (list: Track[], shuffled = false) => {
@@ -110,14 +113,25 @@ export function MusicPage() {
 
       {/* Поиск */}
       {spotify && <EmbedPlayer embed={spotify} />}
-      {!spotify && q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
-      {!spotify && all.length > 0 && (
+      {soundcloud && (
+        <section className="px-4 flex flex-col gap-2">
+          <h2 className="font-display font-semibold text-xl">SoundCloud</h2>
+          <SoundCloudCard text={query} action={(t) => (
+            <button onClick={() => p.toggleLike(t.id, t)} className={`grid place-items-center w-10 h-10 rounded-full cursor-pointer ${p.likes.includes(t.id) ? 'text-spark' : 'text-muted'}`} aria-label={p.likes.includes(t.id) ? 'Убрать из любимых' : 'В любимые'} aria-pressed={p.likes.includes(t.id)}>
+              <Icon name="heart" size={22} fill={p.likes.includes(t.id)} />
+            </button>
+          )} />
+          <p className="text-[12px] text-muted">Трек играет целиком через официальный плеер SoundCloud. ♥ — сохранить в «Любимые» и показать в профиле.</p>
+        </section>
+      )}
+      {!spotify && !soundcloud && q.length >= 2 && <OnlineSection key={q} title="В интернете" load={(sig) => searchOnline(q, sig)} delay={450} />}
+      {!spotify && !soundcloud && all.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="px-4 font-display font-semibold text-lg">В приложении <span className="text-muted font-normal tnum">· {all.length}</span></h2>
           <ul className="flex flex-col px-2">{all.map((x) => <TrackRow key={x.id} track={x} queue={all} />)}</ul>
         </section>
       )}
-      {!spotify && q.length >= 2 && (
+      {!spotify && !soundcloud && q.length >= 2 && (
         <div className="px-4 flex flex-wrap items-center gap-2 text-[13px]">
           <span className="text-muted">Искать также:</span>
           {[['Яндекс Музыка', `https://music.yandex.ru/search?text=${encodeURIComponent(query.trim())}`],

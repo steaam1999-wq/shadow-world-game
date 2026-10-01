@@ -1,3 +1,4 @@
+import { SoundCloudAudio } from './soundcloud'
 // Синтезатор треков на Web Audio: у каждого жанра свой ритм, бас и гармония.
 // Внешние аудиофайлы на странице недоступны, поэтому музыка генерируется в браузере.
 
@@ -13,7 +14,7 @@ export interface Track {
   root: number // MIDI-нота тоники
   bars: number
   url?: string // для загруженного файла или онлайн-трека
-  source?: 'audius' | 'itunes' | 'radio' // онлайн-трек: играет напрямую, без Web Audio
+  source?: 'audius' | 'itunes' | 'radio' | 'soundcloud' // онлайн-трек: играет напрямую, без Web Audio
   cover?: string
   downloadable?: boolean // автор на Audius разрешил скачивание
   seconds?: number // длительность загруженного файла, если известна
@@ -104,7 +105,13 @@ export class Engine {
     this.track = t
     this.pausedAt = 0
     this.direct = !!t.source
-    if (t.genre === 'file' && t.url && t.source) {
+    if (t.source === 'soundcloud' && t.url) {
+      // Официальный плеер SoundCloud под видом <audio>.
+      const el = new SoundCloudAudio(t.url)
+      el.volume = this.vol
+      el.onended = () => { this.playing = false; this.onEnded?.() }
+      this.audio = el as unknown as HTMLAudioElement
+    } else if (t.genre === 'file' && t.url && t.source) {
       // Чужой сервер может не отдавать CORS-заголовки, а тогда Web Audio играет тишину.
       const el = new Audio(t.url)
       el.volume = this.vol

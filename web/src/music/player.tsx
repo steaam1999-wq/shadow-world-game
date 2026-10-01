@@ -8,7 +8,7 @@ import { GENRE_BPM, GENRE_LABEL } from './catalog'
 import { deleteSong, loadSongs, parseFileName, readDuration, saveSong, type StoredSong } from './library'
 
 export { GENRE_LABEL }
-export const trackLabel = (t: Track) => (t.source === 'audius' ? 'Audius' : t.source === 'itunes' ? 'Отрывок · iTunes' : t.source === 'radio' ? 'Радио · в эфире' : GENRE_LABEL[t.genre])
+export const trackLabel = (t: Track) => (t.source === 'audius' ? 'Audius' : t.source === 'itunes' ? 'Отрывок · iTunes' : t.source === 'radio' ? 'Радио · в эфире' : t.source === 'soundcloud' ? 'SoundCloud' : GENRE_LABEL[t.genre])
 const MUSIC_TO_GENRE: Record<string, Genre> = { indie: 'indie', electro: 'electro', jazz: 'jazz', hiphop: 'hiphop' }
 const LIKES_KEY = 'iskra-music-likes'
 const ONLINE_KEY = 'iskra-music-online'

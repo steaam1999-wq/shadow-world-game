@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { soundCloudLink } from '../music/soundcloud'
+import { SoundCloudCard } from '../music/SoundCloudCard'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { ReactionChips, ReactionPicker } from '../components/Reactions'
@@ -310,6 +312,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                   </button>
                 )}
                 {m.text && <p data-no-translate className={`whitespace-pre-wrap break-words ${m.photo ? 'px-3 pt-1.5' : ''}`}>{m.text}</p>}
+                {m.text && soundCloudLink(m.text) && <div className="mt-2 mb-1 w-[250px] max-w-full text-fg" onClick={(e) => e.stopPropagation()}><SoundCloudCard text={m.text} compact /></div>}
                 <span className={`flex items-center justify-end gap-1 text-[11px] tnum ${m.photo ? 'px-3 pb-1' : ''} ${m.from === 'me' ? 'opacity-80' : 'text-muted'}`}>
                   {hm(m.at)}
                   {m.from === 'me' && <span aria-label={(c.theirReadAt ?? 0) >= m.at ? 'Прочитано' : 'Отправлено'}>{(c.theirReadAt ?? 0) >= m.at ? '✓✓' : '✓'}</span>}

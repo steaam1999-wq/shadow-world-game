@@ -140,7 +140,9 @@ export function FullPlayer() {
           <button onClick={() => p.setExpanded(false)} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-white/10 cursor-pointer" aria-label="Свернуть плеер">
             <Icon name="down" size={26} />
           </button>
-          <span className="text-[13px] font-semibold text-white/75 truncate px-2">{t ? trackLabel(t) : 'Музыка'}</span>
+          {t?.source === 'soundcloud' && t.url
+            ? <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-[13px] font-semibold text-white/85 truncate px-2 underline-offset-2 hover:underline">Играет через SoundCloud · открыть ↗</a>
+            : <span className="text-[13px] font-semibold text-white/75 truncate px-2">{t ? trackLabel(t) : 'Музыка'}</span>}
           <div className="flex -mr-2">
             {t && (
               <button onClick={download} className={`grid place-items-center w-10 h-10 rounded-full hover:bg-white/10 cursor-pointer ${downloadBlock(t) ? 'text-white/40' : ''}`}

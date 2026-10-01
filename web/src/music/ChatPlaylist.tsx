@@ -5,6 +5,8 @@ import { Avatar, Icon, Sheet } from '../components/ui'
 import { Artwork, Bars } from './PlayerUI'
 import { slimTrack, trackLabel, usePlayer } from './player'
 import { searchOnline } from './online'
+import { soundCloudLink } from './soundcloud'
+import { SoundCloudCard } from './SoundCloudCard'
 import type { Track } from './engine'
 
 // Общий плейлист переписки: каждый добавляет песни — получается саундтрек встречи.
@@ -85,10 +87,11 @@ function AddSheet({ open, onClose, onBack, have, onAdd }: { open: boolean; onClo
   const [added, setAdded] = useState<string[]>([])
   const q = query.trim()
   // Любимые песни из интернета — добавить без поиска.
-  const favorites = player.library.filter((t) => player.likes.includes(t.id) && t.url && (t.source === 'audius' || t.source === 'itunes'))
+  const favorites = player.library.filter((t) => player.likes.includes(t.id) && t.url && (t.source === 'audius' || t.source === 'itunes' || t.source === 'soundcloud'))
 
+  const sc = soundCloudLink(q)
   useEffect(() => {
-    if (q.length < 2) { setResults(null); setError(''); return }
+    if (q.length < 2 || sc) { setResults(null); setError(''); return }
     const ctrl = new AbortController()
     const t = setTimeout(() => {
       searchOnline(q, ctrl.signal).then((r) => {
@@ -105,9 +108,13 @@ function AddSheet({ open, onClose, onBack, have, onAdd }: { open: boolean; onClo
       <div className="flex flex-col gap-3">
         <label className="flex items-center gap-2 h-10 rounded-full bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={16} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Песня или исполнитель" aria-label="Поиск песни" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Песня, исполнитель или ссылка SoundCloud" aria-label="Поиск песни" className="flex-1 min-w-0 bg-transparent text-fg focus:outline-none" />
         </label>
-        {!results && <p className="text-[12px] font-semibold text-muted uppercase tracking-wide">{favorites.length ? 'Мои любимые' : 'Найдите песню по названию'}</p>}
+        {sc && <SoundCloudCard text={q} compact action={(t) => {
+          const inList = have.includes(t.id) || added.includes(t.id)
+          return <button disabled={inList} onClick={() => { onAdd(t); setAdded((a) => [...a, t.id]) }} className="h-9 px-3 rounded-full bg-fg text-bg text-[13px] font-semibold cursor-pointer disabled:opacity-50 shrink-0">{inList ? 'Добавлено' : 'Добавить'}</button>
+        }} />}
+        {!results && !sc && <p className="text-[12px] font-semibold text-muted uppercase tracking-wide">{favorites.length ? 'Мои любимые' : 'Найдите песню по названию'}</p>}
         {error && <p className="text-[13px] text-muted">{error}</p>}
         <ul className="flex flex-col -mx-2 max-h-[50vh] overflow-y-auto">
           {list.map((t) => {

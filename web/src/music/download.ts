@@ -3,6 +3,7 @@ import { engine, type Track } from './engine'
 /** Почему трек нельзя скачать, или null, если можно. */
 export function downloadBlock(t: Track): string | null {
   if (t.source === 'itunes') return 'Это отрывок из iTunes — Apple не разрешает его скачивать.'
+  if (t.source === 'soundcloud') return 'Трек SoundCloud слушается через их плеер — скачать можно только на самом SoundCloud, если автор разрешил.'
   if (t.source === 'radio') return 'Это прямой эфир радио — его нельзя скачать.'
   if (t.source === 'audius' && !t.downloadable) return 'Автор на Audius не разрешил скачивать этот трек.'
   return null
