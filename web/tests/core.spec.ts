@@ -224,3 +224,15 @@ test('фото в чате: отправляется целиком (без об
   const drawn = await img.evaluate((i: HTMLImageElement) => { const r = i.getBoundingClientRect(); const k = Math.min(r.width / i.naturalWidth, r.height / i.naturalHeight); return { w: i.naturalWidth * k, h: i.naturalHeight * k } })
   expect(Math.round(drawn.h)).toBe(page.viewportSize()!.height)
 })
+
+test('«Мои планы»: карточки со статусом и удаление с подтверждением', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Профиль/)
+  await page.getByRole('tab', { name: 'Мои планы' }).click()
+  const count = await page.locator('li button[aria-label^="Удалить план"]').count()
+  expect(count).toBeGreaterThan(0)
+  await expect(page.getByText(/активн/).first()).toBeVisible()
+  await page.locator('li button[aria-label^="Удалить план"]').first().click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Удалить план' }).click()
+  await expect(page.locator('li button[aria-label^="Удалить план"]')).toHaveCount(count - 1)
+})

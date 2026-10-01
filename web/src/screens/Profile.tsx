@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
-import { useStore } from '../store'
+import { useNow, useStore } from '../store'
 import { getLang, setLang } from '../i18n'
 import { ReliabilityBadge } from '../components/Meet'
 import { MeetingCards } from '../components/Met'
@@ -9,6 +9,7 @@ import { LEVELS, level, plural, profileCompleteness, nameAge, profileTint } from
 import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
+import { MyPlans } from '../components/MyPlans'
 import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
@@ -19,7 +20,8 @@ import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
 import { deleteAccount, humanError, submitVerification } from '../cloud/api'
 
-export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
+export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreatePlan }: {
+  onCreatePlan?: () => void
   onSignOut: () => void
   onAdmin: () => void
   onRespond: (a: Activity, text?: string) => void
@@ -35,6 +37,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
   const [tab, setTab] = useState<'plans' | 'posts' | 'saved' | 'settings'>('posts')
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
+  const now = useNow()
   const share = async () => {
     try { await navigator.clipboard.writeText(`${me.name} в Match: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
     setCopied(true)
@@ -126,8 +129,10 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
 
       {tab === 'posts' && <ProfilePublications authorId="me" onMessage={() => {}} />}
 
-      {(tab === 'plans' || tab === 'saved') && (() => {
-        const list = tab === 'plans' ? myPlans : state.activities.filter((a) => state.saved.includes(a.id))
+      {tab === 'plans' && <MyPlans plans={myPlans} now={now} onOpen={setViewing} onOpenChat={onOpenCapsule} onCreate={onCreatePlan} />}
+
+      {tab === 'saved' && (() => {
+        const list = state.activities.filter((a) => state.saved.includes(a.id))
         return list.length ? (
           <div className="grid grid-cols-3 gap-1 px-1">
             {list.map((a) => (
@@ -140,9 +145,9 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule }: {
           </div>
         ) : (
           <div className="py-12 px-6 text-center flex flex-col items-center gap-2">
-            <span className="grid place-items-center w-16 h-16 rounded-full border-2 border-fg"><Icon name={tab === 'plans' ? 'camera' : 'bookmark'} size={28} /></span>
-            <p className="font-display font-bold text-lg">{tab === 'plans' ? 'Пока нет планов' : 'Ничего не сохранено'}</p>
-            <p className="text-[13px] text-muted">{tab === 'plans' ? 'Нажмите «+» внизу, чтобы предложить первый план.' : 'Нажмите на закладку под постом, чтобы вернуться к нему позже.'}</p>
+            <span className="grid place-items-center w-16 h-16 rounded-full border-2 border-fg"><Icon name="bookmark" size={28} /></span>
+            <p className="font-display font-bold text-lg">Ничего не сохранено</p>
+            <p className="text-[13px] text-muted">Нажмите на закладку под постом, чтобы вернуться к нему позже.</p>
           </div>
         )
       })()}

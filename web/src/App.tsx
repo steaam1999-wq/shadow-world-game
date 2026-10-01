@@ -268,7 +268,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         {!person && tab === 'reels' && <Reels now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'search' && <Explore now={now} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
         {!person && tab === 'capsules' && (chat && (state.capsules.some((c) => c.id === chat) || (state.groups ?? []).some((g) => g.id === chat)) ? ((state.groups ?? []).some((g) => g.id === chat) ? <GroupChat id={chat} onBack={closeChat} /> : <CapsuleChat id={chat} now={now} onBack={() => setChat(null)} />) : <div className="px-4 pt-3"><CapsuleList now={now} onOpen={setChat} onNew={messagePerson} /></div>)}
-        {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} onRespond={respond} onOpenCapsule={openCapsuleByActivity} />}
+        {!person && tab === 'profile' && <Profile onSignOut={onSignOut} onAdmin={onAdmin} onRespond={respond} onOpenCapsule={openCapsuleByActivity} onCreatePlan={() => setCreating(true)} />}
         </Suspense>
         </div>
       </main>
