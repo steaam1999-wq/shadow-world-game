@@ -34,7 +34,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [showFollowers, setShowFollowers] = useState(false)
-  const [tab, setTab] = useState<'plans' | 'posts' | 'saved' | 'settings'>('posts')
+  const [tab, setTab] = useState<'plans' | 'posts' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const now = useNow()
@@ -118,7 +118,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
       </section>
 
       <div className="grid grid-cols-4 border-t border-line" role="tablist">
-        {([['posts', 'camera', 'Фото и видео'], ['plans', 'grid', 'Мои планы'], ['saved', 'bookmark', 'Сохранённое'], ['settings', 'settings', 'Настройки']] as const).map(([id, icon, label]) => (
+        {([['plans', 'grid', 'Мои планы'], ['posts', 'camera', 'Фото и видео'], ['saved', 'bookmark', 'Сохранённое'], ['settings', 'settings', 'Настройки']] as const).map(([id, icon, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} aria-label={label} onClick={() => setTab(id)}
             className={`h-14 flex flex-col items-center justify-center gap-1 border-t-2 -mt-px cursor-pointer ${tab === id ? 'border-fg text-fg' : 'border-transparent text-muted'}`}>
             <Icon name={icon} size={20} />
