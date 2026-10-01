@@ -14,6 +14,7 @@ import { ShortCommentsSheet, useShortComments } from '../components/Comments'
 import { NewPublication } from './Composer'
 import { filterOf, filterStyle } from '../components/storyFilters'
 import { usePlayer } from '../music/player'
+import { PlaneSend } from '../components/ShareButton'
 
 // Шортсы: короткие вертикальные видео на весь экран. С сервером — общие для всех,
 // в демо — только ваши, хранятся в этом браузере.
@@ -332,7 +333,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
   const author = usePublicationAuthor(s)
   const [hearts, toggleHeart, likesOf] = useHearts()
   const remove = useRemovePublication(s)
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const [confirm, setConfirm] = useState(false)
   const [muted, setMuted] = useState(true)
   const video = useRef<HTMLVideoElement>(null)
@@ -380,7 +381,8 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
         <LikeButton liked={hearts.includes(s.id)} onToggle={() => toggleHeart(s.id)} size={26} />
         {likesOf(s.id) > 0 && <span className="-ml-2 text-[14px] font-semibold tnum">{likesOf(s.id)}</span>}
         <button onClick={() => setComments(true)} className="inline-flex items-center gap-1 cursor-pointer" aria-label="Комментарии"><Icon name="comment" size={26} />{commentCount > 0 && <span className="text-[14px] font-semibold tnum">{commentCount}</span>}</button>
-        <button onClick={() => setShare(true)} className="cursor-pointer" aria-label="Поделиться публикацией"><Icon name="send" size={25} /></button>
+        <PlaneSend excludeId={s.authorId} size={25} className="w-7 h-7" label="Поделиться публикацией" onMore={() => setShare(true)}
+          onSend={(p) => dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: pubMessage(s, author?.name) })} />
       </div>
       {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}
       <Sheet open={confirm} onClose={() => setConfirm(false)} title="Удалить публикацию?">
@@ -401,6 +403,8 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
 
 /** Ссылка на публикацию: открывает Match и прокручивает ленту к ней. */
 export const publicationLink = (id: string) => `${location.origin}${location.pathname}#pub=${id}`
+const pubText = (s: Short, authorName?: string) => (s.caption ? `${authorName ? authorName + ': ' : ''}${s.caption}` : `Публикация${authorName ? ' ' + authorName : ''} в Match`)
+const pubMessage = (s: Short, authorName?: string) => `Смотри публикацию: ${pubText(s, authorName).slice(0, 140)}\n${publicationLink(s.id)}`
 
 /** «Поделиться»: отправить в чат, скопировать ссылку или текст, системное меню телефона. */
 function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Short; authorName?: string; open: boolean; onClose: () => void; onMessage: (personId: string) => void }) {
@@ -410,7 +414,7 @@ function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Shor
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2000); return () => clearTimeout(t) }, [toast])
   useEffect(() => { if (open) setSent([]) }, [open])
   const link = publicationLink(s.id)
-  const text = s.caption ? `${authorName ? authorName + ': ' : ''}${s.caption}` : `Публикация${authorName ? ' ' + authorName : ''} в Match`
+  const text = pubText(s, authorName)
   // Сначала те, с кем больше переписки.
   const people = state.people
     .filter((p) => p.id !== s.authorId)
@@ -423,7 +427,7 @@ function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Shor
     try { await navigator.clipboard.writeText(value); setToast(done) } catch { setToast('Не удалось скопировать') }
   }
   const sendTo = (p: Person) => {
-    dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: `Смотри публикацию: ${text.slice(0, 140)}\n${link}` })
+    dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: pubMessage(s, authorName) })
     setSent((x) => [...x, p.id])
     setToast(`Отправлено: ${p.name}`)
   }
