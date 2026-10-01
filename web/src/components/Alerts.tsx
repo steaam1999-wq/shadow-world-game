@@ -11,7 +11,7 @@ import CLASSIC_URL from '../assets/match-notify.wav?inline'
 // и системное уведомление, когда вкладка свёрнута.
 
 const KEY = 'iskra-alerts'
-interface Prefs { sound: boolean; system: boolean; tone: ToneId; v?: number }
+interface Prefs { sound: boolean; system: boolean; tone: ToneId; v?: number; asked?: boolean }
 
 function readPrefs(): Prefs {
   try {
@@ -204,12 +204,87 @@ export async function enablePush(): Promise<boolean> {
   } catch { return false }
 }
 
+/** Отписывает устройство, когда человек выключил уведомления. */
+async function disablePush() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration()
+    const sub = await reg?.pushManager.getSubscription()
+    await sub?.unsubscribe()
+  } catch { /* ignore */ }
+}
+
+const isIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+const isStandalone = () => !!(window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone)
+
+/** Подписка на push при каждом входе, если разрешение уже дано — иначе уведомления не придут. */
+export function usePushAutoSubscribe() {
+  const { state } = useStore()
+  const [prefs, set] = usePrefs()
+  useEffect(() => {
+    if (!state.cloud || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+    // Разрешение дали раньше, а переключатель ни разу не трогали — включаем.
+    if (!prefs.system && !prefs.asked) { set({ system: true, asked: true }); return }
+    if (prefs.system) void enablePush()
+  }, [state.cloud, prefs.system, prefs.asked]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+const PROMPT_KEY = 'match-push-prompt'
+
+/** Карточка на главной: включить уведомления одной кнопкой (или как это сделать на iPhone). */
+export function PushPrompt() {
+  const { state } = useStore()
+  const [prefs, set] = usePrefs()
+  const supported = typeof Notification !== 'undefined' && 'serviceWorker' in navigator
+  const [perm, setPerm] = useState(supported ? Notification.permission : 'denied')
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(PROMPT_KEY) === '1' } catch { return false } })
+  const [busy, setBusy] = useState(false)
+  const iosBrowser = isIos() && !isStandalone()
+  if (!cloudEnabled || !state.cloud || hidden) return null
+  if (!iosBrowser && (!supported || perm === 'denied' || (perm === 'granted' && prefs.system))) return null
+  const close = () => { setHidden(true); try { localStorage.setItem(PROMPT_KEY, '1') } catch { /* ignore */ } }
+  const turnOn = async () => {
+    setBusy(true)
+    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+    setPerm(p)
+    if (p === 'granted') { set({ system: true, asked: true }); await enablePush(); playDrop() }
+    setBusy(false)
+  }
+  return (
+    <section className="mx-4 mb-4 rounded-[24px] bg-surface shadow-soft p-4 flex flex-col gap-3" aria-label="Уведомления">
+      <div className="flex items-start gap-3">
+        <span className="grid place-items-center w-10 h-10 shrink-0 rounded-xl bg-brand text-white"><Icon name="bell" size={20} /></span>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-display font-bold text-[16px]">Не пропускайте сообщения</h2>
+          <p className="text-[13.5px] text-muted leading-snug mt-0.5">
+            {iosBrowser
+              ? 'На iPhone уведомления приходят, только если открыть Match с экрана «Домой».'
+              : 'Включите уведомления — они придут на экран, даже когда Match закрыт.'}
+          </p>
+        </div>
+        <button onClick={close} className="grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть"><Icon name="x" size={16} /></button>
+      </div>
+      {iosBrowser ? (
+        <ol className="flex flex-col gap-2 text-[14px] leading-snug">
+          <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">1</span><span>Нажмите <b>«Поделиться»</b> <span aria-hidden>⎋</span> внизу Safari</span></li>
+          <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">2</span><span>Выберите <b>«На экран „Домой“»</b></span></li>
+          <li className="flex items-center gap-3"><span className="grid place-items-center w-7 h-7 shrink-0 rounded-full bg-surface-2 font-bold text-[13px]">3</span><span>Откройте Match с иконки и нажмите «Включить» здесь</span></li>
+        </ol>
+      ) : (
+        <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
+          {busy ? 'Включаем…' : 'Включить уведомления'}
+        </button>
+      )}
+    </section>
+  )
+}
+
 interface Incoming { chat: string; person: Person; text: string; key: string; profile?: boolean; at?: number }
 
 /** Следит за новыми входящими и показывает баннер; `openChat` — какой чат сейчас открыт. */
 export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: string | null; onOpen: (chatId: string) => void; onOpenProfile: (personId: string) => void }) {
   const { state } = useStore()
   const [prefs] = usePrefs()
+  usePushAutoSubscribe()
   const [banner, setBanner] = useState<Incoming | null>(null)
   const since = useRef(Date.now() - 3000)
   const seen = useRef(new Set<string>())
@@ -311,11 +386,11 @@ export function AlertSettings() {
   const { state } = useStore()
   const [pushOk, setPushOk] = useState(false)
   const toggleSystem = async (on: boolean) => {
-    if (!on) { set({ system: false }); return }
+    if (!on) { set({ system: false, asked: true }); void disablePush(); return }
     if (!supported) return
     const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
     setPerm(p)
-    set({ system: p === 'granted' })
+    set({ system: p === 'granted', asked: true })
     if (p === 'granted' && state.cloud) setPushOk(await enablePush())
   }
   // Разрешение уже есть — продлеваем подписку (браузер может её сменить).

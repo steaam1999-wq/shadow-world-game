@@ -12,6 +12,7 @@ import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
 import { SurpriseMeet } from '../components/Surprise'
 import { WelcomeTips } from '../components/Tips'
+import { PushPrompt } from '../components/Alerts'
 import { StoriesRow, useStoryGroups } from './Stories'
 import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
@@ -52,6 +53,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
       <StoriesRow now={now} onRespond={(a, t) => onRespond(a, t)} onOpenCapsule={onOpenCapsule}
         onMessage={(personId, text) => dispatch({ type: 'directMessage', personId, capsuleId: crypto.randomUUID(), text })} />
 
+      <PushPrompt />
       <WelcomeTips />
       <h2 className="px-4 mb-2 font-display font-bold text-[17px]">Сейчас рядом</h2>
       <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
