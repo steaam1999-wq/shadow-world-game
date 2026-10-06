@@ -8,6 +8,8 @@ export async function blockExternal(page: Page) {
 /** Вход в демо-аккаунт «без регистрации» — главная с лентой. */
 export async function enterDemo(page: Page) {
   await blockExternal(page)
+  // Памятку перед встречей видели — иначе она закрывает чат (её проверяет отдельный тест).
+  await page.addInitScript(() => { try { if (!sessionStorage.getItem('keep-memo')) localStorage.setItem('safety-memo-seen', '1') } catch { /* ignore */ } })
   await page.goto('./')
   await page.locator('button', { hasText: 'без регистрации' }).last().click()
   await expect(page.getByRole('heading', { name: 'Сейчас рядом' })).toBeVisible()

@@ -13,6 +13,7 @@ import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
+import { MONEY_RE, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   active: { label: 'Переписка', tone: 'spark' },
@@ -253,6 +254,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [menu, setMenu] = useState(false)
   const [noShowAsk, setNoShowAsk] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+  const memo = useSafetyMemo()
 
   // Открыли чат или пришло новое, пока он открыт, — отмечаем прочитанным (собеседник увидит ✓✓).
   const incoming = c?.messages.filter((m) => m.from === 'them').length ?? 0
@@ -268,10 +270,15 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const p = state.people.find((x) => x.id === c.personId)!
   const a = state.activities.find((x) => x.id === c.activityId)
 
+  // Защита: без ответа — не больше 3 сообщений; «только проверенные» — первое сообщение только с галочкой.
+  const waiting = waitingForReply(c.messages)
+  const theyWrote = c.messages.some((m) => m.from === 'them')
+  const verifiedOnly = !!p.onlyVerified && !state.me?.verified && !theyWrote
+  const locked = waiting || verifiedOnly
   const send = (e: React.FormEvent) => {
     e.preventDefault()
     const t = text.trim()
-    if (!t) return
+    if (!t || locked) return
     dispatch({ type: 'send', capsuleId: c.id, text: t })
     setText('')
     if (state.cloud) return // на сервере отвечает живой человек
@@ -323,6 +330,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                   {m.from === 'me' && <span aria-label={(c.theirReadAt ?? 0) >= m.at ? 'Прочитано' : 'Отправлено'}>{(c.theirReadAt ?? 0) >= m.at ? '✓✓' : '✓'}</span>}
                 </span>
               </div>
+              {m.from === 'them' && m.text && MONEY_RE.test(m.text) && <MoneyWarning />}
               <ReactionChips chatId={c.id} messageId={m.id} />
               {picked === m.id && <ReactionPicker chatId={c.id} messageId={m.id} onDone={() => setPicked(null)} />}
               {picked === m.id && m.from === 'me' && (
@@ -339,16 +347,22 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
 
       <div className={`sticky bottom-0 bg-surface/80 backdrop-blur-xl -mx-4 px-4 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line z-10`} style={kb ? { bottom: kb } : undefined}>
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
+        {locked && (
+          <p className="flex items-center gap-2 text-[12.5px] text-muted px-1" role="status">
+            <Icon name={verifiedOnly ? 'shield' : 'clock'} size={14} className="shrink-0" />
+            {verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей. Получите синюю галочку в своём профиле.` : `Подождите ответа — без ответа можно отправить не больше 3 сообщений подряд.`}
+          </p>
+        )}
         <form onSubmit={send} className="flex gap-2">
-          <button type="button" onClick={() => photoInput.current?.click()} className="grid place-items-center w-11 h-11 shrink-0 rounded-full bg-surface-2 text-muted hover:text-fg cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
+          <button type="button" disabled={locked} onClick={() => photoInput.current?.click()} className="disabled:opacity-40 grid place-items-center w-11 h-11 shrink-0 rounded-full bg-surface-2 text-muted hover:text-fg cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
           <input ref={photoInput} type="file" accept="image/*" className="sr-only" aria-label="Выбрать фото для отправки" onChange={async (e) => {
             const f = e.target.files?.[0]
             e.target.value = ''
             if (!f) return
             try { dispatch({ type: 'sendPhoto', capsuleId: c.id, photo: await readPhotoFull(f) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
           }} />
-              <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение…" autoComplete="off" />
-              <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
+              <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder={locked ? 'Пока нельзя написать' : 'Сообщение…'} disabled={locked} autoComplete="off" />
+              <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim() || locked}><Icon name="send" size={18} /></Button>
             </form>
       </div>
       {viewing && (() => {
@@ -358,6 +372,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           : { src: m.photo!, who: p.name, hue: p.hue, avatar: p.photo, at: m.at, caption: m.text })
         return <PhotoViewer photos={photos} start={Math.max(0, photos.findIndex((x) => x.src === viewing))} onClose={() => setViewing(null)} />
       })()}
+      <SafetyMemo open={memo.open} onClose={memo.close} />
       <Sheet open={menu} onClose={() => setMenu(false)} title={p.name}>
         <div className="flex flex-col gap-2">
           {c.status !== 'active' && <Pill tone={STATUS[c.status].tone} className="self-start">{STATUS[c.status].label}</Pill>}

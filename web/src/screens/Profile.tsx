@@ -374,6 +374,12 @@ function SafetySection({ onSignOut }: { onSignOut: () => void }) {
   return (
     <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
       <h2 className="font-display font-bold text-lg py-3">Безопасность</h2>
+      {state.me && (
+        <div className="py-1">
+          <Toggle id="sf-verified" checked={!!state.me.onlyVerified} onChange={(v) => dispatch({ type: 'updateMe', patch: { onlyVerified: v } })}
+            label="Писать мне могут только проверенные" hint="Первое сообщение — только от людей с синей галочкой. Тем, с кем вы уже общаетесь, это не мешает." />
+        </div>
+      )}
       <div className="py-3 flex flex-col gap-2">
         <span className="text-[14px] font-semibold">Заблокированные</span>
         {blocked.length ? blocked.map((b) => (

@@ -325,7 +325,7 @@ function Moderation({ onError }: { onError: (e: string) => void }) {
         {list.map((r) => (
           <li key={r.id} className={`${card} flex flex-col gap-2 ${r.status === 'resolved' ? 'opacity-60' : ''}`}>
             <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{r.reason}</span>
+              <span className="font-semibold">{r.reason === 'auto:money' ? '⚠️ Авто: просьба о деньгах в чате' : r.reason}</span>
               <span className="text-[12px] text-muted shrink-0">{relative(r.createdAt, now)}</span>
             </div>
             <p className="text-[14px]">На <b>{r.target.name}</b>{r.target.banned && <Pill tone="danger" className="ml-2">забанен</Pill>} · от {r.reporter.name}</p>

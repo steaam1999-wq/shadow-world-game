@@ -25,6 +25,7 @@ export interface Person {
   nowPlaying?: NowPlaying | null
   freeUntil?: number // «Свободен сейчас» до этого времени (облако)
   noShows?: number // сколько раз не пришёл(ла) на договорённую встречу (облако)
+  onlyVerified?: boolean // принимает первые сообщения только от проверенных
 }
 
 export interface Me {
@@ -49,6 +50,7 @@ export interface Me {
   consentAt?: number // когда подтвердил 18+ и согласие на обработку данных
   noShows?: number // мои пропущенные встречи по отметкам других
   trustedContact?: string // кому сообщить, если встреча пошла не так
+  onlyVerified?: boolean // «Писать мне могут только проверенные»
 }
 
 export interface Activity {

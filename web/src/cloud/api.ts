@@ -13,7 +13,7 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null; consent_at?: string | null }
+interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null; consent_at?: string | null; only_verified?: boolean }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
@@ -64,7 +64,7 @@ async function removePhoto(p: string) {
 }
 
 // Колонки без встроенных фото: так ленту не приходится скачивать вместе со всеми фото целиком.
-const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path,free_until'
+const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path,free_until,only_verified'
 const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
 /** Загружает видео или фото в хранилище и публикует его. `thumb` — кадр-превью видео (JPEG). */
@@ -110,6 +110,8 @@ export function humanError(e: unknown): string {
   if (/User already registered/i.test(m)) return 'Такая почта уже зарегистрирована — войдите.'
   if (/Password should be/i.test(m)) return 'Пароль слишком простой: нужно минимум 6 символов.'
   if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту.'
+  if (/wait-reply/.test(m)) return 'Подождите ответа: без ответа можно отправить не больше 3 сообщений подряд.'
+  if (/only-verified/.test(m)) return 'Этот человек принимает первые сообщения только от проверенных профилей.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Нет связи с сервером. Проверьте интернет.'
   // Отказ правил доступа: блокировка между людьми или бан модератором.
   if (/row-level security.*"(capsules|messages)"/i.test(m)) return 'Написать нельзя: переписка заблокирована или аккаунт ограничен модератором.'
@@ -269,6 +271,7 @@ export function profileToMe(p: ProfileRow, local: Me | null): Me {
     songs: local?.privacy?.hideSongs ? local.songs : safeTracks(p.songs),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     consentAt: p.consent_at ? new Date(p.consent_at).getTime() : local?.consentAt,
+    onlyVerified: !!p.only_verified,
   }
 }
 
@@ -285,7 +288,7 @@ export async function saveProfile(userId: string, me: Me) {
   const { error } = await sb().from('profiles').upsert({
     id: userId, name: me.name, age: me.age ?? null, bio: me.bio, district: me.district, hue: me.hue,
     tags: me.tags, answers: me.answers, photo: null, photo_path: photoPath, meetings: me.meetings,
-    songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50),
+    songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50), only_verified: !!me.onlyVerified,
   })
   if (error) throw error
   if (old && old !== photoPath) await removePhoto(old)
@@ -378,7 +381,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
-    photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0,
+    photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified,
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))

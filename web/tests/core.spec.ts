@@ -256,3 +256,25 @@ test('просроченные ссылки на файлы не берутся 
   expect(kept.text).toBe('старое фото')
   expect(kept.photo).toBeUndefined()
 })
+
+test('защита в чате: памятка один раз, предупреждение о деньгах, не больше 3 сообщений без ответа', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('keep-memo', '1'))
+  await enterDemo(page)
+  await patchState(page, (s) => {
+    const t = Date.now() - 60000
+    s.capsules[0].messages = [
+      { id: 'm1', from: 'them', text: 'Привет! Скинь деньги на карту, верну завтра', at: t },
+      { id: 'a', from: 'me', text: '1', at: t + 1 }, { id: 'b', from: 'me', text: '2', at: t + 2 }, { id: 'c', from: 'me', text: '3', at: t + 3 },
+    ]
+  })
+  await nav(page, /^Чаты/)
+  await page.locator('main ul > li > button:not([aria-hidden])').first().click()
+  const memo = page.getByRole('dialog', { name: /Перед встречей/ })
+  await expect(memo).toBeVisible()
+  await memo.getByRole('button', { name: 'Понятно' }).click()
+  await expect(memo).toBeHidden()
+  await expect(page.getByRole('alert').filter({ hasText: 'никогда не переводите деньги' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Подождите ответа' })).toBeVisible()
+  await expect(page.getByLabel('Сообщение')).toBeDisabled()
+  expect(await page.evaluate(() => localStorage.getItem('safety-memo-seen'))).toBeTruthy()
+})

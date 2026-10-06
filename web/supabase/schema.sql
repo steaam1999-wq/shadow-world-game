@@ -1355,3 +1355,46 @@ begin
   begin alter publication supabase_realtime add table public.app_settings; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.short_comments; exception when duplicate_object then null; end;
 end $$;
+
+
+-- ===== Защита в чатах (октябрь 2026) =====
+-- «Писать мне могут только проверенные»
+alter table public.profiles add column if not exists only_verified boolean not null default false;
+grant insert (only_verified), update (only_verified) on public.profiles to authenticated;
+
+-- Перед каждым сообщением: не больше 3 подряд без ответа; «только проверенные»; просьбы о деньгах — модератору.
+create or replace function private.message_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare other uuid; mine int; total int;
+begin
+  select case when c.author = new.sender then c.responder else c.author end into other from capsules c where c.id = new.capsule_id;
+  select count(*), count(*) filter (where t.sender = new.sender) into total, mine
+    from (select sender from messages where capsule_id = new.capsule_id order by created_at desc, id desc limit 3) t;
+  if total = 3 and mine = 3 then raise exception 'wait-reply' using errcode = 'P0001'; end if;
+  if other is not null and exists (select 1 from profiles where id = other and only_verified)
+     and not exists (select 1 from profiles where id = new.sender and verified)
+     and not exists (select 1 from messages where capsule_id = new.capsule_id and sender = other) then
+    raise exception 'only-verified' using errcode = 'P0001';
+  end if;
+  if other is not null and new.body ~* '(\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}|переве(ди|сти|дите)|скин(ь|уть|ьте) (деньг|на карт|денег)|номер карты|реквизит|займ(и|ёшь|ешь)|одолж|в долг|usdt|bitcoin|биткоин|крипт)'
+     and not exists (select 1 from reports where target = new.sender and reason = 'auto:money' and created_at > now() - interval '1 day') then
+    insert into reports (reporter, target, reason, body) values (other, new.sender, 'auto:money', left(new.body, 500));
+  end if;
+  return new;
+end $$;
+drop trigger if exists messages_guard on public.messages;
+create trigger messages_guard before insert on public.messages for each row execute function private.message_guard();
+
+-- 3 жалобы от разных людей — профиль скрывается (бан с пометкой) до проверки модератором.
+create or replace function private.auto_hide() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.reason not like 'auto:%'
+     and (select count(distinct reporter) from reports where target = new.target and status = 'open' and reason not like 'auto:%') >= 3 then
+    insert into bans (user_id, reason) values (new.target, 'Скрыт автоматически: 3 жалобы от разных людей — проверьте и снимите или подтвердите бан')
+    on conflict (user_id) do nothing;
+  end if;
+  return new;
+end $$;
+drop trigger if exists reports_auto_hide on public.reports;
+create trigger reports_auto_hide after insert on public.reports for each row execute function private.auto_hide();
