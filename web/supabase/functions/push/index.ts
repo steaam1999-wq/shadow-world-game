@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     const { data, error } = await db.rpc('push_config')
     if (error || !data?.private) return new Response('config missing', { status: 500 })
     config = data
-    webpush.setVapidDetails('https://steaam1999-wq.github.io/shadow-world-game/', config!.public, config!.private)
+    webpush.setVapidDetails('https://komeeta.com/', config!.public, config!.private)
   }
   if (req.headers.get('x-push-secret') !== config!.hook) return new Response('forbidden', { status: 403 })
 
