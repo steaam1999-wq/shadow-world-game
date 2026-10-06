@@ -68,7 +68,9 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
   )
 }
 
-/** Знак Komeeta: облачко сообщения — планета с кольцом. Общение, космос и встреча. Фирменный градиент. */
+/** Знак Komeeta: облачко сообщения — планета с кольцами, внутри «печатает…». Общение, космос и встреча. Фирменный градиент. */
+// Три кольца, как у Сатурна: радиусы, толщина, яркость.
+const RINGS: [number, number, number, number][] = [[13.6, 3.8, 1.1, 1], [15.8, 4.4, 1, 0.8], [18, 5.1, 0.9, 0.55]]
 const BUBBLE = 'M20 9.5c6.6 0 11 4.4 11 10s-4.4 10-11 10c-1 0-2-.1-2.9-.3L12 32l1.3-4.6C10.6 25.6 9 22.8 9 19.5 9 13.9 13.4 9.5 20 9.5z'
 export function LogoMark({ size = 34, animate = false }: { size?: number; animate?: boolean }) {
   const id = useId().replace(/:/g, '')
@@ -84,12 +86,16 @@ export function LogoMark({ size = 34, animate = false }: { size?: number; animat
         <clipPath id={`kf-${id}`}><rect x="0" y="20" width="40" height="20" /></clipPath>
       </defs>
       <rect className="km-bg" x="1" y="1" width="38" height="38" rx="11" fill={`url(#kb-${id})`} />
-      <g transform="rotate(-16 20 20)">
-        <ellipse className="km-ring" cx="20" cy="20" rx="16" ry="4.6" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth="1.8" pathLength="100" />
+      <g transform="rotate(-16 20 20)" fill="none" stroke="#fff">
+        {RINGS.map(([rx, ry, w, op], i) => <ellipse key={i} className="km-ring" style={{ animationDelay: `${0.45 + i * 0.12}s` }} cx="20" cy="20" rx={rx} ry={ry} strokeWidth={w} strokeOpacity={op * 0.5} pathLength="100" />)}
       </g>
       <path className="km-planet" d={BUBBLE} fill="#fff" />
-      <g transform="rotate(-16 20 20)" clipPath={`url(#kf-${id})`}>
-        <ellipse className="km-ring" cx="20" cy="20" rx="16" ry="4.6" fill="none" stroke="#fff" strokeWidth="1.8" pathLength="100" />
+      <g transform="rotate(-16 20 20)" clipPath={`url(#kf-${id})`} fill="none" stroke="#fff">
+        {RINGS.map(([rx, ry, w, op], i) => <ellipse key={i} className="km-ring" style={{ animationDelay: `${0.45 + i * 0.12}s` }} cx="20" cy="20" rx={rx} ry={ry} strokeWidth={w} strokeOpacity={op} pathLength="100" />)}
+      </g>
+      {/* «печатает…» — три точки в облачке */}
+      <g fill={`url(#kb-${id})`}>
+        {[15.9, 20, 24.1].map((x, i) => <circle key={x} className="km-type" style={{ animationDelay: `${1 + i * 0.15}s` }} cx={x} cy="19.6" r="1.55" />)}
       </g>
       <path className="km-star" d="M33 7.2Q33 9 34.8 9Q33 9 33 10.8Q33 9 31.2 9Q33 9 33 7.2Z" fill="#fff" />
       <circle className="km-dust" cx="7" cy="31" r=".75" fill="#fff" opacity=".8" />

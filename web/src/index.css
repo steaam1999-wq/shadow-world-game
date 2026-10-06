@@ -247,6 +247,8 @@ html, body { overflow-x: clip; }
 .km-anim .km-planet { transform-origin: 20px 20px; animation: km-pop .6s cubic-bezier(.34,1.56,.64,1) .15s both; }
 .km-anim .km-ring { stroke-dasharray: 100; animation: km-draw .9s cubic-bezier(.65,0,.35,1) .45s both; }
 .km-anim .km-dust { animation: km-fade .5s ease-out 1s both; }
+.km-anim .km-type { transform-box: fill-box; transform-origin: center; animation: km-type 1.2s ease-in-out 3 both; }
+@keyframes km-type { 0%, 60%, 100% { transform: none; opacity: 1; } 30% { transform: translateY(-1.6px) scale(1.15); opacity: .8; } }
 .km-star { transform-origin: 33px 9px; animation: km-twinkle 3.4s ease-in-out 1.2s infinite; }
 @keyframes km-pop { from { transform: scale(.55); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes km-draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
