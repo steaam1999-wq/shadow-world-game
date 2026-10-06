@@ -110,6 +110,7 @@ export function humanError(e: unknown): string {
   if (/User already registered/i.test(m)) return 'Такая почта уже зарегистрирована — войдите.'
   if (/Password should be/i.test(m)) return 'Пароль слишком простой: нужно минимум 6 символов.'
   if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту.'
+  if (/chat-limit/.test(m)) return 'На сегодня новых чатов достаточно — это защита от спама. Продолжите завтра или пишите тем, с кем уже общаетесь.'
   if (/wait-reply/.test(m)) return 'Подождите ответа: без ответа можно отправить не больше 3 сообщений подряд.'
   if (/only-verified/.test(m)) return 'Этот человек принимает первые сообщения только от проверенных профилей.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Нет связи с сервером. Проверьте интернет.'

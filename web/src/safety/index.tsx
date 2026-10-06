@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { Activity, Capsule } from '../types'
 import { Button, Icon, Sheet } from '../components/ui'
 
 // Защита в чатах: распознаём просьбы о деньгах и предупреждаем; памятка перед первой встречей.
@@ -53,5 +54,37 @@ export function SafetyMemo({ open, onClose }: { open: boolean; onClose: () => vo
         <Button onClick={onClose} className="h-12 !rounded-full">Понятно</Button>
       </div>
     </Sheet>
+  )
+}
+
+/** После встречи: «Всё прошло хорошо?». Показываем, когда время плана прошло и оба писали в чате; ответ — один раз. */
+export function MeetFeedback({ capsule, activity, name, now, onBad }: { capsule: Capsule; activity?: Activity; name: string; now: number; onBad: () => void }) {
+  const key = `meet-feedback:${capsule.id}`
+  const [done, setDone] = useState(() => { try { return !!localStorage.getItem(key) } catch { return true } })
+  const [thanks, setThanks] = useState(false)
+  if (done || !activity || activity.timeHidden) return null
+  const ended = activity.startsAt + activity.durationMin * 60_000 < now
+  const talked = capsule.messages.some((m) => m.from === 'me') && capsule.messages.some((m) => m.from === 'them')
+  if (!ended || !talked) return null
+  const answer = (v: 'good' | 'bad' | 'none') => {
+    try { localStorage.setItem(key, v) } catch { /* ignore */ }
+    if (v === 'bad') { setDone(true); onBad(); return }
+    if (v === 'good') { setThanks(true); setTimeout(() => setDone(true), 1600); return }
+    setDone(true)
+  }
+  return (
+    <div className="self-stretch rounded-[22px] bg-surface shadow-soft p-4 flex flex-col gap-3 text-center" role="group" aria-label="Как прошла встреча">
+      {thanks ? <p className="font-semibold py-2">Отлично! Рады, что всё хорошо 💛</p> : <>
+        <div>
+          <div className="font-display font-semibold text-[17px]">Встреча с {name} прошла хорошо?</div>
+          <p className="text-[13px] text-muted">Ответ видите только вы. Если что-то было не так — поможем.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={() => answer('bad')}>👎 Было неприятно</Button>
+          <Button onClick={() => answer('good')}>👍 Всё хорошо</Button>
+        </div>
+        <button onClick={() => answer('none')} className="text-[13px] font-semibold text-muted hover:text-fg cursor-pointer">Мы не встретились</button>
+      </>}
+    </div>
   )
 }

@@ -13,7 +13,7 @@ import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
-import { MONEY_RE, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
+import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   active: { label: 'Переписка', tone: 'spark' },
@@ -340,6 +340,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             </div>
           ),
         )}
+        <MeetFeedback capsule={c} activity={a} name={p.name} now={now} onBad={() => setReporting(p)} />
         <AgainCard capsule={c} person={p} />
         {typing && <div className="self-start bg-surface-2 rounded-3xl rounded-bl-md px-4 py-2.5 text-muted anim-flick">{p.name} печатает…</div>}
         <div ref={endRef} />

@@ -278,3 +278,20 @@ test('защита в чате: памятка один раз, предупре
   await expect(page.getByLabel('Сообщение')).toBeDisabled()
   expect(await page.evaluate(() => localStorage.getItem('safety-memo-seen'))).toBeTruthy()
 })
+
+test('после встречи: «прошла хорошо?», «неприятно» открывает жалобу, вопрос не повторяется', async ({ page }) => {
+  await enterDemo(page)
+  await patchState(page, (s) => {
+    const c = s.capsules[0]
+    const a = s.activities.find((x: { id: string }) => x.id === c.activityId)
+    a.startsAt = Date.now() - 4 * 3600_000; a.durationMin = 60; a.timeHidden = false; a.expiresAt = Date.now() + 3600_000
+    c.messages = [{ id: 'x1', from: 'me', text: 'Привет', at: Date.now() - 5 * 3600_000 }, { id: 'x2', from: 'them', text: 'Привет!', at: Date.now() - 5 * 3600_000 + 1000 }]
+  })
+  await nav(page, /^Чаты/)
+  await page.locator('main ul > li > button:not([aria-hidden])').first().click()
+  const card = page.getByRole('group', { name: 'Как прошла встреча' })
+  await expect(card).toBeVisible()
+  await card.getByRole('button', { name: /Было неприятно/ }).click()
+  await expect(card).toBeHidden()
+  await expect(page.getByRole('dialog').filter({ hasText: /жалоб|Пожаловаться|заблокировать/i }).first()).toBeVisible()
+})

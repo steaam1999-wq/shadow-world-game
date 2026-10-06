@@ -1398,3 +1398,18 @@ begin
 end $$;
 drop trigger if exists reports_auto_hide on public.reports;
 create trigger reports_auto_hide after insert on public.reports for each row execute function private.auto_hide();
+
+-- Лимит новых чатов в сутки (защита от спама): аккаунт младше 7 дней — 10, остальные — 30.
+create or replace function private.chat_limit() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare fresh boolean; n int; lim int;
+begin
+  select created_at > now() - interval '7 days' into fresh from profiles where id = new.responder;
+  select count(*) into n from capsules where responder = new.responder and created_at > now() - interval '24 hours';
+  lim := 30;
+  if coalesce(fresh, true) then lim := 10; end if;
+  if n >= lim then raise exception 'chat-limit' using errcode = 'P0001'; end if;
+  return new;
+end $$;
+drop trigger if exists capsules_chat_limit on public.capsules;
+create trigger capsules_chat_limit before insert on public.capsules for each row execute function private.chat_limit();
