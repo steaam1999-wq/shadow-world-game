@@ -681,7 +681,7 @@ create policy "plans: own delete" on public.plans for delete to authenticated us
 
 -- Сводка для первой вкладки админки.
 create or replace function public.admin_stats() returns json
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql stable security definer set search_path = public, auth, storage as $$
 begin
   if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
   return json_build_object(
@@ -700,6 +700,11 @@ begin
     'bans', (select count(*) from bans),
     'verifications_pending', (select count(*) from verification_requests where status = 'pending'),
     'push_devices', (select count(*) from push_subscriptions),
+    -- ежедневная сводка: ошибки, кто вернулся, заполненность бесплатного тарифа
+    'bugs_new', (select count(*) from bug_reports where status = 'new'),
+    'active_7d', (select count(*) from auth.users where last_sign_in_at > now() - interval '7 days'),
+    'db_bytes', pg_database_size(current_database()),
+    'storage_bytes', (select coalesce(sum((metadata->>'size')::bigint), 0) from storage.objects),
     'daily', (select coalesce(json_agg(json_build_object('day', d::date, 'users', (select count(*) from profiles where created_at::date = d::date), 'plans', (select count(*) from plans where created_at::date = d::date), 'messages', (select count(*) from messages where created_at::date = d::date)) order by d), '[]'::json)
               from generate_series(current_date - 13, current_date, interval '1 day') d)
   );

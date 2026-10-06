@@ -87,8 +87,49 @@ function Overview({ onError, onPending, go }: { onError: (e: string) => void; on
     ['Забанены', s.bans, '', 'users'],
     ['Устройства с push', s.push_devices, 'получают уведомления при закрытом сайте'],
   ]
+  // Ежедневная сводка: что требует внимания сегодня. Лимиты — бесплатного тарифа Supabase (500 МБ база, 1 ГБ файлы).
+  const mb = (b: number) => Math.round(b / 1048576)
+  const dbPct = Math.round((s.db_bytes / (500 * 1048576)) * 100)
+  const filesPct = Math.round((s.storage_bytes / (1024 * 1048576)) * 100)
+  const level = (pct: number) => (pct >= 85 ? 'bad' : pct >= 60 ? 'warn' : 'ok')
+  const returning = s.users ? Math.round((s.active_7d / s.users) * 100) : 0
+  const checks: { label: string; value: string; note: string; tone: 'ok' | 'warn' | 'bad'; to?: Tab }[] = [
+    { label: 'Жалобы', value: String(s.reports_open), note: s.reports_open ? 'проверьте сегодня' : 'всё спокойно', tone: s.reports_open ? 'bad' : 'ok', to: 'moderation' },
+    { label: 'Ошибки от людей', value: String(s.bugs_new), note: s.bugs_new ? 'новые сообщения' : 'новых нет', tone: s.bugs_new ? 'warn' : 'ok', to: 'bugs' },
+    { label: 'Живые планы', value: String(s.plans_active), note: s.plans_active < 10 ? 'мало — добавьте свои' : 'хорошо', tone: s.plans_active < 5 ? 'bad' : s.plans_active < 10 ? 'warn' : 'ok', to: 'content' },
+    { label: 'Новые за сутки', value: `+${s.users_24h}`, note: `+${s.users_7d} за неделю`, tone: 'ok', to: 'users' },
+    { label: 'Заходили за 7 дней', value: String(s.active_7d), note: `${returning}% от всех`, tone: returning < 20 && s.users >= 10 ? 'warn' : 'ok' },
+    { label: 'База данных', value: `${mb(s.db_bytes)} МБ`, note: `${dbPct}% из 500 МБ`, tone: level(dbPct) },
+    { label: 'Фото и видео', value: `${mb(s.storage_bytes)} МБ`, note: `${filesPct}% из 1 ГБ`, tone: level(filesPct) },
+  ]
+  const TONE = { ok: 'bg-ok', warn: 'bg-[var(--amber)]', bad: 'bg-danger' }
+  const issues = checks.filter((c) => c.tone !== 'ok').length
   return (
     <div className="flex flex-col gap-4">
+      <section className={card}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="font-semibold">Сводка на сегодня</h2>
+            <p className="text-[12.5px] text-muted">{issues ? `Требует внимания: ${issues}` : 'Всё в порядке 👌'}</p>
+          </div>
+          <button onClick={load} className="grid place-items-center w-8 h-8 rounded-full bg-surface-2 cursor-pointer" aria-label="Обновить сводку"><Icon name="repeat" size={14} /></button>
+        </div>
+        <ul className="flex flex-col">
+          {checks.map((c) => (
+            <li key={c.label} className="border-t border-line first:border-0">
+              <button onClick={() => c.to && go(c.to)} className={`w-full flex items-center gap-3 py-2.5 text-left ${c.to ? 'cursor-pointer' : 'cursor-default'}`}>
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${TONE[c.tone]}`} aria-label={c.tone === 'ok' ? 'норма' : c.tone === 'warn' ? 'внимание' : 'важно'} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[14px] font-medium">{c.label}</span>
+                  <span className="block text-[12px] text-muted">{c.note}</span>
+                </span>
+                <span className="font-display font-bold text-[17px] tnum">{c.value}</span>
+                {c.to && <Icon name="arrow" size={14} className="text-muted" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {tiles.map(([label, v, note, to]) => (
           <button key={label} onClick={() => to && go(to)} className={`${card} text-left flex flex-col gap-0.5 ${to ? 'cursor-pointer hover:brightness-95' : 'cursor-default'}`}>

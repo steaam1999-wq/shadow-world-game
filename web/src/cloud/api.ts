@@ -491,6 +491,7 @@ export async function adminSaveSetting(key: 'announcement' | 'categories' | 'tag
 export interface AdminStats {
   users: number; users_24h: number; users_7d: number; verified: number; plans_active: number; plans_7d: number; messages_24h: number
   chats: number; posts: number; likes: number; follows: number; reports_open: number; bans: number; verifications_pending: number; push_devices: number
+  bugs_new: number; active_7d: number; db_bytes: number; storage_bytes: number
   daily: { day: string; users: number; plans: number; messages: number }[]
 }
 export async function adminStats(): Promise<AdminStats> {
