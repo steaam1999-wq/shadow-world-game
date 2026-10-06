@@ -132,12 +132,64 @@ export async function sendMagicLink(email: string) {
 }
 
 /** Какие соцсети включены в настройках входа (Google, Apple…). Кнопки показываем только для них. */
+/** Какие способы входа включены: соцсети из настроек Supabase, «phone» — если подключены SMS, «telegram» — если задан бот. */
 export async function authProviders(): Promise<string[]> {
-  try {
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
-    const j = await r.json() as { external?: Record<string, boolean> }
-    return Object.entries(j.external ?? {}).filter(([k, on]) => on && !['email', 'phone', 'anonymous_users'].includes(k)).map(([k]) => k)
-  } catch { return [] }
+  const [social, tg] = await Promise.all([
+    fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+      .then((r) => r.json() as Promise<{ external?: Record<string, boolean> }>)
+      .then((j) => Object.entries(j.external ?? {}).filter(([k, on]) => on && !['email', 'anonymous_users'].includes(k)).map(([k]) => k))
+      .catch(() => [] as string[]),
+    telegramBot(),
+  ])
+  return [...(tg ? ['telegram'] : []), ...social.filter((k) => k !== 'telegram')]
+}
+
+// --- Вход по телефону: код из SMS (нужен SMS-провайдер в настройках Supabase) ---
+/** +375 29 123-45-67 → +375291234567 */
+export const normalizePhone = (raw: string) => '+' + raw.replace(/\D/g, '').replace(/^8(?=0)/, '375')
+export async function sendPhoneCode(phone: string) {
+  const { error } = await sb().auth.signInWithOtp({ phone, options: { shouldCreateUser: true } })
+  if (error) throw error
+}
+export async function verifyPhoneCode(phone: string, token: string) {
+  const { data, error } = await sb().auth.verifyOtp({ phone, token, type: 'sms' })
+  if (error) throw error
+  return data.user!
+}
+
+// --- Вход через Telegram: официальный виджет Telegram + серверная проверка подписи (функция telegram-auth) ---
+let tgBot: Promise<{ bot: string; id: number } | null> | null = null
+/** Бот для входа через Telegram, если вход настроен на сервере. */
+export function telegramBot() {
+  tgBot ??= fetch(`${SUPABASE_URL}/functions/v1/telegram-auth`, { headers: { apikey: SUPABASE_ANON_KEY } })
+    .then((r) => (r.ok ? r.json() : null)).then((j: { bot?: string; id?: number } | null) => (j?.bot && j.id ? { bot: j.bot, id: j.id } : null)).catch(() => null)
+  return tgBot
+}
+/** Окно входа Telegram (официальный скрипт): человек подтверждает вход в Telegram, мы получаем подписанные данные. */
+export async function telegramLogin(): Promise<TelegramUser | null> {
+  const cfg = await telegramBot()
+  if (!cfg) throw new Error('telegram-off')
+  type TG = { Login: { auth: (o: { bot_id: number; request_access?: string; lang?: string }, cb: (u: TelegramUser | false) => void) => void } }
+  const w = window as unknown as { Telegram?: TG }
+  if (!w.Telegram?.Login) await new Promise<void>((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://telegram.org/js/telegram-widget.js?22'
+    s.async = true; s.onload = () => resolve(); s.onerror = () => reject(new Error('telegram-script'))
+    document.head.appendChild(s)
+  })
+  return new Promise((resolve) => w.Telegram!.Login.auth({ bot_id: cfg.id, request_access: 'write', lang: 'ru' }, (u) => resolve(u || null)))
+}
+export type TelegramUser = { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; auth_date: number; hash: string }
+/** Отдаём данные от Telegram серверу; он проверяет подпись и возвращает одноразовый ключ входа. */
+export async function signInWithTelegram(user: TelegramUser) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/telegram-auth`, {
+    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(user),
+  })
+  const j = await r.json().catch(() => ({})) as { token_hash?: string; error?: string }
+  if (!r.ok || !j.token_hash) throw new Error(j.error || 'telegram-failed')
+  const { data, error } = await sb().auth.verifyOtp({ token_hash: j.token_hash, type: 'magiclink' })
+  if (error) throw error
+  return data.user!
 }
 
 export async function signInWithProvider(provider: string) {

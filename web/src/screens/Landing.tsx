@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { Avatar, Button, Field, Icon, Logo, LogoMark, ThemeToggle, Wordmark, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { authProviders, humanError, requestPasswordReset, sendMagicLink, signIn, signInWithProvider, signUp } from '../cloud/api'
+import { authProviders, humanError, normalizePhone, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyPhoneCode } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
 
@@ -28,7 +28,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const { state, dispatch } = useStore()
   const [mode, setMode] = useState<Mode>('login')
   // Сначала — экран приветствия; форма открывается по кнопке «Начать» или «Войти».
-  const [stage, setStage] = useState<'welcome' | 'auth' | 'magic'>('welcome')
+  const [stage, setStage] = useState<'welcome' | 'auth' | 'magic' | 'phone'>('welcome')
   const [providers, setProviders] = useState<string[]>([])
   const [sentTo, setSentTo] = useState('')
   const [cooldown, setCooldown] = useState(0)
@@ -129,6 +129,38 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     setError(''); setBusy(true)
     try { await signInWithProvider(provider) } catch (err) { setError(humanError(err)); setBusy(false) }
   }
+  const telegram = async () => {
+    setError(''); setBusy(true)
+    try {
+      const u = await telegramLogin()
+      if (!u) { setBusy(false); return } // закрыли окно Telegram
+      const user = await signInWithTelegram(u)
+      await onCloudAuth(user.id, user.email ?? '', u.first_name ?? '', remember)
+    } catch (err) {
+      setError(/telegram/.test(String((err as Error)?.message)) ? 'Не получилось войти через Telegram. Попробуйте ещё раз или войдите по почте.' : humanError(err))
+      setBusy(false)
+    }
+  }
+  // Телефон: номер → код из SMS
+  const [phone, setPhone] = useState('+375 ')
+  const [codeSent, setCodeSent] = useState('')
+  const [code, setCode] = useState('')
+  const sendCode = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const num = normalizePhone(phone)
+    if (num.length < 11) return setError('Введите номер полностью, с кодом страны')
+    setError(''); setBusy(true)
+    try { await sendPhoneCode(num); setCodeSent(num); setCode(''); setCooldown(60) }
+    catch (err) { setError(/rate|seconds/i.test(String((err as Error)?.message)) ? 'Код уже отправлен — подождите минуту.' : humanError(err)) }
+    finally { setBusy(false) }
+  }
+  const checkCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (code.trim().length < 4) return setError('Введите код из SMS')
+    setError(''); setBusy(true)
+    try { const user = await verifyPhoneCode(codeSent, code.trim()); await onCloudAuth(user.id, user.email ?? '', '', remember) }
+    catch (err) { setError(/invalid|expired/i.test(String((err as Error)?.message)) ? 'Код не подходит или устарел. Проверьте или запросите новый.' : humanError(err)); setBusy(false) }
+  }
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
   return (
@@ -158,10 +190,14 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 <Icon name="arrow" size={18} />
               </button>
             )}
-            {(cloudEnabled ? providers : ['telegram', 'google']).map((pv) => (
+            {(cloudEnabled ? providers.filter((p) => p !== 'phone') : ['telegram', 'google']).map((pv) => (
               <AuthOption key={pv} icon={<ProviderIcon id={pv} />} disabled={busy}
-                onClick={agreeFirst(() => (cloudEnabled ? void oauth(pv) : social(pv === 'telegram' ? 'telegram' : 'google')))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
+                onClick={agreeFirst(() => (!cloudEnabled ? social(pv === 'telegram' ? 'telegram' : 'google') : pv === 'telegram' ? void telegram() : void oauth(pv)))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
             ))}
+            {(!cloudEnabled || providers.includes('phone')) && (
+              <AuthOption icon={<Icon name="phone" size={18} />} disabled={busy}
+                onClick={agreeFirst(() => (cloudEnabled ? (setStage('phone'), setError(''), setCodeSent('')) : social('phone')))}>Продолжить с телефоном</AuthOption>
+            )}
             <AuthOption primary icon={<Icon name="send" size={18} />} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}>Продолжить с почтой</AuthOption>
             <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Войти с паролем</button>
             {!cloudEnabled && (
@@ -175,6 +211,36 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             <ConsentCheck checked={agreed} onChange={(v) => { setAgreed(v); if (v) { setNeedAgree(false); saveLocalConsent() } }} highlight={needAgree} />
             {needAgree && !agreed && <p className="mt-2 text-center text-[13px] text-danger" role="alert">Отметьте, что вам есть 18 и вы согласны с документами</p>}
           </div>
+        </main>
+      )}
+
+      {stage === 'phone' && (
+        <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col gap-5 px-6 py-4 anim-page">
+          <button onClick={() => { if (codeSent) setCodeSent(''); else setStage('welcome'); setError('') }} className="self-start grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Назад"><Icon name="back" size={22} /></button>
+          {codeSent ? (
+            <form onSubmit={(e) => void checkCode(e)} className="flex flex-col gap-4" noValidate>
+              <div>
+                <h1 className="font-display font-bold text-[28px] leading-tight">Код из SMS</h1>
+                <p className="text-[15px] text-muted mt-1">Отправили на <b className="text-fg">{codeSent}</b>. Нет аккаунта — создадим.</p>
+              </div>
+              <label htmlFor="sms-code" className="sr-only">Код из SMS</label>
+              <input id="sms-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={8} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="123456" className={`${inputCls} h-14 text-[22px] tracking-[.3em] text-center tnum`} />
+              {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Проверяем…' : 'Войти'}</Button>
+              <Button type="button" variant="secondary" onClick={() => void sendCode()} disabled={busy || cooldown > 0} className="h-12 !rounded-full">{cooldown > 0 ? `Новый код через ${cooldown} с` : 'Отправить код ещё раз'}</Button>
+            </form>
+          ) : (
+            <form onSubmit={(e) => void sendCode(e)} className="flex flex-col gap-4" noValidate>
+              <div>
+                <h1 className="font-display font-bold text-[28px] leading-tight">Вход по телефону</h1>
+                <p className="text-[15px] text-muted mt-1">Пришлём SMS с кодом — пароль не нужен.</p>
+              </div>
+              <label htmlFor="phone" className="sr-only">Номер телефона</label>
+              <input id="phone" type="tel" inputMode="tel" autoComplete="tel" autoFocus value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+375 29 123-45-67" className={`${inputCls} h-14 text-[17px] tnum`} />
+              {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
+              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Отправляем…' : 'Получить код'}</Button>
+            </form>
+          )}
         </main>
       )}
 

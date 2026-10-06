@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type ButtonHTMLAttributes, type ReactNode }
 import { createPortal } from 'react-dom'
 
 const PATHS: Record<string, string> = {
+  phone: 'M7 3h3l1.5 4.5-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4.5 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 5 5a2 2 0 0 1 2-2z',
   spark: 'M13 2 4 14h7l-1 8 9-12h-7z',
   vibe: 'M3 12h3l2-6 4 12 3-9 2 3h4',
   chat: 'M4 5h16v11H9l-5 4z',
