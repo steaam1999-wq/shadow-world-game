@@ -51,13 +51,17 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   // Объектив и масштаб: широкоугольный, если телефон его отдаёт; зум — камеры или цифровой.
   const [ultra, setUltra] = useState<{ id: string } | null>(null)
   const [lens, setLens] = useState<'main' | 'ultra'>('main')
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(1) // только для подписи «1.6×»; сам зум живёт в refs и меняется плавно
   const [hwZoom, setHwZoom] = useState<{ min: number; max: number } | null>(null)
   const [fill, setFill] = useState(() => { try { return localStorage.getItem('cam-fill') === '1' } catch { return false } })
   const pinch = useRef<{ d: number; z: number } | null>(null)
   const slide = useRef<{ y: number; z: number; zoomOnly: boolean } | null>(null) // зум «как в Instagram»: ведём палец от кнопки вверх
   const dial = useRef<{ x: number; z: number; moved: boolean } | null>(null)
-  const zoomRef = useRef(1)
+  const zoomRef = useRef(1) // текущий (показанный) зум
+  const target = useRef(1) // куда плавно едем
+  const zoomRaf = useRef(0)
+  const hwRef = useRef<{ min: number; max: number } | null>(null)
+  const hwBusy = useRef(false)
   const ultraId = useRef('')
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const video = useRef<HTMLVideoElement>(null)
@@ -80,6 +84,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       stopCamera()
       setCamError('')
       if (!navigator.mediaDevices?.getUserMedia) { setCamError('Этот браузер не даёт доступ к камере. Выберите фото или видео из галереи.'); return }
+      const mirroredNow = facing === 'user'
       try {
         // Кадр 4:3, как у обычной камеры телефона: 9:16 обрезает сенсор и выглядит «приближенным».
         const size = { width: { ideal: 1920 }, height: { ideal: 1440 } }
@@ -91,8 +96,11 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
         if (v) { v.srcObject = s; v.muted = true; await v.play().catch(() => {}) }
         const caps = (s.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as { torch?: boolean; zoom?: { min: number; max: number } }
         setTorchOk(!!caps.torch)
-        setHwZoom(caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max } : null)
-        setZoom(1)
+        hwRef.current = caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max } : null
+        setHwZoom(hwRef.current)
+        cancelAnimationFrame(zoomRaf.current); zoomRaf.current = 0
+        target.current = 1; zoomRef.current = 1; setZoom(1)
+        if (v) v.style.transform = mirroredNow ? 'scaleX(-1)' : ''
         // Сверхширокий объектив ищем по названию камеры (названия видны после разрешения доступа).
         if (facing === 'environment') {
           const devs = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[])
@@ -109,20 +117,46 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
 
   // Зум: аппаратный, если камера умеет (Android), иначе цифровой — увеличиваем картинку и кадрируем снимок.
   const maxZoom = hwZoom ? Math.min(hwZoom.max, 8) : 4
-  useEffect(() => {
-    const t = stream.current?.getVideoTracks()[0]
-    if (t && hwZoom) void t.applyConstraints({ advanced: [{ zoom: Math.max(hwZoom.min, zoom) } as MediaTrackConstraintSet] }).catch(() => {})
-  }, [zoom, hwZoom])
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
-  const clampZoom = (z: number) => Math.min(maxZoom, Math.max(1, Math.round(z * 10) / 10))
-  const cssZoom = hwZoom ? 1 : zoom
+  const clampZoom = (z: number) => Math.min(maxZoom, Math.max(1, z))
+  // Плавный зум: каждый кадр подтягиваем текущее значение к цели. Без перерисовки React — меняем стиль видео напрямую.
+  const applyZoom = (z: number) => {
+    const hw = hwRef.current
+    if (hw) {
+      // Аппаратный зум (Android): не чаще одного запроса за раз, иначе камера «спотыкается».
+      if (hwBusy.current) return
+      const t = stream.current?.getVideoTracks()[0]
+      if (!t) return
+      hwBusy.current = true
+      t.applyConstraints({ advanced: [{ zoom: Math.max(hw.min, z) } as MediaTrackConstraintSet] }).catch(() => {}).finally(() => {
+        hwBusy.current = false
+        if (Math.abs(zoomRef.current - z) > 0.01) applyZoom(zoomRef.current)
+      })
+    } else if (video.current) {
+      video.current.style.transform = `${mirrored ? 'scaleX(-1) ' : ''}scale(${z})`
+    }
+  }
+  const goZoom = (z: number) => {
+    target.current = clampZoom(z)
+    if (zoomRaf.current) return
+    const step = () => {
+      const diff = target.current - zoomRef.current
+      zoomRef.current = Math.abs(diff) < 0.004 ? target.current : zoomRef.current + diff * 0.35
+      applyZoom(zoomRef.current)
+      const label = Math.round(zoomRef.current * 10) / 10
+      setZoom((old) => (old === label ? old : label))
+      zoomRaf.current = zoomRef.current === target.current ? 0 : requestAnimationFrame(step)
+    }
+    zoomRaf.current = requestAnimationFrame(step)
+  }
+  useEffect(() => () => cancelAnimationFrame(zoomRaf.current), [])
+  const cssZoom = () => (hwRef.current ? 1 : zoomRef.current)
   const setFillMode = (v: boolean) => { setFill(v); try { localStorage.setItem('cam-fill', v ? '1' : '0') } catch { /* ignore */ } }
   const toggleWide = () => { if (!recording) setLens((x) => (x === 'ultra' ? 'main' : 'ultra')) }
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
-      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoom }
+      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: target.current }
     }
   }
   const onPointerMove = (e: React.PointerEvent) => {
@@ -131,7 +165,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
     if (pinch.current && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
       const z = pinch.current.z * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.current.d)
-      setZoom(clampZoom(z))
+      goZoom(z)
     }
   }
   const onPointerEnd = (e: React.PointerEvent) => { pointers.current.delete(e.pointerId); if (pointers.current.size < 2) pinch.current = null }
@@ -152,7 +186,8 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       const r = v.getBoundingClientRect(), box = r.width / Math.max(1, r.height)
       if (sw / sh > box) sw = sh * box; else sh = sw / box
     }
-    sw /= cssZoom; sh /= cssZoom
+    const cz = cssZoom()
+    sw /= cz; sh /= cz
     const sx = (v.videoWidth - sw) / 2, sy = (v.videoHeight - sh) / 2
     const k = Math.min(1, 1920 / Math.max(sw, sh))
     const c = document.createElement('canvas')
@@ -217,7 +252,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
 
   const down = (e: React.PointerEvent) => {
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* ignore */ }
-    slide.current = { y: e.clientY, z: zoom, zoomOnly: false }
+    slide.current = { y: e.clientY, z: target.current, zoomOnly: false }
     if (videoOnly) return
     pressed.current = true
     hold.current = setTimeout(() => { if (pressed.current) startRec() }, 280)
@@ -234,7 +269,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       pressed.current = false
       if (hold.current) clearTimeout(hold.current)
     }
-    setZoom(clampZoom(st.z * Math.pow(2, dy / 160)))
+    goZoom(st.z * Math.pow(2, (dy - 8 * Math.sign(dy)) / 180))
   }
   const up = () => {
     const wasZoom = slide.current?.zoomOnly && !rec.current
@@ -271,7 +306,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   return (
     <>
       <div className="absolute inset-0 bg-black overflow-hidden touch-none" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}>
-        <video ref={video} className={`absolute inset-0 w-full h-full ${fill ? 'object-cover' : 'object-contain'}`} style={{ transform: `${mirrored ? 'scaleX(-1) ' : ''}scale(${cssZoom})`, ...filterStyle(filter) }} playsInline muted autoPlay />
+        <video ref={video} className={`absolute inset-0 w-full h-full ${fill ? 'object-cover' : 'object-contain'}`} style={{ transform: `${mirrored ? 'scaleX(-1) ' : ''}scale(${cssZoom()})`, willChange: 'transform', ...filterStyle(filter) }} playsInline muted autoPlay />
       </div>
       {f.overlay && <div className="absolute inset-0 pointer-events-none mix-blend-soft-light" style={{ background: f.overlay }} />}
       {flashing && <div className="absolute inset-0 bg-white z-10" />}
@@ -297,21 +332,21 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
         {!camError && (
           <div className="flex justify-center">
             <div className="flex items-center gap-1 p-1 rounded-full bg-black/35 touch-none" role="radiogroup" aria-label="Масштаб — проведите пальцем влево-вправо"
-              onPointerDown={(e) => { dial.current = { x: e.clientX, z: zoom, moved: false } }}
+              onPointerDown={(e) => { dial.current = { x: e.clientX, z: target.current, moved: false } }}
               onPointerMove={(e) => {
                 const d = dial.current
                 if (!d || !e.buttons && e.pointerType === 'mouse') return
                 const dx = e.clientX - d.x
                 if (!d.moved && Math.abs(dx) < 6) return
                 if (!d.moved) { d.moved = true; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* ignore */ } }
-                setZoom(clampZoom(d.z * Math.pow(2, dx / 120)))
+                goZoom(d.z * Math.pow(2, (dx - 6 * Math.sign(dx)) / 140))
               }}
               onPointerUp={() => { setTimeout(() => { dial.current = null }, 0) }} onPointerCancel={() => { dial.current = null }}>
               {(['1', '2'] as const).map((v) => {
                 const on = v === '2' ? zoom >= 1.95 : zoom < 1.95
                 const label = on && zoom !== 1 && zoom !== 2 ? `${zoom.toFixed(1)}×` : `${v}×`
                 return (
-                  <button key={v} role="radio" aria-checked={on} onClick={() => { if (!dial.current?.moved) setZoom(v === '2' ? Math.min(2, maxZoom) : 1) }}
+                  <button key={v} role="radio" aria-checked={on} onClick={() => { if (!dial.current?.moved) goZoom(v === '2' ? 2 : 1) }}
                     className={`min-w-9 h-9 px-2 rounded-full text-[12.5px] font-bold cursor-pointer tnum ${on ? 'bg-white/90 text-[#14152a]' : 'text-white'}`}>{label}</button>
                 )
               })}
