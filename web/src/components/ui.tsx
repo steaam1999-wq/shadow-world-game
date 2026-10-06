@@ -95,7 +95,7 @@ export function LogoMark({ size = 34, animate = false }: { size?: number; animat
       </g>
       {/* «печатает…» — три точки в облачке */}
       <g fill={`url(#kb-${id})`}>
-        {[15.9, 20, 24.1].map((x, i) => <circle key={x} className="km-type" style={{ animationDelay: `${1 + i * 0.15}s` }} cx={x} cy="19.6" r="1.55" />)}
+        {[16.6, 20, 23.4].map((x, i) => <circle key={x} className="km-type" style={{ animationDelay: `${1 + i * 0.15}s` }} cx={x} cy="19.6" r="1.1" opacity=".85" />)}
       </g>
       <path className="km-star" d="M33 7.2Q33 9 34.8 9Q33 9 33 10.8Q33 9 31.2 9Q33 9 33 7.2Z" fill="#fff" />
       <circle className="km-dust" cx="7" cy="31" r=".75" fill="#fff" opacity=".8" />
