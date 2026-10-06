@@ -174,6 +174,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     try { const user = await verifyPhoneCode(codeSent, code.trim()); await onCloudAuth(user.id, user.email ?? '', '', remember) }
     catch (err) { setError(/invalid|expired/i.test(String((err as Error)?.message)) ? 'Код не подходит или устарел. Проверьте или запросите новый.' : humanError(err)); setBusy(false) }
   }
+  const soon = (what: string) => setError(`Вход через ${what} включим совсем скоро. Пока войдите по почте — это так же быстро, без пароля.`)
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
   return (
@@ -204,14 +205,13 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 <Icon name="arrow" size={18} />
               </button>
             )}
-            {(cloudEnabled ? providers.filter((p) => p !== 'phone') : ['telegram', 'google']).map((pv) => (
+            {/* Telegram, Google и телефон видны всегда; ещё не подключённый способ подсказывает войти по почте */}
+            {['telegram', 'google', ...providers.filter((p) => !['telegram', 'google', 'phone'].includes(p))].map((pv) => (
               <AuthOption key={pv} icon={<ProviderIcon id={pv} />} disabled={busy}
-                onClick={agreeFirst(() => (!cloudEnabled ? social(pv === 'telegram' ? 'telegram' : 'google') : pv === 'telegram' ? void telegram() : void oauth(pv)))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
+                onClick={agreeFirst(() => (!cloudEnabled ? social(pv === 'telegram' ? 'telegram' : 'google') : !providers.includes(pv) ? soon(PROVIDER_NAME[pv] ?? pv) : pv === 'telegram' ? void telegram() : void oauth(pv)))}>Продолжить с {PROVIDER_NAME[pv] ?? pv}</AuthOption>
             ))}
-            {(!cloudEnabled || providers.includes('phone')) && (
-              <AuthOption icon={<Icon name="phone" size={18} />} disabled={busy}
-                onClick={agreeFirst(() => (cloudEnabled ? (setStage('phone'), setError(''), setCodeSent('')) : social('phone')))}>Продолжить с телефоном</AuthOption>
-            )}
+            <AuthOption icon={<Icon name="phone" size={18} />} disabled={busy}
+              onClick={agreeFirst(() => (!cloudEnabled ? social('phone') : !providers.includes('phone') ? soon('телефон') : (setStage('phone'), setError(''), setCodeSent(''))))}>Продолжить с телефоном</AuthOption>
             <AuthOption primary icon={<Icon name="send" size={18} />} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}>Продолжить с почтой</AuthOption>
             <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">У меня есть пароль</button>
             {!cloudEnabled && (

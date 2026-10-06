@@ -1,7 +1,7 @@
 // Komeeta: сервис-воркер — уведомления (в том числе push при закрытом сайте) и быстрый повторный запуск.
 // Кэш: файлы сборки (assets/ с хэшем в имени) — из кэша, они не меняются; страница — сначала из сети
 // (чтобы обновления приходили сразу), а без сети или при медленной сети — из кэша.
-const CACHE = 'komeeta-v2' // сменили логотип — новое имя сбрасывает старые иконки в телефонах
+const CACHE = 'komeeta-v3' // сменили логотип — новое имя сбрасывает старые иконки в телефонах
 const MAX_ASSETS = 80
 
 self.addEventListener('install', () => self.skipWaiting())
@@ -20,6 +20,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return // Supabase, музыка, шрифты — как обычно, без кэша
+  if (url.pathname.endsWith('/version.json')) return // метка версии — всегда из сети
 
   if (url.pathname.includes('/assets/')) {
     e.respondWith(caches.open(CACHE).then(async (cache) => {

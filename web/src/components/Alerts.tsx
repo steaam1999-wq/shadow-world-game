@@ -183,9 +183,27 @@ async function notifySystem(title: string, body: string, chat: string, icon?: st
   } catch { /* браузер не умеет — остаются звук и баннер */ }
 }
 
+declare const __BUILD__: string
 export function registerAlertsWorker() {
   if (!('serviceWorker' in navigator) || (location.protocol !== 'https:' && location.hostname !== 'localhost')) return
-  navigator.serviceWorker.register('sw.js').catch(() => { /* без воркера — только баннер и звук */ })
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => { /* без воркера — только баннер и звук */ })
+  void checkFreshBuild()
+  // Вернулись в приложение спустя время — тоже проверим, не вышла ли новая версия.
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkFreshBuild() })
+}
+
+/** Телефон мог показать сохранённую старую страницу — если на сервере сборка новее, тихо перезагружаемся один раз. */
+async function checkFreshBuild() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' })
+    if (!r.ok) return
+    const { build } = await r.json() as { build?: string }
+    if (!build || build === __BUILD__) return
+    const key = 'reloaded-for'
+    if (sessionStorage.getItem(key) === build) return // уже перезагружались ради этой версии — не зацикливаемся
+    sessionStorage.setItem(key, build)
+    location.reload()
+  } catch { /* нет сети — не важно */ }
 }
 
 function b64ToBytes(b64: string) {
