@@ -68,33 +68,57 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
   )
 }
 
-/** Знак Komeeta: два круга — два человека, их пересечение — точка встречи. На фирменном градиенте. */
+/** Знак Komeeta: комета в ночном небе — яркая встреча, которая не повторится. С анимацией «прилёта». */
 export function LogoMark({ size = 34, animate = false }: { size?: number; animate?: boolean }) {
   const id = useId().replace(/:/g, '')
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className={`shrink-0 drop-shadow-[0_4px_10px_rgb(255_79_134/.35)] ${animate ? 'logo-meet' : ''}`}>
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className={`km shrink-0 drop-shadow-[0_6px_14px_rgb(120_60_200/.35)] ${animate ? 'km-anim' : ''}`}>
       <defs>
-        <linearGradient id={`lg-${id}`} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#ffc457" />
-          <stop offset=".3" stopColor="#ff7a45" />
-          <stop offset=".62" stopColor="#ff4f86" />
-          <stop offset="1" stopColor="#9a74ff" />
+        <linearGradient id={`kb-${id}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#35195f" />
+          <stop offset="1" stopColor="#120a24" />
+        </linearGradient>
+        <radialGradient id={`kg-${id}`} cx="27" cy="13" r="15" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#ff6a8f" stopOpacity=".75" />
+          <stop offset="1" stopColor="#ff6a8f" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`kt-${id}`} x1="27" y1="13" x2="7" y2="33" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#fff" />
+          <stop offset=".22" stopColor="#ffc457" />
+          <stop offset=".55" stopColor="#ff4f86" />
+          <stop offset="1" stopColor="#9a74ff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <rect x="1" y="1" width="38" height="38" rx="11" fill={`url(#lg-${id})`} />
-      <circle className="logo-l" cx="15" cy="21" r="8" fill="none" stroke="#fff" strokeWidth="2.6" />
-      <circle className="logo-r" cx="25" cy="21" r="8" fill="none" stroke="#fff" strokeWidth="2.6" />
-      <path className="logo-lens" d="M20 14.755A8 8 0 0 1 20 27.245A8 8 0 0 1 20 14.755Z" fill="#fff" />
-      <path className="logo-star" d="M31 6.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#fff" />
+      <rect x="1" y="1" width="38" height="38" rx="12" fill={`url(#kb-${id})`} />
+      <circle className="km-glow" cx="27" cy="13" r="15" fill={`url(#kg-${id})`} />
+      <circle className="km-dot" cx="32.5" cy="31" r="1" fill="#fff" opacity=".55" />
+      <circle className="km-dot" cx="9" cy="17" r=".7" fill="#fff" opacity=".45" />
+      <g className="km-comet">
+        <path className="km-tail" d="M23.2 8.8C16 13.5 10 22 6.5 33.5C14.5 26 22 20.5 31.2 16.8Z" fill={`url(#kt-${id})`} />
+        <circle className="km-head" cx="27" cy="13" r="5.6" fill="#fff" />
+      </g>
+      <path className="km-star" d="M11 6.2l.85 2 2 .85-2 .85-.85 2-.85-2-2-.85 2-.85z" fill="#fff" />
     </svg>
+  )
+}
+
+/** Название: «komeeta», две «e» — два человека, которые встретились. */
+export function Wordmark({ animate = false, className = '' }: { animate?: boolean; className?: string }) {
+  const letters = 'komeeta'.split('')
+  return (
+    <span className={`km-word ${animate ? 'km-word-anim' : ''} ${className}`} aria-label="Komeeta">
+      {letters.map((ch, i) => (
+        <span key={i} aria-hidden="true" className={i === 3 || i === 4 ? 'km-ee' : undefined} style={{ ['--i' as string]: i }}>{ch}</span>
+      ))}
+    </span>
   )
 }
 
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-2 logo-word ${className}`} aria-label="Komeeta">
-      <LogoMark size={className.includes('text-xl') ? 36 : 32} />
-      <span aria-hidden="true">Ko<span className="bg-[image:var(--brand)] bg-clip-text text-transparent">meet</span>a</span>
+    <span className={`inline-flex items-center gap-2 ${className}`} aria-label="Komeeta" role="img">
+      <LogoMark size={className.includes('text-xl') ? 34 : 30} />
+      <Wordmark />
     </span>
   )
 }

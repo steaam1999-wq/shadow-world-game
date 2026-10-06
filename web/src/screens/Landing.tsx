@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
-import { Avatar, Button, Field, Icon, Logo, LogoMark, ThemeToggle, inputCls } from '../components/ui'
+import { Avatar, Button, Field, Icon, Logo, LogoMark, ThemeToggle, Wordmark, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
 import { authProviders, humanError, requestPasswordReset, sendMagicLink, signIn, signInWithProvider, signUp } from '../cloud/api'
@@ -141,7 +141,10 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       {stage === 'welcome' && (
         <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col px-6 pb-6">
           <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center py-6 anim-page">
-            <LogoMark size={84} animate />
+            <div className="flex flex-col items-center gap-3">
+              <LogoMark size={84} animate />
+              <Wordmark animate className="text-[26px]" />
+            </div>
             <h1 className="font-display font-bold text-[34px] leading-[1.05] tracking-tight">Встречи рядом.<br /><span className="text-brand">Без свайпов.</span></h1>
             <p className="text-[15px] text-muted leading-snug max-w-[290px]">Кофе, выставки, прогулки — сегодня, с людьми из вашего города.</p>
           </div>

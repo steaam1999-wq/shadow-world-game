@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogoMark } from './ui'
+import { LogoMark, Wordmark } from './ui'
 
 // Заставка при запуске: знак Komeeta «встречается» и появляется название. Один раз за сеанс.
 const KEY = 'match-splash'
@@ -11,8 +11,8 @@ export function Splash() {
   useEffect(() => {
     if (stage === 'gone') return
     try { sessionStorage.setItem(KEY, '1') } catch { /* ignore */ }
-    const fade = setTimeout(() => setStage('fade'), 1150)
-    const gone = setTimeout(() => setStage('gone'), 1450)
+    const fade = setTimeout(() => setStage('fade'), 1700)
+    const gone = setTimeout(() => setStage('gone'), 2050)
     return () => { clearTimeout(fade); clearTimeout(gone) }
   }, [stage === 'gone']) // eslint-disable-line react-hooks/exhaustive-deps
   if (stage === 'gone') return null
@@ -20,9 +20,9 @@ export function Splash() {
     <div className="splash" style={{ opacity: stage === 'fade' ? 0 : 1 }} aria-hidden="true" onClick={() => setStage('gone')}>
       <div className="flex flex-col items-center gap-4">
         <LogoMark size={104} animate />
-        <div className="splash-word flex flex-col items-center gap-1">
-          <span className="logo-word text-[40px] leading-none">Ko<span className="bg-[image:var(--brand)] bg-clip-text text-transparent">meet</span>a</span>
-          <span className="text-[15px] text-muted">Живые встречи рядом</span>
+        <div className="flex flex-col items-center gap-1">
+          <Wordmark animate className="text-[40px]" />
+          <span className="splash-word text-[15px] text-white/70 mt-2">Живые встречи рядом</span>
         </div>
       </div>
     </div>
