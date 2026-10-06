@@ -242,17 +242,20 @@ html, body { overflow-x: clip; }
 /* Заставка: два круга съезжаются, в пересечении загорается «точка встречи». */
 .splash { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: radial-gradient(120% 80% at 70% 15%, #2a1530 0%, #141019 60%, #0d0b12 100%); color: #fff; transition: opacity .35s ease; }
 .splash .km-word { color: #fff; text-shadow: 0 0 24px rgb(255 120 160 / .35); }
-/* Знак Komeeta: фон проявляется, буква K «встаёт», точка прилетает и подпрыгивает. */
+/* Знак Komeeta: фон появляется, облачко-планета «надувается», кольцо прочерчивается, звезда мерцает. */
 .km-anim .km-bg { transform-origin: 20px 20px; animation: km-pop .55s cubic-bezier(.34,1.56,.64,1) both; }
-.km-anim .km-k { transform-origin: 18px 29px; animation: km-rise .6s cubic-bezier(.16,1,.3,1) .2s both; }
-.km-anim .km-dot { transform-origin: 31.9px 28.7px; animation: km-drop .7s cubic-bezier(.34,1.56,.64,1) .55s both; }
-@keyframes km-pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes km-rise { from { transform: translateY(6px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes km-drop { 0% { transform: translate(8px, -14px) scale(.3); opacity: 0; } 60% { transform: translate(0, 1px) scale(1.25); opacity: 1; } 100% { transform: none; } }
+.km-anim .km-planet { transform-origin: 20px 20px; animation: km-pop .6s cubic-bezier(.34,1.56,.64,1) .15s both; }
+.km-anim .km-ring { stroke-dasharray: 100; animation: km-draw .9s cubic-bezier(.65,0,.35,1) .45s both; }
+.km-anim .km-dust { animation: km-fade .5s ease-out 1s both; }
+.km-star { transform-origin: 33px 9px; animation: km-twinkle 3.4s ease-in-out 1.2s infinite; }
+@keyframes km-pop { from { transform: scale(.55); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes km-draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes km-fade { from { opacity: 0; } }
+@keyframes km-twinkle { 0%, 70%, 100% { transform: scale(1) rotate(0); opacity: 1; } 80% { transform: scale(.4) rotate(45deg); opacity: .5; } 90% { transform: scale(1.25) rotate(90deg); opacity: 1; } }
 .splash-word { animation: splash-up .5s ease-out 1s both; }
 @keyframes splash-up { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .km-anim *, .km-word-anim > span, .splash-word { animation: none !important; }
+  .km-anim *, .km-star, .km-word-anim > span, .splash-word { animation: none !important; }
 }
 
 /* Плавная смена экранов */

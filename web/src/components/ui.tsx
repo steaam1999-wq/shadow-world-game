@@ -68,8 +68,8 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
   )
 }
 
-/** Знак Komeeta: мягкая буква K (шрифт Sora) и точка — «встреча здесь». Фирменный градиент. */
-const K_PATH = 'M27.02 29.40L21.87 29.40L15.31 20.52L13.65 20.52L13.65 29.40L9.38 29.40L9.38 10.40L13.65 10.40L13.65 19.30L20.65 10.40L25.54 10.40L19.06 18.62Z'
+/** Знак Komeeta: облачко сообщения — планета с кольцом. Общение, космос и встреча. Фирменный градиент. */
+const BUBBLE = 'M20 9.5c6.6 0 11 4.4 11 10s-4.4 10-11 10c-1 0-2-.1-2.9-.3L12 32l1.3-4.6C10.6 25.6 9 22.8 9 19.5 9 13.9 13.4 9.5 20 9.5z'
 export function LogoMark({ size = 34, animate = false }: { size?: number; animate?: boolean }) {
   const id = useId().replace(/:/g, '')
   return (
@@ -80,10 +80,19 @@ export function LogoMark({ size = 34, animate = false }: { size?: number; animat
           <stop offset=".55" stopColor="#ff4f86" />
           <stop offset="1" stopColor="#8a5cff" />
         </linearGradient>
+        {/* передняя половина кольца — нижняя (в повёрнутых координатах кольца) */}
+        <clipPath id={`kf-${id}`}><rect x="0" y="20" width="40" height="20" /></clipPath>
       </defs>
       <rect className="km-bg" x="1" y="1" width="38" height="38" rx="11" fill={`url(#kb-${id})`} />
-      <path className="km-k" d={K_PATH} fill="#fff" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
-      <circle className="km-dot" cx="31.9" cy="28.7" r="2.6" fill="#111014" />
+      <g transform="rotate(-16 20 20)">
+        <ellipse className="km-ring" cx="20" cy="20" rx="16" ry="4.6" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth="1.8" pathLength="100" />
+      </g>
+      <path className="km-planet" d={BUBBLE} fill="#fff" />
+      <g transform="rotate(-16 20 20)" clipPath={`url(#kf-${id})`}>
+        <ellipse className="km-ring" cx="20" cy="20" rx="16" ry="4.6" fill="none" stroke="#fff" strokeWidth="1.8" pathLength="100" />
+      </g>
+      <path className="km-star" d="M33 7.2Q33 9 34.8 9Q33 9 33 10.8Q33 9 31.2 9Q33 9 33 7.2Z" fill="#fff" />
+      <circle className="km-dust" cx="7" cy="31" r=".75" fill="#fff" opacity=".8" />
     </svg>
   )
 }
