@@ -48,18 +48,20 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   const [flashing, setFlashing] = useState(false)
   const [recording, setRecording] = useState(false)
   const [recMs, setRecMs] = useState(0)
-  // Объектив и масштаб: сверхширокий (0.5×), если телефон его отдаёт; дальше — зум камеры или цифровой.
+  // Объектив и масштаб: широкоугольный, если телефон его отдаёт; зум — камеры или цифровой.
   const [ultra, setUltra] = useState<{ id: string } | null>(null)
   const [lens, setLens] = useState<'main' | 'ultra'>('main')
   const [zoom, setZoom] = useState(1)
   const [hwZoom, setHwZoom] = useState<{ min: number; max: number } | null>(null)
   const [fill, setFill] = useState(() => { try { return localStorage.getItem('cam-fill') === '1' } catch { return false } })
   const pinch = useRef<{ d: number; z: number } | null>(null)
+  const slide = useRef<{ y: number; z: number } | null>(null) // зум «как в Instagram»: ведём палец от кнопки вверх
+  const zoomRef = useRef(1)
   const ultraId = useRef('')
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
-  const rec = useRef<{ r: MediaRecorder; started: number; timer: ReturnType<typeof setInterval> } | null>(null)
+  const rec = useRef<{ r: MediaRecorder; started: number; timer: ReturnType<typeof setInterval>; cleanup: () => void } | null>(null)
   const hold = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressed = useRef(false)
   const gallery = useRef<HTMLInputElement>(null)
@@ -101,7 +103,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
         if (alive) setCamError(name === 'NotAllowedError' ? 'Нет доступа к камере. Разрешите его в настройках браузера или выберите файл из галереи.' : 'Камера недоступна. Выберите фото или видео из галереи.')
       }
     })()
-    return () => { alive = false; if (rec.current) { clearInterval(rec.current.timer); rec.current.r.onstop = null; rec.current = null }; stopCamera() }
+    return () => { alive = false; if (rec.current) { clearInterval(rec.current.timer); rec.current.cleanup(); rec.current.r.onstop = null; rec.current = null }; stopCamera() }
   }, [facing, lens, stopCamera])
 
   // Зум: аппаратный, если камера умеет (Android), иначе цифровой — увеличиваем картинку и кадрируем снимок.
@@ -110,14 +112,11 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
     const t = stream.current?.getVideoTracks()[0]
     if (t && hwZoom) void t.applyConstraints({ advanced: [{ zoom: Math.max(hwZoom.min, zoom) } as MediaTrackConstraintSet] }).catch(() => {})
   }, [zoom, hwZoom])
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  const clampZoom = (z: number) => Math.min(maxZoom, Math.max(1, Math.round(z * 10) / 10))
   const cssZoom = hwZoom ? 1 : zoom
   const setFillMode = (v: boolean) => { setFill(v); try { localStorage.setItem('cam-fill', v ? '1' : '0') } catch { /* ignore */ } }
-  const pickLens = (v: '0.5' | '1' | '2') => {
-    if (recording) return
-    if (v === '0.5') { setLens('ultra'); return }
-    if (lens !== 'main') setLens('main')
-    setZoom(v === '2' ? Math.min(2, maxZoom) : 1)
-  }
+  const toggleWide = () => { if (!recording) setLens((x) => (x === 'ultra' ? 'main' : 'ultra')) }
   const onPointerDown = (e: React.PointerEvent) => {
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 2) {
@@ -131,10 +130,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
     if (pinch.current && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
       const z = pinch.current.z * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.current.d)
-      // Свели пальцы на сверхшироком — остаёмся на нём; развели на основном меньше 1× — переходим на сверхширокий.
-      if (z < 0.85 && lens === 'main' && ultra && facing === 'environment' && !recording) { pinch.current = null; setLens('ultra'); return }
-      if (z > 1.15 && lens === 'ultra') { pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: 1 }; setLens('main'); return }
-      if (lens === 'main') setZoom(Math.min(maxZoom, Math.max(1, Math.round(z * 10) / 10)))
+      setZoom(clampZoom(z))
     }
   }
   const onPointerEnd = (e: React.PointerEvent) => { pointers.current.delete(e.pointerId); if (pointers.current.size < 2) pinch.current = null }
@@ -172,12 +168,36 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
     const s = stream.current
     const type = recorderType()
     if (!s || type === null) { setCamError('Запись видео в этом браузере недоступна — выберите видео из галереи.'); return }
-    const r = type ? new MediaRecorder(s, { mimeType: type }) : new MediaRecorder(s)
+    // Цифровой зум (iPhone) попадает в видео, только если писать кадр через canvas: рисуем приближенную середину.
+    let src: MediaStream = s
+    let raf = 0
+    const extra: MediaStreamTrack[] = []
+    const v = video.current
+    if (!hwZoom && v && v.videoWidth) {
+      const W = v.videoWidth, H = v.videoHeight, k = Math.min(1, 1280 / Math.max(W, H))
+      const c = document.createElement('canvas')
+      c.width = Math.round(W * k) & ~1; c.height = Math.round(H * k) & ~1
+      const ctx = c.getContext('2d')
+      const cs = (c as HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream }).captureStream?.(30)
+      if (ctx && cs) {
+        const draw = () => {
+          const z = zoomRef.current, sw = W / z, sh = H / z
+          ctx.drawImage(v, (W - sw) / 2, (H - sh) / 2, sw, sh, 0, 0, c.width, c.height)
+          raf = requestAnimationFrame(draw)
+        }
+        draw()
+        extra.push(...cs.getVideoTracks())
+        src = new MediaStream([...cs.getVideoTracks(), ...s.getAudioTracks()])
+      }
+    }
+    const cleanup = () => { cancelAnimationFrame(raf); extra.forEach((t) => t.stop()) }
+    const r = type ? new MediaRecorder(src, { mimeType: type }) : new MediaRecorder(src)
     const chunks: Blob[] = []
     const started = Date.now()
     r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
     r.onstop = () => {
       if (rec.current) clearInterval(rec.current.timer)
+      cleanup()
       rec.current = null
       setRecording(false); setRecMs(0)
       // Тип без параметров кодека — так файл примет хранилище.
@@ -190,16 +210,27 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       setRecMs(ms)
       if (ms >= maxRecSec * 1000) stopRec()
     }, 100)
-    rec.current = { r, started, timer }
+    rec.current = { r, started, timer, cleanup }
     setRecording(true)
   }
 
-  const down = () => {
+  const down = (e: React.PointerEvent) => {
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* ignore */ }
+    slide.current = { y: e.clientY, z: zoom }
     if (videoOnly) return
     pressed.current = true
     hold.current = setTimeout(() => { if (pressed.current) startRec() }, 280)
   }
+  // Палец от кнопки вверх — приближение, вниз — отдаление (как в Instagram). ~160 px — двукратный зум.
+  const slideMove = (e: React.PointerEvent) => {
+    const st = slide.current
+    if (!st) return
+    const dy = st.y - e.clientY
+    if (Math.abs(dy) < 8) return
+    setZoom(clampZoom(st.z * Math.pow(2, dy / 160)))
+  }
   const up = () => {
+    slide.current = null
     if (videoOnly) { if (rec.current) stopRec(); else startRec(); return }
     pressed.current = false
     if (hold.current) clearTimeout(hold.current)
@@ -226,7 +257,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   }
 
   const f = filterOf(filter)
-  const hint = recording ? (videoOnly ? 'Нажмите ещё раз, чтобы закончить' : 'Отпустите, чтобы закончить') : videoOnly ? 'Нажмите, чтобы начать запись' : 'Касание — фото · удержание — видео'
+  const hint = recording ? (videoOnly ? 'Нажмите ещё раз, чтобы закончить · ведите вверх — зум' : 'Ведите вверх — зум · отпустите, чтобы закончить') : videoOnly ? 'Нажмите, чтобы начать запись' : 'Касание — фото · удержание — видео'
 
   return (
     <>
@@ -240,8 +271,12 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       <div className="absolute inset-x-0 top-0 pt-[calc(10px+env(safe-area-inset-top,0px))] px-3 flex items-center gap-2 bg-gradient-to-b from-black/40 to-transparent pb-6">
         <button onClick={onClose} className="grid place-items-center w-10 h-10 rounded-full bg-black/30 cursor-pointer" aria-label="Закрыть камеру"><Icon name="x" size={22} /></button>
         <span className="flex-1" />
-        <button onClick={() => setFillMode(!fill)} className="h-10 px-3 rounded-full bg-black/30 text-[13px] font-semibold cursor-pointer" aria-pressed={fill}
-          aria-label={fill ? 'Показать весь кадр' : 'Растянуть на весь экран'}>{fill ? '3:4' : 'На весь экран'}</button>
+        {ultra && facing === 'environment' && (
+          <button onClick={toggleWide} disabled={recording} aria-pressed={lens === 'ultra'} aria-label="Широкоугольная камера"
+            className={`h-10 px-3 rounded-full text-[13px] font-semibold cursor-pointer disabled:opacity-40 ${lens === 'ultra' ? 'bg-white text-[#14152a]' : 'bg-black/30'}`}>Широкий</button>
+        )}
+        <button onClick={() => setFillMode(!fill)} className="h-10 px-3 rounded-full bg-black/30 text-[13px] font-semibold cursor-pointer tnum" aria-pressed={fill}
+          aria-label={fill ? 'Сейчас: на весь экран. Показать весь кадр' : 'Сейчас: весь кадр. Растянуть на весь экран'}>{fill ? '9:16' : '3:4'}</button>
         {(torchOk || mirrored) && (
           <button onClick={() => (mirrored ? setFlashFront((x) => !x) : setTorch((x) => !x))} aria-pressed={mirrored ? flashFront : torch}
             className={`h-10 px-3 rounded-full text-[13px] font-semibold cursor-pointer ${(mirrored ? flashFront : torch) ? 'bg-[#ffc457] text-[#14152a]' : 'bg-black/30'}`} aria-label="Вспышка">⚡ {(mirrored ? flashFront : torch) ? 'Вкл' : 'Выкл'}</button>
@@ -253,11 +288,11 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
         {!camError && (
           <div className="flex justify-center">
             <div className="flex items-center gap-1 p-1 rounded-full bg-black/35" role="radiogroup" aria-label="Масштаб">
-              {((facing === 'environment' && ultra ? ['0.5', '1', '2'] : ['1', '2']) as ('0.5' | '1' | '2')[]).map((v) => {
-                const on = v === '0.5' ? lens === 'ultra' : lens === 'main' && (v === '2' ? zoom >= 1.95 : zoom < 1.95)
-                const label = on && v !== '0.5' && lens === 'main' && zoom !== 1 && zoom !== 2 ? `${zoom.toFixed(1)}×` : `${v}×`
+              {(['1', '2'] as const).map((v) => {
+                const on = v === '2' ? zoom >= 1.95 : zoom < 1.95
+                const label = on && zoom !== 1 && zoom !== 2 ? `${zoom.toFixed(1)}×` : `${v}×`
                 return (
-                  <button key={v} role="radio" aria-checked={on} onClick={() => pickLens(v)} disabled={recording && v === '0.5'}
+                  <button key={v} role="radio" aria-checked={on} onClick={() => setZoom(v === '2' ? Math.min(2, maxZoom) : 1)}
                     className={`min-w-9 h-9 px-2 rounded-full text-[12.5px] font-bold cursor-pointer tnum ${on ? 'bg-white/90 text-[#14152a]' : 'text-white'}`}>{label}</button>
                 )
               })}
@@ -272,7 +307,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
         </div>
         <div className="relative flex items-center justify-center">
           <button onClick={() => gallery.current?.click()} disabled={recording} className="absolute left-4 grid place-items-center w-12 h-12 rounded-xl bg-white/20 cursor-pointer disabled:opacity-40" aria-label="Выбрать из галереи"><Icon name="grid" size={22} /></button>
-          <button onPointerDown={down} onPointerUp={up} onPointerLeave={() => { if (rec.current && !videoOnly) up() }} onContextMenu={(e) => e.preventDefault()}
+          <button onPointerDown={down} onPointerMove={slideMove} onPointerUp={up} onPointerCancel={() => { slide.current = null; if (rec.current && !videoOnly) up() }} onContextMenu={(e) => e.preventDefault()}
             className="cursor-pointer touch-none select-none" aria-label={recording ? 'Остановить запись' : videoOnly ? 'Начать запись видео' : 'Снять: касание — фото, удержание — видео'}>
             <Shutter recording={recording} progress={recMs / (maxRecSec * 1000)} videoOnly={videoOnly} />
           </button>
