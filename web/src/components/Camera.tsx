@@ -55,7 +55,8 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   const [hwZoom, setHwZoom] = useState<{ min: number; max: number } | null>(null)
   const [fill, setFill] = useState(() => { try { return localStorage.getItem('cam-fill') === '1' } catch { return false } })
   const pinch = useRef<{ d: number; z: number } | null>(null)
-  const slide = useRef<{ y: number; z: number } | null>(null) // зум «как в Instagram»: ведём палец от кнопки вверх
+  const slide = useRef<{ y: number; z: number; zoomOnly: boolean } | null>(null) // зум «как в Instagram»: ведём палец от кнопки вверх
+  const dial = useRef<{ x: number; z: number; moved: boolean } | null>(null)
   const zoomRef = useRef(1)
   const ultraId = useRef('')
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -216,7 +217,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
 
   const down = (e: React.PointerEvent) => {
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* ignore */ }
-    slide.current = { y: e.clientY, z: zoom }
+    slide.current = { y: e.clientY, z: zoom, zoomOnly: false }
     if (videoOnly) return
     pressed.current = true
     hold.current = setTimeout(() => { if (pressed.current) startRec() }, 280)
@@ -227,10 +228,18 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
     if (!st) return
     const dy = st.y - e.clientY
     if (Math.abs(dy) < 8) return
+    // Повели палец сразу, до начала записи, — это только зум: видео не пишем, фото при отпускании не снимаем.
+    if (!rec.current && !st.zoomOnly) {
+      st.zoomOnly = true
+      pressed.current = false
+      if (hold.current) clearTimeout(hold.current)
+    }
     setZoom(clampZoom(st.z * Math.pow(2, dy / 160)))
   }
   const up = () => {
+    const wasZoom = slide.current?.zoomOnly && !rec.current
     slide.current = null
+    if (wasZoom) return
     if (videoOnly) { if (rec.current) stopRec(); else startRec(); return }
     pressed.current = false
     if (hold.current) clearTimeout(hold.current)
@@ -257,7 +266,7 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   }
 
   const f = filterOf(filter)
-  const hint = recording ? (videoOnly ? 'Нажмите ещё раз, чтобы закончить · ведите вверх — зум' : 'Ведите вверх — зум · отпустите, чтобы закончить') : videoOnly ? 'Нажмите, чтобы начать запись' : 'Касание — фото · удержание — видео'
+  const hint = recording ? (videoOnly ? 'Нажмите ещё раз, чтобы закончить · ведите вверх — зум' : 'Ведите вверх — зум · отпустите, чтобы закончить') : videoOnly ? 'Нажмите, чтобы начать запись' : 'Касание — фото · удержание — видео · вверх от кнопки — зум'
 
   return (
     <>
@@ -287,12 +296,22 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       <div className="absolute inset-x-0 bottom-0 pb-[calc(14px+env(safe-area-inset-bottom,0px))] px-3 flex flex-col gap-3 bg-gradient-to-t from-black/60 to-transparent pt-10">
         {!camError && (
           <div className="flex justify-center">
-            <div className="flex items-center gap-1 p-1 rounded-full bg-black/35" role="radiogroup" aria-label="Масштаб">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-black/35 touch-none" role="radiogroup" aria-label="Масштаб — проведите пальцем влево-вправо"
+              onPointerDown={(e) => { dial.current = { x: e.clientX, z: zoom, moved: false } }}
+              onPointerMove={(e) => {
+                const d = dial.current
+                if (!d || !e.buttons && e.pointerType === 'mouse') return
+                const dx = e.clientX - d.x
+                if (!d.moved && Math.abs(dx) < 6) return
+                if (!d.moved) { d.moved = true; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* ignore */ } }
+                setZoom(clampZoom(d.z * Math.pow(2, dx / 120)))
+              }}
+              onPointerUp={() => { setTimeout(() => { dial.current = null }, 0) }} onPointerCancel={() => { dial.current = null }}>
               {(['1', '2'] as const).map((v) => {
                 const on = v === '2' ? zoom >= 1.95 : zoom < 1.95
                 const label = on && zoom !== 1 && zoom !== 2 ? `${zoom.toFixed(1)}×` : `${v}×`
                 return (
-                  <button key={v} role="radio" aria-checked={on} onClick={() => setZoom(v === '2' ? Math.min(2, maxZoom) : 1)}
+                  <button key={v} role="radio" aria-checked={on} onClick={() => { if (!dial.current?.moved) setZoom(v === '2' ? Math.min(2, maxZoom) : 1) }}
                     className={`min-w-9 h-9 px-2 rounded-full text-[12.5px] font-bold cursor-pointer tnum ${on ? 'bg-white/90 text-[#14152a]' : 'text-white'}`}>{label}</button>
                 )
               })}
