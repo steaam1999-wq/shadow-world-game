@@ -2,6 +2,10 @@ import { useEffect, useId, useState, type ButtonHTMLAttributes, type ReactNode }
 import { createPortal } from 'react-dom'
 
 const PATHS: Record<string, string> = {
+  // Нижняя панель: единый набор — сетка 24, скругления, одинаковая толщина линий.
+  navHome: 'M4 10.6 12 4l8 6.6V19a1.6 1.6 0 0 1-1.6 1.6h-3.2v-5.1a1 1 0 0 0-1-1h-4.4a1 1 0 0 0-1 1v5.1H5.6A1.6 1.6 0 0 1 4 19z',
+  navSearch: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+  navChat: 'M12 4c4.7 0 8.5 3.2 8.5 7.2s-3.8 7.2-8.5 7.2c-.9 0-1.8-.1-2.6-.3L5 20l1.1-3.6C4.6 15.1 3.5 13.3 3.5 11.2 3.5 7.2 7.3 4 12 4z',
   phone: 'M7 3h3l1.5 4.5-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4.5 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 5 5a2 2 0 0 1 2-2z',
   spark: 'M13 2 4 14h7l-1 8 9-12h-7z',
   vibe: 'M3 12h3l2-6 4 12 3-9 2 3h4',

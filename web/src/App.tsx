@@ -45,10 +45,10 @@ type View = 'landing' | 'onboarding' | 'app' | 'admin' | 'recovery' | 'callback'
 type Tab = 'home' | 'search' | 'reels' | 'capsules' | 'profile' | 'music'
 
 const NAV: { id: Tab | 'create'; label: string; icon: string }[] = [
-  { id: 'home', label: 'Главная', icon: 'home' },
-  { id: 'search', label: 'Поиск', icon: 'search' },
+  { id: 'home', label: 'Главная', icon: 'navHome' },
+  { id: 'search', label: 'Поиск', icon: 'navSearch' },
   { id: 'create', label: 'Создать', icon: 'create' },
-  { id: 'capsules', label: 'Чаты', icon: 'chat' },
+  { id: 'capsules', label: 'Чаты', icon: 'navChat' },
   { id: 'profile', label: 'Профиль', icon: 'user' },
 ]
 
@@ -318,16 +318,16 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       )}
 
       {!inChat && (
-        <nav className="glass glass-solid fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[456px] rounded-[32px] p-1.5" aria-label="Разделы">
-          <ul className="relative grid grid-cols-5 items-center">
+        <nav className="nav-bar fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[440px] rounded-[30px] px-2 py-1.5" aria-label="Разделы">
+          <ul className="grid grid-cols-5 items-center">
             {NAV.map((t) => {
               const active = tab === t.id && !person
               // «Создать» — главная кнопка: круг в фирменном градиенте посередине.
               if (t.id === 'create') return (
                 <li key={t.id} className="grid place-items-center">
                   <button onClick={() => setChoosing(true)} aria-label={t.label}
-                    className="grid place-items-center w-12 h-12 rounded-2xl bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.7)] cursor-pointer active:scale-95 transition">
-                    <Icon name="plus" size={26} />
+                    className="grid place-items-center w-[52px] h-[52px] rounded-full bg-brand text-white shadow-[0_8px_22px_-8px_rgb(255_79_134/.75)] cursor-pointer active:scale-90 transition-transform duration-200">
+                    <Icon name="plus" size={26} className="[stroke-width:2.4]" />
                   </button>
                 </li>
               )
@@ -336,16 +336,17 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                   <button
                     onClick={() => { setTab(t.id as Tab); setChat(null); setPerson(null) }}
                     aria-current={active ? 'page' : undefined} aria-label={t.id === 'capsules' && unread ? `${t.label}: ${unread} непрочитанных` : t.label}
-                    className={`relative w-full h-14 flex flex-col items-center justify-center gap-0.5 rounded-[24px] cursor-pointer transition duration-300 ${active ? 'text-fg tab-active' : 'text-muted hover:text-fg'}`}>
-                    <span className="relative">
+                    className={`group w-full h-[58px] flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors duration-300 ${active ? 'text-spark' : 'text-muted hover:text-fg'}`}>
+                    {/* мягкая «капсула» за значком активной вкладки */}
+                    <span className={`relative grid place-items-center h-8 w-14 rounded-full transition-all duration-300 ease-out ${active ? 'bg-spark/12 scale-100' : 'bg-transparent scale-90 group-active:scale-95'}`}>
                       {t.id === 'profile' ? (
-                        <span className="block rounded-full"><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
+                        <span className={`block rounded-full transition ${active ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
                       ) : (
-                        <Icon name={t.icon} size={24} fill={active && (t.id === 'home')} className="tab-icon" />
+                        <Icon name={t.icon} size={23} className="nav-icon" />
                       )}
-                      {t.id === 'capsules' && unread > 0 && <span className="absolute -top-1.5 -right-2.5 grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-bold border-2 border-surface">{unread}</span>}
+                      {t.id === 'capsules' && unread > 0 && <span className="absolute -top-1 right-1.5 grid place-items-center min-w-[17px] h-[17px] px-1 rounded-full bg-danger text-white text-[10px] font-bold ring-2 ring-surface">{unread}</span>}
                     </span>
-                    <span className={`text-[10.5px] leading-none ${active ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+                    <span className={`text-[10.5px] leading-none tracking-[.01em] transition-all ${active ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
                   </button>
                 </li>
               )
