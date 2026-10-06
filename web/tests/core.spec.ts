@@ -126,19 +126,25 @@ test('«Сообщить об ошибке»: окно открывается, �
   await expect(page.getByRole('dialog', { name: 'Спасибо!' })).toContainText('демо-режим')
 })
 
-test('без галочки 18+ и согласия регистрация не начинается', async ({ page }) => {
+test('без согласия 18+ вход не начинается: спрашиваем одним касанием', async ({ page }) => {
   await page.goto('./')
   await page.getByRole('button', { name: 'Продолжить с почтой' }).click()
-  await expect(page.getByText('Отметьте, что вам есть 18')).toBeVisible()
-  await page.getByRole('checkbox').check({ force: true })
-  await page.getByRole('button', { name: 'Продолжить с почтой' }).click()
-  await expect(page.getByText('Отметьте, что вам есть 18')).toBeHidden()
+  const sheet = page.getByRole('dialog', { name: 'Последний шаг' })
+  await expect(sheet).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('match-consent'))).toBeNull()
+  await sheet.getByRole('button', { name: /Подтверждаю/ }).click()
+  await expect(sheet).toBeHidden()
   expect(await page.evaluate(() => Number(localStorage.getItem('match-consent')))).toBeGreaterThan(0)
+  // согласие уже дано — второй раз не спрашиваем
+  await page.goto('./')
+  await page.getByRole('button', { name: 'Продолжить с почтой' }).click()
+  await expect(page.getByRole('dialog', { name: 'Последний шаг' })).toBeHidden()
 })
 
 test('документы открываются по ссылке из согласия', async ({ page }) => {
   await page.goto('./')
-  await page.getByRole('button', { name: 'политику конфиденциальности' }).click()
+  await page.getByRole('button', { name: 'Продолжить с почтой' }).click()
+  await page.getByRole('dialog', { name: 'Последний шаг' }).getByRole('button', { name: 'политику конфиденциальности' }).click()
   const docs = page.getByRole('dialog', { name: 'Документы Komeeta' })
   await expect(docs.getByRole('tab', { name: 'Конфиденциальность' })).toHaveAttribute('aria-selected', 'true')
   await expect(docs.getByText('Геопозиция')).toBeVisible()

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
-import { Avatar, Button, Field, Icon, Logo, LogoMark, ThemeToggle, Wordmark, inputCls } from '../components/ui'
+import { Avatar, Button, Field, Icon, Logo, LogoMark, Sheet, ThemeToggle, Wordmark, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { authProviders, humanError, normalizePhone, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyPhoneCode } from '../cloud/api'
+import { authProviders, humanError, normalizePhone, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
 
@@ -57,11 +57,16 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const [busy, setBusy] = useState(false)
   const [agreed, setAgreed] = useState(() => !!localConsent())
   const [needAgree, setNeedAgree] = useState(false)
-  /** Новый вход или регистрация — только после галочки «18+ и согласие». */
+  /** Новый вход или регистрация — после «18+ и согласие». Не дали ещё — спрашиваем одним касанием в окошке. */
+  const [pending, setPending] = useState<(() => void) | null>(null)
   const agreeFirst = (go: () => void) => () => {
-    if (!agreed) { setNeedAgree(true); return }
+    if (!agreed) { setPending(() => go); return }
     saveLocalConsent()
     go()
+  }
+  const acceptAndGo = () => {
+    setAgreed(true); setNeedAgree(false); saveLocalConsent()
+    const go = pending; setPending(null); go?.()
   }
 
   // С сервером: настоящий вход по почте и паролю через Supabase.
@@ -125,6 +130,14 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     catch (err) { setError(/rate|security purposes|seconds/i.test(String((err as Error)?.message)) ? 'Письмо уже отправлено — подождите минуту и попробуйте снова.' : humanError(err)) }
     finally { setBusy(false) }
   }
+  const [emailCode, setEmailCode] = useState('')
+  const checkEmailCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (emailCode.trim().length < 6) return setError('Введите 6 цифр из письма')
+    setError(''); setBusy(true)
+    try { const user = await verifyEmailCode(sentTo, emailCode.trim()); await onCloudAuth(user.id, sentTo, '', remember) }
+    catch (err) { setError(/invalid|expired/i.test(String((err as Error)?.message)) ? 'Код не подходит или устарел. Нажмите кнопку в письме или запросите новое.' : humanError(err)); setBusy(false) }
+  }
   const oauth = async (provider: string) => {
     setError(''); setBusy(true)
     try { await signInWithProvider(provider) } catch (err) { setError(humanError(err)); setBusy(false) }
@@ -179,6 +192,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             </div>
             <h1 className="font-display font-bold text-[34px] leading-[1.05] tracking-tight">Встречи рядом.<br /><span className="text-brand">Без свайпов.</span></h1>
             <p className="text-[15px] text-muted leading-snug max-w-[290px]">Кофе, выставки, прогулки — сегодня, с людьми из вашего города.</p>
+            <p className="mt-2 text-[14px] font-semibold">Войдите или создайте аккаунт — <span className="text-muted font-normal">выберите способ, аккаунт создастся сам</span></p>
           </div>
 
           <div className="flex flex-col gap-2.5">
@@ -199,7 +213,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 onClick={agreeFirst(() => (cloudEnabled ? (setStage('phone'), setError(''), setCodeSent('')) : social('phone')))}>Продолжить с телефоном</AuthOption>
             )}
             <AuthOption primary icon={<Icon name="send" size={18} />} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}>Продолжить с почтой</AuthOption>
-            <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Войти с паролем</button>
+            <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">У меня есть пароль</button>
             {!cloudEnabled && (
               <button onClick={() => onDemo(true)} className="-mt-2 h-10 text-[13px] text-muted hover:text-fg cursor-pointer inline-flex items-center justify-center gap-1.5">
                 <Icon name="eye" size={15} /> Посмотреть без регистрации
@@ -207,10 +221,13 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             )}
             {error && <p className="text-center text-[13px] text-danger" role="alert">{error}</p>}
           </div>
-          <div className="mt-4">
-            <ConsentCheck checked={agreed} onChange={(v) => { setAgreed(v); if (v) { setNeedAgree(false); saveLocalConsent() } }} highlight={needAgree} />
-            {needAgree && !agreed && <p className="mt-2 text-center text-[13px] text-danger" role="alert">Отметьте, что вам есть 18 и вы согласны с документами</p>}
-          </div>
+          <Sheet open={!!pending} onClose={() => setPending(null)} title="Последний шаг">
+            <div className="flex flex-col gap-4 pb-1">
+              <ConsentCheck plain checked={agreed} onChange={setAgreed} />
+              {/* Нажатие кнопки — само подтверждение: текст согласия и документы — прямо над ней */}
+              <Button onClick={acceptAndGo} className="h-14 !rounded-full text-[16px]">Подтверждаю — продолжить</Button>
+            </div>
+          </Sheet>
         </main>
       )}
 
@@ -251,7 +268,12 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             <div className="flex flex-col items-center gap-4 text-center pt-6">
               <span className="grid place-items-center w-20 h-20 rounded-full bg-brand text-white"><Icon name="send" size={34} /></span>
               <h1 className="font-display font-bold text-[26px] leading-tight">Проверьте почту</h1>
-              <p className="text-[15px] text-muted">Мы отправили письмо на <b className="text-fg">{sentTo}</b>. Откройте его на этом устройстве и нажмите «Войти». Письмо может прийти в «Спам».</p>
+              <p className="text-[15px] text-muted">Отправили письмо на <b className="text-fg">{sentTo}</b>. Нажмите в нём «Войти» или введите код из письма. Письмо может прийти в «Спам».</p>
+              <form onSubmit={(e) => void checkEmailCode(e)} className="w-full flex flex-col gap-3" noValidate>
+                <label htmlFor="email-code" className="sr-only">Код из письма</label>
+                <input id="email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))} placeholder="Код из письма" className={`${inputCls} h-14 text-[20px] tracking-[.25em] text-center tnum`} />
+                {emailCode.length === 6 && <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Проверяем…' : 'Войти'}</Button>}
+              </form>
               <Button variant="secondary" onClick={() => void sendLink()} disabled={busy || cooldown > 0} className="h-12 !rounded-full w-full">{cooldown > 0 ? `Отправить ещё раз через ${cooldown} с` : 'Отправить ещё раз'}</Button>
               <button onClick={() => setSentTo('')} className="text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Изменить почту</button>
               {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}

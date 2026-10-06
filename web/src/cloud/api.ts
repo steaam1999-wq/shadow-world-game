@@ -133,6 +133,13 @@ export async function sendMagicLink(email: string) {
 
 /** Какие соцсети включены в настройках входа (Google, Apple…). Кнопки показываем только для них. */
 /** Какие способы входа включены: соцсети из настроек Supabase, «phone» — если подключены SMS, «telegram» — если задан бот. */
+/** Код из письма (6 цифр) — вместо перехода по ссылке; работает и на другом устройстве. */
+export async function verifyEmailCode(email: string, token: string) {
+  const { data, error } = await sb().auth.verifyOtp({ email, token, type: 'email' })
+  if (error) throw error
+  return data.user!
+}
+
 export async function authProviders(): Promise<string[]> {
   const [social, tg] = await Promise.all([
     fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })

@@ -15,11 +15,14 @@ export function saveLocalConsent(at = Date.now()) {
 }
 
 /** Галочка «Мне есть 18 лет и я согласен(на)…» со ссылками на документы. */
-export function ConsentCheck({ checked, onChange, highlight }: { checked: boolean; onChange: (v: boolean) => void; highlight?: boolean }) {
+export function ConsentCheck({ checked, onChange, highlight, plain = false }: { checked: boolean; onChange: (v: boolean) => void; highlight?: boolean; plain?: boolean }) {
   const [doc, setDoc] = useState<DocId | null>(null)
   const link = (id: DocId, text: string) => (
     <a href="#" role="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDoc(id) }} className="underline underline-offset-2 font-semibold text-fg cursor-pointer">{text}</a>
   )
+  const text = <>Мне есть <b className="text-fg">18 лет</b>. Я принимаю {link('terms', 'соглашение')} и {link('privacy', 'политику конфиденциальности')} и даю {link('consent', 'согласие на обработку персональных данных')}.</>
+  // plain — только текст со ссылками: подтверждение — кнопка под ним
+  if (plain) return <><p className="text-[14px] leading-snug text-muted">{text}</p><DocsSheet open={!!doc} initial={doc ?? 'terms'} onClose={() => setDoc(null)} /></>
   return (
     <>
       <label className={`flex items-start gap-3 p-3 rounded-2xl cursor-pointer transition ${highlight && !checked ? 'bg-danger-soft ring-2 ring-danger/40' : 'bg-surface/70'}`}>
