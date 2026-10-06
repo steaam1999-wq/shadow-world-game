@@ -48,6 +48,15 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
   const [flashing, setFlashing] = useState(false)
   const [recording, setRecording] = useState(false)
   const [recMs, setRecMs] = useState(0)
+  // Объектив и масштаб: сверхширокий (0.5×), если телефон его отдаёт; дальше — зум камеры или цифровой.
+  const [ultra, setUltra] = useState<{ id: string } | null>(null)
+  const [lens, setLens] = useState<'main' | 'ultra'>('main')
+  const [zoom, setZoom] = useState(1)
+  const [hwZoom, setHwZoom] = useState<{ min: number; max: number } | null>(null)
+  const [fill, setFill] = useState(() => { try { return localStorage.getItem('cam-fill') === '1' } catch { return false } })
+  const pinch = useRef<{ d: number; z: number } | null>(null)
+  const ultraId = useRef('')
+  const pointers = useRef(new Map<number, { x: number; y: number }>())
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const rec = useRef<{ r: MediaRecorder; started: number; timer: ReturnType<typeof setInterval> } | null>(null)
@@ -69,21 +78,66 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       setCamError('')
       if (!navigator.mediaDevices?.getUserMedia) { setCamError('Этот браузер не даёт доступ к камере. Выберите фото или видео из галереи.'); return }
       try {
-        const constraints = { video: { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 } } }
+        // Кадр 4:3, как у обычной камеры телефона: 9:16 обрезает сенсор и выглядит «приближенным».
+        const size = { width: { ideal: 1920 }, height: { ideal: 1440 } }
+        const constraints = { video: lens === 'ultra' && ultraId.current && facing === 'environment' ? { deviceId: { exact: ultraId.current }, ...size } : { facingMode: facing, ...size } }
         const s = await navigator.mediaDevices.getUserMedia({ ...constraints, audio: true }).catch(() => navigator.mediaDevices.getUserMedia(constraints))
         if (!alive) { s.getTracks().forEach((t) => t.stop()); return }
         stream.current = s
         const v = video.current
         if (v) { v.srcObject = s; v.muted = true; await v.play().catch(() => {}) }
-        const caps = (s.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as { torch?: boolean }
+        const caps = (s.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as { torch?: boolean; zoom?: { min: number; max: number } }
         setTorchOk(!!caps.torch)
+        setHwZoom(caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max } : null)
+        setZoom(1)
+        // Сверхширокий объектив ищем по названию камеры (названия видны после разрешения доступа).
+        if (facing === 'environment') {
+          const devs = await navigator.mediaDevices.enumerateDevices().catch(() => [] as MediaDeviceInfo[])
+          const u = devs.find((d) => d.kind === 'videoinput' && /ultra ?wide|сверхширок|ультраширок/i.test(d.label))
+          if (alive && u) { ultraId.current = u.deviceId; setUltra({ id: u.deviceId }) }
+        }
       } catch (e) {
         const name = (e as { name?: string }).name
         if (alive) setCamError(name === 'NotAllowedError' ? 'Нет доступа к камере. Разрешите его в настройках браузера или выберите файл из галереи.' : 'Камера недоступна. Выберите фото или видео из галереи.')
       }
     })()
     return () => { alive = false; if (rec.current) { clearInterval(rec.current.timer); rec.current.r.onstop = null; rec.current = null }; stopCamera() }
-  }, [facing, stopCamera])
+  }, [facing, lens, stopCamera])
+
+  // Зум: аппаратный, если камера умеет (Android), иначе цифровой — увеличиваем картинку и кадрируем снимок.
+  const maxZoom = hwZoom ? Math.min(hwZoom.max, 8) : 4
+  useEffect(() => {
+    const t = stream.current?.getVideoTracks()[0]
+    if (t && hwZoom) void t.applyConstraints({ advanced: [{ zoom: Math.max(hwZoom.min, zoom) } as MediaTrackConstraintSet] }).catch(() => {})
+  }, [zoom, hwZoom])
+  const cssZoom = hwZoom ? 1 : zoom
+  const setFillMode = (v: boolean) => { setFill(v); try { localStorage.setItem('cam-fill', v ? '1' : '0') } catch { /* ignore */ } }
+  const pickLens = (v: '0.5' | '1' | '2') => {
+    if (recording) return
+    if (v === '0.5') { setLens('ultra'); return }
+    if (lens !== 'main') setLens('main')
+    setZoom(v === '2' ? Math.min(2, maxZoom) : 1)
+  }
+  const onPointerDown = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()]
+      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoom }
+    }
+  }
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinch.current && pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()]
+      const z = pinch.current.z * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.current.d)
+      // Свели пальцы на сверхшироком — остаёмся на нём; развели на основном меньше 1× — переходим на сверхширокий.
+      if (z < 0.85 && lens === 'main' && ultra && facing === 'environment' && !recording) { pinch.current = null; setLens('ultra'); return }
+      if (z > 1.15 && lens === 'ultra') { pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: 1 }; setLens('main'); return }
+      if (lens === 'main') setZoom(Math.min(maxZoom, Math.max(1, Math.round(z * 10) / 10)))
+    }
+  }
+  const onPointerEnd = (e: React.PointerEvent) => { pointers.current.delete(e.pointerId); if (pointers.current.size < 2) pinch.current = null }
 
   useEffect(() => {
     const t = stream.current?.getVideoTracks()[0]
@@ -95,12 +149,20 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
     if (!v || !v.videoWidth) return
     // Фронтальная «вспышка»: экран на мгновение становится белым.
     if (mirrored && flashFront) { setFlashing(true); await new Promise((r) => setTimeout(r, 180)) }
-    const k = Math.min(1, 1920 / Math.max(v.videoWidth, v.videoHeight))
+    // Снимаем ровно то, что видно в видоискателе: с учётом кадрирования «на весь экран» и цифрового зума.
+    let sw = v.videoWidth, sh = v.videoHeight
+    if (fill) {
+      const r = v.getBoundingClientRect(), box = r.width / Math.max(1, r.height)
+      if (sw / sh > box) sw = sh * box; else sh = sw / box
+    }
+    sw /= cssZoom; sh /= cssZoom
+    const sx = (v.videoWidth - sw) / 2, sy = (v.videoHeight - sh) / 2
+    const k = Math.min(1, 1920 / Math.max(sw, sh))
     const c = document.createElement('canvas')
-    c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k)
+    c.width = Math.round(sw * k); c.height = Math.round(sh * k)
     const ctx = c.getContext('2d')!
     if (mirrored) { ctx.translate(c.width, 0); ctx.scale(-1, 1) }
-    ctx.drawImage(v, 0, 0, c.width, c.height)
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height)
     setFlashing(false)
     c.toBlob((b) => { if (b) onShot({ file: b, kind: 'photo', url: URL.createObjectURL(b), duration: 0, mirrored: false }, false) }, 'image/jpeg', 0.88)
   }
@@ -168,7 +230,9 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
 
   return (
     <>
-      <video ref={video} className="absolute inset-0 w-full h-full object-cover" style={{ transform: mirrored ? 'scaleX(-1)' : undefined, ...filterStyle(filter) }} playsInline muted autoPlay />
+      <div className="absolute inset-0 bg-black overflow-hidden touch-none" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd}>
+        <video ref={video} className={`absolute inset-0 w-full h-full ${fill ? 'object-cover' : 'object-contain'}`} style={{ transform: `${mirrored ? 'scaleX(-1) ' : ''}scale(${cssZoom})`, ...filterStyle(filter) }} playsInline muted autoPlay />
+      </div>
       {f.overlay && <div className="absolute inset-0 pointer-events-none mix-blend-soft-light" style={{ background: f.overlay }} />}
       {flashing && <div className="absolute inset-0 bg-white z-10" />}
       {camError && <div className="absolute inset-x-6 top-1/3 rounded-2xl bg-black/60 p-4 text-center text-[14px]" role="alert">{camError}</div>}
@@ -176,6 +240,8 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       <div className="absolute inset-x-0 top-0 pt-[calc(10px+env(safe-area-inset-top,0px))] px-3 flex items-center gap-2 bg-gradient-to-b from-black/40 to-transparent pb-6">
         <button onClick={onClose} className="grid place-items-center w-10 h-10 rounded-full bg-black/30 cursor-pointer" aria-label="Закрыть камеру"><Icon name="x" size={22} /></button>
         <span className="flex-1" />
+        <button onClick={() => setFillMode(!fill)} className="h-10 px-3 rounded-full bg-black/30 text-[13px] font-semibold cursor-pointer" aria-pressed={fill}
+          aria-label={fill ? 'Показать весь кадр' : 'Растянуть на весь экран'}>{fill ? '3:4' : 'На весь экран'}</button>
         {(torchOk || mirrored) && (
           <button onClick={() => (mirrored ? setFlashFront((x) => !x) : setTorch((x) => !x))} aria-pressed={mirrored ? flashFront : torch}
             className={`h-10 px-3 rounded-full text-[13px] font-semibold cursor-pointer ${(mirrored ? flashFront : torch) ? 'bg-[#ffc457] text-[#14152a]' : 'bg-black/30'}`} aria-label="Вспышка">⚡ {(mirrored ? flashFront : torch) ? 'Вкл' : 'Выкл'}</button>
@@ -184,6 +250,20 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       </div>
 
       <div className="absolute inset-x-0 bottom-0 pb-[calc(14px+env(safe-area-inset-bottom,0px))] px-3 flex flex-col gap-3 bg-gradient-to-t from-black/60 to-transparent pt-10">
+        {!camError && (
+          <div className="flex justify-center">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-black/35" role="radiogroup" aria-label="Масштаб">
+              {((facing === 'environment' && ultra ? ['0.5', '1', '2'] : ['1', '2']) as ('0.5' | '1' | '2')[]).map((v) => {
+                const on = v === '0.5' ? lens === 'ultra' : lens === 'main' && (v === '2' ? zoom >= 1.95 : zoom < 1.95)
+                const label = on && v !== '0.5' && lens === 'main' && zoom !== 1 && zoom !== 2 ? `${zoom.toFixed(1)}×` : `${v}×`
+                return (
+                  <button key={v} role="radio" aria-checked={on} onClick={() => pickLens(v)} disabled={recording && v === '0.5'}
+                    className={`min-w-9 h-9 px-2 rounded-full text-[12.5px] font-bold cursor-pointer tnum ${on ? 'bg-white/90 text-[#14152a]' : 'text-white'}`}>{label}</button>
+                )
+              })}
+            </div>
+          </div>
+        )}
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-1" role="radiogroup" aria-label="Фильтр">
           {FILTERS.map((x) => (
             <button key={x.id} role="radio" aria-checked={filter === x.id} onClick={() => onFilter(x.id)}
