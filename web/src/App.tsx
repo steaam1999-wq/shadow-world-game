@@ -344,7 +344,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
                     {/* мягкая «капсула» за значком активной вкладки */}
                     <span className={`relative grid place-items-center h-8 w-14 rounded-full transition-all duration-300 ease-out ${active ? 'bg-spark/12 scale-100' : 'bg-transparent scale-90 group-active:scale-95'}`}>
                       {t.id === 'profile' ? (
-                        <span className={`block rounded-full transition ${active ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
+                        <span className={`grid place-items-center w-6 h-6 rounded-full overflow-hidden transition-opacity ${active ? 'opacity-100' : 'opacity-80'}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={24} /></span>
                       ) : (
                         <Icon name={t.icon} size={23} className="nav-icon" />
                       )}
