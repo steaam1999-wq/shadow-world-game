@@ -10,6 +10,7 @@ import { TrackChip } from '../music/PlayerUI'
 import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
+import { VerifyBanner } from '../components/Verify'
 import { SurpriseMeet } from '../components/Surprise'
 import { WelcomeTips } from '../components/Tips'
 import { PushPrompt } from '../components/Alerts'
@@ -86,6 +87,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
       <WelcomeTips />
       <h2 className="px-4 mb-2 font-display font-bold text-[17px]">Сейчас рядом</h2>
       <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
+      <VerifyBanner />
       <FreeNow now={now} onInvite={onInvite} />
       <SurpriseMeet onMessage={onMessage} />
 

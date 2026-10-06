@@ -18,6 +18,7 @@ import { ConsentGate, localConsent, saveLocalConsent } from './components/Consen
 import { CONSENT_SINCE } from './components/Rules'
 import { cloudEnabled } from './cloud/config'
 import { Avatar, Icon, Logo, LogoMark, Sheet } from './components/ui'
+import { VerifySheet, useVerifyRequests } from './components/Verify'
 import { isExpired, relative } from './lib'
 import type { Activity, Me, Person, PlanComment, State } from './types'
 
@@ -143,6 +144,8 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const { state, dispatch } = useStore()
   const now = useNow()
   const me = state.me!
+  const [verifying, setVerifying] = useState(false)
+  useVerifyRequests(useCallback(() => setVerifying(true), []))
   const [tab, setTab] = useState<Tab>('home')
   // 18+ и согласие на обработку данных: у новых — с экрана входа, у зарегистрированных раньше — разовое окно.
   const consentOk = !state.cloud || (me.consentAt ?? 0) >= CONSENT_SINCE
@@ -317,6 +320,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </div>
       )}
 
+      <VerifySheet open={verifying} onClose={() => setVerifying(false)} onDone={() => dispatch({ type: 'updateMe', patch: { verified: true } })} />
       {!inChat && (
         <nav className="nav-bar fixed bottom-[calc(10px+env(safe-area-inset-bottom,0px))] inset-x-3 mx-auto z-30 max-w-[440px] rounded-[30px] px-2 py-1.5" aria-label="Разделы">
           <ul className="grid grid-cols-5 items-center">

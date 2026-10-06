@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useNow, useStore } from '../store'
@@ -6,7 +6,7 @@ import { getLang, setLang } from '../i18n'
 import { ReliabilityBadge } from '../components/Meet'
 import { MeetingCards } from '../components/Met'
 import { LEVELS, level, plural, profileCompleteness, nameAge, profileTint } from '../lib'
-import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls, readPhoto } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
 import { MyPlans } from '../components/MyPlans'
@@ -18,7 +18,8 @@ import { AlertSettings } from '../components/Alerts'
 import { BugReportSheet } from '../components/BugReport'
 import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
-import { deleteAccount, humanError, submitVerification } from '../cloud/api'
+import { deleteAccount, humanError } from '../cloud/api'
+import { VerifyCard, openVerify } from '../components/Verify'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreatePlan }: {
   onCreatePlan?: () => void
@@ -43,7 +44,6 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
     setCopied(true)
     setTimeout(() => setCopied(false), 1600)
   }
-  const [verifying, setVerifying] = useState(false)
   const lv = level(me.meetings)
   const complete = profileCompleteness(me)
   const patch = (p: Partial<typeof me>) => dispatch({ type: 'updateMe', patch: p })
@@ -102,9 +102,10 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
             </div>
             {!me.verified && (state.cloud && state.verification === 'pending'
               ? <span className="shrink-0 h-8 px-3 rounded-full bg-cobalt-soft text-cobalt text-[13px] font-semibold grid place-items-center">На проверке</span>
-              : <button onClick={() => setVerifying(true)} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[13px] font-semibold cursor-pointer">{state.cloud && state.verification === 'rejected' ? 'Ещё раз' : 'Верификация'}</button>)}
+              : <button onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[13px] font-semibold cursor-pointer">{state.cloud && state.verification === 'rejected' ? 'Ещё раз' : 'Верификация'}</button>)}
           </div>
         )}
+        <VerifyCard />
         <MeetingCards />
         {/* Достижения: полученные — яркие, остальные — подсказкой, как их получить */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" aria-label="Достижения">
@@ -276,76 +277,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
         return <PostsViewer title={tab === 'saved' ? 'Сохранённое' : 'Мои планы'} items={list} startId={viewing}
           onClose={() => setViewing(null)} onRespond={onRespond} onOpenCapsule={onOpenCapsule} />
       })()}
-      <VerifySheet open={verifying} onClose={() => setVerifying(false)} onDone={() => patch({ verified: true })} />
     </div>
-  )
-}
-
-const GESTURES = [
-  { glyph: '✌', text: 'два пальца у виска' },
-  { glyph: '👍', text: 'большой палец вверх у щеки' },
-  { glyph: '👌', text: 'знак «ок» у подбородка' },
-  { glyph: '✋', text: 'ладонь у подбородка' },
-  { glyph: '☝', text: 'указательный палец у носа' },
-]
-
-function VerifySheet({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
-  const { state, dispatch } = useStore()
-  const [photo, setPhoto] = useState<string | null>(null)
-  const [sent, setSent] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  // Жест выбирается заново при каждом открытии — старое фото не подойдёт.
-  const [gesture, setGesture] = useState(() => GESTURES[Math.floor(Math.random() * GESTURES.length)])
-  useEffect(() => { if (open) setGesture(GESTURES[Math.floor(Math.random() * GESTURES.length)]) }, [open])
-  const close = () => { setPhoto(null); setSent(false); setError(''); onClose() }
-
-  const send = async () => {
-    if (!photo) return
-    if (!state.cloud) { onDone(); setSent(true); return }
-    setBusy(true); setError('')
-    try {
-      await submitVerification(state.cloud.userId, photo, `${gesture.glyph} ${gesture.text}`)
-      dispatch({ type: 'verificationSent' })
-      setSent(true)
-    } catch (e) {
-      setError(humanError(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Sheet open={open} onClose={close} title="Верификация">
-      {sent ? (
-        <div className="flex flex-col gap-4">
-          <p className="text-muted">{state.cloud
-            ? 'Селфи отправлено модератору. Синяя галочка появится в профиле, как только его проверят. Фото удаляется сразу после проверки.'
-            : 'Селфи отправлено модератору. В демо проверка проходит сразу: синяя галочка уже в профиле.'}</p>
-          <Button onClick={close}>Отлично</Button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {state.cloud && state.verification === 'rejected' && <p className="text-[13px] text-danger">Прошлое селфи не подошло: лицо должно быть хорошо видно, а жест — совпадать с заданием.</p>}
-          <div className="rounded-2xl bg-surface-2 p-5 text-center">
-            <div className="font-display font-bold text-5xl text-cobalt" aria-hidden="true">{gesture.glyph}</div>
-            <p className="mt-2 font-semibold">Сфотографируйтесь: {gesture.text}</p>
-            <p className="text-[13px] text-muted">Жест меняется каждый раз, поэтому старое фото не подойдёт.</p>
-          </div>
-          <label htmlFor="selfie" className="relative flex items-center justify-center gap-2 h-12 rounded-full border-2 border-dashed border-line cursor-pointer hover:border-cobalt font-semibold overflow-hidden">
-            {photo ? <><img src={photo} alt="" className="w-8 h-8 rounded-full object-cover" /> Селфи выбрано — заменить</> : <><Icon name="camera" size={18} /> Загрузить селфи</>}
-          </label>
-          <input id="selfie" type="file" accept="image/*" capture="user" className="sr-only" onChange={async (e) => {
-            const f = e.target.files?.[0]
-            if (!f) return
-            try { setPhoto(await readPhoto(f)); setError('') } catch { setError('Не получилось открыть фото. Выберите JPG или PNG.') }
-          }} />
-          {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-          <Button disabled={!photo || busy} onClick={send}>{busy ? 'Отправляем…' : 'Отправить на проверку'}</Button>
-          <p className="text-[12px] text-muted">Фото видит только модератор и удаляет после проверки. Биометрические данные мы не храним.</p>
-        </div>
-      )}
-    </Sheet>
   )
 }
 

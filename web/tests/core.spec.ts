@@ -295,3 +295,18 @@ test('после встречи: «прошла хорошо?», «неприя�
   await expect(card).toBeHidden()
   await expect(page.getByRole('dialog').filter({ hasText: /жалоб|Пожаловаться|заблокировать/i }).first()).toBeVisible()
 })
+
+test('галочка: баннер на главной открывает проверку, карточка в профиле, баннер скрывается на неделю', async ({ page }) => {
+  await enterDemo(page)
+  await patchState(page, (s) => { s.me.verified = false })
+  const banner = page.getByRole('region', { name: 'Проверка профиля' })
+  await expect(banner).toBeVisible()
+  await banner.getByRole('button', { name: /Подтвердите, что это вы/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'Верификация' })
+  await expect(sheet).toBeVisible()
+  await page.keyboard.press('Escape')
+  await banner.getByRole('button', { name: 'Скрыть на неделю' }).click()
+  await expect(page.getByRole('region', { name: 'Проверка профиля' })).toBeHidden()
+  await nav(page, /^Профиль/)
+  await expect(page.getByRole('region', { name: 'Проверка профиля' }).getByRole('button', { name: 'Пройти проверку' })).toBeVisible()
+})

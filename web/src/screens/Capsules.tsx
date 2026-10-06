@@ -13,6 +13,7 @@ import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
+import { openVerify } from '../components/Verify'
 import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
@@ -351,7 +352,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         {locked && (
           <p className="flex items-center gap-2 text-[12.5px] text-muted px-1" role="status">
             <Icon name={verifiedOnly ? 'shield' : 'clock'} size={14} className="shrink-0" />
-            {verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей. Получите синюю галочку в своём профиле.` : `Подождите ответа — без ответа можно отправить не больше 3 сообщений подряд.`}
+            <span className="flex-1">{verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей.` : `Подождите ответа — без ответа можно отправить не больше 3 сообщений подряд.`}</span>
+            {verifiedOnly && <button type="button" onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[12.5px] font-semibold cursor-pointer">Пройти проверку</button>}
           </p>
         )}
         <form onSubmit={send} className="flex gap-2">
