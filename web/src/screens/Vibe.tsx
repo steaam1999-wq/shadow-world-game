@@ -8,7 +8,7 @@ import { Avatar, Button, Chip, Icon, Pill, Sheet, inputCls } from '../components
 import { tasteLine, useTaste } from '../music/taste'
 import type { Activity, Person } from '../types'
 
-const REASONS = ['Фейковый профиль', 'Спам или реклама', 'Грубость', 'Фото не совпадает', 'Другое']
+const REASONS = ['Фейковый профиль', 'Похоже, младше 18', 'Просит деньги', 'Домогательства или угрозы', 'Спам или реклама', 'Грубость', 'Фото не совпадает', 'Другое']
 
 export function Vibe({ now, onRespond, onOpenCapsule }: { now: number; onRespond: (a: Activity) => void; onOpenCapsule: (activityId: string) => void }) {
   const openProfile = useOpenProfile()

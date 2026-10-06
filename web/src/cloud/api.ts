@@ -139,15 +139,47 @@ export async function sendMagicLink(email: string) {
 // --- Ник и пароль: под капотом служебный адрес <ник>@users.komeeta.com ---
 export const NICK_RE = /^[a-z0-9_.]{3,20}$/
 export const nickToEmail = (nick: string) => `${nick.trim().toLowerCase()}@users.komeeta.com`
-/** Регистрация по нику (серверная функция сразу подтверждает служебный адрес), затем обычный вход. */
-export async function signUpNick(nick: string, password: string) {
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/nick-signup`, {
-    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ nick, password }),
+// Ник: вход, регистрация и восстановление — через серверную функцию с защитой от ботов и подбора пароля.
+async function nickCall(body: Record<string, unknown>) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/nick-auth`, {
+    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   })
-  const j = await r.json().catch(() => ({})) as { error?: string }
-  if (!r.ok) throw new Error(j.error === 'taken' ? 'Этот ник уже занят — придумайте другой' : j.error === 'bad-nick' ? 'Ник: 3–20 латинских букв, цифр, «_» или «.»' : j.error === 'weak-password' ? 'Пароль слишком простой — добавьте цифры или буквы' : 'Не получилось создать аккаунт. Попробуйте ещё раз.')
-  return signIn(nickToEmail(nick), password)
+  const j = await r.json().catch(() => ({})) as { error?: string; access_token?: string; refresh_token?: string }
+  if (!r.ok) throw new Error(NICK_ERRORS[j.error ?? ''] ?? 'Не получилось. Попробуйте ещё раз.')
+  return j
 }
+const NICK_ERRORS: Record<string, string> = {
+  taken: 'Этот ник уже занят — придумайте другой',
+  'bad-nick': 'Ник: 3–20 латинских букв, цифр, «_» или «.»',
+  'weak-password': 'Пароль слишком простой — добавьте цифры или буквы',
+  'bad-password': 'Пароль — от 6 до 72 символов',
+  'too-many': 'Слишком много попыток. Подождите немного и попробуйте снова.',
+  captcha: 'Подтвердите, что вы не робот, и попробуйте ещё раз',
+  bot: 'Не получилось. Попробуйте ещё раз через пару секунд.',
+  credentials: 'Неверный ник или пароль',
+  unconfirmed: 'Почта ещё не подтверждена — откройте письмо и нажмите ссылку.',
+}
+/** Включена ли капча Cloudflare (ключ сайта задаётся в секретах функции). */
+export async function nickConfig(): Promise<{ turnstile: string | null }> {
+  try { return await (await fetch(`${SUPABASE_URL}/functions/v1/nick-auth`, { headers: { apikey: SUPABASE_ANON_KEY } })).json() } catch { return { turnstile: null } }
+}
+export async function signInNick(nick: string, password: string) {
+  const j = await nickCall({ action: 'login', nick, password })
+  const { data, error } = await sb().auth.setSession({ access_token: j.access_token!, refresh_token: j.refresh_token! })
+  if (error) throw error
+  return data.user!
+}
+export async function signUpNick(nick: string, password: string, guard: { ms: number; website: string; captcha?: string }) {
+  await nickCall({ action: 'signup', nick, password, ...guard })
+  return signInNick(nick, password)
+}
+/** Письмо для нового пароля — если к нику привязана почта. Ответ всегда одинаковый. */
+/** Привязать настоящую почту к аккаунту по нику: Supabase пришлёт письмо для подтверждения. */
+export async function linkEmail(email: string) {
+  const { error } = await sb().auth.updateUser({ email }, { emailRedirectTo: location.origin + location.pathname })
+  if (error) throw error
+}
+export async function resetNick(nick: string) { await nickCall({ action: 'reset', nick }) }
 
 /** Код из письма (6 цифр) — вместо перехода по ссылке; работает и на другом устройстве. */
 export async function verifyEmailCode(email: string, token: string) {
@@ -945,7 +977,10 @@ export async function adminReports(): Promise<AdminReport[]> {
   const posts = ids.length ? (await db.from('shorts').select('id,path,kind,caption').in('id', ids).returns<{ id: string; path: string; kind: 'video' | 'photo'; caption: string }[]>()).data ?? [] : []
   const urls = await sign('shorts', posts.map((p) => p.path))
   const post = new Map(posts.map((p) => [p.id, { ...p, url: urls.get(p.path) ?? '' }]))
-  return (reports.data ?? []).map((r) => ({
+  // Срочные — наверх: возраст, угрозы, деньги; внутри — новые первыми.
+  const urgent = (r: { reason: string; status: string }) => (r.status !== 'open' ? 0 : /младше 18/.test(r.reason) ? 3 : /Домогательства|угроз/.test(r.reason) ? 2 : /деньги|auto:money/.test(r.reason) ? 1 : 0)
+  const rows = [...(reports.data ?? [])].sort((a, b) => urgent(b) - urgent(a))
+  return rows.map((r) => ({
     post: r.short_id ? post.get(r.short_id) : undefined,
     id: r.id, reason: r.reason, body: r.body, status: r.status, createdAt: ms(r.created_at),
     reporter: { id: r.reporter, name: name.get(r.reporter) ?? 'удалён' },

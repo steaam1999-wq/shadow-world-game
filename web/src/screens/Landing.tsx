@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { Avatar, Button, Field, Icon, Logo, LogoMark, Sheet, ThemeToggle, Wordmark, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { NICK_RE, authProviders, humanError, nickToEmail, normalizePhone, signUpNick, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
+import { NICK_RE, authProviders, humanError, nickConfig, normalizePhone, resetNick, signInNick, signUpNick, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
 
@@ -176,6 +176,13 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   }
   // Главная форма: ник (или почта) и пароль. Нет аккаунта — тот же экран, кнопка «Создать аккаунт».
   const [newAcc, setNewAcc] = useState(false)
+  // Защита от ботов: время на форме, скрытое поле-ловушка и капча Cloudflare (если включена на сервере).
+  const shownAt = useRef(Date.now())
+  const [trap, setTrap] = useState('')
+  const [captchaKey, setCaptchaKey] = useState<string | null>(null)
+  const captcha = useRef('')
+  const onCaptcha = useCallback((t: string) => { captcha.current = t }, [])
+  useEffect(() => { if (cloudEnabled) void nickConfig().then((c) => setCaptchaKey(c.turnstile)) }, [])
   const welcomeSubmit = async () => {
     const raw = login.trim()
     const isEmail = raw.includes('@')
@@ -188,25 +195,37 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     setBusy(true)
     try {
       keepLogin()
-      const email = isEmail ? raw.toLowerCase() : nickToEmail(nick)
+      const email = raw.toLowerCase()
       if (newAcc) {
         if (isEmail) {
           const user = await signUp(email, password)
           if (user) await onCloudAuth(user.id, email, '', remember)
           else { setNewAcc(false); setPassword(''); setInfo(`Мы отправили письмо на ${email}. Нажмите в нём ссылку и войдите.`); setBusy(false) }
         } else {
-          const user = await signUpNick(nick, password)
+          if (captchaKey && !captcha.current) { setBusy(false); return setError('Подтвердите, что вы не робот') }
+          const user = await signUpNick(nick, password, { ms: Date.now() - shownAt.current, website: trap, captcha: captcha.current })
           await onCloudAuth(user.id, '', '', remember)
         }
       } else {
-        const user = await signIn(email, password)
+        const user = isEmail ? await signIn(email, password) : await signInNick(nick, password)
         await onCloudAuth(user.id, isEmail ? email : '', '', remember)
       }
     } catch (err) {
       const m = String((err as Error)?.message ?? '')
-      setError(/invalid login|credentials/i.test(m) ? 'Неверный ник или пароль' : /занят|Ник:|Пароль|Не получилось/.test(m) ? m : humanError(err))
+      setError(/invalid login|credentials/i.test(m) ? 'Неверный ник или пароль' : /занят|Ник:|Пароль|Не получилось|Слишком много|робот|Неверный|Почта ещё/.test(m) ? m : humanError(err))
       setBusy(false)
     }
+  }
+  /** «Забыли пароль?»: для почты — обычное восстановление, для ника — письмо на привязанную почту. */
+  const forgot = async () => {
+    const raw = login.trim()
+    if (!raw || raw.includes('@') || !cloudEnabled) { openAuth('login'); setResetting(true); return }
+    setError(''); setInfo(''); setBusy(true)
+    try {
+      await resetNick(raw.toLowerCase().replace(/^@/, ''))
+      setInfo('Если к этому нику привязана почта, мы отправили на неё ссылку для нового пароля. Проверьте и «Спам».')
+    } catch (err) { setError(String((err as Error)?.message ?? humanError(err))) }
+    finally { setBusy(false) }
   }
   const soon = (what: string) => setError(`Вход через ${what} включим совсем скоро. Пока войдите по почте — это так же быстро, без пароля.`)
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
@@ -249,11 +268,14 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                   autoComplete={newAcc ? 'new-password' : 'current-password'} placeholder={newAcc ? 'Придумайте пароль' : 'Пароль'} className={`${inputCls} h-14 text-[16px] pr-14`} />
                 <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full text-muted hover:text-fg cursor-pointer" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}><Icon name="eye" size={20} /></button>
               </div>
+              {/* ловушка для ботов: человек это поле не видит и не заполняет */}
+              <input type="text" name="website" value={trap} onChange={(e) => setTrap(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute -left-[9999px] w-px h-px opacity-0" />
+              {newAcc && captchaKey && <Turnstile siteKey={captchaKey} onToken={onCaptcha} />}
               <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Минутку…' : newAcc ? 'Создать аккаунт' : 'Войти'}</Button>
               {info && <p className="text-center text-[13px] text-ok" role="status">{info}</p>}
               <div className="flex justify-between text-[14px] font-semibold px-1">
                 <button type="button" onClick={() => { setNewAcc((v) => !v); setError(''); setInfo('') }} className="text-brand cursor-pointer">{newAcc ? 'У меня есть аккаунт' : 'Создать аккаунт'}</button>
-                {!newAcc && <button type="button" onClick={() => { openAuth('login'); setResetting(true) }} className="text-muted hover:text-fg cursor-pointer">Забыли пароль?</button>}
+                {!newAcc && <button type="button" onClick={() => void forgot()} className="text-muted hover:text-fg cursor-pointer">Забыли пароль?</button>}
               </div>
             </form>
                         {/* Быстрый вход — маленькие круглые значки; ещё не подключённый способ подсказывает войти по почте */}
@@ -503,3 +525,23 @@ function IconAuth({ label, children, onClick, disabled }: { label: string; child
   )
 }
 
+
+/** Капча Cloudflare Turnstile — чаще всего проходит незаметно, без картинок. */
+function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (t: string) => void }) {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    type TS = { render: (el: HTMLElement, o: Record<string, unknown>) => string; remove: (id: string) => void }
+    const w = window as unknown as { turnstile?: TS }
+    let id = ''
+    const draw = () => { if (box.current && w.turnstile) id = w.turnstile.render(box.current, { sitekey: siteKey, callback: onToken, 'expired-callback': () => onToken(''), language: 'ru', appearance: 'interaction-only' }) }
+    if (w.turnstile) draw()
+    else {
+      const sc = document.createElement('script')
+      sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      sc.async = true; sc.onload = draw
+      document.head.appendChild(sc)
+    }
+    return () => { if (id) w.turnstile?.remove(id) }
+  }, [siteKey, onToken])
+  return <div ref={box} className="flex justify-center" />
+}

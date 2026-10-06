@@ -1413,3 +1413,15 @@ begin
 end $$;
 drop trigger if exists capsules_chat_limit on public.capsules;
 create trigger capsules_chat_limit before insert on public.capsules for each row execute function private.chat_limit();
+
+-- Вход по нику (функция nick-auth): счётчик попыток для лимитов и поиск почты по нику только для сервера.
+create table if not exists public.auth_attempts (id bigint generated always as identity primary key, kind text not null, key text not null, created_at timestamptz not null default now());
+create index if not exists auth_attempts_idx on public.auth_attempts (kind, key, created_at desc);
+alter table public.auth_attempts enable row level security;
+revoke all on public.auth_attempts from anon, authenticated;
+create or replace function public.nick_email(n text) returns text
+language sql stable security definer set search_path = auth, public as $$
+  select email::text from auth.users where lower(raw_user_meta_data->>'nick') = lower(n) or email = lower(n) || '@users.komeeta.com' order by (email like '%@users.komeeta.com') limit 1
+$$;
+revoke all on function public.nick_email(text) from public, anon, authenticated;
+grant execute on function public.nick_email(text) to service_role;

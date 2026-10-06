@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PlaceOptions, placeLine } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useNow, useStore } from '../store'
@@ -18,7 +18,7 @@ import { AlertSettings } from '../components/Alerts'
 import { BugReportSheet } from '../components/BugReport'
 import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
-import { deleteAccount, humanError } from '../cloud/api'
+import { currentUser, deleteAccount, humanError, linkEmail } from '../cloud/api'
 import { VerifyCard, openVerify } from '../components/Verify'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreatePlan }: {
@@ -281,6 +281,46 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   )
 }
 
+/** Аккаунт по нику: привязать почту, чтобы восстановить пароль, если забудете. */
+function RecoveryEmail() {
+  const [auth, setAuth] = useState<{ email: string; nick: string | null; pending: string | null } | null>(null)
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  useEffect(() => {
+    void currentUser().then((u) => u && setAuth({ email: u.email ?? '', nick: (u.user_metadata?.nick as string | undefined) ?? null, pending: u.new_email ?? null }))
+  }, [])
+  if (!auth?.nick) return null // вход по почте или соцсети — почта и так есть
+  const linked = !auth.email.endsWith('@users.komeeta.com')
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const email = value.trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return setMsg({ ok: false, text: 'Похоже, это не почта — проверьте адрес' })
+    setBusy(true); setMsg(null)
+    try { await linkEmail(email); setAuth({ ...auth, pending: email }); setValue(''); setMsg({ ok: true, text: `Отправили письмо на ${email}. Нажмите в нём ссылку — и почта привяжется.` }) }
+    catch (err) { setMsg({ ok: false, text: humanError(err) }) }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="py-3 flex flex-col gap-2">
+      <span className="text-[14px] font-semibold">Почта для восстановления</span>
+      {linked ? (
+        <p className="text-[13px] text-muted">Привязана: <b className="text-fg">{auth.email}</b>. Если забудете пароль — нажмите «Забыли пароль?» на входе и укажите ник.</p>
+      ) : (
+        <>
+          <p className="text-[13px] text-muted">{auth.pending ? `Ждём подтверждения: ${auth.pending}. Проверьте почту и «Спам».` : 'Сейчас вы входите только по нику. Привяжите почту — тогда забытый пароль можно будет восстановить.'}</p>
+          <form onSubmit={(e) => void save(e)} className="flex gap-2">
+            <label htmlFor="rec-email" className="sr-only">Почта</label>
+            <input id="rec-email" type="email" inputMode="email" autoComplete="email" value={value} onChange={(e) => setValue(e.target.value)} placeholder="you@mail.ru" className={`${inputCls} h-11 flex-1 min-w-0`} />
+            <Button type="submit" disabled={busy || !value.trim()} className="h-11 shrink-0">{busy ? '…' : 'Привязать'}</Button>
+          </form>
+        </>
+      )}
+      {msg && <p className={`text-[13px] ${msg.ok ? 'text-ok' : 'text-danger'}`} role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
+    </div>
+  )
+}
+
 /** Заблокированные, правила, удаление аккаунта. */
 function SafetySection({ onSignOut }: { onSignOut: () => void }) {
   const { state, dispatch } = useStore()
@@ -306,6 +346,7 @@ function SafetySection({ onSignOut }: { onSignOut: () => void }) {
   return (
     <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
       <h2 className="font-display font-bold text-lg py-3">Безопасность</h2>
+      {state.cloud && <RecoveryEmail />}
       {state.me && (
         <div className="py-1">
           <Toggle id="sf-verified" checked={!!state.me.onlyVerified} onChange={(v) => dispatch({ type: 'updateMe', patch: { onlyVerified: v } })}
