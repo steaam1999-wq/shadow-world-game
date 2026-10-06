@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { Avatar, Button, Field, Icon, Logo, LogoMark, Sheet, ThemeToggle, Wordmark, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { authProviders, humanError, normalizePhone, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
+import { NICK_RE, authProviders, humanError, nickToEmail, normalizePhone, signUpNick, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
 
@@ -174,6 +174,40 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     try { const user = await verifyPhoneCode(codeSent, code.trim()); await onCloudAuth(user.id, user.email ?? '', '', remember) }
     catch (err) { setError(/invalid|expired/i.test(String((err as Error)?.message)) ? 'Код не подходит или устарел. Проверьте или запросите новый.' : humanError(err)); setBusy(false) }
   }
+  // Главная форма: ник (или почта) и пароль. Нет аккаунта — тот же экран, кнопка «Создать аккаунт».
+  const [newAcc, setNewAcc] = useState(false)
+  const welcomeSubmit = async () => {
+    const raw = login.trim()
+    const isEmail = raw.includes('@')
+    const nick = raw.toLowerCase().replace(/^@/, '')
+    if (!raw) return setError(newAcc ? 'Придумайте ник' : 'Введите ник или почту')
+    if (!isEmail && !NICK_RE.test(nick)) return setError('Ник: 3–20 латинских букв, цифр, «_» или «.»')
+    if (password.length < 6) return setError('Пароль — не короче 6 символов')
+    setError(''); setInfo('')
+    if (!cloudEnabled) { keepLogin(); if (newAcc) onRegister('', isEmail ? 'google' : 'phone', remember); else onLogin(remember); return }
+    setBusy(true)
+    try {
+      keepLogin()
+      const email = isEmail ? raw.toLowerCase() : nickToEmail(nick)
+      if (newAcc) {
+        if (isEmail) {
+          const user = await signUp(email, password)
+          if (user) await onCloudAuth(user.id, email, '', remember)
+          else { setNewAcc(false); setPassword(''); setInfo(`Мы отправили письмо на ${email}. Нажмите в нём ссылку и войдите.`); setBusy(false) }
+        } else {
+          const user = await signUpNick(nick, password)
+          await onCloudAuth(user.id, '', '', remember)
+        }
+      } else {
+        const user = await signIn(email, password)
+        await onCloudAuth(user.id, isEmail ? email : '', '', remember)
+      }
+    } catch (err) {
+      const m = String((err as Error)?.message ?? '')
+      setError(/invalid login|credentials/i.test(m) ? 'Неверный ник или пароль' : /занят|Ник:|Пароль|Не получилось/.test(m) ? m : humanError(err))
+      setBusy(false)
+    }
+  }
   const soon = (what: string) => setError(`Вход через ${what} включим совсем скоро. Пока войдите по почте — это так же быстро, без пароля.`)
   const social = (m: Me['authMethod']) => (mode === 'login' && state.savedMe ? onLogin(remember) : onRegister(m === 'telegram' ? 'Женя' : '', m, remember))
 
@@ -205,12 +239,29 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
                 <Icon name="arrow" size={18} />
               </button>
             )}
-            <AuthOption primary icon={<Icon name="send" size={18} />} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}>Продолжить с почтой</AuthOption>
+            <form onSubmit={(e) => { e.preventDefault(); if (newAcc) agreeFirst(() => void welcomeSubmit())(); else void welcomeSubmit() }} className="flex flex-col gap-2.5" noValidate>
+              <label htmlFor="w-login" className="sr-only">Ник или почта</label>
+              <input id="w-login" value={login} onChange={(e) => setLogin(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                autoComplete="username" placeholder={newAcc ? 'Придумайте ник' : 'Ник или почта'} className={`${inputCls} h-14 text-[16px]`} />
+              <div className="relative">
+                <label htmlFor="w-pass" className="sr-only">Пароль</label>
+                <input id="w-pass" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={newAcc ? 'new-password' : 'current-password'} placeholder={newAcc ? 'Придумайте пароль' : 'Пароль'} className={`${inputCls} h-14 text-[16px] pr-14`} />
+                <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full text-muted hover:text-fg cursor-pointer" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}><Icon name="eye" size={20} /></button>
+              </div>
+              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Минутку…' : newAcc ? 'Создать аккаунт' : 'Войти'}</Button>
+              {info && <p className="text-center text-[13px] text-ok" role="status">{info}</p>}
+              <div className="flex justify-between text-[14px] font-semibold px-1">
+                <button type="button" onClick={() => { setNewAcc((v) => !v); setError(''); setInfo('') }} className="text-brand cursor-pointer">{newAcc ? 'У меня есть аккаунт' : 'Создать аккаунт'}</button>
+                {!newAcc && <button type="button" onClick={() => { openAuth('login'); setResetting(true) }} className="text-muted hover:text-fg cursor-pointer">Забыли пароль?</button>}
+              </div>
+            </form>
                         {/* Быстрый вход — маленькие круглые значки; ещё не подключённый способ подсказывает войти по почте */}
             <div className="flex items-center gap-3 pt-1">
               <span className="flex-1 h-px bg-line" /><span className="text-[13px] text-muted">или через</span><span className="flex-1 h-px bg-line" />
             </div>
             <div className="flex justify-center gap-4">
+              <IconAuth label="Войти по почте без пароля" disabled={busy} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}><Icon name="send" size={22} /></IconAuth>
               {['telegram', 'google', ...providers.filter((p) => !['telegram', 'google', 'phone'].includes(p))].map((pv) => (
                 <IconAuth key={pv} label={`Войти через ${PROVIDER_NAME[pv] ?? pv}`} disabled={busy}
                   onClick={agreeFirst(() => (!cloudEnabled ? social(pv === 'telegram' ? 'telegram' : 'google') : !providers.includes(pv) ? soon(PROVIDER_NAME[pv] ?? pv) : pv === 'telegram' ? void telegram() : void oauth(pv)))}><ProviderIcon id={pv} big /></IconAuth>
@@ -218,7 +269,6 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <IconAuth label="Войти по номеру телефона" disabled={busy}
                 onClick={agreeFirst(() => (!cloudEnabled ? social('phone') : !providers.includes('phone') ? soon('телефон') : (setStage('phone'), setError(''), setCodeSent(''))))}><Icon name="phone" size={24} /></IconAuth>
             </div>
-            <button onClick={() => openAuth('login')} className="h-11 text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">У меня есть пароль</button>
             {!cloudEnabled && (
               <button onClick={() => onDemo(true)} className="-mt-2 h-10 text-[13px] text-muted hover:text-fg cursor-pointer inline-flex items-center justify-center gap-1.5">
                 <Icon name="eye" size={15} /> Посмотреть без регистрации
@@ -453,12 +503,3 @@ function IconAuth({ label, children, onClick, disabled }: { label: string; child
   )
 }
 
-function AuthOption({ icon, children, onClick, primary = false, disabled = false }: { icon: React.ReactNode; children: React.ReactNode; onClick: () => void; primary?: boolean; disabled?: boolean }) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      className={`relative h-14 rounded-full font-semibold text-[15px] inline-flex items-center justify-center cursor-pointer transition active:scale-[.99] disabled:opacity-60 ${primary ? 'bg-fg text-bg' : 'bg-surface text-fg border border-line shadow-soft'}`}>
-      <span className="absolute left-5 grid place-items-center">{icon}</span>
-      {children}
-    </button>
-  )
-}

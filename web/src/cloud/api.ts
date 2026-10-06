@@ -133,6 +133,19 @@ export async function sendMagicLink(email: string) {
 
 /** Какие соцсети включены в настройках входа (Google, Apple…). Кнопки показываем только для них. */
 /** Какие способы входа включены: соцсети из настроек Supabase, «phone» — если подключены SMS, «telegram» — если задан бот. */
+// --- Ник и пароль: под капотом служебный адрес <ник>@users.komeeta.com ---
+export const NICK_RE = /^[a-z0-9_.]{3,20}$/
+export const nickToEmail = (nick: string) => `${nick.trim().toLowerCase()}@users.komeeta.com`
+/** Регистрация по нику (серверная функция сразу подтверждает служебный адрес), затем обычный вход. */
+export async function signUpNick(nick: string, password: string) {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/nick-signup`, {
+    method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ nick, password }),
+  })
+  const j = await r.json().catch(() => ({})) as { error?: string }
+  if (!r.ok) throw new Error(j.error === 'taken' ? 'Этот ник уже занят — придумайте другой' : j.error === 'bad-nick' ? 'Ник: 3–20 латинских букв, цифр, «_» или «.»' : j.error === 'weak-password' ? 'Пароль слишком простой — добавьте цифры или буквы' : 'Не получилось создать аккаунт. Попробуйте ещё раз.')
+  return signIn(nickToEmail(nick), password)
+}
+
 /** Код из письма (6 цифр) — вместо перехода по ссылке; работает и на другом устройстве. */
 export async function verifyEmailCode(email: string, token: string) {
   const { data, error } = await sb().auth.verifyOtp({ email, token, type: 'email' })
