@@ -410,6 +410,7 @@ test('интересы: можно вписать своё хобби, оно с
 test('вайб-тест по желанию: ответ можно снять или не указывать совсем', async ({ page }) => {
   await enterDemo(page)
   await nav(page, /^Профиль/)
+  await page.getByRole('tab', { name: /Настройки/ }).click()
   await page.getByRole('button', { name: 'Изменить', exact: true }).click()
   await page.getByRole('button', { name: 'Не указывать' }).click()
   await expect(page.getByText(/Не указан\. Можно не проходить/)).toBeVisible()
