@@ -240,7 +240,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
       {/* Кадр 4:5, детали — на матовой «стеклянной» панели снизу */}
       <div className="relative mx-3 rounded-[22px] overflow-hidden bg-surface-2 aspect-[4/5] select-none" onClick={onImageTap}>
         <PostArt activity={a} />
-        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(180deg,rgb(0_0_0/.22)_0%,transparent_20%,transparent_55%,rgb(0_0_0/.35)_100%)]" />
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(180deg,rgb(0_0_0/.22)_0%,transparent_20%,transparent_45%,rgb(0_0_0/.4)_100%)]" />
         {compat && (
           <span className="glass-chip absolute right-3 top-3 rounded-full px-3 h-7 inline-flex items-center text-[12px] font-semibold text-white tnum">{compat.score}% вайб</span>
         )}
@@ -249,28 +249,27 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             <Icon name="heart" size={110} fill />
           </span>
         )}
-        <div className="glass-panel absolute left-2.5 right-2.5 bottom-2.5 rounded-[20px] p-3 pl-4 flex items-center gap-3.5 text-white" onClick={(e) => e.stopPropagation()}>
-          <div className="shrink-0 text-center pr-3.5 border-r border-white/20 min-w-[58px]">
-            {a.timeHidden ? <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">Время</div><div className="font-display font-bold text-[15px] leading-tight">обсудим</div></>
-              : started ? <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">Сейчас</div><div className="font-display font-bold text-[18px] leading-tight">идёт</div></>
-              : <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">{planWhen(a, now).split(', ')[0]}</div><div className="font-display font-bold text-[21px] leading-none mt-1 tnum">{planWhen(a, now).split(', ')[1]}</div></>}
+        <div className="glass-panel absolute left-2.5 right-2.5 bottom-2.5 rounded-[24px] p-3.5 text-white" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <span className="inline-flex items-center gap-1 h-[26px] px-2.5 rounded-full bg-white/15 text-[12px] font-medium"><Icon name="clock" size={13} /> {started && !a.timeHidden ? 'Идёт сейчас' : planWhen(a, now).replace(', ', ' · ')}</span>
+            <span className="inline-flex items-center h-[26px] px-2.5 rounded-full bg-white/15 text-[12px] font-medium">{a.category}</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-display font-bold text-[16.5px] leading-snug line-clamp-2">{a.title}</h3>
-            <p className="mt-1 flex items-center gap-1 text-[12.5px] text-white/80 truncate"><Icon name="pin" size={13} /> <span className="truncate">{shortArea(a.area)}</span></p>
-          </div>
+          <h3 className="font-display font-bold text-[19px] leading-[1.18] line-clamp-2">{a.title}</h3>
+          <p className="mt-2 flex items-center gap-1.5 text-[13px] text-white/85 min-w-0">
+            <Icon name="pin" size={14} /> <span className="truncate">{shortArea(a.area)}</span>
+            {a.groupSize && <><span className="opacity-50">•</span><Icon name="people" size={14} /> <span className="shrink-0 tnum">{1 + (a.members?.length ?? 0)} из {a.groupSize}</span></>}
+          </p>
           {person && (
             <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))} disabled={!responded && groupFull(a)}
-              className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer disabled:opacity-40 disabled:cursor-default ${responded ? 'bg-white/20' : 'bg-brand shadow-[0_6px_18px_rgb(255_79_134/.45)]'}`}
-              aria-label={joinLabel(a, responded)} title={joinLabel(a, responded)}>
-              <Icon name={responded ? 'chat' : 'arrow'} size={21} />
+              className={`mt-3 w-full h-11 rounded-[14px] inline-flex items-center justify-center gap-2 font-semibold text-[15px] cursor-pointer disabled:opacity-50 disabled:cursor-default ${responded ? 'bg-white/20' : 'bg-brand shadow-[0_6px_18px_rgb(255_79_134/.4)]'}`}>
+              {joinLabel(a, responded)} <Icon name={responded ? 'chat' : 'arrow'} size={18} />
             </button>
           )}
         </div>
       </div>
 
       <div className="mx-4 mt-3 flex flex-col gap-2">
-        {a.groupSize && <GroupStack activity={a} />}
+        {a.groupSize && !person && <GroupStack activity={a} />}
         {!person && <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в чате: {a.exactPlace}</p>}
         {person && !a.groupSize && !responded && <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="shield" size={15} /> Точное место откроется в чате после отклика</p>}
       </div>

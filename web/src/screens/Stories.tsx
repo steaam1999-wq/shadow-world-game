@@ -231,15 +231,13 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
           {s?.sticker && <StorySticker story={s} mine={mine} name={p.name} onInvite={() => { reply('Пойду с тобой! 🙋'); setSent('Приглашение принято — написали в личку') }} />}
           {s && s.kind !== 'text' && s.caption && <p className="text-[16px] font-semibold drop-shadow whitespace-pre-wrap" data-no-translate>{s.caption}</p>}
           {a && (
-            <div className="glass-panel rounded-[22px] p-3.5 pl-4 flex items-center gap-3.5">
-              <div className="shrink-0 text-center pr-3.5 border-r border-white/20 min-w-[58px]">
-                {a.timeHidden ? <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">Время</div><div className="font-display font-bold text-[15px]">обсудим</div></>
-                  : <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">{planWhen(a, now).split(', ')[0]}</div><div className="font-display font-bold text-[21px] leading-none mt-1 tnum">{planWhen(a, now).split(', ')[1] ?? ''}</div></>}
+            <div className="glass-panel rounded-[24px] p-3.5">
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className="inline-flex items-center gap-1 h-[26px] px-2.5 rounded-full bg-white/15 text-[12px] font-medium"><Icon name="clock" size={13} /> {planWhen(a, now).replace(', ', ' · ')}</span>
+                <span className="inline-flex items-center h-[26px] px-2.5 rounded-full bg-white/15 text-[12px] font-medium">{a.category}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="font-display font-bold text-[17px] leading-snug line-clamp-3">{a.title}</h2>
-                <p className="mt-1 flex items-center gap-1 text-[13px] text-white/80"><Icon name="pin" size={13} /> <span className="truncate">{shortArea(a.area)}</span></p>
-              </div>
+              <h2 className="font-display font-bold text-[20px] leading-[1.18] line-clamp-3">{a.title}</h2>
+              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-white/85"><Icon name="pin" size={14} /> <span className="truncate">{shortArea(a.area)}</span></p>
             </div>
           )}
 
