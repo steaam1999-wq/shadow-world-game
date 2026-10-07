@@ -1504,3 +1504,15 @@ begin
 end $$;
 revoke all on function public.founder_boost(uuid), public.founder_wall(boolean) from public, anon;
 grant execute on function public.founder_boost(uuid), public.founder_wall(boolean) to authenticated;
+
+-- Забаненным администрацией не пишут: ни в старые переписки, ни в новые, ни в группы
+create or replace function private.can_write(c uuid) returns boolean language sql stable security definer set search_path to 'public' as $$
+  select exists (
+    select 1 from public.capsules x
+    where x.id = c and (select auth.uid()) in (x.author, x.responder)
+      and not exists (select 1 from public.blocks b where (b.blocker = x.author and b.blocked = x.responder) or (b.blocker = x.responder and b.blocked = x.author))
+      and not exists (select 1 from public.bans where user_id in (x.author, x.responder))
+  )
+$$;
+alter policy "capsules: open" on public.capsules with check ((responder = (select auth.uid())) and (author <> responder) and (not private.is_banned((select auth.uid()))) and (not private.is_banned(author)) and (not private.blocked_between(author, responder)) and (((plan_id is not null) and (author = (select p.author from plans p where ((p.id = capsules.plan_id) and (p.expires_at > now()))))) or ((plan_id is null) and (exists (select 1 from profiles pr where (pr.id = capsules.author))))));
+alter policy "group members: add" on public.group_members with check (private.is_group_owner(group_id) and (not private.is_banned((select auth.uid()))) and (not private.is_banned(user_id)) and (not private.blocked_between(user_id, (select auth.uid()))) and (private.group_size(group_id) < 50));

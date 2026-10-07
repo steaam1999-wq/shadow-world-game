@@ -13,6 +13,11 @@ import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
 import type { Capsule, CapsuleStatus, Person } from '../types'
+
+/** Человек из переписки; если профиль скрыт (бан или удаление) — заглушка, чтобы чат не ломался. */
+function personOrGone(people: Person[], id: string): Person {
+  return people.find((x) => x.id === id) ?? { id, name: 'Аккаунт недоступен', age: null, hue: 280, bio: '', district: '', distanceKm: 0, answers: {} as Person['answers'], tags: [], verified: false, meetings: 0 }
+}
 import { openVerify } from '../components/Verify'
 import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 
@@ -169,7 +174,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   const rows = [
     ...state.capsules
       .filter((c) => !c.hidden && c.id !== undo?.id && state.people.some((x) => x.id === c.personId))
-      .filter((c) => !q || state.people.find((x) => x.id === c.personId)!.name.toLowerCase().includes(q))
+      .filter((c) => !q || personOrGone(state.people, c.personId).name.toLowerCase().includes(q))
       .map((c) => ({ kind: 'direct' as const, id: c.id, at: lastAt(c), c })),
     ...(state.groups ?? [])
       .filter((g) => !q || g.title.toLowerCase().includes(q))
@@ -213,7 +218,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
               return row(g.id, r.at, g.unread, <GroupAvatar group={g} />, g.title, last ? preview(last, who) : 'Группа создана', g.ownerId === 'me' ? `Удалить группу ${g.title}` : `Выйти из группы ${g.title}`, () => setLeavingGroup(g.id))
             }
             const c = r.c
-            const p = state.people.find((x) => x.id === c.personId)!
+            const p = personOrGone(state.people, c.personId)
             const last = [...c.messages].reverse().find((m) => m.from !== 'system') ?? c.messages[c.messages.length - 1]
             return row(c.id, r.at, c.unread, <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />, p.name, preview(last), `Удалить чат с ${p.name}`, () => deleteChat(c.id, p.name))
           })}
@@ -268,14 +273,16 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [c?.messages.length, typing])
 
   if (!c) return null
-  const p = state.people.find((x) => x.id === c.personId)!
+  // Профиль скрыт (бан администрации или удалён): переписку видно, писать нельзя.
+  const gone = !state.people.some((x) => x.id === c.personId)
+  const p = personOrGone(state.people, c.personId)
   const a = state.activities.find((x) => x.id === c.activityId)
 
   // Защита: без ответа — не больше 3 сообщений; «только проверенные» — первое сообщение только с галочкой.
   const waiting = waitingForReply(c.messages)
   const theyWrote = c.messages.some((m) => m.from === 'them')
   const verifiedOnly = !!p.onlyVerified && !state.me?.verified && !theyWrote
-  const locked = waiting || verifiedOnly
+  const locked = gone || waiting || verifiedOnly
   const send = (e: React.FormEvent) => {
     e.preventDefault()
     const t = text.trim()
@@ -351,9 +358,9 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
         {locked && (
           <p className="flex items-center gap-2 text-[12.5px] text-muted px-1" role="status">
-            <Icon name={verifiedOnly ? 'shield' : 'clock'} size={14} className="shrink-0" />
-            <span className="flex-1">{verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей.` : `Подождите ответа — без ответа можно отправить не больше 3 сообщений подряд.`}</span>
-            {verifiedOnly && <button type="button" onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[12.5px] font-semibold cursor-pointer">Пройти проверку</button>}
+            <Icon name={gone || verifiedOnly ? 'shield' : 'clock'} size={14} className="shrink-0" />
+            <span className="flex-1">{gone ? 'Аккаунт заблокирован администрацией или удалён — писать ему нельзя.' : verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей.` : `Подождите ответа — без ответа можно отправить не больше 3 сообщений подряд.`}</span>
+            {!gone && verifiedOnly && <button type="button" onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[12.5px] font-semibold cursor-pointer">Пройти проверку</button>}
           </p>
         )}
         <form onSubmit={send} className="flex gap-2">
