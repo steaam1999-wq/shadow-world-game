@@ -75,8 +75,8 @@ export function Icon({ name, size = 20, className = '', fill = false }: { name: 
 
 /** Знак Komeeta: облачко сообщения — планета с кольцами, внутри «печатает…». Общение, космос и встреча. Фирменный градиент. */
 // Три кольца, как у Сатурна: радиусы, толщина, яркость.
-const RINGS: [number, number, number, number][] = [[13.6, 3.8, 1.1, 1], [15.8, 4.4, 1, 0.8], [18, 5.1, 0.9, 0.55]]
-const BUBBLE = 'M20 9.5c6.6 0 11 4.4 11 10s-4.4 10-11 10c-1 0-2-.1-2.9-.3L12 32l1.3-4.6C10.6 25.6 9 22.8 9 19.5 9 13.9 13.4 9.5 20 9.5z'
+export const RINGS: [number, number, number, number][] = [[13.6, 3.8, 1.1, 1], [15.8, 4.4, 1, 0.8], [18, 5.1, 0.9, 0.55]]
+export const BUBBLE = 'M20 9.5c6.6 0 11 4.4 11 10s-4.4 10-11 10c-1 0-2-.1-2.9-.3L12 32l1.3-4.6C10.6 25.6 9 22.8 9 19.5 9 13.9 13.4 9.5 20 9.5z'
 export function LogoMark({ size = 34, animate = false }: { size?: number; animate?: boolean }) {
   const id = useId().replace(/:/g, '')
   return (

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useStore } from '../store'
 import { claimReferral, myInvites, type InviteStats } from '../cloud/api'
-import { Icon } from './ui'
+import { BUBBLE, Icon, RINGS } from './ui'
 
 // Друзья зовут друзей: ссылка на план (или на приложение) несёт id пригласившего.
 // Три активных друга — значок «Основатель Komeeta» (первые 100), и неделю планы основателя выше в ленте.
@@ -57,16 +57,46 @@ export function useClaimReferral() {
   }, [userId, ready])
 }
 
-export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
-  if (small) return (
-    <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-brand text-white" title={`Основатель Komeeta №${n}`} aria-label={`Основатель Komeeta №${n}`}>
-      <Icon name="spark" size={9} fill />
+/** Белая планета-облачко с кольцами (как в логотипе) — для золотой медали. */
+function GoldPlanet({ size }: { size: number }) {
+  const id = useId().replace(/:/g, '')
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className="relative z-[1] drop-shadow-[0_1px_1.5px_rgb(90_50_0/.45)]">
+      <defs><clipPath id={`gf-${id}`}><rect x="0" y="20" width="40" height="20" /></clipPath></defs>
+      <g transform="rotate(-16 20 20)" fill="none" stroke="#fff">
+        {RINGS.map(([rx, ry, w, op], i) => <ellipse key={i} cx="20" cy="20" rx={rx} ry={ry} strokeWidth={w * 1.3} strokeOpacity={op * 0.5} />)}
+      </g>
+      <path d={BUBBLE} fill="#fff" />
+      <g transform="rotate(-16 20 20)" clipPath={`url(#gf-${id})`} fill="none" stroke="#fff">
+        {RINGS.map(([rx, ry, w, op], i) => <ellipse key={i} cx="20" cy="20" rx={rx} ry={ry} strokeWidth={w * 1.3} strokeOpacity={op} />)}
+      </g>
+      <g fill="#c48a1c">{[16.6, 20, 23.4].map((x) => <circle key={x} cx={x} cy="19.6" r="1.3" />)}</g>
+    </svg>
+  )
+}
+
+/** Золотая медаль с логотипом. */
+export function FounderMedal({ size = 44 }: { size?: number }) {
+  return (
+    <span className="gold-medal grid place-items-center shrink-0" style={{ width: size, height: size }}>
+      <GoldPlanet size={size * 0.72} />
     </span>
   )
+}
+
+export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
+  const label = `Основатель Komeeta №${n}`
+  if (small) return <span title={label} aria-label={label} role="img"><FounderMedal size={18} /></span>
   return (
-    <span className="inline-flex items-center gap-1 h-6 pl-1 pr-2.5 rounded-full bg-brand text-white text-[12px] font-semibold w-fit" title="Позвал(а) в Komeeta трёх друзей одним из первых">
-      <span className="grid place-items-center w-4 h-4 rounded-full bg-white/25"><Icon name="spark" size={10} fill /></span>
-      Основатель Komeeta №{n}
+    <span className="inline-flex items-center gap-3" title="Позвал(а) в Komeeta друзей одним из первых">
+      <span className="flex flex-col items-center shrink-0">
+        <FounderMedal size={44} />
+        <span className="gold-ribbon -mt-2 relative z-[2] px-2 rounded-md font-display font-bold text-[11px] leading-[17px] tnum">№{n}</span>
+      </span>
+      <span className="leading-tight">
+        <b className="gold-text block font-display text-[15.5px]">Основатель Komeeta</b>
+        <span className="block text-[12.5px] text-muted">в числе первых 100</span>
+      </span>
     </span>
   )
 }
@@ -105,7 +135,7 @@ export function InviteCard() {
   return (
     <section className="rounded-[24px] p-4 flex flex-col gap-3 bg-surface shadow-soft" aria-label="Позвать друзей">
       <div className="flex items-center gap-3">
-        <span className="grid place-items-center w-11 h-11 shrink-0 rounded-full bg-brand text-white"><Icon name="people" size={22} /></span>
+        {founder ? <FounderMedal size={44} /> : <span className="grid place-items-center w-11 h-11 shrink-0 rounded-full bg-brand text-white"><Icon name="people" size={22} /></span>}
         <div className="flex-1 min-w-0">
           <div className="font-semibold">{founder ? `Вы — Основатель Komeeta №${founder}` : 'Позовите трёх друзей'}</div>
           <div className="text-[13px] text-muted">

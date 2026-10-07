@@ -75,7 +75,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
               {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
             </h2>
             <div className="text-[14px] text-muted truncate">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>
-            {p.founder && <div className="mt-1.5"><FounderBadge n={p.founder} /></div>}
+            {p.founder && <div className="mt-2.5"><FounderBadge n={p.founder} /></div>}
           </div>
           <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
             <Avatar name={p.name} hue={p.hue} src={p.photo} size={72} />
