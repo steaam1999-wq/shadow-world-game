@@ -136,7 +136,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const media = async (video: boolean, face: 'user' | 'environment' = 'user') => {
     const s = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: video ? { facingMode: face, width: { ideal: 720 }, height: { ideal: 1280 } } : false,
+      video: video ? cam(face) : false,
     })
     local.current = s
     setLocalStream(s)
@@ -261,7 +261,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const flip = async () => {
     const next = facing === 'user' ? 'environment' : 'user'
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: next } })
+      const s = await navigator.mediaDevices.getUserMedia({ video: cam(next) })
       const track = s.getVideoTracks()[0]
       const sender = pc.current?.getSenders().find((x) => x.track?.kind === 'video')
       await sender?.replaceTrack(track)
@@ -286,6 +286,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     </Ctx.Provider>
   )
 }
+
+/** Камера без принудительного кадрирования: просим только разрешение, пропорции — родные у матрицы (иначе телефон обрезает кадр и картинка выглядит приближенной). */
+const cam = (face: 'user' | 'environment'): MediaTrackConstraints => ({ facingMode: face, width: { ideal: 1280 }, resizeMode: 'none' } as MediaTrackConstraints)
 
 function Sound({ stream }: { stream: MediaStream }) {
   const ref = useRef<HTMLAudioElement>(null)
@@ -320,13 +323,16 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
       {!showRemoteVideo && remote && <Sound stream={remote} />}
       {showRemoteVideo && <Video stream={remote} className="absolute inset-0 w-full h-full object-cover" />}
       {showRemoteVideo && <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />}
+      {call.video && local && call.phase !== 'ended' && !camOff && !showRemoteVideo && (
+        <Video stream={local} muted mirror={mirror} className="absolute inset-0 w-full h-full object-cover opacity-30 blur-2xl scale-110" />
+      )}
       {call.video && local && call.phase !== 'ended' && !camOff && (
         <Video stream={local} muted mirror={mirror} className={showRemoteVideo
           ? 'absolute right-4 top-[calc(16px+env(safe-area-inset-top,0px))] w-28 h-40 rounded-2xl object-cover ring-2 ring-white/40 shadow-2xl z-10'
-          : 'absolute inset-0 w-full h-full object-cover opacity-40'} />
+          : 'absolute inset-0 w-full h-full object-contain opacity-50'} />
       )}
 
-      <div className={`relative z-[5] flex flex-col items-center gap-3 px-6 ${showRemoteVideo ? 'pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'pt-[calc(72px+env(safe-area-inset-top,0px))]'}`}>
+      <div className={`relative z-[5] flex flex-col items-center gap-3 px-6 ${showRemoteVideo ? 'pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'flex-1 justify-center pt-[env(safe-area-inset-top,0px)] pb-6'}`}>
         {!showRemoteVideo && (
           <span className="relative grid place-items-center">
             {(call.phase === 'incoming' || call.phase === 'outgoing') && <span className="absolute inset-0 -m-3 rounded-full bg-white/10 animate-ping" />}
@@ -337,7 +343,7 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
         <p className={`text-white/75 text-center ${call.phase === 'active' ? 'tnum text-[16px]' : 'text-[15px]'}`} role="status">{status}</p>
       </div>
 
-      <div className="relative z-[5] mt-auto px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))]">
+      <div className="relative z-[5] mt-auto shrink-0 px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))]">
         {call.phase === 'incoming' ? (
           <div className="flex items-center justify-between">
             <button onClick={onDecline} className={`${round} bg-[#ef4444]`} aria-label="Отклонить"><Icon name="phone" size={28} className="rotate-[135deg]" /></button>
