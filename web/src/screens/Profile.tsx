@@ -53,7 +53,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const patch = (p: Partial<typeof me>) => dispatch({ type: 'updateMe', patch: p })
 
   const badges = [
-    { id: 'first', name: 'Первая искра', desc: 'Первая состоявшаяся встреча', got: me.meetings >= 1 },
+    { id: 'first', name: 'Первая встреча', desc: 'Первая состоявшаяся встреча', got: me.meetings >= 1 },
     { id: 'verified', name: 'Проверенный', desc: 'Прошёл верификацию', got: me.verified },
     { id: 'full', name: 'Открытая книга', desc: 'Профиль заполнен на 100%', got: complete === 100 },
     { id: 'host', name: 'Организатор', desc: 'Предложил свою активность', got: state.activities.some((a) => a.authorId === 'me') },

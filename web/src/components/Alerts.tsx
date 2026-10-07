@@ -47,7 +47,7 @@ export const TONES: { id: ToneId; name: string; desc: string }[] = [
   { id: 'kalimba', name: 'Калимба', desc: 'Тёплая деревянная нота' },
   { id: 'marimba', name: 'Маримба', desc: 'Две мягкие ноты' },
   { id: 'bell', name: 'Колокольчик', desc: 'Тихий и долгий' },
-  { id: 'crystal', name: 'Хрусталь', desc: 'Три высокие искры' },
+  { id: 'crystal', name: 'Хрусталь', desc: 'Три высокие звёздочки' },
   { id: 'tap', name: 'Тихий тап', desc: 'Почти неслышный' },
 ]
 
