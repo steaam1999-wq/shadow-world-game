@@ -83,9 +83,9 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           </div>
           {p.founder && (!plans.length || state.seenStories.includes(p.id))
             // Основатель без новых историй: только золотая рамка, без второго серого кольца.
-            ? <GoldFrame on><Avatar name={p.name} hue={p.hue} src={p.photo} size={74} /></GoldFrame>
+            ? <GoldFrame on medal={30}><Avatar name={p.name} hue={p.hue} src={p.photo} size={74} /></GoldFrame>
             : <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
-              <GoldFrame on={!!p.founder}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
+              <GoldFrame on={!!p.founder} medal={26}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
             </StoryRing>}
         </div>
 

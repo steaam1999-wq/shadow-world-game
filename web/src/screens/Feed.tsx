@@ -12,7 +12,7 @@ import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
 import { VerifyBanner } from '../components/Verify'
-import { BOOST_DAY_MS, BoostPlanButton, FOUNDER_BOOST_MS, FounderBadge, takeInvitedPlan } from '../components/Invite'
+import { BOOST_DAY_MS, BoostPlanButton, FOUNDER_BOOST_MS, FounderCorner, GoldFrame, takeInvitedPlan } from '../components/Invite'
 import { SurpriseMeet } from '../components/Surprise'
 import { WelcomeTips } from '../components/Tips'
 import { PushPrompt } from '../components/Alerts'
@@ -221,15 +221,19 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
     <article className="pb-7 rounded-[20px] transition-shadow" data-plan={a.id}>
       <header className="flex items-center gap-3 px-4 pt-1 pb-3">
         <button onClick={() => person && openProfile(person.id)} className={person ? 'cursor-pointer' : 'cursor-default'} aria-label={person ? `Профиль ${person.name}` : undefined} tabIndex={person ? 0 : -1}>
-          <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
-            <Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={32} />
-          </StoryRing>
+          {author.founder && (!person || state.seenStories.includes(person.id))
+            ? <GoldFrame on medal={15} label={`Основатель Komeeta №${author.founder}`}><Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={30} /></GoldFrame>
+            : <span className="relative inline-grid">
+              <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
+                <Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={32} />
+              </StoryRing>
+              {author.founder && <FounderCorner size={15} label={`Основатель Komeeta №${author.founder}`} />}
+            </span>}
         </button>
         <div className="flex-1 min-w-0 leading-tight">
           <div className="flex items-center gap-1 font-semibold text-[14px]">
             {person ? <button onClick={() => openProfile(person.id)} className="cursor-pointer hover:underline">{person.name}</button> : me.name}
             {author.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
-            {author.founder && <FounderBadge n={author.founder} small />}
             {!person && <span className="font-normal text-muted">· ваш план</span>}
           </div>
           {person ? <TrackChip track={personTrack(person)} /> : <div className="text-[12px] text-muted truncate">{a.area}</div>}

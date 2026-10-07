@@ -74,7 +74,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
             {me.founder && <div className="mt-2.5"><FounderBadge n={me.founder} /></div>}
           </div>
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
-            <GoldFrame on={!!me.founder}><Avatar name={me.name} hue={me.hue} src={me.photo} size={me.founder ? 66 : 76} /></GoldFrame>
+            <GoldFrame on={!!me.founder} medal={28} corner="left"><Avatar name={me.name} hue={me.hue} src={me.photo} size={me.founder ? 66 : 76} /></GoldFrame>
             <span className="absolute z-[3] -right-0.5 -bottom-0.5 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
           </button>
         </div>

@@ -127,9 +127,24 @@ export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
 }
 
 /** Золотая рамка вокруг фото основателя. */
-export function GoldFrame({ on, children }: { on: boolean; children: ReactNode }) {
+export function GoldFrame({ on, children, medal = 0, corner = 'right', label }: { on: boolean; children: ReactNode; medal?: number; corner?: 'right' | 'left'; label?: string }) {
   if (!on) return <>{children}</>
-  return <span className="gold-medal grid place-items-center leading-[0] p-[3px] shrink-0"><span className="grid place-items-center leading-[0] rounded-full bg-surface p-[2px] relative z-[1]">{children}</span></span>
+  return (
+    <span className="relative inline-grid shrink-0 leading-[0]">
+      <span className="gold-medal grid place-items-center leading-[0] p-[3px]"><span className="grid place-items-center leading-[0] rounded-full bg-surface p-[2px] relative z-[1]">{children}</span></span>
+      {medal > 0 && <FounderCorner size={medal} corner={corner} label={label} />}
+    </span>
+  )
+}
+
+/** Золотая медаль-логотип на уголке аватарки — как значок «онлайн». */
+export function FounderCorner({ size, corner = 'right', label }: { size: number; corner?: 'right' | 'left'; label?: string }) {
+  return (
+    <span className={`absolute z-[2] bottom-[-2px] ${corner === 'right' ? 'right-[-3px]' : 'left-[-3px]'} rounded-full bg-surface p-[2px] leading-[0]`}
+      {...(label ? { role: 'img', 'aria-label': label, title: label } : { 'aria-hidden': true })}>
+      <FounderMedal size={size} />
+    </span>
+  )
 }
 
 export const BOOST_DAY_MS = 86400_000
@@ -241,7 +256,7 @@ export function FounderSheet({ open, onClose }: { open: boolean; onClose: () => 
             {wall.length ? wall.map((w) => (
               <button key={w.id} onClick={() => { if (w.id !== 'me') { onClose(); openProfile(w.id) } }} className="flex items-center gap-3 py-2 text-left cursor-pointer">
                 <span className="w-9 text-right font-display font-bold text-[14px] gold-text tnum">№{w.n}</span>
-                <GoldFrame on><Avatar name={w.name} hue={w.hue} src={w.photo} size={38} /></GoldFrame>
+                <GoldFrame on medal={16}><Avatar name={w.name} hue={w.hue} src={w.photo} size={38} /></GoldFrame>
                 <span className="font-semibold truncate">{w.id === 'me' ? `${w.name} (вы)` : w.name}</span>
               </button>
             )) : <p className="py-6 text-center text-muted">Пока на стене никого — станьте первым!</p>}
