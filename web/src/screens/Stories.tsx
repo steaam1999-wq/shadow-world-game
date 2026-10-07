@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 export { StoryCreator } from './StoryCamera'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
-import { compatibility, planWhen, relative } from '../lib'
+import { compatibility, planWhen, relative, shortArea } from '../lib'
 import { Avatar, Button, ConfirmSheet, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -231,9 +231,15 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
           {s?.sticker && <StorySticker story={s} mine={mine} name={p.name} onInvite={() => { reply('Пойду с тобой! 🙋'); setSent('Приглашение принято — написали в личку') }} />}
           {s && s.kind !== 'text' && s.caption && <p className="text-[16px] font-semibold drop-shadow whitespace-pre-wrap" data-no-translate>{s.caption}</p>}
           {a && (
-            <div className="flex flex-col gap-2">
-              <span className="self-start rounded-full bg-white/20 backdrop-blur px-3 h-7 inline-flex items-center text-[12px] font-bold uppercase tracking-wider">{a.category}</span>
-              <h2 className="font-display font-bold text-[26px] leading-tight drop-shadow">{a.title}</h2>
+            <div className="glass-panel rounded-[22px] p-3.5 pl-4 flex items-center gap-3.5">
+              <div className="shrink-0 text-center pr-3.5 border-r border-white/20 min-w-[58px]">
+                {a.timeHidden ? <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">Время</div><div className="font-display font-bold text-[15px]">обсудим</div></>
+                  : <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">{planWhen(a, now).split(', ')[0]}</div><div className="font-display font-bold text-[21px] leading-none mt-1 tnum">{planWhen(a, now).split(', ')[1] ?? ''}</div></>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-display font-bold text-[17px] leading-snug line-clamp-3">{a.title}</h2>
+                <p className="mt-1 flex items-center gap-1 text-[13px] text-white/80"><Icon name="pin" size={13} /> <span className="truncate">{shortArea(a.area)}</span></p>
+              </div>
             </div>
           )}
 
@@ -249,8 +255,8 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
             ) : (
               <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); onRespond(a, text.trim() || 'Хочу с тобой!') }}>
                 <input id="story-reply" aria-label="Ответить на план" value={text} onChange={(e) => setText(e.target.value)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}
-                  placeholder="Ответить на план…" className="flex-1 min-w-0 h-11 rounded-full border border-white/60 bg-transparent px-4 text-white placeholder:text-white/70 focus:outline-none focus:border-white" autoComplete="off" />
-                <button type="submit" className="grid place-items-center w-11 h-11 rounded-full bg-spark text-on-spark cursor-pointer" aria-label="Откликнуться и отправить"><Icon name="send" size={18} /></button>
+                  placeholder="Ответить на план…" className="glass-chip flex-1 min-w-0 h-12 rounded-full px-4 text-white placeholder:text-white/70 focus:outline-none focus:border-white/50" autoComplete="off" />
+                <button type="submit" className="grid place-items-center w-12 h-12 rounded-full bg-brand text-white shadow-[0_6px_18px_rgb(255_79_134/.45)] cursor-pointer" aria-label="Откликнуться и отправить"><Icon name="send" size={18} /></button>
               </form>
             )
           ) : s ? (

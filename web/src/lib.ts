@@ -156,3 +156,9 @@ export function parseBirth(text: string): string | null {
   return `${m[3]}-${m[2]}-${m[1]}`
 }
 export const formatBirth = (iso?: string) => (iso ? iso.split('-').reverse().join('.') : '')
+
+/** Коротко о месте: «Минск, Центральный р-н» → «Центральный р-н», «Барановичи» → «Барановичи». */
+export function shortArea(area: string) {
+  const parts = area.split(',').map((x) => x.trim()).filter(Boolean)
+  return parts.at(-1) ?? area
+}

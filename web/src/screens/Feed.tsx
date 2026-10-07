@@ -4,7 +4,7 @@ import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
 import { PlanMusicChip } from '../music/PlanMusic'
 import { useStore } from '../store'
-import { compatibility, planWhen, plural, relative, sharedAnswers } from '../lib'
+import { compatibility, planWhen, plural, relative, sharedAnswers, shortArea } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -204,12 +204,6 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const [reporting, setReporting] = useState<Person | null>(null)
   const openProfile = useOpenProfile()
   const lastTap = useRef(0)
-  const track = useRef<HTMLDivElement>(null)
-  const [slide, setSlide] = useState(0)
-  const onTrackScroll = () => {
-    const el = track.current
-    if (el) setSlide(Math.round(el.scrollLeft / el.clientWidth))
-  }
   const started = a.startsAt <= now
   const compat = person ? compatibility(me, person) : null
   const author = person ?? { name: me.name, hue: me.hue, verified: me.verified, founder: me.founder }
@@ -243,68 +237,43 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <button onClick={() => setMenu(true)} className="grid place-items-center w-9 h-9 -mr-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Ещё"><Icon name="more" size={22} /></button>
       </header>
 
-      {/* Карусель 4:5: кадр плана и карточка с деталями */}
-      <div className="relative mx-3">
-        <div ref={track} onScroll={onTrackScroll} className="flex overflow-x-auto no-scrollbar snap-x-mandatory rounded-[22px] bg-surface-2 select-none">
-          <div className="relative snap-start shrink-0 w-full aspect-[4/5] overflow-hidden" onClick={onImageTap}>
-            <PostArt activity={a} />
-            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/35 text-white backdrop-blur-md px-3 h-7 text-[12px] font-medium">
-              <Icon name="clock" size={13} /> {planWhen(a, now)}
-            </span>
-            {compat && (
-              <span className="absolute right-3 top-3 rounded-full bg-white/80 text-[#111114] backdrop-blur-md px-3 h-7 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
-            )}
-            {/* Плашечный заголовок — единый визуальный код обложек */}
-            <p className="absolute left-3 right-14 bottom-11 pointer-events-none">
-              <Plate>{a.title}</Plate>
-            </p>
-            {pop > 0 && (
-              <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none text-white drop-shadow-lg">
-                <Icon name="heart" size={110} fill />
-              </span>
-            )}
+      {/* Кадр 4:5, детали — на матовой «стеклянной» панели снизу */}
+      <div className="relative mx-3 rounded-[22px] overflow-hidden bg-surface-2 aspect-[4/5] select-none" onClick={onImageTap}>
+        <PostArt activity={a} />
+        <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(180deg,rgb(0_0_0/.22)_0%,transparent_20%,transparent_55%,rgb(0_0_0/.35)_100%)]" />
+        {compat && (
+          <span className="glass-chip absolute right-3 top-3 rounded-full px-3 h-7 inline-flex items-center text-[12px] font-semibold text-white tnum">{compat.score}% вайб</span>
+        )}
+        {pop > 0 && (
+          <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none text-white drop-shadow-lg">
+            <Icon name="heart" size={110} fill />
+          </span>
+        )}
+        <div className="glass-panel absolute left-2.5 right-2.5 bottom-2.5 rounded-[20px] p-3 pl-4 flex items-center gap-3.5 text-white" onClick={(e) => e.stopPropagation()}>
+          <div className="shrink-0 text-center pr-3.5 border-r border-white/20 min-w-[58px]">
+            {a.timeHidden ? <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">Время</div><div className="font-display font-bold text-[15px] leading-tight">обсудим</div></>
+              : started ? <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">Сейчас</div><div className="font-display font-bold text-[18px] leading-tight">идёт</div></>
+              : <><div className="text-[10.5px] font-semibold tracking-[.12em] text-[#ffb3cb] uppercase">{planWhen(a, now).split(', ')[0]}</div><div className="font-display font-bold text-[21px] leading-none mt-1 tnum">{planWhen(a, now).split(', ')[1]}</div></>}
           </div>
-          <div className="relative snap-start shrink-0 w-full aspect-[4/5] overflow-hidden">
-            {/* Кадр «перетекает» с первого слайда и растворяется в карточке */}
-            <div className="absolute inset-y-0 -left-[70%] w-full [mask-image:linear-gradient(to_right,#000_55%,transparent_100%)] opacity-70"><PostArt activity={a} /></div>
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-surface/60 to-surface" />
-            <div className="relative h-full flex flex-col justify-between gap-4 p-6">
-              <div className="flex flex-col gap-1">
-                <span className="text-[12px] font-medium text-muted uppercase tracking-[.12em]">{a.category}</span>
-                <h3 className="font-display font-semibold text-[24px] leading-tight">{a.title}</h3>
-              </div>
-              <dl className="grid grid-cols-2 gap-3 text-[14px]">
-                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Когда</dt><dd className="font-semibold">{planWhen(a, now)}</dd></div>
-                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3"><dt className="text-[12px] text-muted">Сколько</dt><dd className="font-semibold">{a.timeHidden ? 'По договорённости' : a.durationMin >= 60 ? `${a.durationMin / 60} ч` : `${a.durationMin} мин`}</dd></div>
-                <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2"><dt className="text-[12px] text-muted">Где</dt><dd className="font-semibold">{a.area}{person ? ' · точный адрес откроется в чате' : ` · ${a.exactPlace}`}</dd></div>
-                {compat && (
-                  <div className="rounded-2xl bg-surface/80 backdrop-blur p-3 col-span-2">
-                    <dt className="text-[12px] text-muted">Совпало в вайб-тесте</dt>
-                    <dd className="font-semibold">{sharedAnswers(me.answers, person!.answers).join(', ') || 'Пока ничего — тем интереснее'}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-display font-bold text-[16.5px] leading-snug line-clamp-2">{a.title}</h3>
+            <p className="mt-1 flex items-center gap-1 text-[12.5px] text-white/80 truncate"><Icon name="pin" size={13} /> <span className="truncate">{shortArea(a.area)}</span></p>
           </div>
-        </div>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-3 flex gap-1.5 rounded-full bg-black/25 backdrop-blur-md px-2 py-1.5" aria-hidden="true">
-          {[0, 1].map((i) => <span key={i} className={`h-1.5 rounded-full bg-white transition-all duration-300 ${slide === i ? 'w-4' : 'w-1.5 opacity-60'}`} />)}
+          {person && (
+            <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))} disabled={!responded && groupFull(a)}
+              className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer disabled:opacity-40 disabled:cursor-default ${responded ? 'bg-white/20' : 'bg-brand shadow-[0_6px_18px_rgb(255_79_134/.45)]'}`}
+              aria-label={joinLabel(a, responded)} title={joinLabel(a, responded)}>
+              <Icon name={responded ? 'chat' : 'arrow'} size={21} />
+            </button>
+          )}
         </div>
       </div>
 
-      {person ? (
-        <div className="px-3 pt-3">
-          {a.groupSize && <div className="pb-2.5 px-1"><GroupStack activity={a} /></div>}
-          <Button variant={responded ? 'secondary' : 'primary'} className="w-full h-12" disabled={!responded && groupFull(a)} onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))}>
-            {joinLabel(a, responded)} <Icon name="arrow" size={18} />
-          </Button>
-        </div>
-      ) : (
-        <div className="mx-4 mt-3 flex flex-col gap-2">
-          {a.groupSize && <GroupStack activity={a} />}
-          <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в чате: {a.exactPlace}</p>
-        </div>
-      )}
+      <div className="mx-4 mt-3 flex flex-col gap-2">
+        {a.groupSize && <GroupStack activity={a} />}
+        {!person && <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в чате: {a.exactPlace}</p>}
+        {person && !a.groupSize && !responded && <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="shield" size={15} /> Точное место откроется в чате после отклика</p>}
+      </div>
 
       <div className="flex items-center gap-1 px-2.5 pt-1.5">
         <LikeButton liked={hearted} onToggle={() => dispatch({ type: 'toggleHeart', activityId: a.id })} className="w-10 h-10" />
@@ -322,6 +291,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
         <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
         {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}
+        {compat && sharedAnswers(me.answers, person!.answers).length > 0 && <p className="text-muted text-[13px]">Совпало в вайб-тесте: {sharedAnswers(me.answers, person!.answers).join(', ')}</p>}
         <CommentsPreview activity={a} onOpen={() => setComments(true)} />
         <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в чате' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
