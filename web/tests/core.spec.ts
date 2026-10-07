@@ -406,3 +406,12 @@ test('интересы: можно вписать своё хобби, оно с
   await page.getByRole('button', { name: 'Сохранить' }).click()
   await expect(page.getByText(/#бадминтон/)).toBeVisible()
 })
+
+test('вайб-тест по желанию: ответ можно снять или не указывать совсем', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Профиль/)
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click()
+  await page.getByRole('button', { name: 'Не указывать' }).click()
+  await expect(page.getByText(/Не указан\. Можно не проходить/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Пройти', exact: true })).toBeVisible()
+})

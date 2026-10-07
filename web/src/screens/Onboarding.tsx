@@ -109,7 +109,10 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
       {q && (
         <div key={q.id} className="anim-rise flex flex-col gap-6 flex-1">
           <div>
-            <span className="eyebrow">Вайб-тест</span>
+            <div className="flex items-center justify-between gap-3">
+              <span className="eyebrow">Вайб-тест · по желанию</span>
+              <button type="button" onClick={() => setStep(total)} className="text-[13px] font-semibold text-muted hover:text-fg cursor-pointer">Пропустить тест</button>
+            </div>
             <h1 className="font-display font-bold text-2xl sm:text-[28px] leading-tight mt-1">{q.title}</h1>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -134,9 +137,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
               )
             })}
           </div>
-          {answers[q.id] && (
-            <Button variant="secondary" onClick={() => setStep(step + 1)} className="self-end">Дальше</Button>
-          )}
+          <Button variant="secondary" onClick={() => setStep(step + 1)} className="self-end">{answers[q.id] ? 'Дальше' : 'Пропустить вопрос'}</Button>
         </div>
       )}
 

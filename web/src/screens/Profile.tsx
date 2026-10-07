@@ -186,11 +186,12 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
       {/* Вайб-тест и интересы */}
       <section className="rounded-[28px] bg-surface shadow-soft p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-display font-bold text-lg">Мой вайб</h2>
-          <Button variant="secondary" className="h-9 px-4 text-[14px]" onClick={() => setEditVibe(true)}>Изменить</Button>
+          <h2 className="font-display font-bold text-lg">Мой вайб <span className="text-[13px] font-normal text-muted">(необязательно)</span></h2>
+          <Button variant="secondary" className="h-9 px-4 text-[14px]" onClick={() => setEditVibe(true)}>{Object.keys(me.answers).length ? 'Изменить' : 'Пройти'}</Button>
         </div>
+        {!Object.keys(me.answers).length && <p className="text-[13.5px] text-muted -mt-2">Не указан. Можно не проходить — но с ним точнее подбираются люди и «% вайба».</p>}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-          {VIBE_QUESTIONS.map((q) => {
+          {VIBE_QUESTIONS.filter((q) => me.answers[q.id]).map((q) => {
             const o = q.options.find((x) => x.id === me.answers[q.id])
             return (
               <div key={q.id} className="min-w-0">
@@ -264,17 +265,25 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
 
       <Sheet open={editVibe} onClose={() => setEditVibe(false)} title="Вайб-тест">
         <div className="flex flex-col gap-5">
+          <p className="text-[13px] text-muted -mt-2">Всё по желанию: отвечайте на что хочется. Нажмите на выбранный ответ ещё раз, чтобы убрать его.</p>
           {VIBE_QUESTIONS.map((q) => (
             <div key={q.id} className="flex flex-col gap-2">
               <span className="font-semibold">{q.title}</span>
               <div className="flex flex-wrap gap-2">
                 {q.options.map((o) => (
-                  <Chip key={o.id} active={me.answers[q.id] === o.id} onClick={() => patch({ answers: { ...me.answers, [q.id]: o.id } })}>{o.label}</Chip>
+                  <Chip key={o.id} active={me.answers[q.id] === o.id} onClick={() => {
+                    const next = { ...me.answers }
+                    if (next[q.id] === o.id) delete next[q.id]; else next[q.id] = o.id
+                    patch({ answers: next })
+                  }}>{o.label}</Chip>
                 ))}
               </div>
             </div>
           ))}
-          <Button onClick={() => setEditVibe(false)}>Сохранить</Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => { patch({ answers: {} }); setEditVibe(false) }} disabled={!Object.keys(me.answers).length}>Не указывать</Button>
+            <Button onClick={() => setEditVibe(false)}>Сохранить</Button>
+          </div>
         </div>
       </Sheet>
 
