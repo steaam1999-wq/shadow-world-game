@@ -10,6 +10,7 @@ const SESSION_KEY = 'iskra-session'
 export type Action =
   | { type: 'signIn'; me: Me }
   | { type: 'updateMe'; patch: Partial<Me> }
+  | { type: 'founderLocal'; patch: Partial<Me> } // только на экране: сервер уже знает (подъём плана, стена)
   | { type: 'signOut' }
   | { type: 'forgetSaved' }
   | { type: 'reset' }
@@ -111,6 +112,8 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'signIn':
       return { ...state, me: action.me, savedMe: action.me }
+    case 'founderLocal':
+      return state.me ? { ...state, me: { ...state.me, ...action.patch } } : state
     case 'updateMe':
       return state.me ? { ...state, me: { ...state.me, ...action.patch }, savedMe: { ...state.me, ...action.patch } } : state
     case 'signOut':

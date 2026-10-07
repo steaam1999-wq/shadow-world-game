@@ -20,7 +20,7 @@ import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
 import { currentUser, deleteAccount, humanError, linkEmail } from '../cloud/api'
 import { VerifyCard, openVerify } from '../components/Verify'
-import { FounderBadge, InviteCard } from '../components/Invite'
+import { FounderBadge, GoldFrame, InviteCard } from '../components/Invite'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreatePlan }: {
   onCreatePlan?: () => void
@@ -71,8 +71,8 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
             {me.founder && <div className="mt-2.5"><FounderBadge n={me.founder} /></div>}
           </div>
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
-            <Avatar name={me.name} hue={me.hue} src={me.photo} size={76} />
-            <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
+            <GoldFrame on={!!me.founder}><Avatar name={me.name} hue={me.hue} src={me.photo} size={me.founder ? 66 : 76} /></GoldFrame>
+            <span className="absolute z-[3] -right-0.5 -bottom-0.5 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>
           </button>
         </div>
         <div className="text-[14px] leading-snug flex flex-col gap-1">

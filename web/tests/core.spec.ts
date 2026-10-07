@@ -346,3 +346,24 @@ test('позвать друга: ссылка ведёт на план, прив
   await expect(card.getByText('Позовите трёх друзей')).toBeVisible()
   await expect(card.getByRole('button', { name: 'Позвать друга' })).toBeVisible()
 })
+
+test('основатель: окно «что даёт статус», стена, подъём плана раз в месяц', async ({ page }) => {
+  await enterDemo(page)
+  await patchState(page, (s) => { s.me.founder = 12; s.me.founderAt = Date.now(); s.people[0].founder = 3 })
+  // Подъём своего плана — в меню «⋯».
+  const mine = page.locator('article[data-plan]').filter({ hasText: 'ваш план' }).first()
+  await mine.getByRole('button', { name: 'Ещё' }).click()
+  await page.getByRole('button', { name: /Поднять наверх ленты на сутки/ }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'План поднят' })).toBeVisible()
+  await mine.getByRole('button', { name: 'Ещё' }).click()
+  await expect(page.getByRole('button', { name: /Следующий подъём/ })).toBeDisabled()
+  await page.keyboard.press('Escape')
+
+  await nav(page, /^Профиль/)
+  await page.getByRole('button', { name: /Основатель Komeeta №12\. Что даёт статус/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'Основатели Komeeta' })
+  await expect(sheet.getByText('Подъём плана раз в месяц')).toBeVisible()
+  await sheet.getByRole('tab', { name: /Стена/ }).click()
+  await expect(sheet.getByText('№3')).toBeVisible()
+  await expect(sheet.getByText(/\(вы\)/)).toBeVisible()
+})

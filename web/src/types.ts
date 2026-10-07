@@ -28,6 +28,9 @@ export interface Person {
   onlyVerified?: boolean // принимает первые сообщения только от проверенных
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number // когда получил значок — неделю его планы выше в ленте
+  founderWall?: boolean // показан на «Стене основателей»
+  boostPlan?: string // план, поднятый основателем (сутки наверху ленты)
+  boostAt?: number
 }
 
 export interface Me {
@@ -54,6 +57,10 @@ export interface Me {
   trustedContact?: string // кому сообщить, если встреча пошла не так
   onlyVerified?: boolean // «Писать мне могут только проверенные»
   founder?: number // «Основатель Komeeta» №N
+  founderAt?: number
+  founderWall?: boolean
+  boostPlan?: string
+  boostAt?: number // последний подъём плана — следующий через 30 дней
 }
 
 export interface Activity {

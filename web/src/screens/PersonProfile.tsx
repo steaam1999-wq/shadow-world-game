@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, level, planWhen, plural, sharedAnswers, nameAge, profileTint } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
-import { FounderBadge } from '../components/Invite'
+import { FounderBadge, GoldFrame } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
@@ -78,7 +78,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             {p.founder && <div className="mt-2.5"><FounderBadge n={p.founder} /></div>}
           </div>
           <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
-            <Avatar name={p.name} hue={p.hue} src={p.photo} size={72} />
+            <GoldFrame on={!!p.founder}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
           </StoryRing>
         </div>
 

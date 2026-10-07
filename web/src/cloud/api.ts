@@ -112,6 +112,8 @@ export function humanError(e: unknown): string {
   if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту.'
   if (/chat-limit/.test(m)) return 'На сегодня новых чатов достаточно — это защита от спама. Продолжите завтра или пишите тем, с кем уже общаетесь.'
   if (/wait-reply/.test(m)) return 'Подождите ответа: без ответа можно отправить не больше 3 сообщений подряд.'
+  if (/boost-wait/.test(m)) return 'Поднимать план можно раз в 30 дней.'
+  if (/not-founder/.test(m)) return 'Это могут только Основатели Komeeta.'
   if (/only-verified/.test(m)) return 'Этот человек принимает первые сообщения только от проверенных профилей.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Нет связи с сервером. Проверьте интернет.'
   // Отказ правил доступа: блокировка между людьми или бан модератором.
@@ -360,6 +362,12 @@ const STATUS_NOTE: Record<Exclude<CapsuleStatus, 'active'>, string> = {
 }
 
 /** Всё, что видно пользователю: люди, планы, его капсулы с перепиской. */
+type FounderRow = { user_id: string; number: number; granted_at: string; on_wall?: boolean; boost_plan?: string | null; boost_at?: string | null }
+const founderFields = (f?: FounderRow) => (f ? {
+  founder: f.number, founderAt: ms(f.granted_at), founderWall: f.on_wall !== false,
+  ...(f.boost_plan && f.boost_at ? { boostPlan: f.boost_plan, boostAt: ms(f.boost_at) } : {}),
+} : {})
+
 export async function loadAll(userId: string, local: Me | null, read: Record<string, number>) {
   const db = sb()
   const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString()
@@ -406,19 +414,19 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
 
   await attachPhotos(profiles.data ?? [], plans.data ?? [])
   // Основатели: значок и неделя подъёма в ленте. Если таблицы нет — просто без значков.
-  const founderRows = await db.from('founders').select('user_id, number, granted_at').returns<{ user_id: string; number: number; granted_at: string }[]>()
+  const founderRows = await db.from('founders').select('user_id, number, granted_at, on_wall, boost_plan, boost_at').returns<FounderRow[]>()
   const founders = new Map((founderRows.data ?? []).map((f) => [f.user_id, f]))
   const mine = (profiles.data ?? []).find((p) => p.id === userId) ?? null
   const missed = new Map(((missedRows.data ?? []) as { user_id: string; missed: number }[]).map((x) => [x.user_id, x.missed]))
   const reported = new Set((myNoShows.data ?? []).map((x) => x.capsule_id))
-  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, founder: founders.get(userId)?.number } : null
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)) } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
     photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified,
-    ...(founders.has(p.id) ? { founder: founders.get(p.id)!.number, founderAt: ms(founders.get(p.id)!.granted_at) } : {}),
+    ...founderFields(founders.get(p.id)),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
@@ -1095,4 +1103,16 @@ export async function claimReferral(inviter: string) {
   const { data, error } = await sb().rpc('claim_referral', { inviter })
   if (error) throw error
   return !!data
+}
+
+/** Основатель поднимает свой план наверх ленты на сутки — раз в 30 дней. */
+export async function founderBoost(planId: string) {
+  const { data, error } = await sb().rpc('founder_boost', { plan: planId })
+  if (error) throw error
+  return new Date(data as string).getTime()
+}
+
+export async function founderWall(show: boolean) {
+  const { error } = await sb().rpc('founder_wall', { show })
+  if (error) throw error
 }

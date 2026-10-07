@@ -1477,3 +1477,30 @@ begin
 end $$;
 revoke all on function public.claim_referral(uuid), public.my_invites() from public, anon;
 grant execute on function public.claim_referral(uuid), public.my_invites() to authenticated;
+
+-- Плюсы основателей: стена основателей и подъём плана раз в 30 дней
+alter table public.founders add column if not exists on_wall boolean not null default true,
+  add column if not exists boost_plan uuid, add column if not exists boost_at timestamptz;
+
+create or replace function public.founder_boost(plan uuid) returns timestamptz
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid(); last timestamptz;
+begin
+  if me is null then raise exception 'forbidden' using errcode = '42501'; end if;
+  select boost_at into last from founders where user_id = me;
+  if not found then raise exception 'not-founder' using errcode = 'P0001'; end if;
+  if last is not null and last > now() - interval '30 days' then raise exception 'boost-wait' using errcode = 'P0001'; end if;
+  if not exists (select 1 from plans where id = plan and author = me and expires_at > now()) then raise exception 'not-found' using errcode = 'P0001'; end if;
+  update founders set boost_plan = plan, boost_at = now() where user_id = me;
+  return now();
+end $$;
+
+create or replace function public.founder_wall(show boolean) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'forbidden' using errcode = '42501'; end if;
+  update founders set on_wall = show where user_id = auth.uid();
+  return found;
+end $$;
+revoke all on function public.founder_boost(uuid), public.founder_wall(boolean) from public, anon;
+grant execute on function public.founder_boost(uuid), public.founder_wall(boolean) to authenticated;

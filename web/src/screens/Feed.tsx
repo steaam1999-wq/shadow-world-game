@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
 import { PlanMusicChip } from '../music/PlanMusic'
@@ -11,7 +12,7 @@ import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
 import { VerifyBanner } from '../components/Verify'
-import { FOUNDER_BOOST_MS, FounderBadge, takeInvitedPlan } from '../components/Invite'
+import { BOOST_DAY_MS, BoostPlanButton, FOUNDER_BOOST_MS, FounderBadge, takeInvitedPlan } from '../components/Invite'
 import { SurpriseMeet } from '../components/Surprise'
 import { WelcomeTips } from '../components/Tips'
 import { PushPrompt } from '../components/Alerts'
@@ -73,7 +74,9 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
   const followed = state.following ?? []
   // Основатели (позвали трёх друзей) неделю после значка стоят выше остальных.
   const boosted = new Set(state.people.filter((p) => p.founderAt && now - p.founderAt < FOUNDER_BOOST_MS).map((p) => p.id))
-  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : boosted.has(x.authorId) ? 1.5 : 2)
+  // Подъём плана основателем (раз в месяц): сутки этот план выше остальных.
+  const lifted = new Set(state.people.flatMap((p) => (p.boostPlan && p.boostAt && now - p.boostAt < BOOST_DAY_MS ? [p.boostPlan] : [])))
+  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : boosted.has(x.authorId) || lifted.has(x.id) ? 1.5 : 2)
   const posts = [...live].sort((a, b) => rank(a) - rank(b) || a.startsAt - b.startsAt)
   const openProfile = useOpenProfile()
   // Люди без активного плана: иначе новенькие не видны на главной, пока не предложат план.
@@ -195,6 +198,8 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const responded = state.liked.includes(a.id)
   const [pop, setPop] = useState(0)
   const [menu, setMenu] = useState(false)
+  const [boostNote, setBoostNote] = useState('')
+  useEffect(() => { if (!boostNote) return; const t = setTimeout(() => setBoostNote(''), 2500); return () => clearTimeout(t) }, [boostNote])
   const [comments, setComments] = useState(false)
   const [reporting, setReporting] = useState<Person | null>(null)
   const openProfile = useOpenProfile()
@@ -321,10 +326,15 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в чате' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
 
+      {boostNote && createPortal(
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft whitespace-nowrap" role="status">{boostNote}</div>,
+        document.body,
+      )}
       <Sheet open={menu} onClose={() => setMenu(false)} title="Действия">
         <div className="flex flex-col divide-y divide-line -mx-5">
           {person && <button onClick={() => { setMenu(false); setReporting(person) }} className="h-12 px-5 text-left font-semibold text-danger cursor-pointer">Пожаловаться</button>}
           {onHide && person && <button onClick={() => { setMenu(false); onHide() }} className="h-12 px-5 text-left cursor-pointer">Не интересно</button>}
+          {!person && <BoostPlanButton planId={a.id} onDone={(msg) => { setMenu(false); setBoostNote(msg) }} />}
           {!person && <button onClick={() => { setMenu(false); dispatch({ type: 'deleteActivity', activityId: a.id }) }} className="h-12 px-5 text-left font-semibold text-danger cursor-pointer">Удалить план</button>}
           <button onClick={() => { setMenu(false); dispatch({ type: 'toggleSave', activityId: a.id }) }} className="h-12 px-5 text-left cursor-pointer">{saved ? 'Убрать из сохранённого' : 'Сохранить'}</button>
         </div>
