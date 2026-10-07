@@ -1,5 +1,6 @@
-// Где человек находится: все области Беларуси с крупными городами, районы Минска
-// и районы центра Москвы (на них построено демо). Координаты — центр места, для расстояний.
+// Где человек находится: все области Беларуси с крупными городами, районы Минска, регионы России
+// с городами и районы центра Москвы (на них построено демо). Координаты — центр места, для расстояний.
+import { RU_GROUPS } from './places-ru'
 
 // Координаты районов Москвы на схеме центра (0..100) — для старых демо-планов.
 const DISTRICT_XY: Record<string, [number, number]> = {
@@ -42,10 +43,11 @@ export const PLACE_GROUPS: PlaceGroup[] = [
     ['Могилёв', 53.894, 30.331], ['Бобруйск', 53.138, 29.221], ['Горки', 54.286, 30.986], ['Кричев', 53.709, 31.715],
     ['Осиповичи', 53.301, 28.638], ['Шклов', 54.210, 30.290], ['Быхов', 53.520, 30.250],
   ] },
-  { region: 'Москва', country: 'ru', places: [
+  { region: 'Москва, центр', country: 'ru', places: [
     ['Чистые пруды', 55.765, 37.645], ['Патриаршие', 55.763, 37.593], ['Китай-город', 55.755, 37.633], ['Хамовники', 55.730, 37.570],
     ['Замоскворечье', 55.735, 37.630], ['Басманный', 55.770, 37.670], ['Таганка', 55.740, 37.655], ['Парк Горького', 55.728, 37.600],
   ] },
+  ...RU_GROUPS,
 ]
 
 const INDEX = new Map(PLACE_GROUPS.flatMap((g) => g.places.map(([name, lat, lon]) => [name, { lat, lon, region: g.region, country: g.country }] as const)))
@@ -75,12 +77,19 @@ export function nearestPlace(lat: number, lon: number): { name: string; km: numb
   return best
 }
 
-export type MapKind = 'minsk' | 'by' | 'ru'
-/** Какую карту показывать человеку из этого места: схему Минска, карту Беларуси или схему центра Москвы. */
+export type MapKind = 'minsk' | 'by' | 'ru' | 'rus'
+/** Какую карту показывать человеку из этого места: схему Минска, карту Беларуси, карту России или схему центра Москвы (демо). */
 export function mapKindOf(name: string): MapKind {
   const p = INDEX.get(name)
-  return !p ? 'by' : p.country === 'ru' ? 'ru' : p.region === 'Минск' ? 'minsk' : 'by'
+  return !p ? 'by' : DISTRICT_XY[name] ? 'ru' : p.country === 'ru' ? 'rus' : p.region === 'Минск' ? 'minsk' : 'by'
 }
+/** Страна карты: люди и планы показываются только своей страны. */
+export const countryOf = (kind: MapKind) => (kind === 'ru' || kind === 'rus' ? 'ru' : 'by')
+// Карта России: равнопромежуточная проекция с поправкой на широту 60°, вписана в ширину 100.
+const RU_K = Math.cos((60 * Math.PI) / 180)
+const RU_LON0 = 19.5, RU_LON1 = 190.5, RU_LAT1 = 78
+const RU_S = 96 / ((RU_LON1 - RU_LON0) * RU_K)
+export const ruXY = (lat: number, lon: number): [number, number] => [2 + ((lon < 0 ? lon + 360 : lon) - RU_LON0) * RU_K * RU_S, 30 + (RU_LAT1 - lat) * RU_S]
 // Карта Беларуси без искажений: градус долготы на широте Беларуси короче градуса широты (× cos 53,7°),
 // поэтому страна шире, чем выше. Вписываем её в квадрат 100×100 с полями.
 const BY_K = Math.cos((53.7 * Math.PI) / 180)
@@ -93,6 +102,7 @@ export function placeXY(name: string, kind: MapKind = mapKindOf(name)): [number,
   const p = INDEX.get(name)
   if (!p) return [50, 50]
   if (kind === 'ru') return DISTRICT_XY[name] ?? [50, 50]
+  if (kind === 'rus') return ruXY(p.lat, p.lon)
   if (kind === 'minsk') return minskXY(p.lat, p.lon)
   return byXY(p.lat, p.lon)
 }

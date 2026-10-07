@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PlanMusicPicker } from '../music/PlanMusic'
-import { PlaceOptions, knownKm, placeDistanceKm, placeInfo, placeXY } from '../places'
+import { PlaceSelect } from '../components/PlaceSelect'
+import { knownKm, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { PostArt } from '../components/PostArt'
@@ -46,7 +47,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
         const p = state.people.find((x) => x.id === a.authorId)
         const km = placeInfo(a.area) && placeInfo(me.district) ? placeDistanceKm(me.district, a.area) : p?.distanceKm
         // Город не указан (у меня или у автора) — расстояние неизвестно, план показываем. Ищут конкретное — радиус не мешает.
-        return a.authorId === 'me' || (q && p) || (p && (!me.district || !knownKm(km) || km! <= me.radiusKm))
+        return a.authorId === 'me' || (q && p) || (p && (!me.district || me.radiusKm >= 500 || !knownKm(km) || km! <= me.radiusKm))
       })
       .filter((a) => !cats.length || cats.includes(a.category))
       .filter((a) => !groupsOnly || !!a.groupSize)
@@ -81,7 +82,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
     if (a.authorId === 'me') return true
     const p = state.people.find((x) => x.id === a.authorId)
     const km = placeInfo(a.area) && placeInfo(me.district) ? placeDistanceKm(me.district, a.area) : p?.distanceKm
-    return !!p && (!me.district || !knownKm(km) || km! <= me.radiusKm)
+    return !!p && (!me.district || me.radiusKm >= 500 || !knownKm(km) || km! <= me.radiusKm)
   }), [state.activities, state.people, me.district, me.radiusKm, now])
   const opened = state.activities.find((a) => a.id === open) ?? null
 
@@ -344,9 +345,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
               </Field>
             )}
             <Field id="act-area" label="Город или район (виден всем)">
-              <select id="act-area" className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
-                <PlaceOptions none={false} />
-              </select>
+              <PlaceSelect id="act-area" value={area} onChange={setArea} none={false} label="Город или район плана" />
             </Field>
             <Field id="act-place" label="Точное место (увидит только тот, с кем откроется чат)">
               <input id="act-place" className={inputCls} value={exactPlace} onChange={(e) => setExactPlace(e.target.value)} placeholder="Кофейня у выхода из метро" maxLength={80} />

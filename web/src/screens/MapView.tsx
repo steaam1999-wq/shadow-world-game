@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { PlaceOptions, byXY, formatKm, knownKm, mapKindOf, minskXY, nearestPlace, placeDistanceKm, placeInfo, placeXY } from '../places'
+import { byXY, countryOf, formatKm, knownKm, mapKindOf, minskXY, nearestPlace, placeDistanceKm, placeInfo, placeXY, ruXY } from '../places'
+import { RU_BORDER } from '../ru-border'
+import { PlaceSelect } from '../components/PlaceSelect'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { PostArt } from '../components/PostArt'
@@ -26,8 +28,11 @@ function jitter(id: string, size: number): [number, number] {
   return [((h & 0xff) / 255 - 0.5) * size, (((h >> 8) & 0xff) / 255 - 0.5) * size]
 }
 
-/** Город места: районы Минска на карте страны собираются в «Минск». */
-const cityOf = (place: string) => (place.startsWith('Минск') ? 'Минск' : place)
+/** Город места: районы Минска на карте страны собираются в «Минск», районы центра Москвы — в «Москву». */
+const cityOf = (place: string) => (place.startsWith('Минск') ? 'Минск' : mapKindOf(place) === 'ru' ? 'Москва' : place)
+// Крупные города на карте России — для ориентира.
+const RU_CITIES = ['Москва', 'Санкт-Петербург', 'Казань', 'Нижний Новгород', 'Екатеринбург', 'Новосибирск', 'Красноярск', 'Иркутск', 'Хабаровск', 'Владивосток', 'Ростов-на-Дону', 'Краснодар', 'Самара', 'Омск', 'Якутск', 'Мурманск', 'Калининград', 'Архангельск', 'Петропавловск-Камчатский', 'Магадан']
+const RU_BIG = new Set(['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Владивосток'])
 
 /** Кто рядом: люди с указанным городом/районом в пределах радиуса (на этой же карте). */
 function useNearbyPeople(me: Me) {
@@ -36,9 +41,9 @@ function useNearbyPeople(me: Me) {
     const kind = mapKindOf(me.district)
     return state.people
       .filter((p) => p.district && placeInfo(p.district))
-      .filter((p) => { const k = mapKindOf(p.district); return kind === 'ru' ? k === 'ru' : kind === 'minsk' ? k === 'minsk' : k !== 'ru' })
+      .filter((p) => { const k = mapKindOf(p.district); return kind === 'ru' ? k === 'ru' : kind === 'minsk' ? k === 'minsk' : countryOf(k) === countryOf(kind) })
       .map((p) => ({ p, km: me.district ? placeDistanceKm(me.district, p.district) : 999 }))
-      .filter((x) => !me.district || x.km <= Math.max(me.radiusKm, kind === 'minsk' ? 50 : me.radiusKm))
+      .filter((x) => !me.district || me.radiusKm >= 500 || x.km <= Math.max(me.radiusKm, kind === 'minsk' ? 50 : me.radiusKm)) // «Вся страна» — без ограничения
       .sort((a, b) => a.km - b.km)
       .slice(0, 80)
   }, [state.people, me.district, me.radiusKm])
@@ -58,7 +63,7 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
   const [picked, setPicked] = useState<Pick | null>(null)
   const [locating, setLocating] = useState(false)
   const [geoError, setGeoError] = useState('')
-  const zoom = useMapZoom()
+  const zoom = useMapZoom(mapKindOf(me.district) === 'rus' ? 22 : MAX_ZOOM) // Россия огромная — приближать можно сильнее
   const rail = useRef<HTMLDivElement>(null)
   const kind = mapKindOf(me.district)
 
@@ -66,7 +71,7 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
   const showPlans = layer !== 'people'
   const plans = useMemo(() => items.filter((a) => {
     const k = mapKindOf(a.area)
-    return kind === 'ru' ? k === 'ru' : kind === 'minsk' ? k === 'minsk' : k !== 'ru'
+    return kind === 'ru' ? k === 'ru' : kind === 'minsk' ? k === 'minsk' : countryOf(k) === countryOf(kind)
   }), [items, kind])
   // Лента: сначала люди (ближе — раньше), потом планы (скорее — раньше); в кружке города — только его люди.
   const cards = [
@@ -76,8 +81,8 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
 
   const scrollTo = (id: string) => requestAnimationFrame(() => rail.current?.querySelector(`[data-card="${id}"]`)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }))
   const pointOf = (p: Pick): [number, number] | null => {
-    if (p.kind === 'person') { const x = people.find((y) => y.p.id === p.id); if (!x) return null; const [px, py] = placeXY(x.p.district, kind), [jx, jy] = jitter(x.p.id, kind === 'minsk' ? 14 : 4); return [px + jx, py + jy] }
-    if (p.kind === 'plan') { const a = plans.find((y) => y.id === p.id); if (!a) return null; if (kind === 'ru') return [a.x, a.y]; const [px, py] = placeXY(a.area, kind), [jx, jy] = jitter(a.id, kind === 'minsk' ? 18 : 5); return [px + jx, py + jy] }
+    if (p.kind === 'person') { const x = people.find((y) => y.p.id === p.id); if (!x) return null; const [px, py] = placeXY(x.p.district, kind), [jx, jy] = jitter(x.p.id, kind === 'minsk' ? 14 : kind === 'rus' ? 0.6 : 4); return [px + jx, py + jy] }
+    if (p.kind === 'plan') { const a = plans.find((y) => y.id === p.id); if (!a) return null; if (kind === 'ru') return [a.x, a.y]; const [px, py] = placeXY(a.area, kind), [jx, jy] = jitter(a.id, kind === 'minsk' ? 18 : kind === 'rus' ? 0.8 : 5); return [px + jx, py + jy] }
     return placeXY(p.id, kind)
   }
   const pick = (p: Pick, fly = false) => {
@@ -90,7 +95,7 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
   const centerMe = () => {
     if (!me.district) { locate(); return }
     const [x, y] = placeXY(me.district, kind)
-    zoom.flyTo(x, y, Math.max(zoom.view.z, kind === 'minsk' ? 2.2 : 3))
+    zoom.flyTo(x, y, Math.max(zoom.view.z, kind === 'minsk' ? 2.2 : kind === 'rus' ? 5 : 3))
   }
 
   const locate = () => {
@@ -140,7 +145,7 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
         <div className="absolute right-3 top-16 z-40 flex flex-col gap-2">
           <button onClick={centerMe} disabled={locating} className={`grid place-items-center w-10 h-10 rounded-full cursor-pointer text-cobalt ${glass}`} aria-label={me.district ? 'Показать меня' : 'Определить по GPS'}><Icon name="pin" size={19} /></button>
           <div className={`flex flex-col rounded-full overflow-hidden ${glass}`}>
-            <button onClick={zoom.zoomIn} disabled={zoom.view.z >= MAX_ZOOM} className="grid place-items-center w-10 h-10 text-[20px] leading-none cursor-pointer disabled:opacity-30" aria-label="Приблизить">+</button>
+            <button onClick={zoom.zoomIn} disabled={zoom.view.z >= zoom.max} className="grid place-items-center w-10 h-10 text-[20px] leading-none cursor-pointer disabled:opacity-30" aria-label="Приблизить">+</button>
             <button onClick={zoom.zoomOut} disabled={zoom.view.z <= 1} className="grid place-items-center w-10 h-10 text-[20px] leading-none cursor-pointer disabled:opacity-30" aria-label="Отдалить">−</button>
           </div>
         </div>
@@ -155,12 +160,8 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
               </div>
               <div className="grid grid-cols-[1fr_auto] gap-2">
                 <button onClick={locate} disabled={locating} className="h-11 rounded-2xl bg-brand text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"><Icon name="pin" size={18} /> {locating ? 'Определяем…' : 'Определить по GPS'}</button>
-                <label className="relative h-11 px-4 rounded-2xl bg-surface-2 font-semibold text-[14px] inline-flex items-center cursor-pointer">Списком
-                  <select aria-label="Мой город или район" className="absolute inset-0 opacity-0 cursor-pointer" value="" onChange={(e) => e.target.value && dispatch({ type: 'updateMe', patch: { district: e.target.value } })}>
-                    <option value="">Выберите…</option>
-                    <PlaceOptions none={false} />
-                  </select>
-                </label>
+                <PlaceSelect value="" none={false} label="Мой город или район" onChange={(v) => v && dispatch({ type: 'updateMe', patch: { district: v } })}
+                  trigger={(open) => <button type="button" onClick={open} className="h-11 px-4 rounded-2xl bg-surface-2 font-semibold text-[14px] inline-flex items-center cursor-pointer">Найти город</button>} />
               </div>
               {geoError && <p className="text-[13px] text-danger" role="alert">{geoError}</p>}
             </section>
@@ -230,7 +231,7 @@ type View = { z: number; cx: number; cy: number }
  * Масштаб и сдвиг карты: щипок, перетаскивание, колёсико, двойное нажатие, кнопки, плавный перелёт.
  * Карта — квадрат 0..100; окно может быть любой формы (масштаб по ширине).
  */
-function useMapZoom() {
+function useMapZoom(max = MAX_ZOOM) {
   const box = useRef<HTMLDivElement>(null)
   const [view, setViewRaw] = useState<View>({ z: 1, cx: 50, cy: 50 })
   const [aspect, setAspect] = useState(1) // высота / ширина окна
@@ -251,7 +252,7 @@ function useMapZoom() {
   }, [])
 
   const clamp = (v: View, a = aspect): View => {
-    const z = Math.min(MAX_ZOOM, Math.max(1, v.z))
+    const z = Math.min(max, Math.max(1, v.z))
     const w = 100 / z, h = w * a
     const cx = w >= 100 ? 50 : Math.min(100 - w / 2, Math.max(w / 2, v.cx))
     const cy = h >= 100 ? 50 : Math.min(100 - h / 2, Math.max(h / 2, v.cy))
@@ -269,7 +270,7 @@ function useMapZoom() {
     const w = 100 / v.z, h = w * aspect
     const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height
     const mx = v.cx - w / 2 + fx * w, my = v.cy - h / 2 + fy * h
-    const nz = Math.min(MAX_ZOOM, Math.max(1, z)), nw = 100 / nz, nh = nw * aspect
+    const nz = Math.min(max, Math.max(1, z)), nw = 100 / nz, nh = nw * aspect
     return clamp({ z: nz, cx: mx - (fx - 0.5) * nw, cy: my - (fy - 0.5) * nh })
   }
   /** Плавно перелететь к точке карты. */
@@ -348,7 +349,7 @@ function useMapZoom() {
     onClickCapture: (e: React.MouseEvent) => { if (suppressClick.current) { e.stopPropagation(); e.preventDefault(); suppressClick.current = false } },
   }
   const step = (f: number) => { const v = viewRef.current; flyTo(v.cx, v.cy, v.z * f) }
-  return { box, view, aspect, handlers, flyTo, zoomIn: () => step(1.8), zoomOut: () => step(1 / 1.8) }
+  return { box, view, aspect, handlers, flyTo, max, zoomIn: () => step(1.8), zoomOut: () => step(1 / 1.8) }
 }
 type Zoom = ReturnType<typeof useMapZoom>
 
@@ -374,25 +375,25 @@ function CityMap({ zoom, items, people, me, selected, onSelect, onSelectPerson, 
   const px = markerPx(z)
   const shown = items.map((a) => {
     if (kind === 'ru') return { a, x: a.x, y: a.y }
-    const [x, y] = placeXY(a.area, kind), [jx, jy] = jitter(a.id, kind === 'minsk' ? 18 : 5)
+    const [x, y] = placeXY(a.area, kind), [jx, jy] = jitter(a.id, kind === 'minsk' ? 18 : kind === 'rus' ? 0.8 : 5)
     return { a, x: x + jx, y: y + jy }
   })
   // На общем виде страны люди одного города — кружком; при приближении кружок рассыпается.
-  const clustered = kind === 'by' && z < 2.5
+  const clustered = (kind === 'by' && z < 2.5) || (kind === 'rus' && z < 6)
   const groups = clustered ? Object.entries(people.reduce<Record<string, Person[]>>((m, p) => { (m[cityOf(p.district)] ??= []).push(p); return m }, {})).filter(([, list]) => list.length > 1) : []
   const inGroup = new Set(groups.flatMap(([, list]) => list.map((p) => p.id)))
   const path = (pts: [number, number][], f: (la: number, lo: number) => [number, number]) => pts.map(([la, lo]) => f(la, lo).map((v) => v.toFixed(1)).join(',')).join(' ')
-  const label = kind === 'minsk' ? 'Схема Минска' : kind === 'by' ? 'Карта Беларуси' : 'Схема центра Москвы'
+  const label = kind === 'minsk' ? 'Схема Минска' : kind === 'by' ? 'Карта Беларуси' : kind === 'rus' ? 'Карта России' : 'Схема центра Москвы'
   const meAt = myDistrict ? at(mx, my) : null
   // При приближении — сколько людей в городе (на карте страны) или районе (на схеме Минска), вместе со мной.
-  const showCounts = kind !== 'ru' && z >= (kind === 'by' ? 1.6 : 2)
+  const showCounts = kind !== 'ru' && z >= (kind === 'by' ? 1.6 : kind === 'rus' ? 4 : 2)
   const counts = useMemo(() => {
     const m = new Map<string, number>()
     for (const d of [...state.people.map((p) => p.district), myDistrict]) {
       if (!d || !placeInfo(d)) continue
       const kk = mapKindOf(d)
-      if (kind === 'minsk' ? kk !== 'minsk' : kk === 'ru') continue
-      const key = kind === 'by' ? cityOf(d) : d
+      if (kind === 'minsk' ? kk !== 'minsk' : countryOf(kk) !== countryOf(kind)) continue
+      const key = kind === 'minsk' ? d : cityOf(d)
       m.set(key, (m.get(key) ?? 0) + 1)
     }
     return m
@@ -426,6 +427,23 @@ function CityMap({ zoom, items, people, me, selected, onSelect, onSelectPerson, 
                 <g key={c} aria-hidden="true">
                   <circle cx={x} cy={y} r={(c === 'Минск' ? 1.2 : big ? .9 : .6) * k} fill="var(--fg)" fillOpacity={big ? .4 : .25} />
                   {!(showCounts && counts.has(c)) && <text x={x} y={c === 'Минск' ? y - 4 * k : above ? y - 2 * k : y + 4 * k} textAnchor="middle" fontSize={(c === 'Минск' ? 3.4 : big ? 2.9 : 2.4) * k} fontWeight={600} fill="var(--fg)" fillOpacity={big ? .55 : .38}>{c}</text>}
+                </g>
+              )
+            })}
+          </>
+        )}
+        {kind === 'rus' && (
+          <>
+            {RU_BORDER.map((ring, i) => <polygon key={`s${i}`} points={path(ring, ruXY)} transform={`translate(${.25 * k} ${.45 * k})`} fill="var(--fg)" fillOpacity=".07" />)}
+            {RU_BORDER.map((ring, i) => <polygon key={i} points={path(ring, ruXY)} fill="var(--surface)" stroke="var(--fg)" strokeOpacity=".22" strokeWidth="1.2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />)}
+            {RU_CITIES.map((c) => {
+              const [x, y] = placeXY(c, 'rus')
+              const big = RU_BIG.has(c)
+              if (!big && z < 2.2) return null
+              return (
+                <g key={c} aria-hidden="true">
+                  <circle cx={x} cy={y} r={(big ? .55 : .4) * k} fill="var(--fg)" fillOpacity={big ? .4 : .28} />
+                  {!(showCounts && counts.has(c)) && <text x={x} y={y - 1.2 * k} textAnchor="middle" fontSize={(big ? 1.9 : 1.5) * k} fontWeight={600} fill="var(--fg)" fillOpacity={big ? .55 : .4}>{c}</text>}
                 </g>
               )
             })}
@@ -472,7 +490,7 @@ function CityMap({ zoom, items, people, me, selected, onSelect, onSelectPerson, 
 
       {/* Люди */}
       {people.filter((p) => !inGroup.has(p.id)).map((p) => {
-        const [x, y] = placeXY(p.district, kind), [jx, jy] = jitter(p.id, kind === 'minsk' ? 14 : 4)
+        const [x, y] = placeXY(p.district, kind), [jx, jy] = jitter(p.id, kind === 'minsk' ? 14 : kind === 'rus' ? 0.6 : 4)
         const pos = at(Math.min(97, Math.max(3, x + jx)), Math.min(97, Math.max(3, y + jy)))
         if (!pos) return null
         const on = selected === p.id
@@ -489,7 +507,7 @@ function CityMap({ zoom, items, people, me, selected, onSelect, onSelectPerson, 
       {/* Число людей в городе или районе */}
       {showCounts && [...counts].map(([place, n]) => {
         const [x, y] = placeXY(place, kind)
-        const pos = at(x, y - (kind === 'minsk' ? 7 : 2))
+        const pos = at(x, y - (kind === 'minsk' ? 7 : kind === 'rus' ? 0.4 : 2))
         if (!pos) return null
         const sx = Math.min(97, Math.max(3, parseFloat(pos.left)))
         const shift = sx < 22 ? 0 : sx > 78 ? -100 : -50

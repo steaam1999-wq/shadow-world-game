@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BirthDateField, birthProblem } from './BirthDate'
 import { ageFrom, formatBirth, parseBirth } from '../lib'
-import { PlaceOptions } from '../places'
+import { PlaceSelect } from './PlaceSelect'
 import { useStore } from '../store'
 import { Avatar, Button, Field, Icon, Sheet, inputCls } from './ui'
 import { TagPicker } from './TagPicker'
@@ -207,9 +207,7 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
           </Field>
           <BirthDateField id="me-birth" value={birth} onChange={setBirth} />
           <Field id="me-district" label="Город или район (другие видят только его)">
-            <select id="me-district" className={inputCls} value={draft.district} onChange={(e) => set({ district: e.target.value })}>
-              <PlaceOptions />
-            </select>
+            <PlaceSelect id="me-district" value={draft.district} onChange={(v) => set({ district: v })} label="Город или район" />
           </Field>
           <Field id="me-bio" label="О себе">
             <textarea id="me-bio" className={`${inputCls} h-24 py-2 resize-none`} value={draft.bio} onChange={(e) => set({ bio: e.target.value.slice(0, BIO_MAX) })} placeholder="Пара предложений: чем занимаетесь, что любите, с кем хочется встретиться" />

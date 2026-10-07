@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { PlaceOptions, placeLine } from '../places'
+import { placeLine } from '../places'
+import { PlaceSelect } from '../components/PlaceSelect'
 import { VIBE_QUESTIONS } from '../data'
 import { useNow, useStore } from '../store'
 import { getLang, setLang } from '../i18n'
@@ -230,9 +231,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
         <h2 className="font-display font-bold text-lg py-3">Приватность и геолокация</h2>
         <div className="py-3">
           <Field id="me-district" label="Мой город или район">
-            <select id="me-district" className={inputCls} value={me.district} onChange={(e) => patch({ district: e.target.value })}>
-              <PlaceOptions />
-            </select>
+            <PlaceSelect id="me-district" value={me.district} onChange={(v) => patch({ district: v })} label="Мой город или район" />
           </Field>
         </div>
         <Toggle id="pv-approx" checked={me.privacy.approxLocation} onChange={(v) => patch({ privacy: { ...me.privacy, approxLocation: v } })} label="Только приблизительное местоположение" hint="Другие видят район, а не точку на карте" />

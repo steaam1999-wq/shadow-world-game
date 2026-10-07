@@ -416,3 +416,17 @@ test('вайб-тест по желанию: ответ можно снять и
   await expect(page.getByText(/Не указан\. Можно не проходить/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Пройти', exact: true })).toBeVisible()
 })
+
+test('город: поиск по России и карта России', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Профиль/)
+  await page.getByRole('tab', { name: /Настройки/ }).click()
+  await page.getByRole('button', { name: /Мой город или район:/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'Мой город или район' })
+  await sheet.getByLabel('Поиск города').fill('казан')
+  await sheet.getByRole('option', { name: 'Казань' }).click()
+  await expect(page.getByRole('button', { name: /Мой город или район: Казань/ })).toBeVisible()
+  await nav(page, /^Поиск/)
+  await page.getByRole('tab', { name: /Карта/ }).click()
+  await expect(page.getByRole('img', { name: 'Карта России' })).toBeVisible()
+})

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BirthDateField, birthProblem } from '../components/BirthDate'
 import { ageFrom, parseBirth } from '../lib'
-import { PlaceOptions } from '../places'
+import { PlaceSelect } from '../components/PlaceSelect'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
 import { Button, Field, Icon, Logo, inputCls } from '../components/ui'
@@ -152,9 +152,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
           </Field>
           <BirthDateField id="birth" value={birth} onChange={setBirth} />
           <Field id="district" label="Город или район (другие увидят только его)">
-            <select id="district" className={inputCls} value={district} onChange={(e) => setDistrict(e.target.value)}>
-              <PlaceOptions />
-            </select>
+            <PlaceSelect id="district" value={district} onChange={setDistrict} label="Город или район" />
           </Field>
           <Field id="bio" label="О себе">
             <textarea id="bio" className={`${inputCls} h-24 py-2.5 resize-none`} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Чем занимаетесь и что ищете. Пара предложений." maxLength={200} />
