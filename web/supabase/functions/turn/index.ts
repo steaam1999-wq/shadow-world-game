@@ -7,6 +7,10 @@ const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { ...cors, 'Content-Type': 'application/json' } })
+  // TURN — только вошедшим пользователям (подпись токена уже проверил Supabase), иначе чужие могли бы тратить трафик.
+  let role = ''
+  try { role = JSON.parse(atob((req.headers.get('authorization') ?? '').split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role ?? '' } catch { /* без токена */ }
+  if (role !== 'authenticated') return json({ iceServers: STUN, turn: false })
   const key = Deno.env.get('CLOUDFLARE_TURN_KEY_ID'), token = Deno.env.get('CLOUDFLARE_TURN_API_TOKEN')
   if (!key || !token) return json({ iceServers: STUN, turn: false })
   try {
