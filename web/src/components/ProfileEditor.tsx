@@ -3,7 +3,8 @@ import { BirthDateField, birthProblem } from './BirthDate'
 import { ageFrom, formatBirth, parseBirth } from '../lib'
 import { PlaceOptions } from '../places'
 import { useStore } from '../store'
-import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls } from './ui'
+import { Avatar, Button, Field, Icon, Sheet, inputCls } from './ui'
+import { TagPicker } from './TagPicker'
 import type { Me } from '../types'
 
 const HUES = [12, 28, 45, 95, 150, 190, 215, 250, 280, 320, 345]
@@ -196,14 +197,7 @@ export function ProfileEditor({ open, onClose }: { open: boolean; onClose: () =>
             <textarea id="me-bio" className={`${inputCls} h-24 py-2 resize-none`} value={draft.bio} onChange={(e) => set({ bio: e.target.value.slice(0, BIO_MAX) })} placeholder="Пара предложений: чем занимаетесь, что любите, с кем хочется встретиться" />
             <span className={`self-end text-[12px] tnum ${draft.bio.length >= BIO_MAX ? 'text-danger' : 'text-muted'}`}>{draft.bio.length}/{BIO_MAX}</span>
           </Field>
-          <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-semibold text-muted">Интересы{draft.tags.length ? ` · ${draft.tags.length}` : ''} <span className="font-normal">(необязательно)</span></span>
-            <div className="flex flex-wrap gap-2">
-              {state.tags.map((t) => (
-                <Chip key={t} active={draft.tags.includes(t)} onClick={() => set({ tags: draft.tags.includes(t) ? draft.tags.filter((x) => x !== t) : [...draft.tags, t] })}>{t}</Chip>
-              ))}
-            </div>
-          </div>
+          <TagPicker options={state.tags} value={draft.tags} onChange={(tags) => set({ tags })} />
           {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
           <div className="grid grid-cols-2 gap-2 sticky bottom-0 bg-surface pt-2">
             <Button variant="secondary" onClick={onClose}>Отмена</Button>

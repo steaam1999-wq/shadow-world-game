@@ -396,3 +396,13 @@ test('поиск находит людей без планов, по имени 
   await found.getByRole('button', { name: `Профиль ${name}` }).click()
   await expect(page.getByRole('heading', { name: new RegExp(`^${name}`) }).first()).toBeVisible()
 })
+
+test('интересы: можно вписать своё хобби, оно сохраняется в профиле', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Профиль/)
+  await page.getByRole('button', { name: 'Редактировать', exact: true }).click()
+  await page.getByLabel('Своё хобби').fill('бадминтон')
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click()
+  await page.getByRole('button', { name: 'Сохранить' }).click()
+  await expect(page.getByText(/#бадминтон/)).toBeVisible()
+})

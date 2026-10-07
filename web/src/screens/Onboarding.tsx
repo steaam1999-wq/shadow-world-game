@@ -4,7 +4,8 @@ import { ageFrom, parseBirth } from '../lib'
 import { PlaceOptions } from '../places'
 import { VIBE_QUESTIONS } from '../data'
 import { useStore } from '../store'
-import { Button, Chip, Field, Icon, Logo, inputCls } from '../components/ui'
+import { Button, Field, Icon, Logo, inputCls } from '../components/ui'
+import { TagPicker } from '../components/TagPicker'
 import type { Me, VibeAnswers } from '../types'
 import { RulesSheet } from '../components/Rules'
 
@@ -157,14 +158,7 @@ export function Onboarding({ onDone, onBack, initialName = '', method: initialMe
           <Field id="bio" label="О себе">
             <textarea id="bio" className={`${inputCls} h-24 py-2.5 resize-none`} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Чем занимаетесь и что ищете. Пара предложений." maxLength={200} />
           </Field>
-          <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-semibold text-muted">Интересы (необязательно)</span>
-            <div className="flex flex-wrap gap-2">
-              {state.tags.map((t) => (
-                <Chip key={t} active={tags.includes(t)} onClick={() => setTags(tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t])}>{t}</Chip>
-              ))}
-            </div>
-          </div>
+          <TagPicker options={state.tags} value={tags} onChange={setTags} />
           <p className="mt-auto text-[12px] text-muted">Нажимая кнопку, вы соглашаетесь с <button type="button" onClick={() => setRules(true)} className="underline hover:text-fg cursor-pointer">правилами и политикой конфиденциальности</button> и подтверждаете, что вам есть 18 лет.</p>
           <Button type="submit" className="h-13" disabled={!name.trim() || !!birthProblem(birth)}>
             Смотреть активности
