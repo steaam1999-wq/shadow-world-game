@@ -33,9 +33,12 @@ function PhotoCropper({ src, onDone, onCancel }: { src: string; onDone: (dataUrl
   const iw = img?.width ?? 1, ih = img?.height ?? 1
   const cover = Math.max(1 / (turned ? ih : iw), 1 / (turned ? iw : ih))
   const W = (turned ? ih : iw) * cover * zoom, H = (turned ? iw : ih) * cover * zoom
-  const clampPos = (p: { x: number; y: number }, w = W, h = H) => ({ x: Math.max(-(w - 1) / 2, Math.min((w - 1) / 2, p.x)), y: Math.max(-(h - 1) / 2, Math.min((h - 1) / 2, p.y)) })
+  // Можно уменьшать, пока фото не поместится целиком, и ещё чуть меньше — поля заполнит размытая копия.
+  const contain = Math.min(1 / (turned ? ih : iw), 1 / (turned ? iw : ih)) / cover
+  const MIN = Math.max(0.3, Math.round(contain * 0.8 * 100) / 100)
+  const clampPos = (p: { x: number; y: number }, w = W, h = H) => ({ x: Math.max(-Math.abs(w - 1) / 2, Math.min(Math.abs(w - 1) / 2, p.x)), y: Math.max(-Math.abs(h - 1) / 2, Math.min(Math.abs(h - 1) / 2, p.y)) })
   const at = clampPos(pos)
-  const setZoomClamped = (z: number) => setZoom(Math.max(1, Math.min(4, z)))
+  const setZoomClamped = (z: number) => setZoom(Math.max(MIN, Math.min(4, z)))
 
   const center = () => { const pts = [...pointers.current.values()]; return { x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length } }
   const spread = () => { const [a, b] = [...pointers.current.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0 }
@@ -73,6 +76,17 @@ function PhotoCropper({ src, onDone, onCancel }: { src: string; onDone: (dataUrl
     canvas.width = canvas.height = OUT
     const ctx = canvas.getContext('2d')!
     ctx.imageSmoothingQuality = 'high'
+    if (zoom < 1) {
+      // Поля вокруг уменьшенного фото — размытая копия, как в Instagram.
+      ctx.save()
+      ctx.filter = 'blur(28px) brightness(.8)'
+      ctx.translate(OUT / 2, OUT / 2)
+      ctx.rotate((rot * Math.PI) / 180)
+      const bw = iw * cover * OUT * 1.15, bh = ih * cover * OUT * 1.15
+      ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh)
+      ctx.restore()
+      ctx.filter = 'none'
+    }
     ctx.translate(OUT * (0.5 + at.x), OUT * (0.5 + at.y))
     ctx.rotate((rot * Math.PI) / 180)
     const dw = iw * cover * zoom * OUT, dh = ih * cover * zoom * OUT
@@ -86,6 +100,10 @@ function PhotoCropper({ src, onDone, onCancel }: { src: string; onDone: (dataUrl
       <div ref={box} className="relative w-full max-w-[340px] mx-auto aspect-square overflow-hidden rounded-[24px] bg-black touch-none cursor-grab active:cursor-grabbing select-none"
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         onWheel={(e) => setZoomClamped(zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08))}>
+        {img && zoom < 1 && (
+          <img src={src} alt="" draggable={false} className="absolute max-w-none pointer-events-none blur-xl brightness-75"
+            style={{ width: `${iw * cover * 115}%`, height: `${ih * cover * 115}%`, left: '50%', top: '50%', transform: `translate(-50%, -50%) rotate(${rot}deg)` }} />
+        )}
         {img && (
           <img src={src} alt="" draggable={false} className="absolute max-w-none pointer-events-none"
             style={{ width: `${iw * cover * zoom * 100}%`, height: `${ih * cover * zoom * 100}%`, left: `${(0.5 + at.x) * 100}%`, top: `${(0.5 + at.y) * 100}%`, transform: `translate(-50%, -50%) rotate(${rot}deg)` }} />
@@ -100,15 +118,15 @@ function PhotoCropper({ src, onDone, onCancel }: { src: string; onDone: (dataUrl
         )}
       </div>
       <div className="flex items-center gap-2">
-        <button type="button" className={tool} onClick={() => setZoomClamped(zoom / 1.25)} disabled={zoom <= 1} aria-label="Отдалить"><span className="text-xl leading-none">−</span></button>
-        <input type="range" min={1} max={4} step={0.01} value={zoom} onChange={(e) => setZoomClamped(Number(e.target.value))} className="flex-1 accent-[var(--spark)]" aria-label="Приближение" />
+        <button type="button" className={tool} onClick={() => setZoomClamped(zoom / 1.25)} disabled={zoom <= MIN} aria-label="Отдалить"><span className="text-xl leading-none">−</span></button>
+        <input type="range" min={MIN} max={4} step={0.01} value={zoom} onChange={(e) => setZoomClamped(Number(e.target.value))} className="flex-1 accent-[var(--spark)]" aria-label="Приближение" />
         <button type="button" className={tool} onClick={() => setZoomClamped(zoom * 1.25)} disabled={zoom >= 4} aria-label="Приблизить"><span className="text-xl leading-none">+</span></button>
       </div>
       <div className="flex justify-center gap-2">
         <button type="button" className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-surface-2 text-[14px] font-semibold cursor-pointer" onClick={() => { setRot((r) => (r + 90) % 360); setPos({ x: 0, y: 0 }) }}><Icon name="repeat" size={16} /> Повернуть</button>
         <button type="button" className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-surface-2 text-[14px] font-semibold cursor-pointer" onClick={() => { setZoom(1); setRot(0); setPos({ x: 0, y: 0 }) }}>Сбросить</button>
       </div>
-      <p className="text-center text-[13px] text-muted -mt-2">Двигайте фото пальцем, приближайте двумя пальцами. Двойное касание — приблизить.</p>
+      <p className="text-center text-[13px] text-muted -mt-2">Двигайте фото пальцем, приближайте или отдаляйте двумя пальцами — фото можно уменьшить целиком. Двойное касание — приблизить.</p>
       <div className="grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={onCancel}>Отмена</Button>
         <Button onClick={apply} disabled={!img}>Готово</Button>
