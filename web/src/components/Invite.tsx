@@ -113,13 +113,10 @@ export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
   const label = `Основатель Komeeta №${n}`
   if (small) return <button type="button" onClick={openFounderInfo} title={label} aria-label={label} className="cursor-pointer"><FounderMedal size={18} /></button>
   return (
-    <button type="button" onClick={openFounderInfo} className="inline-flex items-center gap-3 text-left cursor-pointer" aria-label={`${label}. Что даёт статус?`}>
+    <button type="button" onClick={openFounderInfo} className="inline-flex items-center text-left cursor-pointer" aria-label={`${label}. Что даёт статус?`} title={label}>
       <span className="flex flex-col items-center shrink-0">
         <FounderMedal size={44} />
         <span className="gold-ribbon -mt-2 relative z-[2] px-2 rounded-md font-display font-bold text-[11px] leading-[17px] tnum">№{n}</span>
-      </span>
-      <span className="leading-tight">
-        <b className="gold-text block font-display text-[15.5px]">Основатель Komeeta</b>
       </span>
     </button>
   )
