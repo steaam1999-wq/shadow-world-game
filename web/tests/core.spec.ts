@@ -360,7 +360,7 @@ test('основатель: окно «что даёт статус», стен�
   await page.keyboard.press('Escape')
 
   await nav(page, /^Профиль/)
-  await page.getByRole('button', { name: /Основатель Komeeta №12\. Что даёт статус/ }).click()
+  await page.getByRole('button', { name: /Основатель Komeeta №12\. Что даёт статус/ }).first().click()
   const sheet = page.getByRole('dialog', { name: 'Основатели Komeeta' })
   await expect(sheet.getByText('Подъём плана раз в месяц')).toBeVisible()
   await sheet.getByRole('tab', { name: /Стена/ }).click()

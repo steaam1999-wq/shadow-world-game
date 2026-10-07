@@ -127,21 +127,24 @@ export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
 }
 
 /** Золотая рамка вокруг фото основателя. */
-export function GoldFrame({ on, children, medal = 0, corner = 'right', label }: { on: boolean; children: ReactNode; medal?: number; corner?: 'right' | 'left'; label?: string }) {
+export function GoldFrame({ on, children, medal = 0, corner = 'right', label, info }: { on: boolean; children: ReactNode; medal?: number; corner?: 'right' | 'left'; label?: string; info?: boolean }) {
   if (!on) return <>{children}</>
   return (
     <span className="relative inline-grid shrink-0 leading-[0]">
       <span className="gold-medal grid place-items-center leading-[0] p-[3px]"><span className="grid place-items-center leading-[0] rounded-full bg-surface p-[2px] relative z-[1]">{children}</span></span>
-      {medal > 0 && <FounderCorner size={medal} corner={corner} label={label} />}
+      {medal > 0 && <FounderCorner size={medal} corner={corner} label={label} info={info} />}
     </span>
   )
 }
 
 /** Золотая медаль-логотип на уголке аватарки — как значок «онлайн». */
-export function FounderCorner({ size, corner = 'right', label }: { size: number; corner?: 'right' | 'left'; label?: string }) {
+export function FounderCorner({ size, corner = 'right', label, info }: { size: number; corner?: 'right' | 'left'; label?: string; info?: boolean }) {
+  // info — нажатие открывает «Что даёт статус Основателя».
+  const open = (e: React.SyntheticEvent) => { e.stopPropagation(); e.preventDefault(); openFounderInfo() }
   return (
-    <span className={`absolute z-[2] bottom-[-2px] ${corner === 'right' ? 'right-[-3px]' : 'left-[-3px]'} rounded-full bg-surface p-[2px] leading-[0]`}
-      {...(label ? { role: 'img', 'aria-label': label, title: label } : { 'aria-hidden': true })}>
+    <span className={`absolute z-[3] bottom-[-2px] ${corner === 'right' ? 'right-[-3px]' : 'left-[-3px]'} rounded-full bg-surface p-[2px] leading-[0] ${info ? 'cursor-pointer' : ''}`}
+      {...(info ? { role: 'button', tabIndex: 0, 'aria-label': `${label ?? 'Основатель Komeeta'}. Что даёт статус?`, title: label, onClick: open, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') open(e) } }
+        : label ? { role: 'img', 'aria-label': label, title: label } : { 'aria-hidden': true })}>
       <FounderMedal size={size} />
     </span>
   )

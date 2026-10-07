@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, level, planWhen, plural, sharedAnswers, nameAge, profileTint } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
-import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
+import { GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
@@ -79,13 +79,12 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
               {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
             </h2>
             <div className="text-[14px] text-muted truncate">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>
-            {p.founder && <div className="mt-2.5"><FounderBadge n={p.founder} /></div>}
           </div>
           {p.founder && (!plans.length || state.seenStories.includes(p.id))
             // Основатель без новых историй: только золотая рамка, без второго серого кольца.
-            ? <GoldFrame on medal={30}><Avatar name={p.name} hue={p.hue} src={p.photo} size={74} /></GoldFrame>
+            ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={74} /></GoldFrame>
             : <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
-              <GoldFrame on={!!p.founder} medal={26}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
+              <GoldFrame on={!!p.founder} medal={26} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
             </StoryRing>}
         </div>
 
