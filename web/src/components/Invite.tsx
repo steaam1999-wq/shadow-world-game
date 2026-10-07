@@ -9,6 +9,7 @@ import { Avatar, BUBBLE, Icon, RINGS, Sheet, Toggle } from './ui'
 
 const REF_KEY = 'komeeta-ref'
 const PLAN_KEY = 'komeeta-open-plan'
+const USER_KEY = 'komeeta-open-user'
 export const FOUNDER_BOOST_MS = 7 * 86400_000
 
 /** Ссылка-приглашение: на конкретный план или просто в приложение. */
@@ -16,6 +17,11 @@ export function inviteUrl(userId?: string | null, planId?: string) {
   const base = `${location.origin}${location.pathname}`
   const parts = [planId && `plan=${planId}`, userId && `ref=${userId}`].filter(Boolean)
   return parts.length ? `${base}#${parts.join('&')}` : base
+}
+
+/** Ссылка на страницу человека (с приглашением от того, кто делится). */
+export function profileUrl(personId: string, fromId?: string | null) {
+  return `${location.origin}${location.pathname}#u=${personId}${fromId ? `&ref=${fromId}` : ''}`
 }
 
 /** Читает приглашение из адреса до того, как адрес заменят. */
@@ -26,6 +32,8 @@ export function captureInvite() {
     const plan = /(?:^#|&)plan=([\w-]{1,64})(?:&|$)/.exec(h)?.[1]
     if (ref) localStorage.setItem(REF_KEY, ref)
     if (plan) sessionStorage.setItem(PLAN_KEY, plan)
+    const user = /(?:^#|&)u=([0-9a-f-]{36})(?:&|$)/i.exec(h)?.[1]
+    if (user) sessionStorage.setItem(USER_KEY, user)
   } catch { /* ignore */ }
 }
 
@@ -34,10 +42,19 @@ export function takeInvitedPlan() {
   try { const id = sessionStorage.getItem(PLAN_KEY); sessionStorage.removeItem(PLAN_KEY); return id } catch { return null }
 }
 
+/** Страница человека, которой поделились по ссылке. Забыть — когда открыли. */
+export function invitedUser() {
+  try { return sessionStorage.getItem(USER_KEY) } catch { return null }
+}
+export function forgetInvitedUser() {
+  try { sessionStorage.removeItem(USER_KEY) } catch { /* ignore */ }
+}
+
 /** Пришёл ли человек по приглашению: для приветствия на входе. */
-export function invitedBy(): 'plan' | 'app' | null {
+export function invitedBy(): 'plan' | 'profile' | 'app' | null {
   try {
     if (sessionStorage.getItem(PLAN_KEY)) return 'plan'
+    if (sessionStorage.getItem(USER_KEY)) return 'profile'
     return localStorage.getItem(REF_KEY) ? 'app' : null
   } catch { return null }
 }
@@ -236,7 +253,8 @@ export function FounderSheet({ open, onClose }: { open: boolean; onClose: () => 
   )
 }
 
-async function shareLink(url: string, text: string) {
+/** Поделиться ссылкой: меню телефона, а если его нет — копируем. */
+export async function shareLink(url: string, text: string): Promise<'shared' | 'cancel' | 'copied' | 'fail'> {
   try {
     if (navigator.share) { await navigator.share({ title: 'Komeeta', text, url }); return 'shared' }
   } catch (e) { if ((e as Error)?.name === 'AbortError') return 'cancel' }

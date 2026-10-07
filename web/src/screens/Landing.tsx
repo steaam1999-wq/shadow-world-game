@@ -250,7 +250,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             <p className="text-[15px] text-muted leading-snug max-w-[290px]">Кофе, выставки, прогулки — сегодня, с людьми из вашего города.</p>
             {invited && (
               <p className="mt-1 rounded-2xl bg-spark/12 px-3.5 py-2.5 text-[14px] leading-snug" role="status">
-                👋 {invited === 'plan' ? 'Друг зовёт вас на встречу — войдите, и план откроется сразу.' : 'Вас пригласил друг — заходите, здесь находят компанию на сегодня.'}
+                👋 {invited === 'plan' ? 'Друг зовёт вас на встречу — войдите, и план откроется сразу.' : invited === 'profile' ? 'С вами поделились страницей в Komeeta — войдите, и она откроется сразу.' : 'Вас пригласил друг — заходите, здесь находят компанию на сегодня.'}
               </p>
             )}
             <p className="mt-2 text-[14px] font-semibold">Войдите или создайте аккаунт — <span className="text-muted font-normal">выберите способ, аккаунт создастся сам</span></p>

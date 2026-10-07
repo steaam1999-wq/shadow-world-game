@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState, type ComponentType } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 import { StoreProvider, useNow, useStore } from './store'
 import { PlayerProvider, usePlayer } from './music/player'
 import { FullPlayer, MiniPlayer } from './music/PlayerUI'
@@ -19,7 +19,7 @@ import { CONSENT_SINCE } from './components/Rules'
 import { cloudEnabled } from './cloud/config'
 import { Avatar, Icon, Logo, LogoMark, Sheet } from './components/ui'
 import { VerifySheet, useVerifyRequests } from './components/Verify'
-import { FounderSheet, captureInvite, useClaimReferral, useFounderInfoRequests } from './components/Invite'
+import { FounderSheet, captureInvite, forgetInvitedUser, invitedUser, useClaimReferral, useFounderInfoRequests } from './components/Invite'
 import { isExpired, relative } from './lib'
 import type { Activity, Me, Person, PlanComment, State } from './types'
 
@@ -166,6 +166,20 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   // Где сейчас человек — уходит в «Сообщить об ошибке».
   useEffect(() => { document.body.dataset.page = person ? 'профиль человека' : chat ? 'чат' : tab }, [tab, person, chat])
   const openProfile = (id: string) => { setPerson(id); setChat(null); window.scrollTo(0, 0) }
+  // Поделились страницей человека: открываем её, как только люди загрузятся.
+  const peopleRef = useRef(state.people)
+  peopleRef.current = state.people
+  useEffect(() => {
+    const id = invitedUser()
+    if (!id) return
+    if (id === state.cloud?.userId) { forgetInvitedUser(); setTab('profile'); return }
+    let tries = 0
+    const t = window.setInterval(() => {
+      if (peopleRef.current.some((p) => p.id === id)) { clearInterval(t); forgetInvitedUser(); setPerson(id); setChat(null) }
+      else if (++tries > 40) { clearInterval(t); forgetInvitedUser() }
+    }, 250)
+    return () => clearInterval(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [toast, setToast] = useState<Activity | null>(null)
   const [creating, setCreating] = useState(false)
   const [choosing, setChoosing] = useState(false)

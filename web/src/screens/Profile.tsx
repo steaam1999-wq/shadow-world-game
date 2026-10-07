@@ -20,7 +20,7 @@ import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
 import { currentUser, deleteAccount, humanError, linkEmail } from '../cloud/api'
 import { VerifyCard, openVerify } from '../components/Verify'
-import { FounderBadge, GoldFrame, InviteCard } from '../components/Invite'
+import { FounderBadge, GoldFrame, InviteCard, inviteUrl, profileUrl, shareLink } from '../components/Invite'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreatePlan }: {
   onCreatePlan?: () => void
@@ -40,8 +40,11 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const [copied, setCopied] = useState(false)
   const myPlans = state.activities.filter((a) => a.authorId === 'me')
   const now = useNow()
+  // Ссылка на мою страницу: друг откроет её сразу после входа, а новичок засчитается как приглашённый.
   const share = async () => {
-    try { await navigator.clipboard.writeText(`${me.name} в Komeeta: ${myPlans.length} ${plural(myPlans.length, 'план', 'плана', 'планов')} на ближайшие 48 часов`) } catch { /* буфер недоступен */ }
+    const id = state.cloud?.userId
+    const r = await shareLink(id ? profileUrl(id, id) : inviteUrl(null), `${me.name} в Komeeta — заглядывай на мою страницу 🙂`)
+    if (r !== 'copied') return
     setCopied(true)
     setTimeout(() => setCopied(false), 1600)
   }

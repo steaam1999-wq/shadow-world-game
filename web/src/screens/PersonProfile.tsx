@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, level, planWhen, plural, sharedAnswers, nameAge, profileTint } from '../lib'
 import { Avatar, Button, Icon, StoryRing } from '../components/ui'
-import { FounderBadge, GoldFrame } from '../components/Invite'
+import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
 import { personTrack } from '../music/player'
@@ -38,6 +38,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const [tab, setTab] = useState<'plans' | 'posts' | 'songs'>('posts')
   const [showFollowers, setShowFollowers] = useState(false)
   const tasteOf = useTaste() // до раннего выхода: хуки вызываются всегда в одном порядке
+  const [copied, setCopied] = useState(false)
   if (!p) return null
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)
@@ -63,7 +64,10 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
       <div className="flex items-center gap-2 px-2 pt-1">
         <button onClick={onBack} className="grid place-items-center w-10 h-10 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Назад"><Icon name="back" /></button>
         <h1 className="flex-1 font-display font-semibold text-lg truncate">{p.name}</h1>
+        <button onClick={() => void shareLink(profileUrl(p.id, state.cloud?.userId), `${p.name} в Komeeta — посмотри страницу`).then((r) => { if (r === 'copied') { setCopied(true); setTimeout(() => setCopied(false), 1800) } })}
+          className="grid place-items-center w-10 h-10 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Поделиться страницей"><Icon name="share" size={21} /></button>
         <button onClick={() => setReporting(p)} className="grid place-items-center w-10 h-10 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="Пожаловаться"><Icon name="more" size={22} /></button>
+        {copied && <span className="fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">Ссылка на страницу скопирована</span>}
       </div>
 
       <section className="flex flex-col gap-3 px-4 pt-3 pb-1 -mt-3 rounded-b-[28px]" style={profileTint(p.hue)}>

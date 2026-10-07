@@ -367,3 +367,20 @@ test('основатель: окно «что даёт статус», стен�
   await expect(sheet.getByText('№3')).toBeVisible()
   await expect(sheet.getByText(/\(вы\)/)).toBeVisible()
 })
+
+test('поделиться страницей: ссылка с #u= открывает профиль человека', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await enterDemo(page)
+  await page.evaluate(() => { (navigator as { share?: unknown }).share = undefined })
+  const person = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('iskra-state')!); return { id: s.people[0].id, name: s.people[0].name } })
+  // Чужие id в демо — не uuid; подменим на uuid, чтобы проверить настоящую ссылку.
+  const uid = '0b8f0c2e-1111-4222-8333-944455556666'
+  await patchState(page, (s) => { const old = s.people[0].id; s.people[0].id = '0b8f0c2e-1111-4222-8333-944455556666'; s.activities.forEach((a: { authorId: string }) => { if (a.authorId === old) a.authorId = '0b8f0c2e-1111-4222-8333-944455556666' }) })
+  await page.goto(`./#u=${uid}`)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: new RegExp(`^${person.name}, \\d+`) })).toBeVisible()
+  await page.evaluate(() => { (navigator as { share?: unknown }).share = undefined })
+  await page.getByRole('button', { name: 'Поделиться страницей' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Ссылка на страницу скопирована' })).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(`#u=${uid}`)
+})
