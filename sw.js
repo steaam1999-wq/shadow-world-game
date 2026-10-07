@@ -1,7 +1,7 @@
 // Komeeta: сервис-воркер — уведомления (в том числе push при закрытом сайте) и быстрый повторный запуск.
 // Кэш: файлы сборки (assets/ с хэшем в имени) — из кэша, они не меняются; страница — сначала из сети
 // (чтобы обновления приходили сразу), а без сети или при медленной сети — из кэша.
-const CACHE = 'komeeta-v3' // сменили логотип — новое имя сбрасывает старые иконки в телефонах
+const CACHE = 'komeeta-v4' // сменили логотип — новое имя сбрасывает старые иконки в телефонах
 const MAX_ASSETS = 80
 
 self.addEventListener('install', () => self.skipWaiting())
@@ -62,7 +62,9 @@ self.addEventListener('notificationclick', (e) => {
   const person = e.notification.data && e.notification.data.person
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
     const win = list[0]
-    if (win) { win.postMessage({ type: 'open-chat', chat, person }); return win.focus() }
+    const call = e.notification.data && e.notification.data.call
+    // Звонок: экран входящего откроется сам — приложение проверяет звонки при запуске.
+    if (win) { if (!call) win.postMessage({ type: 'open-chat', chat, person }); return win.focus() }
     return self.clients.openWindow('./#app')
   }))
 })
@@ -76,9 +78,12 @@ self.addEventListener('push', (e) => {
     // Safari требует показывать уведомление на каждый push, поэтому там показываем всегда.
     const safari = /Safari/.test(self.navigator.userAgent) && !/Chrome|Chromium|Android/.test(self.navigator.userAgent)
     if (!safari && list.some((c) => c.visibilityState === 'visible' && c.focused)) return
+    const call = d.kind === 'call'
     return self.registration.showNotification(d.title || 'Komeeta', {
-      body: d.body || 'Новое сообщение', tag: d.chat || d.kind || 'iskra', renotify: true,
-      icon: 'icon-192.png', badge: 'icon-192.png', data: { chat: d.chat, person: d.person },
+      body: d.body || 'Новое сообщение', tag: call ? 'call' : d.chat || d.kind || 'iskra', renotify: true,
+      icon: 'icon-192.png', badge: 'icon-192.png', data: { chat: d.chat, person: d.person, call: d.call },
+      // Звонок: не исчезает сам и вибрирует как вызов
+      ...(call ? { requireInteraction: true, vibrate: [500, 250, 500, 250, 500] } : {}),
     })
   }))
 })
