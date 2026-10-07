@@ -56,11 +56,11 @@ export function relative(ts: number, now = Date.now()) {
 }
 
 export const LEVELS = [
-  { min: 0, name: 'Искра' },
-  { min: 1, name: 'Огонёк' },
-  { min: 3, name: 'Костёр' },
-  { min: 6, name: 'Маяк' },
-  { min: 10, name: 'Фейерверк' },
+  { min: 0, name: 'Звёздочка' },
+  { min: 1, name: 'Метеор' },
+  { min: 3, name: 'Комета' },
+  { min: 6, name: 'Созвездие' },
+  { min: 10, name: 'Галактика' },
 ]
 
 export function level(meetings: number) {
