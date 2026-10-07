@@ -129,7 +129,7 @@ export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
 /** Золотая рамка вокруг фото основателя. */
 export function GoldFrame({ on, children }: { on: boolean; children: ReactNode }) {
   if (!on) return <>{children}</>
-  return <span className="gold-medal block p-[3px]"><span className="block rounded-full bg-surface p-[2px] relative z-[1]">{children}</span></span>
+  return <span className="gold-medal grid place-items-center leading-[0] p-[3px] shrink-0"><span className="grid place-items-center leading-[0] rounded-full bg-surface p-[2px] relative z-[1]">{children}</span></span>
 }
 
 export const BOOST_DAY_MS = 86400_000

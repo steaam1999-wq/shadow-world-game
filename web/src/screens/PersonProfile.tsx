@@ -81,9 +81,12 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             <div className="text-[14px] text-muted truncate">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>
             {p.founder && <div className="mt-2.5"><FounderBadge n={p.founder} /></div>}
           </div>
-          <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
-            <GoldFrame on={!!p.founder}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
-          </StoryRing>
+          {p.founder && (!plans.length || state.seenStories.includes(p.id))
+            // Основатель без новых историй: только золотая рамка, без второго серого кольца.
+            ? <GoldFrame on><Avatar name={p.name} hue={p.hue} src={p.photo} size={74} /></GoldFrame>
+            : <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
+              <GoldFrame on={!!p.founder}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
+            </StoryRing>}
         </div>
 
         <div className="text-[14px] leading-snug flex flex-col gap-1">
