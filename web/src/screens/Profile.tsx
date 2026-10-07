@@ -365,6 +365,8 @@ function SafetySection({ onSignOut }: { onSignOut: () => void }) {
         <div className="py-1">
           <Toggle id="sf-verified" checked={!!state.me.onlyVerified} onChange={(v) => dispatch({ type: 'updateMe', patch: { onlyVerified: v } })}
             label="Писать мне могут только проверенные" hint="Первое сообщение — только от людей с синей галочкой. Тем, с кем вы уже общаетесь, это не мешает." />
+          <Toggle id="sf-calls" checked={!state.me.callsOff} onChange={(v) => dispatch({ type: 'updateMe', patch: { callsOff: !v } })}
+            label="Принимать звонки" hint="Позвонить могут только те, с кем вы уже переписывались в обе стороны." />
         </div>
       )}
       <div className="py-3 flex flex-col gap-2">

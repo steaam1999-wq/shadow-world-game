@@ -443,3 +443,16 @@ test('город: поиск по России и карта России', asyn
   await page.getByRole('tab', { name: /Карта/ }).click()
   await expect(page.getByRole('img', { name: 'Карта России' })).toBeVisible()
 })
+
+test('звонки: кнопки в чате, в демо — подсказка; переключатель «Принимать звонки»', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Чаты/)
+  await page.locator('main ul > li > button:not([aria-hidden])').first().click()
+  await page.getByRole('button', { name: /^Позвонить / }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Звонки работают после входа' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Видеозвонок / })).toBeVisible()
+  await page.getByRole('button', { name: 'К списку чатов' }).click()
+  await nav(page, /^Профиль/)
+  await page.getByRole('tab', { name: /Настройки/ }).click()
+  await expect(page.getByLabel('Принимать звонки')).toBeChecked()
+})

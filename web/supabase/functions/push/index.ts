@@ -1,5 +1,5 @@
 // Komeeta: push-уведомления о новых сообщениях и подписках.
-// Вызывается триггерами базы (messages_push, group_messages_push, follows_push) и расписанием напоминаний о встречах с общим секретом в заголовке x-push-secret.
+// Вызывается триггерами базы (messages_push, group_messages_push, follows_push, call_signals_push) и расписанием напоминаний о встречах с общим секретом в заголовке x-push-secret.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
@@ -40,6 +40,15 @@ Deno.serve(async (req) => {
     const line = `${sender?.name ?? 'Кто-то'}: ${text}`
     payload = JSON.stringify({ title: g?.title ?? 'Группа', body: line.length > 140 ? line.slice(0, 139) + '…' : line, chat: m.group_id })
     topic = String(m.group_id).replace(/-/g, '').slice(0, 32)
+  } else if (body.call_signal_id) {
+    // Входящий звонок: «Саня звонит вам» — нажатие откроет приложение с экраном звонка.
+    const { data: c } = await db.from('call_signals').select('call_id, from_user, to_user, kind, payload').eq('id', body.call_signal_id).maybeSingle()
+    if (!c || c.kind !== 'offer') return new Response('no call', { status: 404 })
+    const { data: who } = await db.from('profiles').select('name').eq('id', c.from_user).maybeSingle()
+    const video = !!(c.payload as { video?: boolean })?.video
+    to = [c.to_user]
+    payload = JSON.stringify({ title: video ? '🎥 Видеозвонок' : '📞 Входящий звонок', body: `${who?.name ?? 'Кто-то'} звонит вам`, kind: 'call', call: c.call_id, person: c.from_user })
+    topic = String(c.call_id).replace(/-/g, '').slice(0, 32)
   } else if (body.follower && body.followee) {
     // Новая подписка: «Имя подписался(ась) на вас».
     const { data: f } = await db.from('follows').select('follower').eq('follower', body.follower).eq('followee', body.followee).maybeSingle()
@@ -68,7 +77,7 @@ Deno.serve(async (req) => {
   let sent = 0
   await Promise.all(subs.map(async (s) => {
     try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600, urgency: 'high', topic })
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: body.call_signal_id ? 45 : 3600, urgency: 'high', topic })
       sent++
     } catch (e) {
       const code = (e as { statusCode?: number }).statusCode

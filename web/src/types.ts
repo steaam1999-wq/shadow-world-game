@@ -26,6 +26,7 @@ export interface Person {
   freeUntil?: number // «Свободен сейчас» до этого времени (облако)
   noShows?: number // сколько раз не пришёл(ла) на договорённую встречу (облако)
   onlyVerified?: boolean // принимает первые сообщения только от проверенных
+  callsOff?: boolean // не принимает звонки
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number // когда получил значок — неделю его планы выше в ленте
   founderWall?: boolean // показан на «Стене основателей»
@@ -56,6 +57,7 @@ export interface Me {
   noShows?: number // мои пропущенные встречи по отметкам других
   trustedContact?: string // кому сообщить, если встреча пошла не так
   onlyVerified?: boolean // «Писать мне могут только проверенные»
+  callsOff?: boolean // «Не принимать звонки»
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number
   founderWall?: boolean

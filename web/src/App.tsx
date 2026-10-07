@@ -19,6 +19,7 @@ import { CONSENT_SINCE } from './components/Rules'
 import { cloudEnabled } from './cloud/config'
 import { Avatar, Icon, Logo, LogoMark, Sheet } from './components/ui'
 import { VerifySheet, useVerifyRequests } from './components/Verify'
+import { CallProvider } from './calls/Calls'
 import { FounderSheet, captureInvite, forgetInvitedUser, invitedUser, useClaimReferral, useFounderInfoRequests } from './components/Invite'
 import { isExpired, relative } from './lib'
 import type { Activity, Me, Person, PlanComment, State } from './types'
@@ -257,6 +258,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
   return (
     <ProfileNav.Provider value={openProfile}>
+    <CallProvider>
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && (tab !== 'reels' || person) && (
         <header className={`bar fixed top-0 inset-x-0 mx-auto w-full max-w-[480px] z-20 pt-[env(safe-area-inset-top,0px)] px-4 flex items-center glass transition-transform duration-300 ease-out ${hideTop ? '-translate-y-full' : 'translate-y-0'}`}>
@@ -379,6 +381,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
         </nav>
       )}
     </div>
+    </CallProvider>
     </ProfileNav.Provider>
   )
 }

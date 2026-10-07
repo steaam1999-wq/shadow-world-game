@@ -20,6 +20,7 @@ function personOrGone(people: Person[], id: string): Person {
 }
 import { openVerify } from '../components/Verify'
 import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
+import { useCalls } from '../calls/Calls'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   active: { label: 'Переписка', tone: 'spark' },
@@ -313,6 +314,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Komeeta'}</div>
           </div>
           </button>
+          <CallButtons person={p} canCall={!!state.cloud && !gone && c.messages.some((m) => m.from === 'them') && c.messages.some((m) => m.from === 'me') && !p.callsOff}
+            hint={!state.cloud ? 'Звонки работают после входа в аккаунт' : p.callsOff ? `${p.name} не принимает звонки` : 'Позвонить можно, когда вы оба написали друг другу'} />
           <PlaylistButton chatId={c.id} />
           <button onClick={() => setMenu(true)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Встреча и безопасность"><Icon name="more" size={20} /></button>
         </div>
@@ -412,5 +415,24 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
       <CheckinSheet capsule={c} person={p} open={checkin} onClose={() => setCheckin(false)} />
       <SafetySheet capsule={c} person={p} place={place} open={safety} onClose={() => setSafety(false)} />
     </div>
+  )
+}
+
+/** Звонок и видеозвонок из шапки чата. Пока звонить нельзя — подсказка, почему. */
+function CallButtons({ person, canCall, hint }: { person: Person; canCall: boolean; hint: string }) {
+  const { start, busy } = useCalls()
+  const [tip, setTip] = useState(false)
+  useEffect(() => { if (!tip) return; const t = setTimeout(() => setTip(false), 2600); return () => clearTimeout(t) }, [tip])
+  const go = (video: boolean) => (canCall ? start(person.id, video) : setTip(true))
+  const btn = `grid place-items-center w-10 h-10 rounded-full hover:bg-surface-2 cursor-pointer ${canCall ? 'text-fg' : 'text-muted/60'}`
+  return (
+    <>
+      <button onClick={() => go(false)} disabled={busy} className={btn} aria-label={`Позвонить ${person.name}`}><Icon name="phone" size={20} /></button>
+      <button onClick={() => go(true)} disabled={busy} className={btn} aria-label={`Видеозвонок ${person.name}`}><Icon name="video" size={21} /></button>
+      {tip && createPortal(
+        <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] max-w-[90vw] rounded-2xl bg-fg text-bg px-4 py-2.5 text-[13.5px] font-medium shadow-soft text-center" role="status">{hint}</div>,
+        document.body,
+      )}
+    </>
   )
 }

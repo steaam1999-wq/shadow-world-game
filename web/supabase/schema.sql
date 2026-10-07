@@ -1543,3 +1543,71 @@ begin
   end if;
   return new;
 end $function$;
+
+-- ── Звонки и видеозвонки (WebRTC): сигналы через таблицу, звук и видео идут напрямую ──
+alter table public.profiles add column if not exists calls_off boolean not null default false;
+grant select (calls_off), insert (calls_off), update (calls_off) on public.profiles to authenticated;
+
+-- Звонить можно только тому, с кем уже переписывались в обе стороны; без блокировок, банов и запрета звонков.
+create or replace function private.can_call(other uuid) returns boolean language sql stable security definer set search_path to 'public' as $$
+  select (select auth.uid()) is not null and other <> (select auth.uid())
+    and not exists (select 1 from public.bans where user_id in (other, (select auth.uid())))
+    and not exists (select 1 from public.blocks b where (b.blocker = other and b.blocked = (select auth.uid())) or (b.blocker = (select auth.uid()) and b.blocked = other))
+    and not exists (select 1 from public.profiles where id = other and calls_off)
+    and exists (
+      select 1 from public.capsules c
+      where ((c.author = other and c.responder = (select auth.uid())) or (c.responder = other and c.author = (select auth.uid())))
+        and exists (select 1 from public.messages m where m.capsule_id = c.id and m.sender = other)
+        and exists (select 1 from public.messages m where m.capsule_id = c.id and m.sender = (select auth.uid()))
+    )
+$$;
+revoke all on function private.can_call(uuid) from public, anon;
+grant execute on function private.can_call(uuid) to authenticated;
+
+create table if not exists public.call_signals (
+  id bigint generated always as identity primary key,
+  call_id uuid not null,
+  from_user uuid not null default auth.uid() references public.profiles(id) on delete cascade,
+  to_user uuid not null references public.profiles(id) on delete cascade,
+  kind text not null check (kind in ('offer','answer','ice','end','decline','busy')),
+  payload jsonb not null default '{}'::jsonb check (octet_length(payload::text) <= 20000),
+  created_at timestamptz not null default now()
+);
+create index if not exists call_signals_to_idx on public.call_signals (to_user, created_at);
+create index if not exists call_signals_call_idx on public.call_signals (call_id);
+alter table public.call_signals enable row level security;
+grant select, insert, delete on public.call_signals to authenticated;
+
+create or replace function private.call_open(c uuid, a uuid, b uuid) returns boolean language sql stable security definer set search_path to 'public' as $$
+  select exists (select 1 from public.call_signals s where s.call_id = c and s.kind = 'offer' and s.created_at > now() - interval '3 hours'
+    and ((s.from_user = a and s.to_user = b) or (s.from_user = b and s.to_user = a)))
+$$;
+revoke all on function private.call_open(uuid, uuid, uuid) from public, anon;
+grant execute on function private.call_open(uuid, uuid, uuid) to authenticated;
+create policy "calls: read own" on public.call_signals for select to authenticated using (from_user = (select auth.uid()) or to_user = (select auth.uid()));
+create policy "calls: send" on public.call_signals for insert to authenticated with check (
+  from_user = (select auth.uid()) and to_user <> from_user and (
+    (kind = 'offer' and private.can_call(to_user))
+    or (kind <> 'offer' and private.call_open(call_id, from_user, to_user))
+  ));
+create policy "calls: delete own" on public.call_signals for delete to authenticated using (from_user = (select auth.uid()) or to_user = (select auth.uid()));
+
+create or replace function private.call_signal_guard() returns trigger language plpgsql security definer set search_path to 'public' as $$ begin
+  if new.kind = 'offer' and (select count(*) from call_signals where from_user = new.from_user and kind = 'offer' and created_at > now() - interval '1 hour') >= 20 then raise exception 'call-limit' using errcode = 'P0001'; end if;
+  if new.kind = 'ice' and (select count(*) from call_signals where call_id = new.call_id and from_user = new.from_user and kind = 'ice') >= 60 then return null; end if;
+  return new;
+end $$;
+create trigger call_signals_guard before insert on public.call_signals for each row execute function private.call_signal_guard();
+create or replace function private.on_call_push() returns trigger language plpgsql security definer set search_path to 'public', 'vault', 'extensions' as $$
+begin
+  perform net.http_post(
+    url := 'https://mrivbqkqdaxtvwcsljzu.supabase.co/functions/v1/push',
+    body := json_build_object('call_signal_id', new.id)::jsonb,
+    headers := json_build_object('Content-Type', 'application/json',
+      'x-push-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))::jsonb,
+    timeout_milliseconds := 5000);
+  return new;
+exception when others then return new;
+end $$;
+create trigger call_signals_push after insert on public.call_signals for each row when (new.kind = 'offer') execute function private.on_call_push();
+alter publication supabase_realtime add table public.call_signals;
