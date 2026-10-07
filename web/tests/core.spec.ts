@@ -384,3 +384,15 @@ test('поделиться страницей: ссылка с #u= открыв�
   await expect(page.getByRole('status').filter({ hasText: 'Ссылка на страницу скопирована' })).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(`#u=${uid}`)
 })
+
+test('поиск находит людей без планов, по имени и интересам, без учёта регистра', async ({ page }) => {
+  await enterDemo(page)
+  const name = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('iskra-state')!); const p = s.people.at(-1); s.activities = s.activities.filter((a: { authorId: string }) => a.authorId !== p.id); localStorage.setItem('iskra-state', JSON.stringify(s)); return p.name as string })
+  await page.reload()
+  await nav(page, /^Поиск/)
+  await page.getByPlaceholder(/Поиск/).fill(name.toUpperCase())
+  const found = page.getByRole('region', { name: 'Найденные люди' })
+  await expect(found.getByRole('button', { name: `Профиль ${name}` })).toBeVisible()
+  await found.getByRole('button', { name: `Профиль ${name}` }).click()
+  await expect(page.getByRole('heading', { name: new RegExp(`^${name}`) }).first()).toBeVisible()
+})

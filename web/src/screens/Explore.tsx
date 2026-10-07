@@ -4,12 +4,16 @@ import { PlaceOptions, knownKm, placeDistanceKm, placeInfo, placeXY } from '../p
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { PostArt } from '../components/PostArt'
-import { Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
 import { MapTab } from './MapView'
-import type { Activity, PlanMusic } from '../types'
+import { useOpenProfile } from '../nav'
+import type { Activity, Person, PlanMusic } from '../types'
+
+// Поиск без учёта регистра и «ё».
+const norm = (s: string) => s.toLowerCase().replace(/ё/g, 'е').trim()
 
 const RADII = [3, 10, 50, 500]
 const TIMES = [
@@ -35,21 +39,21 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
   const items = useMemo(() => {
     const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999)
     const endOfTomorrow = endOfToday.getTime() + 24 * HOUR
-    const q = query.trim().toLowerCase()
+    const q = norm(query)
     return state.activities
       .filter((a) => a.expiresAt > now)
       .filter((a) => {
         const p = state.people.find((x) => x.id === a.authorId)
         const km = placeInfo(a.area) && placeInfo(me.district) ? placeDistanceKm(me.district, a.area) : p?.distanceKm
-        // Город не указан (у меня или у автора) — расстояние неизвестно, план показываем.
-        return a.authorId === 'me' || (p && (!me.district || !knownKm(km) || km! <= me.radiusKm))
+        // Город не указан (у меня или у автора) — расстояние неизвестно, план показываем. Ищут конкретное — радиус не мешает.
+        return a.authorId === 'me' || (q && p) || (p && (!me.district || !knownKm(km) || km! <= me.radiusKm))
       })
       .filter((a) => !cats.length || cats.includes(a.category))
       .filter((a) => !groupsOnly || !!a.groupSize)
       .filter((a) => {
         if (!q) return true
         const p = state.people.find((x) => x.id === a.authorId)
-        return [a.title, a.area, a.category, p?.name ?? ''].some((t) => t.toLowerCase().includes(q))
+        return [a.title, a.area, a.category, p?.name ?? '', ...(p?.tags ?? [])].some((t) => norm(t).includes(q))
       })
       .filter((a) => {
         if (time === 'now') return a.startsAt - now < 3 * HOUR
@@ -59,6 +63,17 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       })
       .sort((a, b) => a.startsAt - b.startsAt)
   }, [state.activities, state.people, me.radiusKm, cats, time, now, query, groupsOnly])
+
+  // Люди по имени, интересам, району и описанию — даже если у них сейчас нет плана.
+  const people = useMemo(() => {
+    const q = norm(query)
+    if (!q) return []
+    const score = (p: Person) => (norm(p.name).startsWith(q) ? 0 : norm(p.name).includes(q) ? 1 : p.tags.some((t) => norm(t).includes(q)) ? 2 : 3)
+    return state.people
+      .filter((p) => [p.name, p.district, p.bio, ...p.tags].some((t) => norm(t ?? '').includes(q)))
+      .sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name))
+      .slice(0, 30)
+  }, [state.people, query])
 
   // На карте — все действующие планы в радиусе (фильтры времени и категорий там не показываются).
   const mapItems = useMemo(() => state.activities.filter((a) => {
@@ -109,6 +124,8 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
         </div>
       )}
 
+      {mode !== 'map' && query.trim() && <PeopleResults people={people} full={mode === 'people'} />}
+
       {mode === 'plans' && (
         items.length ? (
           <div className="grid grid-cols-3 grid-flow-dense gap-1 px-1">
@@ -128,10 +145,10 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
               )
             })}
           </div>
-        ) : <EmptyResults onReset={() => { setCats([]); setTime('all'); setQuery(''); dispatch({ type: 'updateMe', patch: { radiusKm: 10 } }) }} />
+        ) : people.length ? <p className="px-4 py-4 text-center text-[13px] text-muted">Планов по запросу нет — загляните в профили выше</p> : <EmptyResults onReset={() => { setCats([]); setTime('all'); setQuery(''); dispatch({ type: 'updateMe', patch: { radiusKm: 10 } }) }} />
       )}
 
-      {mode === 'people' && <div className="px-4"><Vibe now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} /></div>}
+      {mode === 'people' && !query.trim() && <div className="px-4"><Vibe now={now} onRespond={onRespond} onOpenCapsule={onOpenCapsule} /></div>}
 
       {mode === 'map' && <MapTab items={mapItems} now={now} onOpenPlan={setOpen} />}
 
@@ -145,6 +162,41 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Найденные люди: строкой над планами или списком во вкладке «Люди». */
+function PeopleResults({ people, full }: { people: Person[]; full: boolean }) {
+  const { state } = useStore()
+  const openProfile = useOpenProfile()
+  const me = state.me!
+  if (!people.length) return full ? <p className="px-4 py-8 text-center text-muted">Таких людей не нашлось</p> : null
+  if (!full) return (
+    <section aria-label="Найденные люди">
+      <h3 className="px-4 mb-2 text-[13px] font-semibold text-muted">Люди</h3>
+      <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+        {people.map((p) => (
+          <button key={p.id} onClick={() => openProfile(p.id)} className="flex flex-col items-center gap-1 w-[68px] shrink-0 cursor-pointer" aria-label={`Профиль ${p.name}`}>
+            <Avatar name={p.name} hue={p.hue} src={p.photo} size={60} verified={p.verified} />
+            <span className="text-[12px] font-medium truncate w-full text-center">{p.name}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+  return (
+    <div className="flex flex-col px-2" aria-label="Найденные люди">
+      {people.map((p) => (
+        <button key={p.id} onClick={() => openProfile(p.id)} className="flex items-center gap-3 p-2 rounded-2xl text-left hover:bg-surface-2 cursor-pointer" aria-label={`Профиль ${p.name}`}>
+          <Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} />
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold truncate">{p.name}{p.age ? `, ${p.age}` : ''}</span>
+            <span className="block text-[13px] text-muted truncate">{[p.district, p.tags.slice(0, 3).map((t) => `#${t.toLowerCase()}`).join(' ')].filter(Boolean).join(' · ')}</span>
+          </span>
+          <span className="text-[12px] font-bold text-spark tnum">{compatibility(me, p).score}%</span>
+        </button>
+      ))}
     </div>
   )
 }
