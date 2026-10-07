@@ -1521,3 +1521,25 @@ alter policy "group members: add" on public.group_members with check (private.is
 create or replace function private.tags_ok(t text[]) returns boolean language sql immutable as $$ select cardinality(t) <= 20 and coalesce((select bool_and(char_length(x) between 1 and 24) from unnest(t) x), true) $$;
 alter table public.profiles drop constraint if exists profiles_tags_check;
 alter table public.profiles add constraint profiles_tags_check check (private.tags_ok(tags));
+
+-- Лимит «3 сообщения без ответа» действует, только пока собеседник ни разу не ответил
+create or replace function private.message_guard() returns trigger language plpgsql security definer set search_path to 'public' as $function$
+declare other uuid; mine int; total int; replied boolean;
+begin
+  select case when c.author = new.sender then c.responder else c.author end into other from capsules c where c.id = new.capsule_id;
+  replied := other is not null and exists (select 1 from messages where capsule_id = new.capsule_id and sender = other);
+  if not replied then
+    select count(*), count(*) filter (where t.sender = new.sender) into total, mine
+      from (select sender from messages where capsule_id = new.capsule_id order by created_at desc, id desc limit 3) t;
+    if total = 3 and mine = 3 then raise exception 'wait-reply' using errcode = 'P0001'; end if;
+  end if;
+  if other is not null and not replied and exists (select 1 from profiles where id = other and only_verified)
+     and not exists (select 1 from profiles where id = new.sender and verified) then
+    raise exception 'only-verified' using errcode = 'P0001';
+  end if;
+  if other is not null and new.body ~* '(\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}|переве(ди|сти|дите)|скин(ь|уть|ьте) (деньг|на карт|денег)|номер карты|реквизит|займ(и|ёшь|ешь)|одолж|в долг|usdt|bitcoin|биткоин|крипт)'
+     and not exists (select 1 from reports where target = new.sender and reason = 'auto:money' and created_at > now() - interval '1 day') then
+    insert into reports (reporter, target, reason, body) values (other, new.sender, 'auto:money', left(new.body, 500));
+  end if;
+  return new;
+end $function$;

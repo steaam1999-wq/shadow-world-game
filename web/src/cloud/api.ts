@@ -111,7 +111,7 @@ export function humanError(e: unknown): string {
   if (/Password should be/i.test(m)) return 'Пароль слишком простой: нужно минимум 6 символов.'
   if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту.'
   if (/chat-limit/.test(m)) return 'На сегодня новых чатов достаточно — это защита от спама. Продолжите завтра или пишите тем, с кем уже общаетесь.'
-  if (/wait-reply/.test(m)) return 'Подождите ответа: без ответа можно отправить не больше 3 сообщений подряд.'
+  if (/wait-reply/.test(m)) return 'Подождите ответа: пока собеседник не ответил, можно отправить не больше 3 сообщений. После ответа ограничений нет.'
   if (/boost-wait/.test(m)) return 'Поднимать план можно раз в 30 дней.'
   if (/not-founder/.test(m)) return 'Это могут только Основатели Komeeta.'
   if (/only-verified/.test(m)) return 'Этот человек принимает первые сообщения только от проверенных профилей.'

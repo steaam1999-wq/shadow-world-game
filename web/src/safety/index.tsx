@@ -19,6 +19,8 @@ export function MoneyWarning() {
 
 /** Не больше 3 сообщений подряд без ответа (так же проверяет сервер). */
 export function waitingForReply(messages: { from: string }[]) {
+  // Собеседник уже ответил хоть раз — ограничения больше нет.
+  if (messages.some((m) => m.from === 'them')) return false
   const last = messages.filter((m) => m.from !== 'system').slice(-3)
   return last.length === 3 && last.every((m) => m.from === 'me')
 }

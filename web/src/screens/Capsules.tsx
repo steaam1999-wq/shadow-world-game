@@ -359,7 +359,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         {locked && (
           <p className="flex items-center gap-2 text-[12.5px] text-muted px-1" role="status">
             <Icon name={gone || verifiedOnly ? 'shield' : 'clock'} size={14} className="shrink-0" />
-            <span className="flex-1">{gone ? 'Аккаунт заблокирован администрацией или удалён — писать ему нельзя.' : verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей.` : `Подождите ответа — без ответа можно отправить не больше 3 сообщений подряд.`}</span>
+            <span className="flex-1">{gone ? 'Аккаунт заблокирован администрацией или удалён — писать ему нельзя.' : verifiedOnly ? `${p.name} принимает первые сообщения только от проверенных профилей.` : `Подождите ответа: пока собеседник не ответил, можно отправить не больше 3 сообщений. После ответа — без ограничений.`}</span>
             {!gone && verifiedOnly && <button type="button" onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[12.5px] font-semibold cursor-pointer">Пройти проверку</button>}
           </p>
         )}
