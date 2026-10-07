@@ -20,6 +20,7 @@ import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications } from './Shorts'
 import { currentUser, deleteAccount, humanError, linkEmail } from '../cloud/api'
 import { VerifyCard, openVerify } from '../components/Verify'
+import { FounderBadge, InviteCard } from '../components/Invite'
 
 export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreatePlan }: {
   onCreatePlan?: () => void
@@ -67,6 +68,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
               {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
             </h2>
             <div className="text-[14px] text-muted truncate">{placeLine(lv.name, me.district)}</div>
+            {me.founder && <div className="mt-1.5"><FounderBadge n={me.founder} /></div>}
           </div>
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
             <Avatar name={me.name} hue={me.hue} src={me.photo} size={76} />
@@ -106,6 +108,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
           </div>
         )}
         <VerifyCard />
+        <InviteCard />
         <MeetingCards />
         {/* Достижения: полученные — яркие, остальные — подсказкой, как их получить */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" aria-label="Достижения">

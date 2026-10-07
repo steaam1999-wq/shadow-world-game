@@ -19,6 +19,7 @@ import { CONSENT_SINCE } from './components/Rules'
 import { cloudEnabled } from './cloud/config'
 import { Avatar, Icon, Logo, LogoMark, Sheet } from './components/ui'
 import { VerifySheet, useVerifyRequests } from './components/Verify'
+import { captureInvite, useClaimReferral } from './components/Invite'
 import { isExpired, relative } from './lib'
 import type { Activity, Me, Person, PlanComment, State } from './types'
 
@@ -83,6 +84,7 @@ function AuthCallback({ onUser, onFail }: { onUser: (u: { id: string; email: str
 function Root() {
   const { state, dispatch } = useStore()
   const [view, setView] = useState<View>(() => {
+    captureInvite() // до первой отрисовки: экран входа сразу покажет «вас позвали»
     const hash = readHash()
     if (cloudEnabled && /type=recovery|error_code=/.test(hash)) return 'recovery' // ссылка «новый пароль» из письма
     if (cloudEnabled && /access_token=/.test(hash)) return 'callback' // вход по ссылке из письма, Google или Apple
@@ -146,6 +148,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const me = state.me!
   const [verifying, setVerifying] = useState(false)
   useVerifyRequests(useCallback(() => setVerifying(true), []))
+  useClaimReferral()
   const [tab, setTab] = useState<Tab>('home')
   // 18+ и согласие на обработку данных: у новых — с экрана входа, у зарегистрированных раньше — разовое окно.
   const consentOk = !state.cloud || (me.consentAt ?? 0) >= CONSENT_SINCE

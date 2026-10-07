@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { compatibility, planWhen } from '../lib'
 import { Avatar, Icon, Sheet } from './ui'
 import type { Activity, Person } from '../types'
+import { inviteUrl } from './Invite'
 
 const HOLD_MS = 380
 interface Point { x: number; y: number }
@@ -193,7 +194,9 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
     dispatch({ type: 'share', personId: person.id, activityId: activity.id })
     dispatch({ type: 'repost', activityId: activity.id })
   }
-  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Нашёл в Komeeta`
+  // Ссылка ведёт прямо на этот план и засчитывает приглашение тому, кто позвал.
+  const url = inviteUrl(state.cloud?.userId, activity.id)
+  const text = `${activity.title} — ${activity.area}, ${planWhen(activity, now).toLowerCase()}. Пойдём? 👉 ${url}`
   const copy = async () => {
     try { await navigator.clipboard.writeText(text); setToast('Скопировано'); dispatch({ type: 'repost', activityId: activity.id }) } catch { setToast('Не удалось скопировать — выделите текст вручную') }
     setSheet(false)
@@ -224,7 +227,7 @@ export function ShareButton({ activity, now }: { activity: Activity; now: number
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={shareOut} className="h-12 rounded-2xl bg-brand text-white font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"><Icon name="send" size={18} /> Поделиться</button>
+              <button onClick={shareOut} className="h-12 rounded-2xl bg-brand text-white font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"><Icon name="send" size={18} /> Позвать друга</button>
               <button onClick={copy} className="h-12 rounded-2xl bg-surface-2 font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"><Icon name="copy" size={18} /> Копировать</button>
             </div>
             <p className="text-[13px] text-muted p-3 rounded-2xl bg-surface-2 select-all">{text}</p>

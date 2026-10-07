@@ -405,16 +405,20 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   if (messages.error) throw messages.error
 
   await attachPhotos(profiles.data ?? [], plans.data ?? [])
+  // Основатели: значок и неделя подъёма в ленте. Если таблицы нет — просто без значков.
+  const founderRows = await db.from('founders').select('user_id, number, granted_at').returns<{ user_id: string; number: number; granted_at: string }[]>()
+  const founders = new Map((founderRows.data ?? []).map((f) => [f.user_id, f]))
   const mine = (profiles.data ?? []).find((p) => p.id === userId) ?? null
   const missed = new Map(((missedRows.data ?? []) as { user_id: string; missed: number }[]).map((x) => [x.user_id, x.missed]))
   const reported = new Set((myNoShows.data ?? []).map((x) => x.capsule_id))
-  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0 } : null
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, founder: founders.get(userId)?.number } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
     photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified,
+    ...(founders.has(p.id) ? { founder: founders.get(p.id)!.number, founderAt: ms(founders.get(p.id)!.granted_at) } : {}),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
@@ -1075,4 +1079,20 @@ export async function setBugStatus(id: number, status: 'new' | 'done') {
 export async function acceptConsent(userId: string) {
   const { error } = await sb().from('profiles').update({ consent_at: new Date().toISOString() }).eq('id', userId)
   if (error) throw error
+}
+
+// ── Приглашения друзей ───────────────────────────────────────────────
+export interface InviteStats { invited: number; active: number; founder: number | null; founders: number; goal: number; limit: number }
+
+export async function myInvites(): Promise<InviteStats> {
+  const { data, error } = await sb().rpc('my_invites')
+  if (error) throw error
+  return data as InviteStats
+}
+
+/** Засчитать приглашение: сервер примет только от нового аккаунта и только один раз. */
+export async function claimReferral(inviter: string) {
+  const { data, error } = await sb().rpc('claim_referral', { inviter })
+  if (error) throw error
+  return !!data
 }

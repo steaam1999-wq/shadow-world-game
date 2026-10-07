@@ -310,3 +310,39 @@ test('галочка: баннер на главной открывает про
   await nav(page, /^Профиль/)
   await expect(page.getByRole('region', { name: 'Проверка профиля' }).getByRole('button', { name: 'Пройти проверку' })).toBeVisible()
 })
+
+test('позвать друга: ссылка ведёт на план, приветствие на входе, значок основателя и карточка в профиле', async ({ page }) => {
+  const ref = '11111111-2222-3333-4444-555555555555'
+  // Новичок по ссылке: на входе видно, что его позвали.
+  await page.goto(`./#ref=${ref}`)
+  await expect(page.getByRole('status').filter({ hasText: 'Вас пригласил друг' })).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('komeeta-ref'))).toBe(ref)
+
+  await enterDemo(page)
+  // Основатель: значок у его плана, и план поднят выше чужих.
+  await patchState(page, (s) => {
+    s.following = []
+    s.activities = s.activities.filter((a: { authorId: string }) => a.authorId !== 'me')
+    const last = s.activities.filter((a: { expiresAt: number }) => a.expiresAt > Date.now()).sort((a: { startsAt: number }, b: { startsAt: number }) => b.startsAt - a.startsAt)[0]
+    const p = s.people.find((x: { id: string }) => x.id === last.authorId); p.founder = 7; p.founderAt = Date.now()
+  })
+  const firstPost = page.locator('article[data-plan]').first()
+  await expect(firstPost.getByLabel('Основатель Komeeta №7')).toBeVisible()
+
+  // Ссылка на план друга открывает именно его.
+  const planId = await page.evaluate(() => JSON.parse(localStorage.getItem('iskra-state')!).activities.at(-1).id)
+  await page.goto(`./#plan=${planId}&ref=${ref}`)
+  await page.reload()
+  await expect(page.locator(`article[data-plan="${planId}"]`)).toHaveClass(/ring-spark/)
+
+  // В меню «Поделиться» — ссылка с приглашением.
+  await page.getByRole('button', { name: 'Поделиться планом' }).first().click()
+  await page.getByRole('button', { name: 'Ещё способы поделиться' }).click()
+  await expect(page.getByRole('dialog', { name: 'Поделиться' }).getByText(/#plan=/)).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await nav(page, /^Профиль/)
+  const card = page.getByRole('region', { name: 'Позвать друзей' })
+  await expect(card.getByText('Позовите трёх друзей')).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Позвать друга' })).toBeVisible()
+})

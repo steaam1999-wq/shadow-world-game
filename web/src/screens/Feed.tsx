@@ -11,6 +11,7 @@ import { ShareButton } from '../components/ShareButton'
 import { LikeButton } from '../components/LikeButton'
 import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../components/Meet'
 import { VerifyBanner } from '../components/Verify'
+import { FOUNDER_BOOST_MS, FounderBadge, takeInvitedPlan } from '../components/Invite'
 import { SurpriseMeet } from '../components/Surprise'
 import { WelcomeTips } from '../components/Tips'
 import { PushPrompt } from '../components/Alerts'
@@ -37,11 +38,14 @@ function useOpenSharedPublication() {
     const open = () => {
       let id = /^#pub=([\w-]+)$/.exec(location.hash)?.[1]
       try { id ??= sessionStorage.getItem('match-open-pub') ?? undefined; sessionStorage.removeItem('match-open-pub') } catch { /* ignore */ }
-      if (!id) return
+      // Друг позвал на свой план: открываем именно его.
+      const plan = id ? null : takeInvitedPlan()
+      const sel = id ? `[data-pub="${CSS.escape(id)}"]` : plan ? `[data-plan="${CSS.escape(plan)}"]` : ''
+      if (!sel) return
       clearInterval(t)
       let tries = 0
       t = window.setInterval(() => {
-        const el = document.querySelector<HTMLElement>(`[data-pub="${CSS.escape(id)}"]`)
+        const el = document.querySelector<HTMLElement>(sel)
         if (el || ++tries > 40) {
           clearInterval(t)
           if (location.hash.startsWith('#pub=')) history.replaceState(null, '', '#app')
@@ -67,7 +71,9 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
   const live = state.activities.filter((a) => a.expiresAt > now && !hidden.includes(a.id))
   const storyGroups = useStoryGroups(now).others
   const followed = state.following ?? []
-  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : 2)
+  // Основатели (позвали трёх друзей) неделю после значка стоят выше остальных.
+  const boosted = new Set(state.people.filter((p) => p.founderAt && now - p.founderAt < FOUNDER_BOOST_MS).map((p) => p.id))
+  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : boosted.has(x.authorId) ? 1.5 : 2)
   const posts = [...live].sort((a, b) => rank(a) - rank(b) || a.startsAt - b.startsAt)
   const openProfile = useOpenProfile()
   // Люди без активного плана: иначе новенькие не видны на главной, пока не предложат план.
@@ -201,7 +207,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   }
   const started = a.startsAt <= now
   const compat = person ? compatibility(me, person) : null
-  const author = person ?? { name: me.name, hue: me.hue, verified: me.verified }
+  const author = person ?? { name: me.name, hue: me.hue, verified: me.verified, founder: me.founder }
 
   const onImageTap = () => {
     const t = Date.now()
@@ -213,7 +219,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   }
 
   return (
-    <article className="pb-7">
+    <article className="pb-7 rounded-[20px] transition-shadow" data-plan={a.id}>
       <header className="flex items-center gap-3 px-4 pt-1 pb-3">
         <button onClick={() => person && openProfile(person.id)} className={person ? 'cursor-pointer' : 'cursor-default'} aria-label={person ? `Профиль ${person.name}` : undefined} tabIndex={person ? 0 : -1}>
           <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
@@ -224,6 +230,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
           <div className="flex items-center gap-1 font-semibold text-[14px]">
             {person ? <button onClick={() => openProfile(person.id)} className="cursor-pointer hover:underline">{person.name}</button> : me.name}
             {author.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
+            {author.founder && <FounderBadge n={author.founder} small />}
             {!person && <span className="font-normal text-muted">· ваш план</span>}
           </div>
           {person ? <TrackChip track={personTrack(person)} /> : <div className="text-[12px] text-muted truncate">{a.area}</div>}

@@ -6,6 +6,7 @@ import { cloudEnabled } from '../cloud/config'
 import { NICK_RE, authProviders, humanError, nickConfig, normalizePhone, resetNick, signInNick, signUpNick, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
+import { invitedBy } from '../components/Invite'
 
 // Пример аккаунта: открывается одной кнопкой, чтобы посмотреть приложение без регистрации.
 export const DEMO_ME: Me = {
@@ -175,7 +176,8 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
     catch (err) { setError(/invalid|expired/i.test(String((err as Error)?.message)) ? 'Код не подходит или устарел. Проверьте или запросите новый.' : humanError(err)); setBusy(false) }
   }
   // Главная форма: ник (или почта) и пароль. Нет аккаунта — тот же экран, кнопка «Создать аккаунт».
-  const [newAcc, setNewAcc] = useState(false)
+  const [invited] = useState(invitedBy)
+  const [newAcc, setNewAcc] = useState(() => !!invited && !state.savedMe) // по приглашению чаще приходят новички
   // Защита от ботов: время на форме, скрытое поле-ловушка и капча Cloudflare (если включена на сервере).
   const shownAt = useRef(Date.now())
   const [trap, setTrap] = useState('')
@@ -246,6 +248,11 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             </div>
             <h1 className="font-display font-bold text-[34px] leading-[1.05] tracking-tight">Встречи рядом.<br /><span className="text-brand">Без свайпов.</span></h1>
             <p className="text-[15px] text-muted leading-snug max-w-[290px]">Кофе, выставки, прогулки — сегодня, с людьми из вашего города.</p>
+            {invited && (
+              <p className="mt-1 rounded-2xl bg-spark/12 px-3.5 py-2.5 text-[14px] leading-snug" role="status">
+                👋 {invited === 'plan' ? 'Друг зовёт вас на встречу — войдите, и план откроется сразу.' : 'Вас пригласил друг — заходите, здесь находят компанию на сегодня.'}
+              </p>
+            )}
             <p className="mt-2 text-[14px] font-semibold">Войдите или создайте аккаунт — <span className="text-muted font-normal">выберите способ, аккаунт создастся сам</span></p>
           </div>
 

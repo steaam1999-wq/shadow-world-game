@@ -1425,3 +1425,55 @@ language sql stable security definer set search_path = auth, public as $$
 $$;
 revoke all on function public.nick_email(text) from public, anon, authenticated;
 grant execute on function public.nick_email(text) to service_role;
+
+-- ── Рефералы и «Основатели Komeeta» ─────────────────────────────────────
+create table if not exists public.referrals (
+  invitee uuid primary key references public.profiles(id) on delete cascade,
+  inviter uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  check (invitee <> inviter)
+);
+alter table public.referrals enable row level security;
+
+create table if not exists public.founders (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  number int not null unique,
+  granted_at timestamptz not null default now()
+);
+alter table public.founders enable row level security;
+grant select on public.founders to authenticated;
+create policy "founders: read" on public.founders for select to authenticated using (true);
+
+create or replace function public.claim_referral(inviter uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if me is null or inviter is null or inviter = me then return false; end if;
+  if not exists (select 1 from profiles where id = me and created_at > now() - interval '3 days') then return false; end if;
+  if not exists (select 1 from profiles where id = inviter) then return false; end if;
+  insert into referrals (invitee, inviter) values (me, inviter) on conflict (invitee) do nothing;
+  return found;
+end $$;
+
+create or replace function public.my_invites() returns json
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid(); invited int; active int; num int; total int;
+begin
+  if me is null then raise exception 'forbidden' using errcode = '42501'; end if;
+  select count(*) into invited from referrals where inviter = me;
+  select count(*) into active from referrals r where r.inviter = me
+    and (exists (select 1 from plans p where p.author = r.invitee) or exists (select 1 from messages m where m.sender = r.invitee));
+  select number into num from founders where user_id = me;
+  select count(*) into total from founders;
+  if num is null and active >= 3 and total < 100 then
+    perform pg_advisory_xact_lock(4242);
+    select count(*) into total from founders;
+    if total < 100 then
+      insert into founders (user_id, number) values (me, total + 1) on conflict (user_id) do nothing;
+      num := total + 1; total := total + 1;
+    end if;
+  end if;
+  return json_build_object('invited', invited, 'active', active, 'founder', num, 'founders', total, 'goal', 3, 'limit', 100);
+end $$;
+revoke all on function public.claim_referral(uuid), public.my_invites() from public, anon;
+grant execute on function public.claim_referral(uuid), public.my_invites() to authenticated;
