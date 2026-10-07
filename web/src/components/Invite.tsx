@@ -120,7 +120,6 @@ export function FounderBadge({ n, small }: { n: number; small?: boolean }) {
       </span>
       <span className="leading-tight">
         <b className="gold-text block font-display text-[15.5px]">Основатель Komeeta</b>
-        <span className="block text-[12.5px] text-muted">в числе первых 100 · что это?</span>
       </span>
     </button>
   )
