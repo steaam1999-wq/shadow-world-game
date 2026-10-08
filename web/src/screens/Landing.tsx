@@ -240,12 +240,10 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       </header>
 
       {stage === 'welcome' && (
-        <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col justify-center px-6 pb-[calc(24px+env(safe-area-inset-bottom,0px))] -mt-8">
-          <div className="flex flex-col items-center gap-5 text-center pb-9 anim-page">
-            <div className="flex flex-col items-center gap-3">
-              <LogoMark size={84} animate />
-              <Wordmark animate className="text-[26px]" />
-            </div>
+        <main className="flex-1 w-full max-w-[420px] mx-auto flex flex-col overflow-x-clip px-4 pb-[calc(10px+env(safe-area-inset-bottom,0px))] -mt-10">
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 text-center anim-page">
+            <div className="-my-7 scale-[0.78] [@media(min-height:800px)]:-my-3 [@media(min-height:800px)]:scale-90 [@media(min-height:900px)]:my-0 [@media(min-height:900px)]:scale-100"><OrbitHero /></div>
+            <Wordmark animate className="text-[26px]" />
             <h1 className="sr-only">Komeeta — встречи рядом</h1>
             {invited && (
               <p className="mt-1 rounded-2xl bg-spark/12 px-3.5 py-2.5 text-[14px] leading-snug" role="status">
@@ -254,7 +252,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             )}
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2 mt-3 p-3.5 pb-4 rounded-[30px] bg-surface/55 backdrop-blur-2xl ring-1 ring-line/60 shadow-[0_20px_60px_-30px_rgb(0_0_0/.55)] anim-rise">
             {state.savedMe && (
               <button onClick={() => { if (cloudEnabled) { setOtherAccount(true); openAuth('login') } else onLogin(true) }}
                 className="flex items-center gap-3 h-14 rounded-full bg-surface shadow-soft pl-2 pr-4 text-left cursor-pointer hover:brightness-95">
@@ -266,17 +264,17 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             <form onSubmit={(e) => { e.preventDefault(); if (newAcc) agreeFirst(() => void welcomeSubmit())(); else void welcomeSubmit() }} className="flex flex-col gap-2.5" noValidate>
               <label htmlFor="w-login" className="sr-only">Ник или почта</label>
               <input id="w-login" value={login} onChange={(e) => setLogin(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false}
-                autoComplete="username" placeholder={newAcc ? 'Придумайте ник' : 'Ник или почта'} className={`${inputCls} h-14 text-[16px]`} />
+                autoComplete="username" placeholder={newAcc ? 'Придумайте ник' : 'Ник или почта'} className={`${inputCls} h-[52px] text-[16px]`} />
               <div className="relative">
                 <label htmlFor="w-pass" className="sr-only">Пароль</label>
                 <input id="w-pass" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={newAcc ? 'new-password' : 'current-password'} placeholder={newAcc ? 'Придумайте пароль' : 'Пароль'} className={`${inputCls} h-14 text-[16px] pr-14`} />
+                  autoComplete={newAcc ? 'new-password' : 'current-password'} placeholder={newAcc ? 'Придумайте пароль' : 'Пароль'} className={`${inputCls} h-[52px] text-[16px] pr-14`} />
                 <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-10 h-10 rounded-full text-muted hover:text-fg cursor-pointer" aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}><Icon name="eye" size={20} /></button>
               </div>
               {/* ловушка для ботов: человек это поле не видит и не заполняет */}
               <input type="text" name="website" value={trap} onChange={(e) => setTrap(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute -left-[9999px] w-px h-px opacity-0" />
               {newAcc && captchaKey && <Turnstile siteKey={captchaKey} onToken={onCaptcha} />}
-              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Минутку…' : newAcc ? 'Создать аккаунт' : 'Войти'}</Button>
+              <Button type="submit" disabled={busy} className="h-[52px] !rounded-full text-[16px]">{busy ? 'Минутку…' : newAcc ? 'Создать аккаунт' : 'Войти'}</Button>
               {info && <p className="text-center text-[13px] text-ok" role="status">{info}</p>}
               <div className="flex justify-between text-[14px] font-semibold px-1">
                 <button type="button" onClick={() => { setNewAcc((v) => !v); setError(''); setInfo('') }} className="text-brand cursor-pointer">{newAcc ? 'У меня есть аккаунт' : 'Создать аккаунт'}</button>
@@ -325,7 +323,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <label htmlFor="sms-code" className="sr-only">Код из SMS</label>
               <input id="sms-code" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={8} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="123456" className={`${inputCls} h-14 text-[22px] tracking-[.3em] text-center tnum`} />
               {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Проверяем…' : 'Войти'}</Button>
+              <Button type="submit" disabled={busy} className="h-[52px] !rounded-full text-[16px]">{busy ? 'Проверяем…' : 'Войти'}</Button>
               <Button type="button" variant="secondary" onClick={() => void sendCode()} disabled={busy || cooldown > 0} className="h-12 !rounded-full">{cooldown > 0 ? `Новый код через ${cooldown} с` : 'Отправить код ещё раз'}</Button>
             </form>
           ) : (
@@ -337,7 +335,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <label htmlFor="phone" className="sr-only">Номер телефона</label>
               <input id="phone" type="tel" inputMode="tel" autoComplete="tel" autoFocus value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+375 29 123-45-67" className={`${inputCls} h-14 text-[17px] tnum`} />
               {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Отправляем…' : 'Получить код'}</Button>
+              <Button type="submit" disabled={busy} className="h-[52px] !rounded-full text-[16px]">{busy ? 'Отправляем…' : 'Получить код'}</Button>
             </form>
           )}
         </main>
@@ -354,7 +352,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <form onSubmit={(e) => void checkEmailCode(e)} className="w-full flex flex-col gap-3" noValidate>
                 <label htmlFor="email-code" className="sr-only">Код из письма</label>
                 <input id="email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={emailCode} onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))} placeholder="Код из письма" className={`${inputCls} h-14 text-[20px] tracking-[.25em] text-center tnum`} />
-                {emailCode.length === 6 && <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Проверяем…' : 'Войти'}</Button>}
+                {emailCode.length === 6 && <Button type="submit" disabled={busy} className="h-[52px] !rounded-full text-[16px]">{busy ? 'Проверяем…' : 'Войти'}</Button>}
               </form>
               <Button variant="secondary" onClick={() => void sendLink()} disabled={busy || cooldown > 0} className="h-12 !rounded-full w-full">{cooldown > 0 ? `Отправить ещё раз через ${cooldown} с` : 'Отправить ещё раз'}</Button>
               <button onClick={() => setSentTo('')} className="text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Изменить почту</button>
@@ -369,7 +367,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <label htmlFor="magic-email" className="sr-only">Почта</label>
               <input id="magic-email" type="email" inputMode="email" autoComplete="email" autoFocus value={login} onChange={(e) => setLogin(e.target.value)} placeholder="you@mail.ru" className={`${inputCls} h-14 text-[17px]`} />
               {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
-              <Button type="submit" disabled={busy} className="h-14 !rounded-full text-[16px]">{busy ? 'Отправляем…' : 'Получить ссылку'}</Button>
+              <Button type="submit" disabled={busy} className="h-[52px] !rounded-full text-[16px]">{busy ? 'Отправляем…' : 'Получить ссылку'}</Button>
               <button type="button" onClick={() => openAuth('login')} className="text-[14px] font-semibold text-muted hover:text-fg cursor-pointer">Войти с паролем</button>
             </form>
           )}
@@ -521,6 +519,43 @@ function ProviderIcon({ id, big = false }: { id: string; big?: boolean }) {
 }
 
 /** Кнопка способа входа: одинаковые по размеру, главная — тёмная. */
+/** Заставка входа: логотип-планета, вокруг по орбитам летают интересы людей. */
+const ORBIT_INNER = [
+  { e: '☕', bg: 'linear-gradient(135deg,#ffb347,#ff7a45)', a: 0 },
+  { e: '🎧', bg: 'linear-gradient(135deg,#8a5cff,#5b7cff)', a: 120 },
+  { e: '🎨', bg: 'linear-gradient(135deg,#ff4f86,#ff8a5c)', a: 240 },
+]
+const ORBIT_OUTER = [
+  { e: '🏃', bg: 'linear-gradient(135deg,#3fd18f,#1fb57a)', a: 30 },
+  { e: '📸', bg: 'linear-gradient(135deg,#4aa8ff,#2a6dff)', a: 102 },
+  { e: '🎬', bg: 'linear-gradient(135deg,#ff6b9a,#c44dff)', a: 174 },
+  { e: '🍷', bg: 'linear-gradient(135deg,#ff7a59,#e0315f)', a: 246 },
+  { e: '🎾', bg: 'linear-gradient(135deg,#ffd257,#ff9f1a)', a: 318 },
+]
+function OrbitHero() {
+  const ring = (items: typeof ORBIT_INNER, r: number, dur: number, rev: boolean, size: number) => (
+    <div className="absolute inset-0 orbit-spin" style={{ animationDuration: `${dur}s`, animationDirection: rev ? 'reverse' : 'normal' }}>
+      {items.map((it) => (
+        <span key={it.e} className="absolute left-1/2 top-1/2" style={{ transform: `rotate(${it.a}deg) translateY(-${r}px) rotate(-${it.a}deg)` }}>
+          <span className="orbit-spin grid place-items-center rounded-full ring-2 ring-white/70 shadow-[0_8px_18px_-8px_rgb(0_0_0/.6)]"
+            style={{ width: size, height: size, margin: -size / 2, background: it.bg, fontSize: size * 0.48, animationDuration: `${dur}s`, animationDirection: rev ? 'normal' : 'reverse' }}>{it.e}</span>
+        </span>
+      ))}
+    </div>
+  )
+  return (
+    <div className="relative w-[270px] h-[270px] shrink-0" aria-hidden="true">
+      {/* свечение и орбиты */}
+      <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgb(255_79_134/.35),transparent_70%)] blur-2xl" />
+      <div className="absolute inset-[22%] rounded-full border border-dashed border-fg/15" />
+      <div className="absolute inset-[4%] rounded-full border border-fg/10" />
+      {ring(ORBIT_INNER, 84, 38, false, 38)}
+      {ring(ORBIT_OUTER, 124, 60, true, 34)}
+      <div className="absolute inset-0 grid place-items-center"><LogoMark size={88} animate /></div>
+    </div>
+  )
+}
+
 function IconAuth({ label, children, onClick, disabled }: { label: string; children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} aria-label={label} title={label}

@@ -323,3 +323,8 @@ html, body { overflow-x: clip; }
 .bubble-them { background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 14px -8px rgb(0 0 0 / .18); border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
 @media (prefers-reduced-motion: reduce) { .msg-in, .typing-dot { animation: none; } }
 #chat-input:focus-visible { outline: none; } /* фокус показывает рамка всей строки ввода */
+
+/* Заставка входа: орбиты с интересами вокруг логотипа */
+@keyframes orbit-spin { to { transform: rotate(360deg) } }
+.orbit-spin { animation: orbit-spin 40s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .orbit-spin { animation: none; } }
