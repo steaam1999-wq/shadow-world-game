@@ -315,7 +315,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   return (
     <div className="flex flex-col flex-1 min-h-[100dvh]">
       <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-2 flex flex-col gap-2">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer rounded-2xl pr-1" aria-label={`Профиль ${p.name}`}>
           <Avatar name={p.name} hue={p.hue} src={p.photo} size={38} verified={p.verified} />
@@ -478,11 +478,11 @@ function CallButtons({ person, canCall, hint }: { person: Person; canCall: boole
   const [tip, setTip] = useState(false)
   useEffect(() => { if (!tip) return; const t = setTimeout(() => setTip(false), 2600); return () => clearTimeout(t) }, [tip])
   const go = (video: boolean) => (canCall ? start(person.id, video) : setTip(true))
-  const btn = `grid place-items-center w-9 h-9 rounded-full hover:bg-surface-2 cursor-pointer ${canCall ? 'text-fg' : 'text-muted/60'}`
+  const btn = `grid place-items-center w-9 h-9 rounded-full cursor-pointer transition active:scale-90 ${canCall ? 'bg-spark-soft text-spark hover:brightness-95' : 'bg-surface-2 text-muted/70'}`
   return (
     <>
-      <button onClick={() => go(false)} disabled={busy} className={btn} aria-label={`Позвонить ${person.name}`}><Icon name="phone" size={20} /></button>
-      <button onClick={() => go(true)} disabled={busy} className={btn} aria-label={`Видеозвонок ${person.name}`}><Icon name="video" size={21} /></button>
+      <button onClick={() => go(false)} disabled={busy} className={btn} aria-label={`Позвонить ${person.name}`}><Icon name="phone" size={17} fill /></button>
+      <button onClick={() => go(true)} disabled={busy} className={`${btn} mr-1`} aria-label={`Видеозвонок ${person.name}`}><Icon name="video" size={19} fill /></button>
       {tip && createPortal(
         <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] max-w-[90vw] rounded-2xl bg-fg text-bg px-4 py-2.5 text-[13.5px] font-medium shadow-soft text-center" role="status">{hint}</div>,
         document.body,

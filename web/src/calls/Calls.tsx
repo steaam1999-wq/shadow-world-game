@@ -346,15 +346,15 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
       <div className="relative z-[5] mt-auto shrink-0 px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))]">
         {call.phase === 'incoming' ? (
           <div className="flex items-center justify-between">
-            <button onClick={onDecline} className={`${round} bg-[#ef4444]`} aria-label="Отклонить"><Icon name="phone" size={28} className="rotate-[135deg]" /></button>
-            <button onClick={onAccept} className={`${round} bg-[#22c55e] animate-bounce`} aria-label="Принять"><Icon name={call.video ? 'video' : 'phone'} size={28} /></button>
+            <button onClick={onDecline} className={`${round} bg-[#ef4444]`} aria-label="Отклонить"><Icon name="phone" size={28} fill className="rotate-[135deg]" /></button>
+            <button onClick={onAccept} className={`${round} bg-[#22c55e] animate-bounce`} aria-label="Принять"><Icon name={call.video ? 'video' : 'phone'} size={28} fill /></button>
           </div>
         ) : call.phase !== 'ended' ? (
           <div className="flex items-center justify-center gap-5">
             <button onClick={onMic} className={`${round} ${muted ? 'bg-white text-[#120a1c]' : 'bg-white/15 backdrop-blur'}`} aria-label={muted ? 'Включить микрофон' : 'Выключить микрофон'} aria-pressed={muted}><Icon name={muted ? 'micOff' : 'mic'} size={26} /></button>
             {call.video && <button onClick={onCam} className={`${round} ${camOff ? 'bg-white text-[#120a1c]' : 'bg-white/15 backdrop-blur'}`} aria-label={camOff ? 'Включить камеру' : 'Выключить камеру'} aria-pressed={camOff}><Icon name={camOff ? 'videoOff' : 'video'} size={26} /></button>}
             {call.video && <button onClick={onFlip} className={`${round} bg-white/15 backdrop-blur`} aria-label="Сменить камеру"><Icon name="flip" size={26} /></button>}
-            <button onClick={onHangup} className={`${round} bg-[#ef4444]`} aria-label="Завершить звонок"><Icon name="phone" size={28} className="rotate-[135deg]" /></button>
+            <button onClick={onHangup} className={`${round} bg-[#ef4444]`} aria-label="Завершить звонок"><Icon name="phone" size={28} fill className="rotate-[135deg]" /></button>
           </div>
         ) : null}
       </div>
