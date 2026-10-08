@@ -247,13 +247,11 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <Wordmark animate className="text-[26px]" />
             </div>
             <h1 className="font-display font-bold text-[34px] leading-[1.05] tracking-tight">Встречи рядом.<br /><span className="text-brand">Без свайпов.</span></h1>
-            <p className="text-[15px] text-muted leading-snug max-w-[290px]">Кофе, выставки, прогулки — сегодня, с людьми из вашего города.</p>
             {invited && (
               <p className="mt-1 rounded-2xl bg-spark/12 px-3.5 py-2.5 text-[14px] leading-snug" role="status">
                 👋 {invited === 'plan' ? 'Друг зовёт вас на встречу — войдите, и план откроется сразу.' : invited === 'profile' ? 'С вами поделились страницей в Komeeta — войдите, и она откроется сразу.' : 'Вас пригласил друг — заходите, здесь находят компанию на сегодня.'}
               </p>
             )}
-            <p className="mt-2 text-[14px] font-semibold">Войдите или создайте аккаунт — <span className="text-muted font-normal">выберите способ, аккаунт создастся сам</span></p>
           </div>
 
           <div className="flex flex-col gap-2.5">
@@ -287,15 +285,15 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
             </form>
                         {/* Быстрый вход — маленькие круглые значки; ещё не подключённый способ подсказывает войти по почте */}
             <div className="flex items-center gap-3 pt-1">
-              <span className="flex-1 h-px bg-line" /><span className="text-[13px] text-muted">или через</span><span className="flex-1 h-px bg-line" />
+              <span className="flex-1 h-px bg-line" /><span className="text-[12.5px] text-muted">или</span><span className="flex-1 h-px bg-line" />
             </div>
-            <div className="grid grid-cols-4 gap-2.5">
-              <IconAuth label="Войти по почте без пароля" caption="Почта" disabled={busy} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}><BrandTile kind="mail" /></IconAuth>
+            <div className="flex justify-center gap-4">
+              <IconAuth label="Войти по почте без пароля" disabled={busy} onClick={agreeFirst(() => (cloudEnabled ? (setStage('magic'), setError(''), setSentTo('')) : openAuth('register')))}><BrandTile kind="mail" /></IconAuth>
               {['telegram', 'google', ...providers.filter((p) => !['telegram', 'google', 'phone'].includes(p))].map((pv) => (
-                <IconAuth key={pv} label={`Войти через ${PROVIDER_NAME[pv] ?? pv}`} caption={PROVIDER_NAME[pv] ?? pv} disabled={busy}
+                <IconAuth key={pv} label={`Войти через ${PROVIDER_NAME[pv] ?? pv}`} disabled={busy}
                   onClick={agreeFirst(() => (!cloudEnabled ? social(pv === 'telegram' ? 'telegram' : 'google') : !providers.includes(pv) ? soon(PROVIDER_NAME[pv] ?? pv) : pv === 'telegram' ? void telegram() : void oauth(pv)))}>{pv === 'telegram' || pv === 'google' ? <BrandTile kind={pv} /> : <ProviderIcon id={pv} big />}</IconAuth>
               ))}
-              <IconAuth label="Войти по номеру телефона" caption="Телефон" disabled={busy}
+              <IconAuth label="Войти по номеру телефона" disabled={busy}
                 onClick={agreeFirst(() => (!cloudEnabled ? social('phone') : !providers.includes('phone') ? soon('телефон') : (setStage('phone'), setError(''), setCodeSent(''))))}><BrandTile kind="phone" /></IconAuth>
             </div>
             {!cloudEnabled && (
@@ -523,36 +521,35 @@ function ProviderIcon({ id, big = false }: { id: string; big?: boolean }) {
 }
 
 /** Кнопка способа входа: одинаковые по размеру, главная — тёмная. */
-function IconAuth({ label, caption, children, onClick, disabled }: { label: string; caption?: string; children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
+function IconAuth({ label, children, onClick, disabled }: { label: string; children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} aria-label={label} title={label}
-      className="group flex flex-col items-center gap-1.5 py-2.5 rounded-[22px] bg-surface/70 backdrop-blur ring-1 ring-line/70 cursor-pointer transition duration-200 hover:-translate-y-0.5 hover:ring-spark/40 hover:shadow-[0_10px_24px_-14px_rgb(255_79_134/.7)] active:scale-95 disabled:opacity-60">
+      className="rounded-full cursor-pointer transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:scale-90 disabled:opacity-60 focus-visible:outline-offset-4">
       {children}
-      {caption && <span className="text-[11.5px] font-semibold text-muted group-hover:text-fg transition-colors">{caption}</span>}
     </button>
   )
 }
 
 /** Значок способа входа: плашка-«сквиркл» с логотипом. */
 function BrandTile({ kind }: { kind: 'mail' | 'telegram' | 'google' | 'phone' }) {
-  const tile = 'relative grid place-items-center w-11 h-11 rounded-[14px] overflow-hidden shadow-[inset_0_1px_0_rgb(255_255_255/.35),0_6px_14px_-8px_rgb(0_0_0/.5)]'
+  const tile = 'relative grid place-items-center w-14 h-14 rounded-full overflow-hidden shadow-[inset_0_1px_0_rgb(255_255_255/.35),0_8px_18px_-10px_rgb(0_0_0/.55)]'
   if (kind === 'google') return (
-    <span className={`${tile} bg-white`}><ProviderIcon id="google" big /></span>
+    <span className={`${tile} bg-white ring-1 ring-black/5`}><ProviderIcon id="google" big /></span>
   )
   if (kind === 'telegram') return (
     <span className={`${tile} bg-[linear-gradient(160deg,#37bbfe,#1e96e8)]`}>
-      <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M5.43 11.87c3.5-1.52 5.83-2.53 7-3.01 3.33-1.39 4.03-1.63 4.48-1.64.1 0 .32.02.46.14.12.1.16.23.17.33.02.09.04.3.02.47-.18 1.9-.96 6.5-1.36 8.63-.17.9-.5 1.2-.82 1.23-.7.06-1.22-.46-1.9-.9-1.05-.7-1.65-1.13-2.68-1.8-1.18-.78-.41-1.21.26-1.91.18-.18 3.25-2.98 3.31-3.23 0-.03.01-.15-.06-.21-.07-.06-.17-.04-.25-.02-.1.02-1.79 1.14-5.06 3.35-.48.33-.91.49-1.3.48-.43-.01-1.25-.24-1.87-.44-.75-.25-1.35-.37-1.3-.79.03-.22.33-.44.9-.66z" transform="translate(-.6 .4)" /></svg>
+      <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M5.43 11.87c3.5-1.52 5.83-2.53 7-3.01 3.33-1.39 4.03-1.63 4.48-1.64.1 0 .32.02.46.14.12.1.16.23.17.33.02.09.04.3.02.47-.18 1.9-.96 6.5-1.36 8.63-.17.9-.5 1.2-.82 1.23-.7.06-1.22-.46-1.9-.9-1.05-.7-1.65-1.13-2.68-1.8-1.18-.78-.41-1.21.26-1.91.18-.18 3.25-2.98 3.31-3.23 0-.03.01-.15-.06-.21-.07-.06-.17-.04-.25-.02-.1.02-1.79 1.14-5.06 3.35-.48.33-.91.49-1.3.48-.43-.01-1.25-.24-1.87-.44-.75-.25-1.35-.37-1.3-.79.03-.22.33-.44.9-.66z" transform="translate(-.6 .4)" /></svg>
     </span>
   )
   if (kind === 'mail') return (
     <span className={`${tile} bg-brand`}>
-      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="3" y="5.5" width="18" height="13" rx="3" fill="rgb(255 255 255 / .18)" /><path d="m4 7.5 8 5.5 8-5.5" />
       </svg>
     </span>
   )
   return (
-    <span className={`${tile} bg-[linear-gradient(160deg,#4be38a,#16b765)]`}><Icon name="phone" size={20} fill className="text-white" /></span>
+    <span className={`${tile} bg-[linear-gradient(160deg,#4be38a,#16b765)]`}><Icon name="phone" size={22} fill className="text-white" /></span>
   )
 }
 
