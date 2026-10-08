@@ -22,7 +22,7 @@ export function PlaylistButton({ chatId }: { chatId: string }) {
   const count = usePlaylist(chatId).length
   return (
     <>
-      <button onClick={() => setOpen(true)} className="relative grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label={`Плейлист встречи${count ? `: ${count}` : ''}`}>
+      <button onClick={() => setOpen(true)} className="relative grid place-items-center w-9 h-9 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label={`Плейлист встречи${count ? `: ${count}` : ''}`}>
         <Icon name="note" size={20} />
         {count > 0 && <span className="absolute top-1 right-0.5 grid place-items-center min-w-[16px] h-4 px-1 rounded-full bg-spark text-on-spark text-[10px] font-bold">{count}</span>}
       </button>

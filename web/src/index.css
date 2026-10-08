@@ -313,3 +313,13 @@ html, body { overflow-x: clip; }
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   border: 1px solid rgb(255 255 255 / .16);
 }
+
+/* Чат: появление нового сообщения, точки «печатает», фон переписки */
+@keyframes msg-in { from { transform: translateY(10px) scale(.96); opacity: 0 } to { transform: none; opacity: 1 } }
+.msg-in { animation: msg-in .28s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes dot-bounce { 0%, 60%, 100% { transform: none; opacity: .45 } 30% { transform: translateY(-4px); opacity: 1 } }
+.typing-dot { animation: dot-bounce 1.2s ease-in-out infinite; }
+.bubble-me { background: var(--brand); background-attachment: fixed; box-shadow: 0 6px 16px -10px rgb(255 79 134 / .9); }
+.bubble-them { background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 14px -8px rgb(0 0 0 / .18); border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+@media (prefers-reduced-motion: reduce) { .msg-in, .typing-dot { animation: none; } }
+#chat-input:focus-visible { outline: none; } /* фокус показывает рамка всей строки ввода */

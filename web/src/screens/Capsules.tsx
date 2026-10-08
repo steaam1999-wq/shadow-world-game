@@ -29,6 +29,16 @@ export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   met: { label: 'Встреча состоялась', tone: 'ok' },
 }
 
+const GROUP_MS = 5 * 60_000
+const dayKey = (ts: number) => new Date(ts).toDateString()
+/** Разделитель дней в переписке: «Сегодня», «Вчера», «12 марта». */
+function dayLabel(ts: number, now: number) {
+  if (dayKey(ts) === dayKey(now)) return 'Сегодня'
+  if (dayKey(ts) === dayKey(now - 86_400_000)) return 'Вчера'
+  const d = new Date(ts)
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(d.getFullYear() !== new Date(now).getFullYear() ? { year: 'numeric' } : {}) })
+}
+
 /** Время последнего сообщения: сегодня — часы, раньше — дата. */
 function when(ts: number, now: number) {
   const d = new Date(ts), n = new Date(now)
@@ -304,60 +314,89 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
 
   return (
     <div className="flex flex-col flex-1 min-h-[100dvh]">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-surface/55 backdrop-blur-xl border-b border-line -mx-4 px-4 pb-3 pt-2 flex flex-col gap-2">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-2 flex flex-col gap-2">
+        <div className="flex items-center gap-1">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
-          <button onClick={() => openProfile(p.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer" aria-label={`Профиль ${p.name}`}>
-          <Avatar name={p.name} hue={p.hue} src={p.photo} size={40} verified={p.verified} />
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold truncate">{nameAge(p.name, p.age)}</div>
-            <div className="text-[12px] text-muted truncate">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Komeeta'}</div>
+          <button onClick={() => openProfile(p.id)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer rounded-2xl pr-1" aria-label={`Профиль ${p.name}`}>
+          <Avatar name={p.name} hue={p.hue} src={p.photo} size={38} verified={p.verified} />
+          <div className="flex-1 min-w-0 leading-tight">
+            <div className="font-semibold text-[15.5px] truncate">{nameAge(p.name, p.age)}</div>
+            <div className="text-[12px] text-muted truncate mt-0.5">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Komeeta'}</div>
           </div>
           </button>
           <CallButtons person={p} canCall={!!state.cloud && !gone && c.messages.some((m) => m.from === 'them') && c.messages.some((m) => m.from === 'me') && !p.callsOff}
             hint={!state.cloud ? 'Звонки работают после входа в аккаунт' : p.callsOff ? `${p.name} не принимает звонки` : 'Позвонить можно, когда вы оба написали друг другу'} />
           <PlaylistButton chatId={c.id} />
-          <button onClick={() => setMenu(true)} className="grid place-items-center w-10 h-10 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Встреча и безопасность"><Icon name="more" size={20} /></button>
+          <button onClick={() => setMenu(true)} className="grid place-items-center w-9 h-9 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Встреча и безопасность"><Icon name="more" size={20} /></button>
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col gap-2 py-4">
-        {c.messages.map((m) =>
-          m.from === 'system' ? (
-            <div key={m.id} className="self-center max-w-[90%] text-center text-[12px] text-muted bg-surface-2 rounded-full px-3 py-1">{m.text}</div>
-          ) : (
-            <div key={m.id} className={`max-w-[80%] flex flex-col gap-1 ${m.from === 'me' ? 'self-end items-end' : 'self-start items-start'}`}>
-              <div onClick={() => setPicked(picked === m.id ? null : m.id)}
-                className={`rounded-3xl cursor-pointer ${m.photo ? 'p-1' : 'px-4 py-2.5'} ${m.from === 'me' ? 'bg-brand text-white rounded-br-md' : 'bg-surface text-fg rounded-bl-md shadow-[0_1px_3px_rgb(0_0_0/.08)] ring-1 ring-line/70'}`}>
-                {m.photo && (
-                  <button onClick={(e) => { e.stopPropagation(); setViewing(m.photo!) }} className="block cursor-zoom-in" aria-label="Открыть фото">
-                    <img src={m.photo} alt="Фото" className="block max-w-[240px] max-h-[320px] rounded-[20px] object-cover" loading="lazy" />
-                  </button>
+      <div className="flex-1 flex flex-col py-3">
+        {c.messages.map((m, i) => {
+          const prev = c.messages[i - 1], next = c.messages[i + 1]
+          const newDay = !prev || dayKey(prev.at) !== dayKey(m.at)
+          const day = newDay && <div key={`d-${m.id}`} className="sticky top-[calc(64px+env(safe-area-inset-top,0px))] z-[5] self-center my-3 px-3 h-6 inline-flex items-center rounded-full bg-surface/70 backdrop-blur-md ring-1 ring-line/60 text-[11.5px] font-semibold text-muted">{dayLabel(m.at, now)}</div>
+          if (m.from === 'system') return [day,
+            <div key={m.id} className="self-center max-w-[90%] my-2 text-center text-[12px] text-muted bg-surface-2/70 backdrop-blur rounded-full px-3 py-1">{m.text}</div>]
+          // Подряд идущие сообщения одного человека — одна «стопка»: меньше отступ, скругление у стыков.
+          const joinPrev = !newDay && prev?.from === m.from && m.at - prev.at < GROUP_MS
+          const joinNext = !!next && next.from === m.from && next.at - m.at < GROUP_MS && dayKey(next.at) === dayKey(m.at)
+          const me = m.from === 'me'
+          const read = (c.theirReadAt ?? 0) >= m.at
+          const corners = me ? `${joinPrev ? 'rounded-tr-[7px]' : ''} ${joinNext ? 'rounded-br-[7px]' : 'rounded-br-[4px]'}`
+            : `${joinPrev ? 'rounded-tl-[7px]' : ''} ${joinNext ? 'rounded-bl-[7px]' : 'rounded-bl-[4px]'}`
+          const time = (
+            <span className={`inline-flex items-center gap-0.5 text-[10.5px] tnum leading-none ${me ? 'text-white/80' : 'text-muted'}`}>
+              {hm(m.at)}
+              {me && <Ticks read={read} />}
+            </span>
+          )
+          return [day,
+            <div key={m.id} className={`msg-in flex items-end gap-2 max-w-[84%] ${joinPrev ? 'mt-[3px]' : 'mt-2.5'} ${me ? 'self-end' : 'self-start'}`}>
+              {!me && <span className="w-7 shrink-0">{!joinNext && <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />}</span>}
+              <div className={`min-w-0 flex flex-col gap-1 ${me ? 'items-end' : 'items-start'}`}>
+                <div onClick={() => setPicked(picked === m.id ? null : m.id)}
+                  className={`relative rounded-[20px] cursor-pointer select-none transition-transform active:scale-[.98] ${corners} ${m.photo ? 'p-[3px]' : 'pl-3.5 pr-3 py-2'} ${me ? 'bubble-me text-white' : 'bubble-them text-fg'}`}>
+                  {m.photo && (
+                    <button onClick={(e) => { e.stopPropagation(); setViewing(m.photo!) }} className="relative block cursor-zoom-in" aria-label="Открыть фото">
+                      <img src={m.photo} alt="Фото" className={`block max-w-[240px] max-h-[320px] rounded-[17px] object-cover ${corners}`} loading="lazy" />
+                      {!m.text && <span className="absolute right-2 bottom-2 rounded-full bg-black/45 backdrop-blur px-2 py-1 [&_*]:!text-white">{time}</span>}
+                    </button>
+                  )}
+                  {m.text && (
+                    <p data-no-translate className={`whitespace-pre-wrap break-words text-[15.5px] leading-[1.35] ${m.photo ? 'px-2.5 pt-1.5 pb-1' : ''}`}>
+                      {m.text}
+                      {/* Время прячется в конце последней строки, как в мессенджерах */}
+                      <span className="float-right ml-2.5 mt-[7px] -mb-1 translate-y-[2px]">{time}</span>
+                    </p>
+                  )}
+                  {m.text && soundCloudLink(m.text) && <div className="mt-2 mb-1 w-[250px] max-w-full text-fg" onClick={(e) => e.stopPropagation()}><SoundCloudCard text={m.text} compact /></div>}
+                </div>
+                {m.from === 'them' && m.text && MONEY_RE.test(m.text) && <MoneyWarning />}
+                <ReactionChips chatId={c.id} messageId={m.id} />
+                {picked === m.id && <ReactionPicker chatId={c.id} messageId={m.id} onDone={() => setPicked(null)} />}
+                {picked === m.id && me && (
+                  <button onClick={() => { dispatch({ type: 'deleteMessage', capsuleId: c.id, messageId: m.id }); setPicked(null) }}
+                    className="inline-flex items-center gap-1 h-7 px-3 rounded-full bg-danger-soft text-danger text-[12px] font-semibold cursor-pointer"><Icon name="trash" size={13} /> Удалить у всех</button>
                 )}
-                {m.text && <p data-no-translate className={`whitespace-pre-wrap break-words ${m.photo ? 'px-3 pt-1.5' : ''}`}>{m.text}</p>}
-                {m.text && soundCloudLink(m.text) && <div className="mt-2 mb-1 w-[250px] max-w-full text-fg" onClick={(e) => e.stopPropagation()}><SoundCloudCard text={m.text} compact /></div>}
-                <span className={`flex items-center justify-end gap-1 text-[11px] tnum ${m.photo ? 'px-3 pb-1' : ''} ${m.from === 'me' ? 'opacity-80' : 'text-muted'}`}>
-                  {hm(m.at)}
-                  {m.from === 'me' && <span aria-label={(c.theirReadAt ?? 0) >= m.at ? 'Прочитано' : 'Отправлено'}>{(c.theirReadAt ?? 0) >= m.at ? '✓✓' : '✓'}</span>}
-                </span>
               </div>
-              {m.from === 'them' && m.text && MONEY_RE.test(m.text) && <MoneyWarning />}
-              <ReactionChips chatId={c.id} messageId={m.id} />
-              {picked === m.id && <ReactionPicker chatId={c.id} messageId={m.id} onDone={() => setPicked(null)} />}
-              {picked === m.id && m.from === 'me' && (
-                <button onClick={() => { dispatch({ type: 'deleteMessage', capsuleId: c.id, messageId: m.id }); setPicked(null) }}
-                  className="inline-flex items-center gap-1 h-7 px-3 rounded-full bg-danger-soft text-danger text-[12px] font-semibold cursor-pointer"><Icon name="trash" size={13} /> Удалить у всех</button>
-              )}
-            </div>
-          ),
-        )}
+            </div>]
+        })}
+        <div className="h-2" />
         <MeetFeedback capsule={c} activity={a} name={p.name} now={now} onBad={() => setReporting(p)} />
         <AgainCard capsule={c} person={p} />
-        {typing && <div className="self-start bg-surface-2 rounded-3xl rounded-bl-md px-4 py-2.5 text-muted anim-flick">{p.name} печатает…</div>}
-        <div ref={endRef} />
+        {typing && (
+          <div className="msg-in self-start flex items-end gap-2 mt-2.5">
+            <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />
+            <div className="bubble-them rounded-[20px] rounded-bl-[4px] h-10 px-4 inline-flex items-center gap-1" role="status" aria-label={`${p.name} печатает…`}>
+              {[0, 1, 2].map((d) => <span key={d} className="typing-dot w-2 h-2 rounded-full bg-muted" style={{ animationDelay: `${d * 0.15}s` }} />)}
+            </div>
+          </div>
+        )}
+        <div ref={endRef} className="scroll-mb-[96px]" />
       </div>
 
-      <div className={`sticky bottom-0 bg-surface/80 backdrop-blur-xl -mx-4 px-4 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line z-10`} style={kb ? { bottom: kb } : undefined}>
+      <div className={`sticky bottom-0 bg-bg/75 backdrop-blur-2xl backdrop-saturate-150 -mx-4 px-3 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line/60 z-10`} style={kb ? { bottom: kb } : undefined}>
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
         {locked && (
           <p className="flex items-center gap-2 text-[12.5px] text-muted px-1" role="status">
@@ -366,17 +405,22 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             {!gone && verifiedOnly && <button type="button" onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[12.5px] font-semibold cursor-pointer">Пройти проверку</button>}
           </p>
         )}
-        <form onSubmit={send} className="flex gap-2">
-          <button type="button" disabled={locked} onClick={() => photoInput.current?.click()} className="disabled:opacity-40 grid place-items-center w-11 h-11 shrink-0 rounded-full bg-surface-2 text-muted hover:text-fg cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
-          <input ref={photoInput} type="file" accept="image/*" className="sr-only" aria-label="Выбрать фото для отправки" onChange={async (e) => {
-            const f = e.target.files?.[0]
-            e.target.value = ''
-            if (!f) return
-            try { dispatch({ type: 'sendPhoto', capsuleId: c.id, photo: await readPhotoFull(f) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
-          }} />
-              <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder={locked ? 'Пока нельзя написать' : 'Сообщение…'} disabled={locked} autoComplete="off" />
-              <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim() || locked}><Icon name="send" size={18} /></Button>
-            </form>
+        <form onSubmit={send} className="flex items-end gap-2">
+          <div className="flex-1 min-w-0 flex items-center gap-1 h-12 pl-1.5 pr-1.5 rounded-full bg-surface-2/80 ring-1 ring-line/70 focus-within:ring-2 focus-within:ring-spark/50 transition-shadow">
+            <button type="button" disabled={locked} onClick={() => photoInput.current?.click()} className="disabled:opacity-40 grid place-items-center w-9 h-9 shrink-0 rounded-full text-muted hover:text-fg hover:bg-surface cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
+            <input ref={photoInput} type="file" accept="image/*" className="sr-only" aria-label="Выбрать фото для отправки" onChange={async (e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (!f) return
+              try { dispatch({ type: 'sendPhoto', capsuleId: c.id, photo: await readPhotoFull(f) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
+            }} />
+            <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-full bg-transparent px-1.5 text-[15.5px] placeholder:text-muted focus:outline-none" value={text} onChange={(e) => setText(e.target.value)} placeholder={locked ? 'Пока нельзя написать' : 'Сообщение…'} disabled={locked} autoComplete="off" />
+          </div>
+          <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked}
+            className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
+            <Icon name="send" size={19} className={text.trim() ? 'translate-x-[1px]' : ''} />
+          </button>
+        </form>
       </div>
       {viewing && (() => {
         // Все фото этого чата — листаются в просмотре.
@@ -418,13 +462,23 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   )
 }
 
+/** Галочки: одна — отправлено, две — прочитано. */
+function Ticks({ read }: { read: boolean }) {
+  return (
+    <svg width={read ? 16 : 11} height="10" viewBox={read ? '0 0 16 10' : '0 0 11 10'} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={read ? 'Прочитано' : 'Отправлено'} className={read ? 'text-white' : ''}>
+      <path d="M1 5.5 3.8 8.3 9.6 1.5" />
+      {read && <path d="M7.2 8.1 7.4 8.3 13.2 1.5" />}
+    </svg>
+  )
+}
+
 /** Звонок и видеозвонок из шапки чата. Пока звонить нельзя — подсказка, почему. */
 function CallButtons({ person, canCall, hint }: { person: Person; canCall: boolean; hint: string }) {
   const { start, busy } = useCalls()
   const [tip, setTip] = useState(false)
   useEffect(() => { if (!tip) return; const t = setTimeout(() => setTip(false), 2600); return () => clearTimeout(t) }, [tip])
   const go = (video: boolean) => (canCall ? start(person.id, video) : setTip(true))
-  const btn = `grid place-items-center w-10 h-10 rounded-full hover:bg-surface-2 cursor-pointer ${canCall ? 'text-fg' : 'text-muted/60'}`
+  const btn = `grid place-items-center w-9 h-9 rounded-full hover:bg-surface-2 cursor-pointer ${canCall ? 'text-fg' : 'text-muted/60'}`
   return (
     <>
       <button onClick={() => go(false)} disabled={busy} className={btn} aria-label={`Позвонить ${person.name}`}><Icon name="phone" size={20} /></button>
