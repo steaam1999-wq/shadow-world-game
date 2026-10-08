@@ -29,7 +29,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const { state, dispatch } = useStore()
   const [mode, setMode] = useState<Mode>('login')
   // Сначала — экран приветствия; форма открывается по кнопке «Начать» или «Войти».
-  const [stage, setStage] = useState<'welcome' | 'auth' | 'magic' | 'phone'>('welcome')
+  const [stage, setStage] = useState<'welcome' | 'auth' | 'magic' | 'phone'>(() => { try { return sessionStorage.getItem('auth-error') ? 'auth' : 'welcome' } catch { return 'welcome' } })
   const [providers, setProviders] = useState<string[]>([])
   const [sentTo, setSentTo] = useState('')
   const [cooldown, setCooldown] = useState(0)
@@ -53,7 +53,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [name, setName] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => { try { const e = sessionStorage.getItem('auth-error') ?? ''; sessionStorage.removeItem('auth-error'); return e } catch { return '' } })
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
   const [agreed, setAgreed] = useState(() => !!localConsent())

@@ -87,6 +87,11 @@ function Root() {
   const [view, setView] = useState<View>(() => {
     captureInvite() // до первой отрисовки: экран входа сразу покажет «вас позвали»
     const hash = readHash()
+    // Ошибка входа через Google/Apple (не ссылка из письма) — на экран входа с понятным сообщением.
+    if (cloudEnabled && /error_code=/.test(hash) && !/type=recovery|otp_expired/.test(hash)) {
+      try { sessionStorage.setItem('auth-error', 'Не получилось войти через Google. Попробуйте ещё раз или войдите другим способом.') } catch { /* ignore */ }
+      return 'landing'
+    }
     if (cloudEnabled && /type=recovery|error_code=/.test(hash)) return 'recovery' // ссылка «новый пароль» из письма
     if (cloudEnabled && /access_token=/.test(hash)) return 'callback' // вход по ссылке из письма, Google или Apple
     return hash === 'admin' ? 'admin' : state.me ? 'app' : 'landing'
