@@ -246,7 +246,7 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
               <LogoMark size={84} animate />
               <Wordmark animate className="text-[26px]" />
             </div>
-            <h1 className="font-display font-bold text-[34px] leading-[1.05] tracking-tight">Встречи рядом.<br /><span className="text-brand">Без свайпов.</span></h1>
+            <h1 className="sr-only">Komeeta — встречи рядом</h1>
             {invited && (
               <p className="mt-1 rounded-2xl bg-spark/12 px-3.5 py-2.5 text-[14px] leading-snug" role="status">
                 👋 {invited === 'plan' ? 'Друг зовёт вас на встречу — войдите, и план откроется сразу.' : invited === 'profile' ? 'С вами поделились страницей в Komeeta — войдите, и она откроется сразу.' : 'Вас пригласил друг — заходите, здесь находят компанию на сегодня.'}

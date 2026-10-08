@@ -163,7 +163,7 @@ test('повторный запуск без интернета', async ({ page,
   await page.waitForTimeout(500)
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByText('Встречи рядом.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Войти', exact: true })).toBeVisible()
 })
 
 test('фото в чате: на весь экран, листание, приближение, смахнуть — закрыть', async ({ page }) => {
