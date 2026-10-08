@@ -307,8 +307,7 @@ export function InviteCard() {
         <div className="flex-1 min-w-0">
           <div className="font-semibold">{founder ? `Вы — Основатель Komeeta №${founder}` : 'Позовите трёх друзей'}</div>
           <div className="text-[13px] text-muted">
-            {founder ? 'Спасибо, что растите Komeeta! Медаль и золотая рамка видны всем.'
-              : `Когда трое из них предложат план или напишут кому-то — станете Основателем. Значков осталось ${left} из 100.`}
+            {founder ? 'Медаль и золотая рамка видны всем' : `и станьте Основателем · осталось ${left} из 100`}
           </div>
         </div>
       </div>
@@ -317,9 +316,7 @@ export function InviteCard() {
           <div className="flex gap-1.5" aria-label={`Активных друзей: ${active} из ${goal}`}>
             {Array.from({ length: goal }, (_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < active ? 'bg-brand' : 'bg-line'}`} />)}
           </div>
-          <div className="mt-1.5 text-[12.5px] text-muted tnum">
-            Активных друзей: {active} из {goal}{stats && stats.invited > stats.active ? ` · ещё ${stats.invited - stats.active} пока присматриваются` : ''}
-          </div>
+          <div className="mt-1.5 text-[12px] text-muted tnum text-right">{active}/{goal}</div>
         </div>
       )}
       <button onClick={invite} className="h-11 rounded-full bg-brand text-white font-semibold inline-flex items-center justify-center gap-2 cursor-pointer">

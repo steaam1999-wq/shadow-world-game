@@ -309,16 +309,16 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
       {creating && <Suspense fallback={null}><CreateActivity open={creating} onClose={() => { setCreating(false) }} now={now} /></Suspense>}
       <NewPublication open={posting} onClose={() => setPosting(false)} onDone={() => { setPosting(false); setTab('home'); setPerson(null); window.scrollTo(0, 0) }} />
       <Sheet open={choosing} onClose={() => setChoosing(false)} title="Что создать?">
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2.5">
           {[
-            { icon: 'spark', title: 'План на встречу', text: 'Позовите людей: что, где и когда, на 48 часов', go: () => setCreating(true) },
-            { icon: 'plus', title: 'История', text: 'Фото, видео или текст на 24 часа — кружок сверху главной', go: () => setStorying(true) },
-            { icon: 'camera', title: 'Публикация', text: 'Фото или видео с подписью — появится на главной', go: () => setPosting(true) },
-            { icon: 'chat', title: 'Новый чат', text: 'Написать человеку лично или создать группу', go: () => setNewChat(true) },
+            { icon: 'spark', title: 'План на встречу', go: () => setCreating(true) },
+            { icon: 'plus', title: 'История', go: () => setStorying(true) },
+            { icon: 'camera', title: 'Публикация', go: () => setPosting(true) },
+            { icon: 'chat', title: 'Новый чат', go: () => setNewChat(true) },
           ].map((o) => (
-            <button key={o.title} onClick={() => { setChoosing(false); o.go() }} className="flex items-center gap-3 p-3 rounded-2xl bg-surface-2 text-left cursor-pointer hover:brightness-95">
-              <span className="grid place-items-center w-11 h-11 rounded-full bg-brand text-white shrink-0"><Icon name={o.icon} size={20} /></span>
-              <span className="min-w-0"><span className="block font-semibold">{o.title}</span><span className="block text-[13px] text-muted">{o.text}</span></span>
+            <button key={o.title} onClick={() => { setChoosing(false); o.go() }} className="flex flex-col items-center justify-center gap-2.5 h-[118px] rounded-[24px] bg-surface-2 cursor-pointer transition active:scale-95 hover:brightness-95">
+              <span className="grid place-items-center w-12 h-12 rounded-full bg-brand text-white shadow-[0_8px_18px_-10px_rgb(255_79_134/.9)]"><Icon name={o.icon} size={22} /></span>
+              <span className="font-semibold text-[15px]">{o.title}</span>
             </button>
           ))}
         </div>

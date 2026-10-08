@@ -91,7 +91,7 @@ export function Explore({ now, onRespond, onOpenCapsule }: { now: number; onResp
       <div className="px-4">
         <label htmlFor="search" className="flex items-center gap-2 h-11 rounded-2xl bg-surface-2 px-3.5 text-muted">
           <Icon name="search" size={18} />
-          <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск: выставка, кофе, Зыбицкая…" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
+          <input id="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Поиск" className="flex-1 min-w-0 bg-transparent text-fg placeholder:text-muted focus:outline-none" autoComplete="off" />
           {query && <button onClick={() => setQuery('')} aria-label="Очистить поиск" className="cursor-pointer"><Icon name="x" size={16} /></button>}
         </label>
       </div>

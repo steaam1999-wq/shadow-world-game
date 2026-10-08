@@ -79,7 +79,7 @@ export function MyPlans({ plans, now, onOpen, onOpenChat, onCreate }: {
               <Icon name="chat" size={16} className="ml-auto text-spark shrink-0" />
             </button>
           ) : (
-            <span className="flex-1 min-w-0 h-10 px-3 rounded-full bg-surface-2 inline-flex items-center text-[13px] text-muted truncate">{past ? 'Откликов не было' : 'Пока без откликов'}</span>
+            <span className="flex-1 min-w-0 h-10 px-3 rounded-full bg-surface-2 inline-flex items-center text-[13px] text-muted truncate">{past ? 'Откликов не было' : 'Без откликов'}</span>
           )}
           <span className="shrink-0 inline-flex items-center gap-2.5 px-1 text-[12.5px] text-muted tnum">
             <span className="inline-flex items-center gap-1"><Icon name="heart" size={14} />{likes}</span>
@@ -97,7 +97,7 @@ export function MyPlans({ plans, now, onOpen, onOpenChat, onCreate }: {
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <p className="font-display font-bold text-[17px]">{active.length ? `${active.length} ${plural(active.length, 'активный план', 'активных плана', 'активных планов')}` : 'Нет активных планов'}</p>
-          <p className="text-[12.5px] text-muted">{active.length ? (totalReplies ? `${totalReplies} ${plural(totalReplies, 'отклик', 'отклика', 'откликов')} — ответьте в чатах` : 'План виден людям рядом 48 часов') : 'Завершённые — ниже'}</p>
+          <p className="text-[12.5px] text-muted">{active.length ? (totalReplies ? `${totalReplies} ${plural(totalReplies, 'отклик', 'отклика', 'откликов')} — ответьте в чатах` : 'Пока без откликов') : 'Завершённые — ниже'}</p>
         </div>
         {onCreate && <button onClick={onCreate} className="shrink-0 h-10 px-4 rounded-full bg-brand text-white text-[14px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"><Icon name="plus" size={16} /> Новый</button>}
       </div>

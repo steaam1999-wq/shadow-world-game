@@ -54,7 +54,6 @@ export function SurpriseMeet({ onMessage }: { onMessage: (personId: string) => v
         <span className="flex-1 min-w-0">
           <span className="block font-display font-bold text-lg leading-tight">{nameAge(p.name, p.age)}</span>
           <span className="block text-[13px] text-muted">{why}</span>
-          {p.bio && <span className="block text-[13px] truncate">{p.bio}</span>}
         </span>
       </button>
       <div className="relative grid grid-cols-2 gap-2">

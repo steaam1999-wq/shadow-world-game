@@ -61,7 +61,7 @@ export function ReliabilityBadge({ person, compact = false }: { person: { id: st
     </span>
   ) : (
     <span className={`flex flex-wrap items-center gap-x-1.5 text-[13px] ${tone}`}>
-      <Icon name="shield" size={15} /> <b className="whitespace-nowrap">Надёжность {r.pct}%</b> <span className="text-muted font-normal">— пришёл(ла) на {r.came} из {r.total} встреч</span>
+      <Icon name="shield" size={15} /> <b className="whitespace-nowrap" title={`Пришёл(ла) на ${r.came} из ${r.total} встреч`}>Надёжность {r.pct}%</b> <span className="text-muted font-normal tnum">· {r.came}/{r.total}</span>
     </span>
   )
 }
@@ -187,7 +187,7 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
           <span className="grid place-items-center w-10 h-10 rounded-full bg-brand text-white shrink-0"><Icon name="spark" size={18} fill /></span>
           <span className="flex-1 min-w-0 leading-tight">
             <span className="block font-semibold">Свободен(на) сейчас?</span>
-            <span className="block text-[12px] text-muted">{free.length ? `${free.length} ${free.length === 1 ? 'человек рядом свободен' : 'человека рядом свободны'} — встретьтесь в ближайший час` : 'Отметьтесь — и вас смогут позвать прямо сейчас'}</span>
+            <span className="block text-[12px] text-muted">{free.length ? `${free.length} ${free.length === 1 ? 'человек рядом свободен' : 'человека рядом свободны'}` : 'Вас смогут позвать прямо сейчас'}</span>
           </span>
           <Icon name="arrow" size={18} />
         </button>

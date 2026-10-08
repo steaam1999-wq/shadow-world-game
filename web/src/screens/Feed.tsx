@@ -14,7 +14,6 @@ import { FreeNow, GroupStack, UpcomingMeeting, groupFull, joinLabel } from '../c
 import { VerifyBanner } from '../components/Verify'
 import { BOOST_DAY_MS, BoostPlanButton, FOUNDER_BOOST_MS, FounderCorner, GoldFrame, takeInvitedPlan } from '../components/Invite'
 import { SurpriseMeet } from '../components/Surprise'
-import { WelcomeTips } from '../components/Tips'
 import { PushPrompt } from '../components/Alerts'
 import { StoriesRow, useStoryGroups } from './Stories'
 import { useOpenProfile } from '../nav'
@@ -93,7 +92,6 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
         onMessage={(personId, text) => dispatch({ type: 'directMessage', personId, capsuleId: crypto.randomUUID(), text })} />
 
       <PushPrompt />
-      <WelcomeTips />
       <h2 className="px-4 mb-2 font-display font-bold text-[17px]">Сейчас рядом</h2>
       <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
       <VerifyBanner />
