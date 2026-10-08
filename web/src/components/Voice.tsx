@@ -22,6 +22,8 @@ export function useVoiceRecorder(onDone: (dataUrl: string, ms: number) => void) 
   const [elapsed, setElapsed] = useState(0)
   const [levels, setLevels] = useState<number[]>([])
   const [error, setError] = useState('')
+  const [hint, setHint] = useState('')
+  const pending = useRef<'idle' | 'starting' | 'abort'>('idle') // кнопку отпустили, пока микрофон ещё включался
   const r = useRef<{ rec: MediaRecorder; stream: MediaStream; chunks: Blob[]; at: number; send: boolean; ctx?: AudioContext; raf: number; tick: number } | null>(null)
   const done = useRef(onDone)
   done.current = onDone
@@ -36,7 +38,7 @@ export function useVoiceRecorder(onDone: (dataUrl: string, ms: number) => void) 
 
   const finish = (send: boolean) => {
     const x = r.current
-    if (!x) return
+    if (!x) { if (pending.current === 'starting') { pending.current = 'abort'; if (send) setHint('Удерживайте кнопку, пока говорите') } return }
     x.send = send
     if (x.rec.state !== 'inactive') x.rec.stop()
     else stopAll()
@@ -44,15 +46,20 @@ export function useVoiceRecorder(onDone: (dataUrl: string, ms: number) => void) 
   }
 
   const start = async () => {
-    if (r.current) return
-    setError('')
+    if (r.current || pending.current !== 'idle') return
+    setError(''); setHint('')
+    pending.current = 'starting'
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
     } catch {
+      pending.current = 'idle'
       setError('Нет доступа к микрофону — разрешите его в настройках браузера.')
       return
     }
+    const aborted = (pending.current as string) === 'abort'
+    pending.current = 'idle'
+    if (aborted) { stream.getTracks().forEach((t) => t.stop()); return }
     const type = pickType()
     const rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 48000 } : undefined)
     const x = { rec, stream, chunks: [] as Blob[], at: Date.now(), send: false, raf: 0, tick: 0, ctx: undefined as AudioContext | undefined }
@@ -62,6 +69,7 @@ export function useVoiceRecorder(onDone: (dataUrl: string, ms: number) => void) 
       stopAll()
       r.current = null
       const ms = Date.now() - x.at
+      if (x.send && ms < 700) setHint('Удерживайте кнопку, пока говорите')
       if (!x.send || ms < 700 || !x.chunks.length) return
       const blob = new Blob(x.chunks, { type: (rec.mimeType || type || 'audio/webm').split(';')[0] })
       const fr = new FileReader()
@@ -99,7 +107,8 @@ export function useVoiceRecorder(onDone: (dataUrl: string, ms: number) => void) 
   }
 
   useEffect(() => () => { if (r.current) { r.current.send = false; try { r.current.rec.stop() } catch { stopAll() } } }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  return { recording, elapsed, levels, error, start, finish, clearError: () => setError('') }
+  useEffect(() => { if (!hint) return; const t = setTimeout(() => setHint(''), 2500); return () => clearTimeout(t) }, [hint])
+  return { recording, elapsed, levels, error, hint, start, finish, clearError: () => setError('') }
 }
 
 /** Полоски волны: из самого звука, если браузер умеет его разобрать, иначе — ровный «узор» по ссылке. */
@@ -205,20 +214,64 @@ export function VoiceMessage({ id, src, ms, me, time }: { id: string; src?: stri
   )
 }
 
-/** Полоса записи вместо строки ввода. */
-export function VoiceRecordingBar({ elapsed, levels, onCancel, onSend }: { elapsed: number; levels: number[]; onCancel: () => void; onSend: () => void }) {
-  const bars = [...Array(Math.max(0, BARS - levels.length)).fill(0.08), ...levels]
+type Voice = ReturnType<typeof useVoiceRecorder>
+const CANCEL_PX = 90
+
+/** Кнопка микрофона: зажали — запись, отпустили — отправили, увели палец влево — отмена. */
+export function VoiceHoldButton({ voice, onSlide }: { voice: Voice; onSlide: (dx: number) => void }) {
+  const g = useRef<{ x: number; id: number; cancelled: boolean } | null>(null)
+  const end = (send: boolean) => {
+    const st = g.current
+    g.current = null
+    onSlide(0)
+    if (!st || st.cancelled) return
+    voice.finish(send)
+  }
+  // Клавиатура: пробел/Enter — то же удержание
+  const keyDown = (e: React.KeyboardEvent) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && !g.current) { e.preventDefault(); g.current = { x: 0, id: -1, cancelled: false }; void voice.start() } }
+  const keyUp = (e: React.KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); end(true) } }
   return (
-    <div className="flex items-center gap-2">
-      <button type="button" onClick={onCancel} className="grid place-items-center w-12 h-12 shrink-0 rounded-full bg-danger-soft text-danger cursor-pointer active:scale-90 transition" aria-label="Удалить запись"><Icon name="trash" size={20} /></button>
-      <div className="flex-1 min-w-0 flex items-center gap-3 h-12 px-4 rounded-full bg-surface-2/80 ring-1 ring-line/70" role="status" aria-label={`Запись ${fmtVoice(elapsed)}`}>
-        <span className="w-2.5 h-2.5 rounded-full bg-danger anim-flick shrink-0" />
-        <span className="tnum text-[15px] font-semibold w-10 shrink-0">{fmtVoice(elapsed)}</span>
-        <div className="flex-1 min-w-0 flex items-center gap-[2px] h-7 overflow-hidden">
-          {bars.map((v, i) => <span key={i} className="flex-1 rounded-full bg-spark transition-[height] duration-100" style={{ height: `${Math.max(10, Math.round(v * 100))}%` }} />)}
-        </div>
+    <button type="button" aria-label="Удерживайте, чтобы записать голосовое"
+      onPointerDown={(e) => {
+        if (e.button !== 0 || g.current) return
+        e.preventDefault()
+        try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ }
+        g.current = { x: e.clientX, id: e.pointerId, cancelled: false }
+        void voice.start()
+      }}
+      onPointerMove={(e) => {
+        const st = g.current
+        if (!st || st.cancelled || st.id !== e.pointerId) return
+        const dx = Math.max(0, st.x - e.clientX)
+        onSlide(dx)
+        if (dx > CANCEL_PX) { st.cancelled = true; voice.finish(false); onSlide(0); try { navigator.vibrate?.(20) } catch { /* ignore */ } }
+      }}
+      onPointerUp={(e) => { if (g.current?.id === e.pointerId) end(true) }}
+      onPointerCancel={(e) => { if (g.current?.id === e.pointerId) end(false) }}
+      onKeyDown={keyDown} onKeyUp={keyUp}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
+      className={`relative grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer bg-brand text-white transition-transform duration-200 ${voice.recording ? 'scale-[1.35] shadow-[0_0_0_8px_rgb(255_79_134/.18),0_10px_26px_-8px_rgb(255_79_134/.9)]' : 'shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)]'}`}>
+      {voice.recording && <span className="absolute inset-0 rounded-full bg-spark/40 animate-ping" aria-hidden="true" />}
+      <Icon name="mic" size={21} className="relative" />
+    </button>
+  )
+}
+
+/** Полоса записи на месте строки ввода: таймер, громкость, подсказка «влево — отмена». */
+export function VoiceRecordingStrip({ elapsed, levels, slide }: { elapsed: number; levels: number[]; slide: number }) {
+  const bars = [...Array(Math.max(0, 18 - levels.length)).fill(0.08), ...levels.slice(-18)]
+  const k = Math.min(1, slide / CANCEL_PX)
+  return (
+    <div className="flex-1 min-w-0 flex items-center gap-3 h-12 px-4 rounded-full bg-surface-2/80 ring-1 ring-line/70 overflow-hidden" role="status" aria-label={`Запись ${fmtVoice(elapsed)}`}>
+      <span className="w-2.5 h-2.5 rounded-full bg-danger anim-flick shrink-0" />
+      <span className="tnum text-[15px] font-semibold w-10 shrink-0">{fmtVoice(elapsed)}</span>
+      <div className="w-16 shrink-0 flex items-center gap-[2px] h-6">
+        {bars.map((v, i) => <span key={i} className="flex-1 rounded-full bg-spark transition-[height] duration-100" style={{ height: `${Math.max(14, Math.round(v * 100))}%` }} />)}
       </div>
-      <button type="button" onClick={onSend} className="grid place-items-center w-12 h-12 shrink-0 rounded-full bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] cursor-pointer active:scale-90 transition" aria-label="Отправить голосовое"><Icon name="send" size={19} /></button>
+      <span className="flex-1 min-w-0 truncate text-right text-[13px] text-muted transition-transform" style={{ transform: `translateX(${-Math.min(slide, CANCEL_PX) * 0.35}px)`, opacity: 1 - k * 0.5 }}>
+        <span className={k > 0.6 ? 'text-danger font-semibold' : ''}>‹ влево — отмена</span>
+      </span>
     </div>
   )
 }

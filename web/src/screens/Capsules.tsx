@@ -21,7 +21,7 @@ function personOrGone(people: Person[], id: string): Person {
 import { openVerify } from '../components/Verify'
 import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 import { useCalls } from '../calls/Calls'
-import { VoiceMessage, VoiceRecordingBar, canRecordVoice, useVoiceRecorder } from '../components/Voice'
+import { VoiceHoldButton, VoiceMessage, VoiceRecordingStrip, canRecordVoice, useVoiceRecorder } from '../components/Voice'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   active: { label: 'Переписка', tone: 'spark' },
@@ -302,6 +302,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const photoInput = useRef<HTMLInputElement>(null)
   const voice = useVoiceRecorder((audio, ms) => { if (c) dispatch({ type: 'sendVoice', capsuleId: c.id, audio, ms }) })
   const [voiceOk] = useState(canRecordVoice)
+  const [slide, setSlide] = useState(0)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [c?.messages.length, typing])
 
   if (!c) return null
@@ -430,9 +431,10 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           </p>
         )}
         {voice.error && <p className="text-[12px] text-danger px-1" role="alert">{voice.error}</p>}
-        {voice.recording ? <VoiceRecordingBar elapsed={voice.elapsed} levels={voice.levels} onCancel={() => voice.finish(false)} onSend={() => voice.finish(true)} /> : (
+        {voice.hint && <p className="self-end text-[12.5px] font-medium bg-fg text-bg rounded-full px-3 py-1.5 anim-rise" role="status">{voice.hint}</p>}
         <form onSubmit={send} className="flex items-end gap-2">
-          <div className="flex-1 min-w-0 flex items-center gap-1 h-12 pl-1.5 pr-1.5 rounded-full bg-surface-2/80 ring-1 ring-line/70 focus-within:ring-2 focus-within:ring-spark/50 transition-shadow">
+          {voice.recording && <VoiceRecordingStrip elapsed={voice.elapsed} levels={voice.levels} slide={slide} />}
+          <div className={`flex-1 min-w-0 items-center gap-1 h-12 ${voice.recording ? 'hidden' : 'flex'} pl-1.5 pr-1.5 rounded-full bg-surface-2/80 ring-1 ring-line/70 focus-within:ring-2 focus-within:ring-spark/50 transition-shadow`}>
             <button type="button" disabled={locked} onClick={() => photoInput.current?.click()} className="disabled:opacity-40 grid place-items-center w-9 h-9 shrink-0 rounded-full text-muted hover:text-fg hover:bg-surface cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
             <input ref={photoInput} type="file" accept="image/*" className="sr-only" aria-label="Выбрать фото для отправки" onChange={async (e) => {
               const f = e.target.files?.[0]
@@ -443,11 +445,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-full bg-transparent px-1.5 text-[15.5px] placeholder:text-muted focus:outline-none" value={text} onChange={(e) => setText(e.target.value)} placeholder={locked ? 'Пока нельзя написать' : 'Сообщение…'} disabled={locked} autoComplete="off" />
           </div>
           {!text.trim() && voiceOk && !locked ? (
-            // Пустое поле — вместо «Отправить» микрофон: нажали — пошла запись.
-            <button type="button" onClick={() => void voice.start()} aria-label="Записать голосовое"
-              className="grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] active:scale-90">
-              <Icon name="mic" size={21} />
-            </button>
+            // Пустое поле — вместо «Отправить» микрофон: зажали и держите — идёт запись.
+            <VoiceHoldButton voice={voice} onSlide={setSlide} />
           ) : (
             <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked}
               className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
@@ -455,7 +454,6 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             </button>
           )}
         </form>
-        )}
       </div>
       {viewing && (() => {
         // Все фото этого чата — листаются в просмотре.

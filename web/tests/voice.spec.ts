@@ -10,27 +10,37 @@ test.use({
   },
 })
 
-test('голосовое: запись, отмена, отправка и проигрыватель', async ({ page }) => {
+test('голосовое: запись только пока кнопка зажата, отмена свайпом, короткое нажатие', async ({ page }) => {
   await enterDemo(page)
   await nav(page, /^Чаты/)
   await page.locator('main ul > li > button:not([aria-hidden])').first().click()
   const players = page.getByRole('button', { name: 'Слушать голосовое' })
   const before = await players.count()
-  // Запись и отмена — ничего не отправляется
-  await page.getByRole('button', { name: 'Записать голосовое' }).click()
-  await expect(page.getByRole('status', { name: /^Запись / })).toBeVisible()
-  await page.waitForTimeout(1200)
-  await page.getByRole('button', { name: 'Удалить запись' }).click()
-  await expect(page.getByRole('button', { name: 'Записать голосовое' })).toBeVisible()
+  const mic = page.getByRole('button', { name: 'Удерживайте, чтобы записать голосовое' })
+  const box = (await mic.boundingBox())!
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2
+  // Короткое нажатие — не отправляется, подсказка
+  await page.mouse.move(cx, cy); await page.mouse.down(); await page.waitForTimeout(150); await page.mouse.up()
+  await expect(page.getByText('Удерживайте кнопку, пока говорите')).toBeVisible()
   await expect(players).toHaveCount(before)
-  // Запись и отправка
-  await page.getByRole('button', { name: 'Записать голосовое' }).click()
-  await page.waitForTimeout(1600)
-  await page.getByRole('button', { name: 'Отправить голосовое' }).click()
+  // Зажали, увели влево — отмена
+  await page.mouse.move(cx, cy); await page.mouse.down()
+  await expect(page.getByRole('status', { name: /^Запись / })).toBeVisible()
+  await page.waitForTimeout(900)
+  await page.mouse.move(cx - 60, cy, { steps: 4 }); await page.mouse.move(cx - 140, cy, { steps: 4 })
+  await expect(page.getByRole('status', { name: /^Запись / })).toHaveCount(0)
+  await page.mouse.up()
+  await page.waitForTimeout(400)
+  await expect(players).toHaveCount(before)
+  // Зажали и держим — пока держим, идёт запись; отпустили — отправилось
+  await page.mouse.move(cx, cy); await page.mouse.down()
+  await page.waitForTimeout(1700)
+  await expect(page.getByRole('status', { name: /^Запись 0:0[12]/ })).toBeVisible()
+  await page.mouse.up()
   await expect(players).toHaveCount(before + 1)
-  await expect(page.getByText(/^0:0[12]$/).last()).toBeVisible()
+  await expect(page.getByRole('status', { name: /^Запись / })).toHaveCount(0)
   // Есть текст — кнопка снова «Отправить»
   await page.fill('#chat-input', 'привет')
-  await expect(page.getByRole('button', { name: 'Записать голосовое' })).toHaveCount(0)
+  await expect(mic).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeEnabled()
 })
