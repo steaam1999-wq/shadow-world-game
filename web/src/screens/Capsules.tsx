@@ -179,8 +179,22 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   const [leavingGroup, setLeavingGroup] = useState<string | null>(null)
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
   const q = query.trim().toLowerCase()
-  const preview = (m: { from: string; text: string; photo?: string; photoPath?: string } | undefined, who = '') =>
-    m ? `${m.from === 'me' ? 'Вы: ' : who ? `${who}: ` : ''}${m.text || (m.photo || m.photoPath ? '📷 Фото' : '')}` : 'Нет сообщений'
+  const preview = (m: { from: string; text: string; photo?: string; photoPath?: string } | undefined, who = ''): React.ReactNode => {
+    if (!m) return 'Нет сообщений'
+    const log = callLog(m.text)
+    if (log) {
+      // Звонок в превью: значок и подпись вместо эмодзи; пропущенный входящий — красным.
+      const bad = log.missed && m.from !== 'me'
+      return (
+        <span className={`inline-flex items-center gap-1.5 align-middle ${bad ? 'text-danger' : ''}`}>
+          <Icon name={log.video ? 'video' : 'phone'} size={log.video ? 15 : 13} fill />
+          {log.missed ? (m.from === 'me' ? `${log.video ? 'Видеозвонок' : 'Звонок'} без ответа` : `Пропущенный ${log.video ? 'видеозвонок' : 'звонок'}`)
+            : `${log.video ? 'Видеозвонок' : 'Звонок'}${log.duration ? ` · ${log.duration}` : ''}`}
+        </span>
+      )
+    }
+    return `${m.from === 'me' ? 'Вы: ' : who ? `${who}: ` : ''}${m.text || (m.photo || m.photoPath ? '📷 Фото' : '')}`
+  }
   // Личные чаты и группы — одним списком, свежие сверху.
   const rows = [
     ...state.capsules
@@ -193,7 +207,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   ].sort((a, b) => b.at - a.at)
   const leaving = (state.groups ?? []).find((g) => g.id === leavingGroup)
 
-  const row = (id: string, at: number, unread: number, avatar: React.ReactNode, title: string, text: string, label: string, onDelete: () => void) => (
+  const row = (id: string, at: number, unread: number, avatar: React.ReactNode, title: string, text: React.ReactNode, label: string, onDelete: () => void) => (
     <SwipeRow key={id} removing={removing === id} open={swiped === id} onOpenChange={(o) => setSwiped(o ? id : null)} onClick={() => onOpen(id)} onDelete={onDelete} label={label}>
       {avatar}
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -261,6 +275,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
 
 export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBack: () => void }) {
   const openProfile = useOpenProfile()
+  const calls = useCalls()
   const { state, dispatch } = useStore()
   const c = state.capsules.find((x) => x.id === id)
   const [text, setText] = useState('')
@@ -294,6 +309,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const theyWrote = c.messages.some((m) => m.from === 'them')
   const verifiedOnly = !!p.onlyVerified && !state.me?.verified && !theyWrote
   const locked = gone || waiting || verifiedOnly
+  const canCall = !!state.cloud && !gone && theyWrote && c.messages.some((m) => m.from === 'me') && !p.callsOff
   const send = (e: React.FormEvent) => {
     e.preventDefault()
     const t = text.trim()
@@ -324,7 +340,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             <div className="text-[12px] text-muted truncate mt-0.5">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Komeeta'}</div>
           </div>
           </button>
-          <CallButtons person={p} canCall={!!state.cloud && !gone && c.messages.some((m) => m.from === 'them') && c.messages.some((m) => m.from === 'me') && !p.callsOff}
+          <CallButtons person={p} canCall={canCall}
             hint={!state.cloud ? 'Звонки работают после входа в аккаунт' : p.callsOff ? `${p.name} не принимает звонки` : 'Позвонить можно, когда вы оба написали друг другу'} />
           <PlaylistButton chatId={c.id} />
           <button onClick={() => setMenu(true)} className="grid place-items-center w-9 h-9 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Встреча и безопасность"><Icon name="more" size={20} /></button>
@@ -363,7 +379,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                       {!m.text && <span className="absolute right-2 bottom-2 rounded-full bg-black/45 backdrop-blur px-2 py-1 [&_*]:!text-white">{time}</span>}
                     </button>
                   )}
-                  {m.text && (
+                  {callLog(m.text) ? <CallLog log={callLog(m.text)!} me={me} time={time} onCall={canCall ? (v) => calls.start(p.id, v) : undefined} /> : m.text && (
                     <p data-no-translate className={`whitespace-pre-wrap break-words text-[15.5px] leading-[1.35] ${m.photo ? 'px-2.5 pt-1.5 pb-1' : ''}`}>
                       {m.text}
                       {/* Время прячется в конце последней строки, как в мессенджерах */}
@@ -458,6 +474,41 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
       <ReportSheet person={reporting} onClose={() => setReporting(null)} onBlocked={onBack} />
       <CheckinSheet capsule={c} person={p} open={checkin} onClose={() => setCheckin(false)} />
       <SafetySheet capsule={c} person={p} place={place} open={safety} onClose={() => setSafety(false)} />
+    </div>
+  )
+}
+
+type CallLogInfo = { video: boolean; missed: boolean; duration?: string }
+/** Запись о звонке в переписке («📞 Звонок · 1:23», «🎥 Пропущенный звонок») — показываем карточкой, а не текстом с эмодзи. */
+function callLog(text?: string): CallLogInfo | null {
+  const r = /^(📞|🎥)\s*(Звонок|Видеозвонок|Пропущенный звонок)(?: · (\d+:\d{2}(?::\d{2})?))?$/u.exec(text?.trim() ?? '')
+  return r ? { video: r[1] === '🎥', missed: r[2] === 'Пропущенный звонок', duration: r[3] } : null
+}
+
+function CallLog({ log, me, time, onCall }: { log: CallLogInfo; me: boolean; time: React.ReactNode; onCall?: (video: boolean) => void }) {
+  const title = log.video ? 'Видеозвонок' : 'Звонок'
+  // Записи пишет звонивший: «моя» — исходящий, «их» — входящий.
+  const sub = log.missed ? (me ? 'Без ответа' : 'Пропущенный') : (me ? 'Исходящий' : 'Входящий')
+  const bad = log.missed && !me
+  return (
+    <div className="flex items-center gap-3 min-w-[200px] py-0.5">
+      <button type="button" disabled={!onCall} onClick={(e) => { e.stopPropagation(); onCall?.(log.video) }} aria-label={onCall ? `Перезвонить: ${title.toLowerCase()}` : title}
+        className={`relative grid place-items-center w-11 h-11 shrink-0 rounded-full transition active:scale-90 enabled:cursor-pointer ${me ? 'bg-white/20 text-white' : bad ? 'bg-danger-soft text-danger' : 'bg-spark-soft text-spark'}`}>
+        <Icon name={log.video ? 'video' : 'phone'} size={log.video ? 20 : 18} fill />
+        <span className={`absolute -right-0.5 -bottom-0.5 grid place-items-center w-[18px] h-[18px] rounded-full ring-2 ${me ? 'bg-white text-spark ring-transparent' : bad ? 'bg-danger text-white ring-surface' : 'bg-spark text-white ring-surface'}`}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={me ? '' : 'rotate-180'}>
+            <path d="M2.5 7.5 7.5 2.5M3.5 2.5h4v4" />
+          </svg>
+        </span>
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-[15px] leading-tight">{title}</div>
+        <div className={`flex items-center gap-1.5 text-[12.5px] mt-0.5 ${me ? 'text-white/85' : bad ? 'text-danger' : 'text-muted'}`}>
+          <span>{sub}</span>
+          {log.duration && <><span aria-hidden="true">·</span><span className="tnum">{log.duration}</span></>}
+        </div>
+      </div>
+      <span className="self-end translate-y-[2px]">{time}</span>
     </div>
   )
 }
