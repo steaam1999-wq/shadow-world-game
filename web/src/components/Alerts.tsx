@@ -206,6 +206,11 @@ async function checkFreshBuild() {
   } catch { /* нет сети — не важно */ }
 }
 
+/** Обещание с запасным ответом: некоторые телефоны молча «теряют» запрос — кнопка не должна висеть вечно. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p, new Promise<T>((r) => setTimeout(() => r(fallback), ms))])
+}
+
 function b64ToBytes(b64: string) {
   const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4))
   return Uint8Array.from(s, (c) => c.charCodeAt(0))
@@ -215,8 +220,10 @@ function b64ToBytes(b64: string) {
 export async function enablePush(): Promise<boolean> {
   try {
     if (!cloudEnabled || !('serviceWorker' in navigator) || !('PushManager' in window)) return false
-    const reg = await navigator.serviceWorker.ready
-    const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) })
+    const reg = await withTimeout(navigator.serviceWorker.ready, 10000, null)
+    if (!reg) return false
+    const sub = (await reg.pushManager.getSubscription()) ?? await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) }), 20000, null)
+    if (!sub) return false
     await savePushSubscription(sub)
     return true
   } catch { return false }
@@ -263,9 +270,10 @@ export function PushPrompt() {
   const close = () => { setHidden(true); try { localStorage.setItem(PROMPT_KEY, '1') } catch { /* ignore */ } }
   const turnOn = async () => {
     setBusy(true)
-    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+    const p = Notification.permission === 'default' ? await withTimeout(Notification.requestPermission(), 15000, Notification.permission) : Notification.permission
     setPerm(p)
     if (p === 'granted') { set({ system: true, asked: true }); const ok = await enablePush(); setFailed(!ok); if (ok) playDrop() }
+    else setFailed(true)
     setBusy(false)
   }
   return (
@@ -290,7 +298,9 @@ export function PushPrompt() {
         </ol>
       ) : (
         <>
-        {failed && <p className="text-[13px] text-danger leading-snug" role="alert">Не получилось подписать это устройство. {/Android/.test(navigator.userAgent) ? 'На Android откройте Komeeta в Google Chrome — в некоторых браузерах уведомления сайтов не работают.' : 'Проверьте интернет и попробуйте ещё раз.'}</p>}
+        {failed && <p className="text-[13px] text-danger leading-snug" role="alert">{perm === 'granted'
+          ? `Не получилось подписать это устройство. ${/Android/.test(navigator.userAgent) ? 'Обновите Google Chrome и попробуйте ещё раз.' : 'Проверьте интернет и попробуйте ещё раз.'}`
+          : 'Уведомления не разрешены. Откройте настройки телефона → Приложения → Komeeta (или Chrome) → Уведомления → Разрешить, затем нажмите кнопку снова.'}</p>}
         <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
           {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}
         </button>
@@ -410,7 +420,7 @@ export function AlertSettings() {
   const toggleSystem = async (on: boolean) => {
     if (!on) { set({ system: false, asked: true }); void disablePush(); return }
     if (!supported) return
-    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+    const p = Notification.permission === 'default' ? await withTimeout(Notification.requestPermission(), 15000, Notification.permission) : Notification.permission
     setPerm(p)
     set({ system: p === 'granted', asked: true })
     if (p === 'granted' && state.cloud) setPushOk(await enablePush())
