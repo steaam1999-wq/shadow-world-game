@@ -1,13 +1,14 @@
-# Komeeta для Android: собирает APK и выкладывает его в «Releases» репозитория.
-# Нужен один секрет репозитория: ANDROID_KEY_PASSWORD — длинный пароль ключа подписи.
-# Ключ создаётся при первой сборке (android/komeeta-release.p12, защищён этим паролем) и дальше не меняется —
-# иначе телефоны не смогут обновить приложение поверх старой версии.
+# Komeeta для Android: своё приложение (Capacitor + WebView), Chrome не нужен.
+# Собирает APK и выкладывает его в «Releases» репозитория.
+# Секреты репозитория:
+#   ANDROID_KEY_PASSWORD — пароль ключа подписи (ключ лежит в mobile/android/komeeta-release.p12; не менять, иначе обновления не встанут);
+#   GOOGLE_SERVICES_JSON — содержимое google-services.json из Firebase (нужен для push-уведомлений; без него приложение соберётся, но без пушей).
 name: Android APK
 
 on:
   push:
     branches: [claude/iskra-site, main]
-    paths: ['android/**', '.github/workflows/android.yml']
+    paths: ['mobile/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
 permissions:
@@ -23,56 +24,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
-      - name: Ключ подписи
-        id: key
-        env:
-          KS_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Зависимости и синхронизация Capacitor
+        working-directory: mobile
         run: |
-          if [ -z "$KS_PASS" ]; then
-            echo "::error::Добавьте секрет ANDROID_KEY_PASSWORD: Settings → Secrets and variables → Actions → New repository secret"
-            exit 1
-          fi
-          KS=android/komeeta-release.p12
-          if [ ! -f "$KS" ]; then
-            keytool -genkeypair -v -storetype PKCS12 -keystore "$KS" -alias komeeta -keyalg RSA -keysize 4096 -validity 10000 \
-              -storepass "$KS_PASS" -keypass "$KS_PASS" -dname "CN=Komeeta, O=Komeeta, C=BY"
-          fi
-          FP=$(keytool -list -v -keystore "$KS" -storepass "$KS_PASS" -alias komeeta | grep -m1 'SHA256:' | awk '{print $2}')
-          echo "fingerprint=$FP" >> "$GITHUB_OUTPUT"
-          # Связь сайта и приложения: без неё сверху будет видна адресная строка.
-          mkdir -p web/public/.well-known
-          cat > web/public/.well-known/assetlinks.json <<JSON
-          [{
-            "relation": ["delegate_permission/common.handle_all_urls"],
-            "target": { "namespace": "android_app", "package_name": "com.komeeta.app", "sha256_cert_fingerprints": ["$FP"] }
-          }]
-          JSON
-          sed -i 's/^          //' web/public/.well-known/assetlinks.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$KS" web/public/.well-known/assetlinks.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Android: ключ подписи и assetlinks.json [skip ci]"
-            git push
-          fi
+          npm ci || npm install --no-audit --no-fund
+          npx cap sync android
+
+      - name: Firebase (push-уведомления)
+        env:
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GSJ" ]; then printf '%s' "$GSJ" > mobile/android/app/google-services.json; echo "google-services.json: есть"; else echo "::warning::Нет секрета GOOGLE_SERVICES_JSON — APK без push-уведомлений"; fi
 
       - name: Сборка APK
         env:
-          KOMEETA_KEYSTORE: ${{ github.workspace }}/android/komeeta-release.p12
+          KOMEETA_KEYSTORE: ${{ github.workspace }}/mobile/android/komeeta-release.p12
           KOMEETA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        working-directory: android
+        working-directory: mobile/android
         run: |
-          gradle assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
-          cp app/build/outputs/apk/release/app-release.apk ../komeeta.apk
+          if [ -z "$KOMEETA_KEY_PASSWORD" ]; then echo "::error::Нет секрета ANDROID_KEY_PASSWORD"; exit 1; fi
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode=$((100 + ${{ github.run_number }})) --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../../komeeta.apk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -83,9 +65,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-v${{ github.run_number }}
-          name: Komeeta для Android 1.0.${{ github.run_number }}
+          name: Komeeta для Android 2.0.${{ github.run_number }}
           body: |
+            Своё приложение Komeeta — Chrome не нужен.
             Установка: скачайте komeeta.apk на телефон и откройте его (разрешите установку из этого источника).
-            Отпечаток ключа: ${{ steps.key.outputs.fingerprint }}
           files: komeeta.apk
           make_latest: true

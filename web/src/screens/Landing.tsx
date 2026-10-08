@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { Avatar, Button, Field, Icon, Logo, LogoMark, Sheet, ThemeToggle, Wordmark, inputCls } from '../components/ui'
 import type { Me } from '../types'
 import { cloudEnabled } from '../cloud/config'
-import { NICK_RE, authProviders, humanError, nickConfig, normalizePhone, resetNick, signInNick, signUpNick, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
+import { NICK_RE, authProviders, humanError, nickConfig, normalizePhone, resetNick, signInNick, signUpNick, requestPasswordReset, sendMagicLink, sendPhoneCode, signIn, signInWithProvider, signInWithTelegram, signUp, telegramLogin, telegramResultFromUrl, verifyEmailCode, verifyPhoneCode } from '../cloud/api'
 import { RulesSheet } from '../components/Rules'
 import { ConsentCheck, localConsent, saveLocalConsent } from '../components/Consent'
 import { invitedBy } from '../components/Invite'
@@ -155,6 +155,16 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       setBusy(false)
     }
   }
+  // Вернулись со страницы входа Telegram (в приложении): ответ лежит в адресе — входим сразу.
+  const [tgReturn] = useState(() => { try { return telegramResultFromUrl(location.hash) } catch { return null } })
+  useEffect(() => {
+    if (!tgReturn) return
+    try { history.replaceState(null, '', location.pathname + location.search) } catch { /* ignore */ }
+    setBusy(true)
+    void signInWithTelegram(tgReturn)
+      .then((user) => onCloudAuth(user.id, user.email ?? '', tgReturn.first_name ?? '', true))
+      .catch(() => { setError('Не получилось войти через Telegram. Попробуйте ещё раз или войдите по почте.'); setBusy(false) })
+  }, [tgReturn]) // eslint-disable-line react-hooks/exhaustive-deps
   // Телефон: номер → код из SMS
   const [phone, setPhone] = useState('+375 ')
   const [codeSent, setCodeSent] = useState('')

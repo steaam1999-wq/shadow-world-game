@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { enableNativePush, isNativeApp, nativePushGranted, onNativePushOpen } from '../native'
 import { useStore } from '../store'
 import { cloudEnabled, VAPID_PUBLIC_KEY } from '../cloud/config'
 import { savePushSubscription } from '../cloud/api'
@@ -246,6 +247,8 @@ export function usePushAutoSubscribe() {
   const { state } = useStore()
   const [prefs, set] = usePrefs()
   useEffect(() => {
+    // Приложение для Android: уведомления через Firebase, без браузера.
+    if (state.cloud && isNativeApp()) { void nativePushGranted().then((ok) => { if (ok) void enableNativePush(false) }); return }
     if (!state.cloud || typeof Notification === 'undefined' || Notification.permission !== 'granted') return
     // Разрешение дали раньше, а переключатель ни разу не трогали — включаем.
     if (!prefs.system && !prefs.asked) { set({ system: true, asked: true }); return }
@@ -257,6 +260,44 @@ const PROMPT_KEY = 'match-push-prompt'
 
 /** Карточка на главной: включить уведомления одной кнопкой (или как это сделать на iPhone). */
 export function PushPrompt() {
+  return isNativeApp() ? <NativePushPrompt /> : <WebPushPrompt />
+}
+
+/** В приложении для Android: одна кнопка — системный запрос разрешения и подписка через Firebase. */
+function NativePushPrompt() {
+  const { state } = useStore()
+  const [granted, setGranted] = useState<boolean | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(PROMPT_KEY) === '1' } catch { return false } })
+  useEffect(() => { void nativePushGranted().then(setGranted) }, [])
+  if (!state.cloud || hidden || granted !== false) return null
+  const close = () => { setHidden(true); try { localStorage.setItem(PROMPT_KEY, '1') } catch { /* ignore */ } }
+  const turnOn = async () => {
+    setBusy(true)
+    const ok = await enableNativePush(true)
+    setFailed(!ok); setBusy(false)
+    if (ok) { setGranted(true); playDrop() }
+  }
+  return (
+    <section className="mx-4 mb-4 rounded-[24px] bg-surface shadow-soft p-4 flex flex-col gap-3" aria-label="Уведомления">
+      <div className="flex items-start gap-3">
+        <span className="grid place-items-center w-10 h-10 shrink-0 rounded-xl bg-brand text-white"><Icon name="bell" size={20} /></span>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-display font-bold text-[16px]">Не пропускайте сообщения</h2>
+          <p className="text-[13.5px] text-muted leading-snug mt-0.5">Звонки и сообщения придут, даже когда Komeeta закрыта.</p>
+        </div>
+        <button onClick={close} className="grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть"><Icon name="x" size={16} /></button>
+      </div>
+      {failed && <p className="text-[13px] text-danger leading-snug" role="alert">Уведомления не разрешены. Откройте настройки телефона → Приложения → Komeeta → Уведомления → Разрешить.</p>}
+      <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
+        {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}
+      </button>
+    </section>
+  )
+}
+
+function WebPushPrompt() {
   const { state } = useStore()
   const [prefs, set] = usePrefs()
   const supported = typeof Notification !== 'undefined' && 'serviceWorker' in navigator
@@ -373,6 +414,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
   useEffect(() => { if (banner && !banner.profile && banner.chat === openChat) setBanner(null) }, [openChat, banner])
 
   // Клик по системному уведомлению — открыть нужный чат.
+  useEffect(() => onNativePushOpen((d) => { if (d.chat) onOpen(d.chat); else if (d.person && !d.call) onOpenProfile(d.person) }), [onOpen, onOpenProfile])
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     const on = (e: MessageEvent) => {
@@ -410,8 +452,10 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
 /** Настройки оповещений для вкладки «Настройки» профиля. */
 export function AlertSettings() {
   const [prefs, set] = usePrefs()
-  const supported = typeof Notification !== 'undefined'
-  const [perm, setPerm] = useState(supported ? Notification.permission : 'denied')
+  const native = isNativeApp()
+  const supported = native || typeof Notification !== 'undefined'
+  const [perm, setPerm] = useState<NotificationPermission>(native ? 'default' : supported ? Notification.permission : 'denied')
+  useEffect(() => { if (native) void nativePushGranted().then((ok) => setPerm(ok ? 'granted' : 'default')) }, [native])
   const standalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone)
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent)
 
@@ -420,13 +464,18 @@ export function AlertSettings() {
   const toggleSystem = async (on: boolean) => {
     if (!on) { set({ system: false, asked: true }); void disablePush(); return }
     if (!supported) return
+    if (native) {
+      const ok = await enableNativePush(true)
+      setPerm(ok ? 'granted' : 'denied'); set({ system: ok, asked: true }); setPushOk(ok)
+      return
+    }
     const p = Notification.permission === 'default' ? await withTimeout(Notification.requestPermission(), 15000, Notification.permission) : Notification.permission
     setPerm(p)
     set({ system: p === 'granted', asked: true })
     if (p === 'granted' && state.cloud) setPushOk(await enablePush())
   }
   // Разрешение уже есть — продлеваем подписку (браузер может её сменить).
-  useEffect(() => { if (prefs.system && perm === 'granted' && state.cloud) void enablePush().then(setPushOk) }, [prefs.system, perm, state.cloud])
+  useEffect(() => { if (prefs.system && perm === 'granted' && state.cloud) void (native ? enableNativePush(false) : enablePush()).then(setPushOk) }, [prefs.system, perm, state.cloud, native])
 
   return (
     <section className="rounded-[28px] bg-surface shadow-soft px-5 py-2 flex flex-col divide-y divide-line">
@@ -456,7 +505,7 @@ export function AlertSettings() {
       </div>
       {supported ? (
         <Toggle id="al-system" checked={prefs.system && perm === 'granted'} onChange={(v) => { void toggleSystem(v) }} label="Уведомления на устройстве"
-          hint={perm === 'denied' ? 'Запрещены в настройках браузера — разрешите их для этого сайта' : pushOk ? 'Придут, даже когда Komeeta закрыта' : 'Когда Komeeta открыта в фоне или свёрнута'} />
+          hint={perm === 'denied' ? (native ? 'Запрещены в настройках телефона: Приложения → Komeeta → Уведомления' : 'Запрещены в настройках браузера — разрешите их для этого сайта') : pushOk ? 'Придут, даже когда Komeeta закрыта' : 'Когда Komeeta открыта в фоне или свёрнута'} />
       ) : (
         <p className="py-3 text-[13px] text-muted">
           {ios && !standalone ? 'На iPhone уведомления работают, если добавить сайт на экран «Домой»: «Поделиться» → «На экран Домой», и открыть Komeeta оттуда.' : 'Этот браузер не показывает системные уведомления — остаются звук и баннер.'}

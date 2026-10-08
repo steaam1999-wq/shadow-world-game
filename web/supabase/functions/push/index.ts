@@ -6,6 +6,57 @@ import webpush from 'npm:web-push@3.6.7'
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
 let config: { public: string; private: string; hook: string } | null = null
 
+// --- Приложение для Android: уведомления через Firebase Cloud Messaging (HTTP v1) ---
+// Секрет FCM_SERVICE_ACCOUNT — JSON ключа сервисного аккаунта Firebase (Project settings → Service accounts).
+type ServiceAccount = { project_id: string; client_email: string; private_key: string }
+let fcmAuth: { token: string; until: number } | null = null
+const b64url = (b: ArrayBuffer | Uint8Array | string) => {
+  const bytes = typeof b === 'string' ? new TextEncoder().encode(b) : new Uint8Array(b as ArrayBuffer)
+  let s = ''; for (const x of bytes) s += String.fromCharCode(x)
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+function serviceAccount(): ServiceAccount | null {
+  try { const raw = Deno.env.get('FCM_SERVICE_ACCOUNT'); return raw ? JSON.parse(raw) as ServiceAccount : null } catch { return null }
+}
+async function fcmAccessToken(sa: ServiceAccount): Promise<string> {
+  if (fcmAuth && fcmAuth.until > Date.now() + 60_000) return fcmAuth.token
+  const now = Math.floor(Date.now() / 1000)
+  const head = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
+  const claim = b64url(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }))
+  const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')
+  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0))
+  const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${head}.${claim}`))
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${head}.${claim}.${b64url(sig)}` }),
+  })
+  const j = await r.json() as { access_token?: string; expires_in?: number }
+  if (!j.access_token) throw new Error('fcm-auth')
+  fcmAuth = { token: j.access_token, until: Date.now() + (j.expires_in ?? 3600) * 1000 }
+  return j.access_token
+}
+/** Отправка на устройство с приложением. false — токен устарел, подписку надо удалить. */
+async function sendFcm(sa: ServiceAccount, token: string, p: Record<string, unknown>, call: boolean): Promise<boolean | null> {
+  const data: Record<string, string> = {}
+  for (const k of ['chat', 'person', 'call', 'kind']) if (p[k] != null) data[k] = String(p[k])
+  const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+    method: 'POST', headers: { Authorization: `Bearer ${await fcmAccessToken(sa)}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: {
+      token,
+      notification: { title: String(p.title ?? 'Komeeta'), body: String(p.body ?? '') },
+      data,
+      android: {
+        priority: 'high', ttl: call ? '45s' : '3600s',
+        notification: { channel_id: call ? 'calls' : 'messages', tag: call ? 'call' : String(p.chat ?? p.kind ?? 'komeeta'), sound: 'default', default_vibrate_timings: !call, ...(call ? { vibrate_timings: ['0s', '0.6s', '0.3s', '0.6s', '0.3s', '0.6s'] } : {}) },
+      },
+    } }),
+  })
+  if (r.ok) return true
+  const t = await r.text()
+  return /UNREGISTERED|registration-token-not-registered|INVALID_ARGUMENT.*token/i.test(t) ? false : null
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('method not allowed', { status: 405 })
   if (!config) {
@@ -75,7 +126,17 @@ Deno.serve(async (req) => {
   if (!subs?.length) return new Response('no subscribers', { status: 200 })
 
   let sent = 0
+  const sa = serviceAccount()
   await Promise.all(subs.map(async (s) => {
+    if (s.endpoint.startsWith('fcm:')) {
+      if (!sa) return
+      try {
+        const ok = await sendFcm(sa, s.endpoint.slice(4), JSON.parse(payload), !!body.call_signal_id)
+        if (ok) sent++
+        else if (ok === false) await db.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
+      } catch { /* сеть Firebase — не страшно */ }
+      return
+    }
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: body.call_signal_id ? 45 : 3600, urgency: 'high', topic })
       sent++

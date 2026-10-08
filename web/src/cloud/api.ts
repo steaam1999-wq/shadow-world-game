@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { NATIVE_AUTH_REDIRECT, isNativeApp, nativeOAuth, nativeTelegramRedirect } from '../native'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
 import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Story, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
@@ -226,6 +227,8 @@ export function telegramBot() {
 export async function telegramLogin(): Promise<TelegramUser | null> {
   const cfg = await telegramBot()
   if (!cfg) throw new Error('telegram-off')
+  // В приложении всплывающих окон нет — открываем страницу Telegram целиком, ответ вернётся в адресе (#tgAuthResult)
+  if (isNativeApp()) { nativeTelegramRedirect(cfg.id); return new Promise(() => {}) }
   type TG = { Login: { auth: (o: { bot_id: number; request_access?: string; lang?: string }, cb: (u: TelegramUser | false) => void) => void } }
   const w = window as unknown as { Telegram?: TG }
   if (!w.Telegram?.Login) await new Promise<void>((resolve, reject) => {
@@ -235,6 +238,17 @@ export async function telegramLogin(): Promise<TelegramUser | null> {
     document.head.appendChild(s)
   })
   return new Promise((resolve) => w.Telegram!.Login.auth({ bot_id: cfg.id, request_access: 'write', lang: 'ru' }, (u) => resolve(u || null)))
+}
+/** Ответ страницы входа Telegram, пришедший в адресе (#tgAuthResult=…) — в приложении без всплывающего окна. */
+export function telegramResultFromUrl(hash: string): TelegramUser | null {
+  const m = /tgAuthResult=([^&]+)/.exec(hash)
+  if (!m) return null
+  try {
+    const b = decodeURIComponent(m[1]).replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(escape(atob(b + '='.repeat((4 - (b.length % 4)) % 4))))
+    const u = JSON.parse(json) as TelegramUser
+    return u && u.id && u.hash ? u : null
+  } catch { return null }
 }
 export type TelegramUser = { id: number; first_name: string; last_name?: string; username?: string; photo_url?: string; auth_date: number; hash: string }
 /** Отдаём данные от Telegram серверу; он проверяет подпись и возвращает одноразовый ключ входа. */
@@ -250,6 +264,13 @@ export async function signInWithTelegram(user: TelegramUser) {
 }
 
 export async function signInWithProvider(provider: string) {
+  if (isNativeApp()) {
+    // В приложении Google не пускает входить во встроенном окне — открываем браузер и возвращаемся по com.komeeta.app://auth
+    const { data, error } = await sb().auth.signInWithOAuth({ provider: provider as 'google', options: { redirectTo: NATIVE_AUTH_REDIRECT, skipBrowserRedirect: true } })
+    if (error) throw error
+    if (data.url) await nativeOAuth(data.url)
+    return
+  }
   const { error } = await sb().auth.signInWithOAuth({ provider: provider as 'google', options: { redirectTo: location.origin + location.pathname } })
   if (error) throw error
 }

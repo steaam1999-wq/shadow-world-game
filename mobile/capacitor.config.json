@@ -1,0 +1,14 @@
+{
+  "appId": "com.komeeta.app",
+  "appName": "Komeeta",
+  "webDir": "www",
+  "server": {
+    "url": "https://komeeta.com/?source=app",
+    "androidScheme": "https",
+    "allowNavigation": ["komeeta.com", "*.komeeta.com", "oauth.telegram.org", "telegram.org", "*.supabase.co"]
+  },
+  "android": { "backgroundColor": "#120a1c" },
+  "plugins": {
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  }
+}

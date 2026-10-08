@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { registerAlertsWorker } from './components/Alerts'
 import { Splash } from './components/Splash'
 import { startTranslator } from './i18n'
+import { listenNativeAuthReturn } from './native'
 
 // Сохранённую тему применяем до первого кадра: переключатель теперь живёт в настройках профиля.
 try {
@@ -21,3 +22,4 @@ createRoot(document.getElementById('root')!).render(
 
 registerAlertsWorker()
 startTranslator()
+listenNativeAuthReturn() // приложение для Android: возврат после входа через Google и открытые ссылки komeeta.com
