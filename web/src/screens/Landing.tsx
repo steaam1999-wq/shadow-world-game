@@ -240,8 +240,8 @@ export function Landing({ onDemo, onLogin, onRegister, onCloudAuth }: {
       </header>
 
       {stage === 'welcome' && (
-        <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col px-6 pb-6">
-          <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center py-6 anim-page">
+        <main className="flex-1 w-full max-w-[400px] mx-auto flex flex-col justify-center px-6 pb-[calc(24px+env(safe-area-inset-bottom,0px))] -mt-8">
+          <div className="flex flex-col items-center gap-5 text-center pb-9 anim-page">
             <div className="flex flex-col items-center gap-3">
               <LogoMark size={84} animate />
               <Wordmark animate className="text-[26px]" />
