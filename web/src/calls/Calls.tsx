@@ -323,13 +323,14 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
       {!showRemoteVideo && remote && <Sound stream={remote} />}
       {showRemoteVideo && <Video stream={remote} className="absolute inset-0 w-full h-full object-cover" />}
       {showRemoteVideo && <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />}
-      {call.video && local && call.phase !== 'ended' && !camOff && !showRemoteVideo && (
-        <Video stream={local} muted mirror={mirror} className="absolute inset-0 w-full h-full object-cover opacity-30 blur-2xl scale-110" />
-      )}
       {call.video && local && call.phase !== 'ended' && !camOff && (
         <Video stream={local} muted mirror={mirror} className={showRemoteVideo
           ? 'absolute right-4 top-[calc(16px+env(safe-area-inset-top,0px))] w-28 h-40 rounded-2xl object-cover ring-2 ring-white/40 shadow-2xl z-10'
-          : 'absolute inset-0 w-full h-full object-contain opacity-50'} />
+          : 'absolute inset-0 w-full h-full object-cover'} />
+      )}
+      {/* Пока ждём ответа — своя камера на весь экран, затемнённая для читаемости имени и кнопок */}
+      {call.video && local && call.phase !== 'ended' && !camOff && !showRemoteVideo && (
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/.55),rgb(0_0_0/.25)_35%,rgb(0_0_0/.25)_65%,rgb(0_0_0/.6))] pointer-events-none" />
       )}
 
       <div className={`relative z-[5] flex flex-col items-center gap-3 px-6 ${showRemoteVideo ? 'pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'flex-1 justify-center pt-[env(safe-area-inset-top,0px)] pb-6'}`}>
