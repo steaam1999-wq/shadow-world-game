@@ -1611,3 +1611,6 @@ exception when others then return new;
 end $$;
 create trigger call_signals_push after insert on public.call_signals for each row when (new.kind = 'offer') execute function private.on_call_push();
 alter publication supabase_realtime add table public.call_signals;
+
+-- Безопасность: фиксированный search_path у проверки интересов
+alter function private.tags_ok set search_path = '';
