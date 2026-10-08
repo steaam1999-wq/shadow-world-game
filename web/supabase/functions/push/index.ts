@@ -60,13 +60,13 @@ Deno.serve(async (req) => {
   } else {
     const message_id = body.message_id
     if (!message_id) return new Response('bad request', { status: 400 })
-    const { data: m } = await db.from('messages').select('capsule_id, sender, body, photo_path').eq('id', message_id).maybeSingle()
+    const { data: m } = await db.from('messages').select('capsule_id, sender, body, photo_path, audio_path').eq('id', message_id).maybeSingle()
     if (!m) return new Response('no message', { status: 404 })
     const { data: c } = await db.from('capsules').select('author, responder').eq('id', m.capsule_id).maybeSingle()
     if (!c) return new Response('no chat', { status: 404 })
     to = [c.author === m.sender ? c.responder : c.author]
     const { data: sender } = await db.from('profiles').select('name').eq('id', m.sender).maybeSingle()
-    const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : 'Новое сообщение')
+    const text = String(m.body || '') || (m.photo_path ? '📷 Фото' : m.audio_path ? '🎤 Голосовое сообщение' : 'Новое сообщение')
     payload = JSON.stringify({ title: sender?.name ?? 'Komeeta', body: text.length > 140 ? text.slice(0, 139) + '…' : text, chat: m.capsule_id })
     topic = String(m.capsule_id).replace(/-/g, '').slice(0, 32)
   }

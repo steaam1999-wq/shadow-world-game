@@ -93,6 +93,9 @@ export interface Message {
   at: number
   photo?: string // ссылка на фото или data URL, пока отправляется
   photoPath?: string // путь фото в хранилище чата (облако)
+  audio?: string // голосовое: ссылка или data URL, пока отправляется
+  audioPath?: string // путь голосового в хранилище чата (облако)
+  audioMs?: number // длина голосового
 }
 
 /** Групповой чат. Сообщения — как в личном чате, у чужих указан автор (senderId). */

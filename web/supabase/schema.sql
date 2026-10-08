@@ -1614,3 +1614,11 @@ alter publication supabase_realtime add table public.call_signals;
 
 -- Безопасность: фиксированный search_path у проверки интересов
 alter function private.tags_ok set search_path = '';
+
+-- Голосовые сообщения в личных чатах: файл в хранилище chat/<id чата>/, длина до 3 минут.
+alter table public.messages add column if not exists audio_path text, add column if not exists audio_ms integer;
+alter table public.messages drop constraint if exists messages_content_check;
+alter table public.messages add constraint messages_content_check check (char_length(body) <= 2000 and (char_length(body) >= 1 or photo_path is not null or audio_path is not null));
+alter table public.messages drop constraint if exists messages_audio_check;
+alter table public.messages add constraint messages_audio_check check (audio_path is null or (char_length(audio_path) <= 200 and audio_path like capsule_id::text || '/%' and audio_ms between 300 and 180000));
+update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/mp4','audio/webm','audio/ogg','audio/mpeg','audio/aac'] where id = 'chat';

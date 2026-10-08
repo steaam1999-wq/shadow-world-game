@@ -21,6 +21,7 @@ function personOrGone(people: Person[], id: string): Person {
 import { openVerify } from '../components/Verify'
 import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 import { useCalls } from '../calls/Calls'
+import { VoiceMessage, VoiceRecordingBar, canRecordVoice, useVoiceRecorder } from '../components/Voice'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
   active: { label: 'Переписка', tone: 'spark' },
@@ -193,6 +194,9 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
         </span>
       )
     }
+    if ((m as { audio?: string; audioPath?: string }).audio || (m as { audioPath?: string }).audioPath) {
+      return <span className="inline-flex items-center gap-1 align-middle">{m.from === 'me' ? 'Вы: ' : who ? `${who}: ` : ''}<Icon name="mic" size={14} /> Голосовое сообщение</span>
+    }
     return `${m.from === 'me' ? 'Вы: ' : who ? `${who}: ` : ''}${m.text || (m.photo || m.photoPath ? '📷 Фото' : '')}`
   }
   // Личные чаты и группы — одним списком, свежие сверху.
@@ -296,6 +300,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [photoError, setPhotoError] = useState('')
   const kb = useKeyboardInset() // высота клавиатуры — строка ввода остаётся над ней
   const photoInput = useRef<HTMLInputElement>(null)
+  const voice = useVoiceRecorder((audio, ms) => { if (c) dispatch({ type: 'sendVoice', capsuleId: c.id, audio, ms }) })
+  const [voiceOk] = useState(canRecordVoice)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [c?.messages.length, typing])
 
   if (!c) return null
@@ -379,7 +385,9 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                       {!m.text && <span className="absolute right-2 bottom-2 rounded-full bg-black/45 backdrop-blur px-2 py-1 [&_*]:!text-white">{time}</span>}
                     </button>
                   )}
-                  {callLog(m.text) ? <CallLog log={callLog(m.text)!} me={me} time={time} onCall={canCall ? (v) => calls.start(p.id, v) : undefined} /> : m.text && (
+                  {(m.audio || m.audioPath) ? (
+                    <VoiceMessage id={m.id} src={m.audio} ms={m.audioMs ?? 0} me={me} time={time} />
+                  ) : callLog(m.text) ? <CallLog log={callLog(m.text)!} me={me} time={time} onCall={canCall ? (v) => calls.start(p.id, v) : undefined} /> : m.text && (
                     <p data-no-translate className={`whitespace-pre-wrap break-words text-[15.5px] leading-[1.35] ${m.photo ? 'px-2.5 pt-1.5 pb-1' : ''}`}>
                       {m.text}
                       {/* Время прячется в конце последней строки, как в мессенджерах */}
@@ -421,6 +429,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             {!gone && verifiedOnly && <button type="button" onClick={openVerify} className="shrink-0 h-8 px-3 rounded-full bg-cobalt text-white text-[12.5px] font-semibold cursor-pointer">Пройти проверку</button>}
           </p>
         )}
+        {voice.error && <p className="text-[12px] text-danger px-1" role="alert">{voice.error}</p>}
+        {voice.recording ? <VoiceRecordingBar elapsed={voice.elapsed} levels={voice.levels} onCancel={() => voice.finish(false)} onSend={() => voice.finish(true)} /> : (
         <form onSubmit={send} className="flex items-end gap-2">
           <div className="flex-1 min-w-0 flex items-center gap-1 h-12 pl-1.5 pr-1.5 rounded-full bg-surface-2/80 ring-1 ring-line/70 focus-within:ring-2 focus-within:ring-spark/50 transition-shadow">
             <button type="button" disabled={locked} onClick={() => photoInput.current?.click()} className="disabled:opacity-40 grid place-items-center w-9 h-9 shrink-0 rounded-full text-muted hover:text-fg hover:bg-surface cursor-pointer" aria-label="Отправить фото"><Icon name="camera" size={20} /></button>
@@ -432,11 +442,20 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             }} />
             <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-full bg-transparent px-1.5 text-[15.5px] placeholder:text-muted focus:outline-none" value={text} onChange={(e) => setText(e.target.value)} placeholder={locked ? 'Пока нельзя написать' : 'Сообщение…'} disabled={locked} autoComplete="off" />
           </div>
-          <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked}
-            className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
-            <Icon name="send" size={19} className={text.trim() ? 'translate-x-[1px]' : ''} />
-          </button>
+          {!text.trim() && voiceOk && !locked ? (
+            // Пустое поле — вместо «Отправить» микрофон: нажали — пошла запись.
+            <button type="button" onClick={() => void voice.start()} aria-label="Записать голосовое"
+              className="grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] active:scale-90">
+              <Icon name="mic" size={21} />
+            </button>
+          ) : (
+            <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked}
+              className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
+              <Icon name="send" size={19} className={text.trim() ? 'translate-x-[1px]' : ''} />
+            </button>
+          )}
         </form>
+        )}
       </div>
       {viewing && (() => {
         // Все фото этого чата — листаются в просмотре.

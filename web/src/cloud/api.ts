@@ -16,7 +16,7 @@ export function sb() {
 interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null; consent_at?: string | null; only_verified?: boolean; calls_off?: boolean }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
-interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null }
+interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null; audio_path?: string | null; audio_ms?: number | null }
 
 const ms = (iso: string) => new Date(iso).getTime()
 
@@ -442,7 +442,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   }))
 
   const byCapsule = new Map<string, MessageRow[]>()
-  const chatPhotos = await sign('chat', (messages.data ?? []).flatMap((m) => (m.photo_path ? [m.photo_path] : [])))
+  const chatPhotos = await sign('chat', (messages.data ?? []).flatMap((m) => [m.photo_path, m.audio_path].filter((x): x is string => !!x)))
   for (const m of messages.data ?? []) byCapsule.set(m.capsule_id, [...(byCapsule.get(m.capsule_id) ?? []), m])
 
   // Чаты, которые я удалил у себя: старые сообщения не показываем; пока нет новых — чат скрыт из списка.
@@ -455,7 +455,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     const msgs: Message[] = [
       { id: `${c.id}-open`, from: 'system', text: c.plan_id ? 'Чат открыт. Договоритесь о встрече — точное место уже здесь.' : 'Личная переписка.', at: created },
       ...(exact ? [{ id: `${c.id}-place`, from: 'system' as const, text: `Точное место: ${exact}`, at: created }] : []),
-      ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at), ...(m.photo_path ? { photo: chatPhotos.get(m.photo_path), photoPath: m.photo_path } : {}) })),
+      ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at), ...(m.photo_path ? { photo: chatPhotos.get(m.photo_path), photoPath: m.photo_path } : {}), ...(m.audio_path ? { audio: chatPhotos.get(m.audio_path), audioPath: m.audio_path, audioMs: m.audio_ms ?? 0 } : {}) })),
       ...(c.status !== 'active' ? [{ id: `${c.id}-status`, from: 'system' as const, text: STATUS_NOTE[c.status], at: Date.now() }] : []),
     ]
     const seen = read[c.id] ?? 0
@@ -850,6 +850,17 @@ export async function sendPhotoMessage(userId: string, capsuleId: string, dataUr
   const up = await sb().storage.from('chat').upload(path, blob, { contentType: 'image/jpeg', upsert: false })
   if (up.error) throw up.error
   const { error } = await sb().from('messages').insert({ capsule_id: capsuleId, sender: userId, body: text, photo_path: path })
+  if (error) { await sb().storage.from('chat').remove([path]); throw error }
+}
+
+/** Голосовое в чат: файл в хранилище chat/<id чата>/, в сообщении — путь и длина. */
+export async function sendVoiceMessage(userId: string, capsuleId: string, dataUrl: string, ms: number) {
+  const blob = await (await fetch(dataUrl)).blob()
+  const type = blob.type.startsWith('audio/mp4') ? 'audio/mp4' : blob.type.startsWith('audio/ogg') ? 'audio/ogg' : 'audio/webm'
+  const path = `${capsuleId}/${crypto.randomUUID()}.${type === 'audio/mp4' ? 'm4a' : type === 'audio/ogg' ? 'ogg' : 'webm'}`
+  const up = await sb().storage.from('chat').upload(path, blob, { contentType: type, upsert: false })
+  if (up.error) throw up.error
+  const { error } = await sb().from('messages').insert({ capsule_id: capsuleId, sender: userId, body: '', audio_path: path, audio_ms: Math.round(Math.min(180000, Math.max(300, ms))) })
   if (error) { await sb().storage.from('chat').remove([path]); throw error }
 }
 

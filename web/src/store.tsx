@@ -22,6 +22,7 @@ export type Action =
   | { type: 'setStatus'; capsuleId: string; status: CapsuleStatus }
   | { type: 'readCapsule'; capsuleId: string }
   | { type: 'sendPhoto'; capsuleId: string; photo: string; text?: string }
+  | { type: 'sendVoice'; capsuleId: string; audio: string; ms: number }
   | { type: 'deleteMessage'; capsuleId: string; messageId: string }
   | { type: 'hideChat'; capsuleId: string }
   | { type: 'createGroup'; id: string; title: string; members: string[] }
@@ -222,6 +223,11 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, hidden: false, messages: [...c.messages, { id: uid(), from: 'me' as const, text: action.text ?? '', photo: action.photo, at: now }] } : c),
+      }
+    case 'sendVoice':
+      return {
+        ...state,
+        capsules: state.capsules.map((c) => c.id === action.capsuleId ? { ...c, hidden: false, messages: [...c.messages, { id: uid(), from: 'me' as const, text: '', audio: action.audio, audioMs: action.ms, at: now }] } : c),
       }
     case 'repost':
       return state // запись на сервер — в cloud/sync

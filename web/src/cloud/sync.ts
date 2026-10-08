@@ -36,9 +36,11 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       return run(api.sendMessage(uid, a.capsuleId, a.text))
     case 'sendPhoto':
       return run(api.sendPhotoMessage(uid, a.capsuleId, a.photo, a.text ?? ''))
+    case 'sendVoice':
+      return run(api.sendVoiceMessage(uid, a.capsuleId, a.audio, a.ms))
     case 'deleteMessage': {
       const m = s.capsules.find((c) => c.id === a.capsuleId)?.messages.find((x) => x.id === a.messageId)
-      return m && /^\d+$/.test(m.id) ? run(api.deleteMessage(m.id, m.photoPath)) : null
+      return m && /^\d+$/.test(m.id) ? run(api.deleteMessage(m.id, m.photoPath ?? m.audioPath)) : null
     }
     case 'repost': {
       const plan = s.activities.find((x) => x.id === a.activityId)
