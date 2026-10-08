@@ -1,0 +1,4 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": { "namespace": "android_app", "package_name": "com.komeeta.app", "sha256_cert_fingerprints": ["36:01:83:DB:71:F1:65:1A:B7:3C:24:35:4E:CC:5D:1F:5C:57:1E:8A:A9:8C:38:38:10:E2:7D:CD:71:A6:11:FD"] }
+}]
