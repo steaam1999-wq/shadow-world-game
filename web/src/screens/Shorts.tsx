@@ -168,10 +168,13 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
       if (visible.current) { v.preload = 'auto'; tryPlay() } else { v.pause(); if (e.intersectionRatio === 0) v.currentTime = 0 }
     }, { threshold: [0, 0.6, 1] })
     io.observe(el)
+    // Следующие шортсы начинают скачиваться заранее, пока смотрите текущий.
+    const near = new IntersectionObserver(([e]) => { if (e.isIntersecting && v.preload !== 'auto') v.preload = 'auto' }, { rootMargin: '150% 0px' })
+    near.observe(el)
     const onReady = () => { if (visible.current && v.paused) tryPlay() }
     v.addEventListener('loadeddata', onReady)
     v.addEventListener('canplay', onReady)
-    return () => { io.disconnect(); v.removeEventListener('loadeddata', onReady); v.removeEventListener('canplay', onReady) }
+    return () => { io.disconnect(); near.disconnect(); v.removeEventListener('loadeddata', onReady); v.removeEventListener('canplay', onReady) }
   }, [s.url, tryPlay])
   useEffect(() => { if (video.current) video.current.muted = muted }, [muted])
 

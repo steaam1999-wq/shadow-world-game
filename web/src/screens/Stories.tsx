@@ -142,6 +142,14 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
   }, [item, g.personId, dispatch])
   useEffect(() => { setText(''); setSent(''); setVideoMs(null) }, [gi, ii])
 
+  // Следующая история скачивается заранее — переход без паузы и «серого» экрана.
+  const upcoming = ii + 1 < g.items.length ? g.items[ii + 1] : groups[gi + 1]?.items[firstUnseen(groups[gi + 1])]
+  const nextMedia = upcoming?.type === 'story' && upcoming.story.url ? upcoming.story : null
+  useEffect(() => {
+    if (nextMedia?.kind !== 'photo' || !nextMedia.url) return
+    const img = new Image(); img.decoding = 'async'; img.src = nextMedia.url
+  }, [nextMedia?.url, nextMedia?.kind])
+
   const duration = item?.type === 'story' && item.story.kind === 'video' ? videoMs : STEP_MS
   useEffect(() => {
     if (paused || !duration) return
@@ -190,6 +198,7 @@ function StoryViewer({ groups, start, now, onClose, onRespond, onOpenCapsule, on
           <video ref={video} key={s.id} src={s.url} className="absolute inset-0 w-full h-full object-contain" style={filterStyle(s.filter)} autoPlay playsInline muted={false}
             onLoadedMetadata={(e) => setVideoMs(Math.min(MAX_VIDEO_SEC, e.currentTarget.duration || 15) * 1000)} onEnded={() => nav.current.next()} />
         )}
+        {nextMedia?.kind === 'video' && <video key={nextMedia.id} src={nextMedia.url} preload="auto" muted playsInline className="hidden" aria-hidden="true" tabIndex={-1} />}
         {s?.kind === 'text' && (
           <div className="absolute inset-0 grid place-items-center p-8" style={{ background: `linear-gradient(160deg, hsl(${s.hue} 80% 55%), hsl(${(s.hue + 50) % 360} 75% 38%))` }}>
             <p className="font-display font-bold text-[28px] leading-tight text-center whitespace-pre-wrap break-words drop-shadow" data-no-translate>{s.caption}</p>
