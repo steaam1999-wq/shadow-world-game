@@ -71,7 +71,8 @@ export function onNativePushOpen(cb: (d: { chat?: string; person?: string; call?
     const n = (x.notification ?? {}) as { data?: Record<string, string> }
     cb(n.data ?? {})
   })
-  return () => { void l.then((h) => h.remove()) }
+  // Плагин может вернуть и обещание, и сам обработчик — приводим к обещанию, ошибки игнорируем.
+  return () => { void Promise.resolve(l).then((h) => h?.remove?.()).catch(() => {}) }
 }
 
 // --- Вход через Google: во внешнем браузере (Google запрещает вход внутри приложений) ---
