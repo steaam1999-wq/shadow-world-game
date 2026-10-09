@@ -51,7 +51,9 @@ export function relative(ts: number, now = Date.now()) {
   const abs = Math.abs(diff)
   const h = Math.floor(abs / HOUR)
   const m = Math.round((abs % HOUR) / 60000)
-  const txt = h >= 1 ? `${h} ч${m && h < 10 ? ` ${m} мин` : ''}` : `${Math.max(m, 1)} мин`
+  const d = Math.floor(h / 24)
+  // Больше суток — в днях и неделях, а не «211 ч»
+  const txt = d >= 14 ? `${Math.floor(d / 7)} нед` : d >= 1 ? `${d} ${plural(d, 'день', 'дня', 'дней')}` : h >= 1 ? `${h} ч${m && h < 10 ? ` ${m} мин` : ''}` : `${Math.max(m, 1)} мин`
   return diff >= 0 ? `через ${txt}` : `${txt} назад`
 }
 

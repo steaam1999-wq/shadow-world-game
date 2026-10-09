@@ -98,6 +98,8 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       const g = (s.groups ?? []).find((x) => x.id === a.groupId)
       return g ? run(api.leaveGroup(uid, g.id, g.ownerId === 'me')) : null
     }
+    case 'seeNotices':
+      return run(api.markNoticesSeen(uid))
     case 'readCapsule':
       clearChatNotifications(a.capsuleId)
       return run(api.markRead(a.capsuleId))

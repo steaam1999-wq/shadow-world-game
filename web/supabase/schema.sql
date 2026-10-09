@@ -1662,3 +1662,6 @@ alter table public.profiles add column if not exists style jsonb not null defaul
 alter table public.profiles drop constraint if exists profiles_style_check;
 alter table public.profiles add constraint profiles_style_check check (jsonb_typeof(style) = 'object' and octet_length(style::text) <= 1000);
 grant insert (style), update (style) on public.profiles to authenticated;
+
+-- Когда человек последний раз открывал уведомления — на сервере, чтобы на всех устройствах они были просмотрены.
+alter table public.profile_private add column if not exists notices_seen_at timestamptz;

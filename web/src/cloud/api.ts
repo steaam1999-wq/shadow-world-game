@@ -418,7 +418,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     db.from('verification_requests').select('status').eq('user_id', userId).maybeSingle<{ status: 'pending' | 'approved' | 'rejected' }>(),
     db.from('shorts').select('*').order('created_at', { ascending: false }).limit(200).returns<ShortRow[]>(),
     db.from('app_settings').select('key, value').returns<{ key: string; value: unknown }[]>(),
-    db.from('profile_private').select('birth_date').eq('user_id', userId).maybeSingle<{ birth_date: string | null }>(),
+    db.from('profile_private').select('birth_date, notices_seen_at').eq('user_id', userId).maybeSingle<{ birth_date: string | null; notices_seen_at?: string | null }>(),
     db.rpc('plan_companies'),
     db.rpc('no_show_counts'),
     db.from('no_shows').select('capsule_id').returns<{ capsule_id: string }[]>(),
@@ -525,6 +525,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const groups = await loadGroups(db, userId, hidden)
   const social = await loadSocial(db, userId, planIds, shorts.map((s) => s.id), hidden,
     new Set(activities.filter((a) => a.authorId === 'me').map((a) => a.id)), new Set(shorts.filter((s) => s.authorId === 'me').map((s) => s.id)))
+  if (priv.data?.notices_seen_at) social.noticesSeenAt = ms(priv.data.notices_seen_at)
   const playlists: PlaylistItem[] = (trackRows.data ?? []).flatMap((x) => {
     const track = safeTrack(x.track)
     return track && !hidden.has(x.added_by) ? [{ id: String(x.id), chatId: x.chat_id, addedBy: x.added_by === userId ? 'me' : x.added_by, track, at: ms(x.created_at) }] : []
@@ -919,6 +920,12 @@ export async function addRepost(planId: string) {
 
 export async function hideChat(capsuleId: string) {
   const { error } = await sb().rpc('hide_chat', { c: capsuleId })
+  if (error) throw error
+}
+
+/** Уведомления просмотрены — запоминаем на сервере, чтобы на всех устройствах они не висели новыми. */
+export async function markNoticesSeen(userId: string) {
+  const { error } = await sb().from('profile_private').upsert({ user_id: userId, notices_seen_at: new Date().toISOString() })
   if (error) throw error
 }
 

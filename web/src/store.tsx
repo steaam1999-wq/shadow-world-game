@@ -100,6 +100,7 @@ const STATUS_TEXT: Record<CapsuleStatus, string> = {
 export interface Social {
   hearts: string[]; shortHearts: string[]; saved: string[]; savedShorts: string[]; following: string[]
   likeCounts: Record<string, number>; followers: Record<string, number>; notices: Notice[]
+  noticesSeenAt?: number // когда уведомления открывали (с любого устройства)
   followersOf: Record<string, string[]> // personId ('me' — я) → кто подписан
   followingOf: Record<string, string[]> // personId ('me' — я) → на кого подписан
 }
@@ -456,6 +457,7 @@ function reducer(state: State, action: Action): State {
         ...(action.shorts ? { shorts: action.shorts } : {}),
         ...(action.shortComments ? { shortComments: action.shortComments } : {}),
         ...(action.social ?? {}),
+        noticesSeenAt: Math.max(state.noticesSeenAt ?? 0, action.social?.noticesSeenAt ?? 0) || undefined,
         // Настройки из админки: объявление для всех, категории планов и интересы.
         ...(action.settings ? { registrationOpen: action.settings.registrationOpen, announcement: action.settings.announcement, ...(action.settings.categories ? { categories: action.settings.categories } : {}), ...(action.settings.tags ? { tags: action.settings.tags } : {}) } : {}),
         liked: action.capsules.map((c) => c.activityId),
