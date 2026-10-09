@@ -39,7 +39,7 @@ async function fcmAccessToken(sa: ServiceAccount): Promise<string> {
 /** Отправка на устройство с приложением. false — токен устарел, подписку надо удалить. */
 async function sendFcm(sa: ServiceAccount, token: string, p: Record<string, unknown>, call: boolean): Promise<boolean | null> {
   const data: Record<string, string> = {}
-  for (const k of ['chat', 'person', 'call', 'kind', 'title', 'body', 'name', 'video']) if (p[k] != null) data[k] = String(p[k])
+  for (const k of ['chat', 'person', 'call', 'kind', 'title', 'body', 'name', 'video', 'avatar']) if (p[k] != null) data[k] = String(p[k])
   // Звонок и его отмена — «тихие» данные: приложение само покажет экран вызова поверх блокировки.
   const silent = call || p.kind === 'call_end'
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
@@ -106,10 +106,13 @@ Deno.serve(async (req) => {
       return new Response('ok', { status: 200 })
     }
     if (c.kind !== 'offer') return new Response('no call', { status: 404 })
-    const { data: who } = await db.from('profiles').select('name').eq('id', c.from_user).maybeSingle()
+    const { data: who } = await db.from('profiles').select('name, photo_path').eq('id', c.from_user).maybeSingle()
+    // Фото звонящего для экрана вызова в приложении — только из открытого хранилища аватарок
+    const photo = String(who?.photo_path ?? '')
+    const avatar = photo.startsWith('avatars/') ? `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/${photo.split('/').map(encodeURIComponent).join('/')}` : undefined
     const video = !!(c.payload as { video?: boolean })?.video
     to = [c.to_user]
-    payload = JSON.stringify({ title: video ? '🎥 Видеозвонок' : '📞 Входящий звонок', body: `${who?.name ?? 'Кто-то'} звонит вам`, kind: 'call', call: c.call_id, person: c.from_user, name: who?.name ?? 'Кто-то', video: video ? '1' : '' })
+    payload = JSON.stringify({ title: video ? '🎥 Видеозвонок' : '📞 Входящий звонок', body: `${who?.name ?? 'Кто-то'} звонит вам`, kind: 'call', call: c.call_id, person: c.from_user, name: who?.name ?? 'Кто-то', video: video ? '1' : '', avatar })
     topic = String(c.call_id).replace(/-/g, '').slice(0, 32)
   } else if (body.follower && body.followee) {
     // Новая подписка: «Имя подписался(ась) на вас».

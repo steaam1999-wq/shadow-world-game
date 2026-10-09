@@ -27,7 +27,7 @@ final class CallNotifier {
         boolean video = "1".equals(d.get("video"));
 
         Intent screen = new Intent(ctx, IncomingCallActivity.class)
-                .putExtra("call", call).putExtra("name", name).putExtra("video", video)
+                .putExtra("call", call).putExtra("name", name).putExtra("video", video).putExtra("avatar", d.get("avatar"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
         int f = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
         PendingIntent full = PendingIntent.getActivity(ctx, 1, screen, f);
