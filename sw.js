@@ -3,10 +3,14 @@
 // (чтобы обновления приходили сразу), а без сети или при медленной сети — из кэша.
 const CACHE = 'komeeta-v5' // сменили логотип — новое имя сбрасывает старые иконки в телефонах
 const MAX_ASSETS = 80
+// Фото из хранилища (аватарки, планы, публикации, истории): раз скачали — дальше открываются мгновенно.
+// Не больше MEDIA_MAX штук (~100–150 МБ): самые старые удаляются сами. Видео не храним — их докачивает плеер.
+const MEDIA = 'komeeta-media-v1'
+const MEDIA_MAX = 400
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => e.waitUntil((async () => {
-  for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k)
+  for (const k of await caches.keys()) if (k !== CACHE && k !== MEDIA) await caches.delete(k)
   await self.clients.claim()
 })()))
 
@@ -15,11 +19,30 @@ async function trim(cache) {
   for (const r of keys.slice(0, Math.max(0, keys.length - MAX_ASSETS))) await cache.delete(r)
 }
 
+/** Фото из хранилища: ключ — путь файла без временного токена ссылки (файлы не меняются, имена уникальные). */
+async function media(req, url) {
+  const cache = await caches.open(MEDIA)
+  const key = url.origin + url.pathname.replace('/object/sign/', '/object/public/')
+  const hit = await cache.match(key)
+  if (hit) return hit
+  // Скачиваем «по-честному» (CORS), чтобы ответ не был «непрозрачным» и не раздувал занятое место.
+  const res = await fetch(req.url, { mode: 'cors', credentials: 'omit' }).catch(() => null)
+  if (!res) return fetch(req)
+  if (res.ok) {
+    cache.put(key, res.clone()).then(async () => {
+      const keys = await cache.keys()
+      for (const r of keys.slice(0, Math.max(0, keys.length - MEDIA_MAX))) await cache.delete(r)
+    }).catch(() => {})
+  }
+  return res
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request
   if (req.method !== 'GET') return
   const url = new URL(req.url)
-  if (url.origin !== self.location.origin) return // Supabase, музыка, шрифты — как обычно, без кэша
+  if (req.destination === 'image' && /\/storage\/v1\/object\/(public|sign)\//.test(url.pathname)) { e.respondWith(media(req, url)); return }
+  if (url.origin !== self.location.origin) return // остальное с других сайтов (данные, музыка, шрифты) — как обычно
   if (url.pathname.endsWith('/version.json')) return // метка версии — всегда из сети
 
   if (url.pathname.includes('/assets/')) {
