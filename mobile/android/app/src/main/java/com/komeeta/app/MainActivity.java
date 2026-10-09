@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Toast;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.WebViewListener;
@@ -54,7 +55,7 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         visible = true;
         deliver();
-        askFullScreenOnce();
+        askCallPermissionsOnce();
     }
 
     @Override
@@ -85,16 +86,36 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /** Android 14+: разрешение показывать звонок на весь экран поверх блокировки — спрашиваем один раз. */
-    private void askFullScreenOnce() {
-        if (Build.VERSION.SDK_INT < 34) return;
-        NotificationManager nm = getSystemService(NotificationManager.class);
-        if (nm == null || nm.canUseFullScreenIntent()) return;
+    /**
+     * Чтобы звонок открывался на весь экран поверх блокировки: по одному разу спрашиваем
+     * «Полноэкранные уведомления» (Android 14+), «Поверх других приложений» и разрешения Xiaomi.
+     */
+    private void askCallPermissionsOnce() {
         SharedPreferences p = getSharedPreferences("komeeta", MODE_PRIVATE);
-        if (p.getBoolean("askedFullScreen", false)) return;
-        p.edit().putBoolean("askedFullScreen", true).apply();
-        try {
-            startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + getPackageName())));
-        } catch (Exception ignored) { }
+        if (Build.VERSION.SDK_INT >= 34) {
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null && !nm.canUseFullScreenIntent() && once(p, "askedFullScreen")
+                    && open(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + getPackageName())))) return;
+        }
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this) && once(p, "askedOverlay")) {
+            Toast.makeText(this, "Разрешите Komeeta показываться поверх других приложений — для звонков", Toast.LENGTH_LONG).show();
+            if (open(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())))) return;
+        }
+        if ("xiaomi".equalsIgnoreCase(Build.MANUFACTURER) && once(p, "askedMiui")) {
+            Toast.makeText(this, "Включите «Экран блокировки» и «Окна в фоне» — для звонков", Toast.LENGTH_LONG).show();
+            Intent miui = new Intent("miui.intent.action.APP_PERM_EDITOR").putExtra("extra_pkgname", getPackageName());
+            if (!open(miui.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")))
+                open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+        }
+    }
+
+    private static boolean once(SharedPreferences p, String key) {
+        if (p.getBoolean(key, false)) return false;
+        p.edit().putBoolean(key, true).apply();
+        return true;
+    }
+
+    private boolean open(Intent i) {
+        try { startActivity(i); return true; } catch (Exception e) { return false; }
     }
 }

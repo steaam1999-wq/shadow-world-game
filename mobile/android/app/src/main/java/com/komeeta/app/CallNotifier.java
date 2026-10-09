@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.PowerManager;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -49,6 +50,21 @@ final class CallNotifier {
                 .addAction(0, "Отклонить", decline)
                 .addAction(0, "Принять", answer);
         try { NotificationManagerCompat.from(ctx).notify(ID, b.build()); } catch (SecurityException ignored) { /* нет разрешения на уведомления */ }
+        // Xiaomi и часть других телефонов вместо полного экрана показывают маленькое уведомление —
+        // открываем экран вызова сами (работает с разрешением «Поверх других окон» / «Окна в фоне»).
+        wake(ctx);
+        try { ctx.startActivity(screen); } catch (Exception ignored) { }
+    }
+
+    /** Включить экран на пару секунд, чтобы экран вызова было видно. */
+    @SuppressWarnings("deprecation")
+    private static void wake(Context ctx) {
+        try {
+            PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+            if (pm == null || pm.isInteractive()) return;
+            PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "komeeta:call");
+            wl.acquire(5000);
+        } catch (Exception ignored) { }
     }
 
     static Intent answerIntent(Context ctx, String call) {
