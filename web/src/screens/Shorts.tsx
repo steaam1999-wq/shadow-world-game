@@ -74,11 +74,29 @@ function useHearts() {
   return [hearts, (id: string) => dispatch({ type: 'toggleShortHeart', shortId: id }), (id: string) => state.likeCounts?.[id] ?? (hearts.includes(id) ? 1 : 0)] as const
 }
 
+/** Когда первое касание включило звук: это касание не должно ставить видео на паузу. */
+let soundUnlockedAt = 0
+
 /** Лента шортсов. */
 export function ShortsFeed() {
   const list = usePublications().filter((s) => s.kind === 'video')
-  const [muted, setMuted] = useState(true)
-  const autoMute = useCallback(() => setMuted(true), [])
+  // Сразу со звуком. Если браузер не дал (не было касания) — без звука до первого касания экрана.
+  const [muted, setMuted] = useState(false)
+  const [autoMuted, setAutoMuted] = useState(false)
+  const autoMute = useCallback(() => { setMuted(true); setAutoMuted(true) }, [])
+  useEffect(() => {
+    if (!autoMuted) return
+    const unlock = (e: Event) => {
+      setAutoMuted(false)
+      if ((e.target as Element | null)?.closest?.('[data-mute]')) return // кнопку звука обработает она сама
+      soundUnlockedAt = Date.now()
+      setMuted(false)
+      // Внутри касания браузер разрешает звук — включаем его у видео, которое сейчас играет.
+      document.querySelectorAll<HTMLVideoElement>('video[data-short]').forEach((v) => { if (!v.paused) { v.muted = false; void v.play().catch(() => {}) } })
+    }
+    window.addEventListener('pointerdown', unlock, { once: true, capture: true })
+    return () => window.removeEventListener('pointerdown', unlock, { capture: true })
+  }, [autoMuted])
   const [hearts, toggleHeart, likesOf] = useHearts()
   const [uploading, setUploading] = useState(false)
 
@@ -119,6 +137,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
   const author = usePublicationAuthor(s)
 
   const [comments, setComments] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const commentCount = useShortComments(s.id).length
   const [portrait, setPortrait] = useState(true)
   const rf = useVideoFallback(s.url)
@@ -158,7 +177,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
 
   const tap = () => {
     const v = video.current
-    if (!v) return
+    if (!v || Date.now() - soundUnlockedAt < 600) return
     if (v.paused) { void v.play(); setPaused(false) } else { v.pause(); setPaused(true) }
   }
 
@@ -171,7 +190,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
       {!portrait && (s.thumb
         ? <img src={s.thumb} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" aria-hidden="true" />
         : <video src={s.url} className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1} />)}
-      <video ref={video} src={s.url} poster={s.thumb} onError={rf.onError} style={filterStyle(s.filter)} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
+      <video ref={video} data-short="" src={s.url} poster={s.thumb} onError={rf.onError} style={filterStyle(s.filter)} className={`absolute inset-0 w-full h-full ${portrait ? 'object-cover' : 'object-contain'}`} loop playsInline muted preload="metadata" onClick={tap}
         onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setPortrait(v.videoHeight / v.videoWidth >= 1.3) }} />
       {rf.broken && <VideoBroken />}
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/30 via-transparent to-black/70" />
@@ -183,15 +202,12 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
           <Icon name="comment" size={30} />{commentCount > 0 && <span className="text-[12px] font-semibold tnum">{commentCount}</span>}
         </button>
         <SaveButton id={s.id} size={28} />
-        <button onClick={onToggleMute} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'} aria-pressed={!muted}>
+        <button onClick={() => setSharing(true)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Отправить, скопировать, пожаловаться">
+          <Icon name="send" size={28} />
+        </button>
+        <button data-mute="" onClick={onToggleMute} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'} aria-pressed={!muted}>
           <Icon name={muted ? 'soundOff' : 'sound'} size={28} />
         </button>
-        {(mine || state.isAdmin) && (
-          <button onClick={() => setConfirm(true)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Удалить шортс"><Icon name="trash" size={26} /></button>
-        )}
-        {!mine && author && author.id !== 'me' && (
-          <button onClick={() => setReporting(author as Person)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Пожаловаться на шортс"><Icon name="flag" size={24} /></button>
-        )}
       </div>
 
       <div className="absolute left-0 right-16 bottom-0 p-4 pb-[calc(96px+env(safe-area-inset-bottom,0px))] flex flex-col gap-2">
@@ -208,6 +224,11 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
       <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Удалить шортс?" text="Видео исчезнет у всех. Вернуть его будет нельзя." action="Удалить" onConfirm={() => { setConfirm(false); void remove() }} />
       <div className="text-fg"><ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} /></div>
       <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
+      <div className="text-fg">
+        <PublicationShare s={s} authorName={author?.name} open={sharing} onClose={() => setSharing(false)} onMessage={(id) => openProfile(id)}
+          onReport={!mine && author && author.id !== 'me' ? () => setReporting(author as Person) : undefined}
+          onDelete={mine || state.isAdmin ? () => setConfirm(true) : undefined} />
+      </div>
     </section>
   )
 }
@@ -424,7 +445,7 @@ const pubText = (s: Short, authorName?: string) => (s.caption ? `${authorName ? 
 const pubMessage = (s: Short, authorName?: string) => `Смотри публикацию: ${pubText(s, authorName).slice(0, 140)}\n${publicationLink(s.id)}`
 
 /** «Поделиться»: отправить в чат, скопировать ссылку или текст, системное меню телефона. */
-function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Short; authorName?: string; open: boolean; onClose: () => void; onMessage: (personId: string) => void }) {
+function PublicationShare({ s, authorName, open, onClose, onMessage, onReport, onDelete }: { s: Short; authorName?: string; open: boolean; onClose: () => void; onMessage: (personId: string) => void; onReport?: () => void; onDelete?: () => void }) {
   const { state, dispatch } = useStore()
   const [toast, setToast] = useState<string | null>(null)
   const [sent, setSent] = useState<string[]>([])
@@ -492,6 +513,12 @@ function PublicationShare({ s, authorName, open, onClose, onMessage }: { s: Shor
           </div>
           {s.authorId !== 'me' && authorName && (
             <button onClick={() => { onClose(); onMessage(s.authorId) }} className="h-11 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer inline-flex items-center justify-center gap-2"><Icon name="chat" size={18} /> Написать {authorName}</button>
+          )}
+          {(onReport || onDelete) && (
+            <div className="flex flex-col rounded-2xl bg-surface-2 divide-y divide-line overflow-hidden">
+              {onReport && <button onClick={() => { onClose(); onReport() }} className="h-12 px-4 flex items-center gap-3 text-danger font-semibold text-[14px] cursor-pointer"><Icon name="flag" size={19} /> Пожаловаться</button>}
+              {onDelete && <button onClick={() => { onClose(); onDelete() }} className="h-12 px-4 flex items-center gap-3 text-danger font-semibold text-[14px] cursor-pointer"><Icon name="trash" size={19} /> Удалить</button>}
+            </div>
           )}
         </div>
       </Sheet>

@@ -1,15 +1,12 @@
 import { useState } from 'react'
-import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
-import { compatibility, level, planWhen, plural, sharedAnswers, nameAge } from '../lib'
+import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Icon, StoryRing } from '../components/ui'
 import { AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
-import { TrackChip } from '../music/PlayerUI'
-import { personTrack } from '../music/player'
 import { PersonSongs, songsOf } from '../music/PersonSongs'
 import { tasteLine, useTaste } from '../music/taste'
 import { NowPlayingCard, nowPlayingOf } from '../music/NowPlaying'
@@ -48,7 +45,6 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const plans = state.activities.filter((a) => a.authorId === p.id && a.expiresAt > now).sort((a, b) => a.startsAt - b.startsAt)
   const compat = compatibility(me, p)
   const shared = sharedAnswers(me.answers, p.answers)
-  const lv = level(p.meetings)
   const followers = state.cloud ? state.followers?.[p.id] ?? 0 : followerBase(p) + (following ? 1 : 0)
   const capsule = state.capsules.find((c) => c.personId === p.id)
   const songCount = songsOf(p, !!state.cloud).length
@@ -90,13 +86,11 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
           </h2>
           <StatusLine text={statusOf(p.style, now)} style={p.style} online={presence.online} />
-          <div className="text-[14px] text-muted truncate max-w-full">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>
           {p.founder && <div className="mt-1.5"><FounderBadge n={p.founder} /></div>}
         </div>
 
         <div className="relative text-[14px] leading-snug flex flex-col items-center text-center gap-2">
-          <ReliabilityBadge person={p} />
-          <TrackChip track={personTrack(p)} />
+          {p.meetings + (p.noShows ?? 0) > 0 && <ReliabilityBadge person={p} />}
           {listening && <div className="mt-0.5 self-stretch text-left"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
           {p.bio && <p>{p.bio}</p>}
           <TagChips tags={p.tags} />

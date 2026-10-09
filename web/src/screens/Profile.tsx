@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { placeLine } from '../places'
 import { PlaceSelect } from '../components/PlaceSelect'
 import { VIBE_QUESTIONS } from '../data'
 import { useNow, useStore } from '../store'
@@ -83,7 +82,6 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
             {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
           </h2>
           <StatusLine text={statusOf(me.style, now)} style={me.style} />
-          <div className="text-[14px] text-muted truncate max-w-full">{placeLine(lv.name, me.district)}</div>
           {me.founder && <div className="mt-1.5"><FounderBadge n={me.founder} /></div>}
         </div>
         <div className="relative text-[14px] leading-snug flex flex-col items-center text-center gap-2">
