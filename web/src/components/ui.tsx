@@ -135,7 +135,7 @@ export function Logo({ className = '' }: { className?: string }) {
 }
 
 /** Аватар: инициал на цветном фоне, оттенок уникален для человека. Вместо фото в демо. */
-export function Avatar({ name, hue, size = 48, verified = false, ring = false, src }: { name: string; hue: number; size?: number; verified?: boolean; ring?: boolean; src?: string }) {
+export function Avatar({ name, hue, size = 48, verified = false, ring = false, src, online = false }: { name: string; hue: number; size?: number; verified?: boolean; ring?: boolean; src?: string; online?: boolean }) {
   // Ссылка на фото устарела или не загрузилась — показываем букву имени, а не значок сломанной картинки.
   const [broken, setBroken] = useState<string | null>(null)
   const show = src && broken !== src
@@ -153,6 +153,11 @@ export function Avatar({ name, hue, size = 48, verified = false, ring = false, s
         <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center rounded-full bg-cobalt text-white border-2 border-surface" style={{ width: size * 0.36, height: size * 0.36, minWidth: 16, minHeight: 16 }} title="Верифицирован">
           <Icon name="check" size={Math.max(10, size * 0.22)} />
         </span>
+      )}
+      {online && (
+        // В сети: зелёная точка (если стоит значок проверки — в верхнем углу)
+        <span className={`absolute ${verified ? '-right-0.5 -top-0.5' : 'right-0 bottom-0'} rounded-full bg-[#22c55e] border-2 border-surface`}
+          style={{ width: Math.max(11, size * 0.26), height: Math.max(11, size * 0.26) }} title="В сети" aria-label="В сети" />
       )}
     </span>
   )

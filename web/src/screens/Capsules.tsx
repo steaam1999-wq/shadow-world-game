@@ -21,6 +21,7 @@ function personOrGone(people: Person[], id: string): Person {
 import { openVerify } from '../components/Verify'
 import { MONEY_RE, MeetFeedback, MoneyWarning, SafetyMemo, useSafetyMemo, waitingForReply } from '../safety'
 import { useCalls } from '../calls/Calls'
+import { seenLabel, usePresence } from '../cloud/presence'
 import { VoiceHoldButton, VoiceMessage, VoiceRecordingStrip, canRecordVoice, useVoiceRecorder } from '../components/Voice'
 
 export const STATUS: Record<CapsuleStatus, { label: string; tone: Tone }> = {
@@ -136,7 +137,7 @@ export function NewChatSheet({ open, onClose, onPick, onGroupCreated }: { open: 
             {people.map((p) => (
               <li key={p.id}>
                 <button onClick={() => onPick(p.id)} className="w-full flex items-center gap-3 px-2 py-2 rounded-2xl hover:bg-surface-2 text-left cursor-pointer">
-                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={44} verified={p.verified} />
+                  <PersonAvatar p={p} size={44} />
                   <span className="flex-1 min-w-0">
                     <span className="block font-semibold truncate">{nameAge(p.name, p.age)}</span>
                     <span className="block text-[13px] text-muted truncate">{chatted.has(p.id) ? 'Уже общаетесь' : following.has(p.id) ? 'Вы подписаны' : p.district || p.bio || '\u00a0'}</span>
@@ -249,7 +250,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
             const c = r.c
             const p = personOrGone(state.people, c.personId)
             const last = [...c.messages].reverse().find((m) => m.from !== 'system') ?? c.messages[c.messages.length - 1]
-            return row(c.id, r.at, c.unread, <Avatar name={p.name} hue={p.hue} src={p.photo} size={54} verified={p.verified} ring={c.unread > 0} />, p.name, preview(last), `Удалить чат с ${p.name}`, () => deleteChat(c.id, p.name))
+            return row(c.id, r.at, c.unread, <PersonAvatar p={p} size={54} ring={c.unread > 0} />, p.name, preview(last), `Удалить чат с ${p.name}`, () => deleteChat(c.id, p.name))
           })}
         </ul>
       ) : (
@@ -304,6 +305,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [voiceOk] = useState(canRecordVoice)
   const [slide, setSlide] = useState(0)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [c?.messages.length, typing])
+  const presence = usePresence(state.cloud ? c?.personId : undefined)
 
   if (!c) return null
   // Профиль скрыт (бан администрации или удалён): переписку видно, писать нельзя.
@@ -334,6 +336,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const canMeet = c.status === 'agreed' || c.status === 'contacts'
   const safetyHere = state.safety?.capsuleId === c.id
   const place = a?.exactPlace ?? 'место из переписки'
+  const seen = seenLabel(presence, now)
 
   return (
     <div className="flex flex-col flex-1 min-h-[100dvh]">
@@ -341,10 +344,14 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <div className="flex items-center gap-1.5">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer rounded-2xl pr-1" aria-label={`Профиль ${p.name}`}>
-          <Avatar name={p.name} hue={p.hue} src={p.photo} size={38} verified={p.verified} />
+          <Avatar name={p.name} hue={p.hue} src={p.photo} size={38} verified={p.verified} online={presence.online} />
           <div className="flex-1 min-w-0 leading-tight">
             <div className="font-semibold text-[15.5px] truncate">{nameAge(p.name, p.age)}</div>
-            <div className="text-[12px] text-muted truncate mt-0.5">{a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : 'в Komeeta'}</div>
+            <div className="text-[12px] text-muted truncate mt-0.5">
+              {seen && <span className={presence.online ? 'text-[#16a34a] font-medium' : ''}>{seen}</span>}
+              {seen && (a || c.status !== 'active') && ' · '}
+              {a ? `${a.title} · ${planWhen(a, now)}` : c.status !== 'active' ? STATUS[c.status].label : seen ? '' : 'в Komeeta'}
+            </div>
           </div>
           </button>
           <CallButtons person={p} canCall={canCall}
@@ -557,4 +564,10 @@ function CallButtons({ person, canCall, hint }: { person: Person; canCall: boole
       )}
     </>
   )
+}
+
+/** Аватар собеседника с зелёной точкой, когда он в сети. */
+function PersonAvatar({ p, size, ring }: { p: Person; size: number; ring?: boolean }) {
+  const { online } = usePresence(p.id)
+  return <Avatar name={p.name} hue={p.hue} src={p.photo} size={size} verified={p.verified} ring={ring} online={online} />
 }

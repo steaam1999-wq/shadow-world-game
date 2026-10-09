@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import * as api from './api'
 import { setReloader } from './sync'
 import { ageFrom } from '../lib'
+import { usePresenceHeartbeat } from './presence'
 
 /** Держит данные в актуальном виде: первая загрузка, живые обновления из базы и страховочный опрос. */
 export function CloudSync() {
@@ -10,6 +11,7 @@ export function CloudSync() {
   const ref = useRef(state)
   useEffect(() => { ref.current = state })
   const userId = state.cloud?.userId
+  usePresenceHeartbeat(userId)
 
   useEffect(() => {
     if (!userId) return

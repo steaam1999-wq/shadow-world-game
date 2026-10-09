@@ -1622,3 +1622,22 @@ alter table public.messages add constraint messages_content_check check (char_le
 alter table public.messages drop constraint if exists messages_audio_check;
 alter table public.messages add constraint messages_audio_check check (audio_path is null or (char_length(audio_path) <= 200 and audio_path like capsule_id::text || '/%' and audio_ms between 300 and 180000));
 update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/mp4','audio/webm','audio/ogg','audio/mpeg','audio/aac'] where id = 'chat';
+
+-- «В сети»: отдельная таблица (не profiles — её изменения перезагружают данные у всех).
+-- Приложение раз в 45 секунд отмечается через touch_seen(true); свернули — touch_seen(false).
+create table if not exists public.presence (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  seen_at timestamptz not null default now(),
+  online_until timestamptz
+);
+alter table public.presence enable row level security;
+drop policy if exists "presence: read" on public.presence;
+create policy "presence: read" on public.presence for select to authenticated using (true);
+create or replace function public.touch_seen(on_line boolean) returns void
+language sql security definer set search_path = '' as $$
+  insert into public.presence (user_id, seen_at, online_until)
+  values ((select auth.uid()), now(), case when on_line then now() + interval '90 seconds' end)
+  on conflict (user_id) do update set seen_at = excluded.seen_at, online_until = excluded.online_until
+$$;
+revoke all on function public.touch_seen(boolean) from public, anon;
+grant execute on function public.touch_seen(boolean) to authenticated;
