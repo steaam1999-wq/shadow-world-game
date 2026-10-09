@@ -212,7 +212,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }
 
   // Сигналы от собеседника
+  const seen = useRef(new Set<number>())
   const onSignal = useCallback(async (s: Signal) => {
+    // Сигнал может прийти дважды: по живому каналу и при проверке — обрабатываем один раз
+    if (seen.current.has(s.id)) return
+    seen.current.add(s.id)
     const c = callRef.current
     if (s.kind === 'offer') {
       if (c && c.phase !== 'ended') { if (c.id !== s.call_id) void send(s.call_id, s.from_user, 'busy').catch(() => {}); return }
@@ -254,6 +258,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
     })()
     return () => { void sb().removeChannel(ch) }
   }, [uid, onSignal])
+
+  // Запасной путь: живой канал на телефоне может молча оборваться (особенно в Safari на iPhone),
+  // поэтому пока идёт звонок, раз в 2 секунды сами забираем новые сигналы этого звонка.
+  const callId = call && call.phase !== 'ended' ? call.id : null
+  useEffect(() => {
+    if (!uid || !callId) return
+    let stop = false
+    const poll = async () => {
+      const { data } = await sb().from('call_signals').select('*').eq('call_id', callId).eq('to_user', uid).neq('kind', 'offer').order('id')
+      if (stop) return
+      for (const s of (data ?? []) as Signal[]) await onSignal(s)
+    }
+    const t = setInterval(() => { void poll() }, 2000)
+    return () => { stop = true; clearInterval(t) }
+  }, [uid, callId, onSignal])
 
   // Приложение для Android: «Принять»/«Отклонить» нажали на экране вызова поверх блокировки.
   const autoAnswer = useRef<string | null>(null)
@@ -368,7 +387,7 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/.55),rgb(0_0_0/.25)_35%,rgb(0_0_0/.25)_65%,rgb(0_0_0/.6))] pointer-events-none" />
       )}
 
-      <div className={`relative z-[5] flex flex-col items-center gap-3 px-6 ${showRemoteVideo ? 'pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'flex-1 justify-center pt-[env(safe-area-inset-top,0px)] pb-6'}`}>
+      <div className={`z-[5] flex flex-col items-center gap-3 px-6 ${showRemoteVideo ? 'relative pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'absolute inset-0 justify-center pt-[calc(96px+env(safe-area-inset-top,0px))] pb-[env(safe-area-inset-bottom,0px)] pointer-events-none'}`}>
         {!showRemoteVideo && (
           <span className="relative grid place-items-center">
             {(call.phase === 'incoming' || call.phase === 'outgoing') && <span className="absolute inset-0 -m-3 rounded-full bg-white/10 animate-ping" />}

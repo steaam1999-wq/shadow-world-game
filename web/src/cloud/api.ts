@@ -479,7 +479,9 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
       ...rows.map((m) => ({ id: String(m.id), from: m.sender === userId ? 'me' as const : 'them' as const, text: m.body, at: ms(m.created_at), ...(m.photo_path ? { photo: chatPhotos.get(m.photo_path), photoPath: m.photo_path } : {}), ...(m.audio_path ? { audio: chatPhotos.get(m.audio_path), audioPath: m.audio_path, audioMs: m.audio_ms ?? 0 } : {}) })),
       ...(c.status !== 'active' ? [{ id: `${c.id}-status`, from: 'system' as const, text: STATUS_NOTE[c.status], at: Date.now() }] : []),
     ]
-    const seen = read[c.id] ?? 0
+    // Прочитано на этом устройстве или на любом другом (время хранится на сервере)
+    const mine = c.author === userId ? c.author_read_at : c.responder_read_at
+    const seen = Math.max(read[c.id] ?? 0, mine ? ms(mine) : 0)
     return {
       id: c.id, personId: c.author === userId ? c.responder : c.author, activityId: c.plan_id ?? '',
       createdAt: created, expiresAt: ms(c.expires_at), status: c.status, messages: hiddenAt(c) ? msgs.filter((m) => m.from !== 'system') : msgs,
