@@ -1,6 +1,7 @@
 import type { Action } from '../store'
 import type { State } from '../types'
 import * as api from './api'
+import { clearChatNotifications } from '../native'
 
 let reloader: (() => void) | null = null
 export function setReloader(fn: (() => void) | null) { reloader = fn }
@@ -85,6 +86,7 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       return m && /^\d+$/.test(m.id) ? run(api.deleteGroupMessage(m.id, m.photoPath)) : null
     }
     case 'readGroup':
+      clearChatNotifications(a.groupId)
       return run(api.markGroupRead(uid, a.groupId))
     case 'renameGroup':
       return run(api.renameGroup(a.groupId, a.title))
@@ -97,6 +99,7 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       return g ? run(api.leaveGroup(uid, g.id, g.ownerId === 'me')) : null
     }
     case 'readCapsule':
+      clearChatNotifications(a.capsuleId)
       return run(api.markRead(a.capsuleId))
     case 'share': {
       const plan = s.activities.find((x) => x.id === a.activityId)

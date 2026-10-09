@@ -142,7 +142,7 @@ export function Avatar({ name, hue, size = 48, verified = false, ring = false, s
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
       {show ? (
-        <img src={src} alt="" onError={() => setBroken(src)} className={`w-full h-full rounded-full object-cover ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`} />
+        <img src={src} alt="" onError={() => setBroken(src)} className={`block w-full h-full rounded-full object-cover ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`} />
       ) : <span
         className={`grid place-items-center w-full h-full rounded-full font-display font-bold text-white ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`}
         style={{ background: `linear-gradient(145deg, hsl(${hue} 62% 68%), hsl(${(hue + 40) % 360} 52% 50%))`, fontSize: size * 0.4 }}

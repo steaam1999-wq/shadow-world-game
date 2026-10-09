@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
@@ -27,6 +28,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(KomeetaCallPlugin.class);
         super.onCreate(savedInstanceState);
         Channels.ensure(this);
         WebSettings s = getBridge().getWebView().getSettings();
@@ -67,7 +69,19 @@ public class MainActivity extends BridgeActivity {
     private void take(Intent i) {
         if (i == null) return;
         String c = i.getStringExtra("answerCall");
-        if (c != null) { pendingAnswer = c; i.removeExtra("answerCall"); }
+        if (c != null) { pendingAnswer = c; i.removeExtra("answerCall"); overLockScreen(true); CallNotifier.cancel(this, c); }
+    }
+
+    /** Принятый звонок открывается поверх экрана блокировки — без ввода пароля, как в мессенджерах. */
+    void overLockScreen(boolean on) {
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(on);
+            setTurnScreenOn(on);
+        } else if (on) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
     }
 
     /** Сообщаем сайту: принять звонок или отказ, сделанный с экрана блокировки. */

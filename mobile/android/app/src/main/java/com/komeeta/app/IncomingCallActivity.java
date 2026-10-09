@@ -4,7 +4,7 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
-import android.app.KeyguardManager;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -313,18 +313,15 @@ public class IncomingCallActivity extends Activity {
 
     private void answer() {
         stopRinging();
+        handler.removeCallbacksAndMessages(null);
         String c = call;
-        CallNotifier.cancel(this, c);
-        // Снять блокировку (если есть пароль — система попросит его), затем открыть звонок в приложении.
-        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-        Runnable open = () -> { startActivity(CallNotifier.answerIntent(this, c)); finish(); };
-        if (km != null && km.isKeyguardLocked() && Build.VERSION.SDK_INT >= 26) {
-            km.requestDismissKeyguard(this, new KeyguardManager.KeyguardDismissCallback() {
-                @Override public void onDismissSucceeded() { open.run(); }
-                @Override public void onDismissCancelled() { open.run(); }
-                @Override public void onDismissError() { open.run(); }
-            });
-        } else open.run();
+        // Только убрать уведомление — этот экран закрываем сами, после запуска разговора.
+        CallNotifier.currentCall = null;
+        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm != null) nm.cancel(CallNotifier.ID);
+        // Разговор открывается поверх экрана блокировки (MainActivity включает это сама).
+        startActivity(CallNotifier.answerIntent(this, c));
+        finish();
     }
 
     private void decline() {

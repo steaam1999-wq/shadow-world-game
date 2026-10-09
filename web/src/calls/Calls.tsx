@@ -4,6 +4,7 @@ import { sb, sendMessage } from '../cloud/api'
 import { useStore } from '../store'
 import { Avatar, Icon } from '../components/ui'
 import type { Person } from '../types'
+import { nativeCallEnded } from '../native'
 
 // Звонки и видеозвонки: WebRTC напрямую между телефонами. Сервер только передаёт «сигналы»
 // (предложение, ответ, адреса для соединения) через таблицу call_signals — звук и видео через него не идут.
@@ -285,6 +286,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (call?.phase === 'incoming' && autoAnswer.current === call.id) { autoAnswer.current = null; acceptRef.current() }
   }, [call?.id, call?.phase])
 
+  // Звонок закончился — приложение снова уходит за экран блокировки
+  const hadCall = useRef(false)
+  useEffect(() => { const on = !!call && call.phase !== 'ended'; if (hadCall.current && !on) nativeCallEnded(); hadCall.current = on }, [call])
   useRingtone(call?.phase === 'incoming' ? 'in' : call?.phase === 'outgoing' ? 'out' : null)
 
   const toggleMic = () => { const t = local.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setMuted(!t.enabled) } }
@@ -368,7 +372,7 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
         {!showRemoteVideo && (
           <span className="relative grid place-items-center">
             {(call.phase === 'incoming' || call.phase === 'outgoing') && <span className="absolute inset-0 -m-3 rounded-full bg-white/10 animate-ping" />}
-            <span className="rounded-full p-1 bg-white/15"><Avatar name={name} hue={peer?.hue ?? 280} src={peer?.photo} size={120} /></span>
+            <span className="grid place-items-center leading-none rounded-full p-1 bg-white/15"><Avatar name={name} hue={peer?.hue ?? 280} src={peer?.photo} size={120} /></span>
           </span>
         )}
         <h2 className={`font-display font-bold ${showRemoteVideo ? 'text-[20px] drop-shadow' : 'text-[28px] mt-3'}`}>{name}</h2>

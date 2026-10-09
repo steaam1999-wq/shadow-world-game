@@ -10,6 +10,8 @@ type PushPlugin = {
   register: () => Promise<void>
   addListener: (ev: string, cb: (x: Record<string, unknown>) => void) => Promise<Listener>
   removeAllDeliveredNotifications?: () => Promise<void>
+  getDeliveredNotifications?: () => Promise<{ notifications: { id: number | string; tag?: string; data?: Record<string, string> }[] }>
+  removeDeliveredNotifications?: (o: { notifications: { id: number | string; tag?: string }[] }) => Promise<void>
 }
 type Cap = {
   isNativePlatform?: () => boolean
@@ -17,6 +19,7 @@ type Cap = {
   Plugins: {
     PushNotifications?: PushPlugin
     Browser?: { open: (o: { url: string; presentationStyle?: string }) => Promise<void>; close: () => Promise<void> }
+    KomeetaCall?: { ended: () => Promise<void> }
     App?: { addListener: (ev: string, cb: (x: { url?: string; isActive?: boolean }) => void) => Promise<Listener> }
   }
 }
@@ -73,6 +76,25 @@ export function onNativePushOpen(cb: (d: { chat?: string; person?: string; call?
   })
   // Плагин может вернуть и обещание, и сам обработчик — приводим к обещанию, ошибки игнорируем.
   return () => { void Promise.resolve(l).then((h) => h?.remove?.()).catch(() => {}) }
+}
+
+/** Чат открыт и прочитан — убрать его уведомления из шторки (в приложении и в браузере). */
+export function clearChatNotifications(chatId: string) {
+  const push = cap()?.Plugins.PushNotifications
+  if (push?.getDeliveredNotifications && push.removeDeliveredNotifications) {
+    void push.getDeliveredNotifications().then(({ notifications }) => {
+      const mine = notifications.filter((n) => n.tag === chatId || n.data?.chat === chatId)
+      if (mine.length) return push.removeDeliveredNotifications!({ notifications: mine })
+    }).catch(() => {})
+  }
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    void navigator.serviceWorker.ready.then((r) => r.getNotifications({ tag: chatId })).then((ns) => ns.forEach((n) => n.close())).catch(() => {})
+  }
+}
+
+/** Звонок закончился — приложение снова прячется за экраном блокировки. */
+export function nativeCallEnded() {
+  void cap()?.Plugins.KomeetaCall?.ended().catch(() => {})
 }
 
 // --- Вход через Google: во внешнем браузере (Google запрещает вход внутри приложений) ---
