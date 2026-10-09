@@ -4,131 +4,297 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Shadow Casino</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="logo">🌑 Shadow <span>Casino</span></div>
+    <button class="burger" id="burger" aria-label="Меню">☰</button>
+    <a class="logo" href="#lobby"><span class="logo-mark">S</span>SHADOW</a>
+    <nav class="top-nav">
+      <a href="#lobby" data-nav="lobby">Казино</a>
+      <a href="#lobby/fast" data-nav="fast">Быстрые игры</a>
+      <a href="#crash" data-nav="crash">Ракета</a>
+      <a href="#history" data-nav="history">История</a>
+    </nav>
     <div class="wallet">
       <div class="balance" title="Виртуальные фишки — не настоящие деньги">
-        <span class="chip-icon">◉</span>
-        <span id="balance">0</span>
+        <span class="balance-label">Баланс</span>
+        <span><span id="balance">0</span> <span class="cur">SC</span></span>
       </div>
-      <button id="bonus-btn" class="btn btn-small">Бонус</button>
-      <button id="reset-btn" class="btn btn-small btn-ghost" title="Сбросить прогресс">⟲</button>
+      <button id="bonus-btn" class="btn btn-green">Бонус</button>
+      <button id="reset-btn" class="icon-btn" title="Сбросить прогресс">⟲</button>
     </div>
   </header>
 
-  <nav class="tabs" role="tablist">
-    <button class="tab active" data-game="slots">🎰 Слоты</button>
-    <button class="tab" data-game="roulette">🎡 Рулетка</button>
-    <button class="tab" data-game="blackjack">🃏 Блэкджек</button>
-    <button class="tab" data-game="dice">🎲 Кости</button>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <a href="#lobby" class="side-link" data-nav="lobby"><span>🏠</span>Главная</a>
+      <a href="#lobby/fast" class="side-link" data-nav="fast"><span>⚡</span>Быстрые игры</a>
+      <a href="#lobby/slots" class="side-link" data-nav="slots-cat"><span>🎰</span>Слоты</a>
+      <a href="#lobby/table" class="side-link" data-nav="table"><span>🃏</span>Настольные</a>
+      <a href="#history" class="side-link" data-nav="history"><span>📜</span>История</a>
+      <div class="side-sep"></div>
+      <div class="side-title">Популярное</div>
+      <a href="#crash" class="side-link"><span>🚀</span>Ракета</a>
+      <a href="#mines" class="side-link"><span>💣</span>Мины</a>
+      <a href="#plinko" class="side-link"><span>🔻</span>Плинко</a>
+      <div class="side-promo">
+        <b>Бонус каждый час</b>
+        <span>+200 SC бесплатно</span>
+      </div>
+    </aside>
+
+    <main id="main">
+      <!-- LOBBY -->
+      <section class="view" id="view-lobby">
+        <div class="hero" id="hero">
+          <div class="slide active" style="--a:#1b5cff;--b:#7a2cff">
+            <div><h1>Бонус +200 SC</h1><p>Каждый час — бесплатно. Закончились фишки? Сразу +1000</p>
+              <a class="btn btn-green" href="#lobby" onclick="document.getElementById('bonus-btn').click();return false">Забрать</a></div>
+            <div class="slide-art">🎁</div>
+          </div>
+          <div class="slide" style="--a:#ff5a1f;--b:#c3007a">
+            <div><h1>Ракета</h1><p>Забери выигрыш до того, как она улетит. Множитель до ×1000</p>
+              <a class="btn btn-green" href="#crash">Играть</a></div>
+            <div class="slide-art">🚀</div>
+          </div>
+          <div class="slide" style="--a:#00a86b;--b:#0a5cc4">
+            <div><h1>Мины</h1><p>Открывай клетки, обходи мины и умножай ставку</p>
+              <a class="btn btn-green" href="#mines">Играть</a></div>
+            <div class="slide-art">💎</div>
+          </div>
+          <div class="hero-dots" id="hero-dots"></div>
+        </div>
+
+        <div class="cats" id="cats">
+          <a href="#lobby" class="cat" data-cat="all">🏠 Все игры</a>
+          <a href="#lobby/fast" class="cat" data-cat="fast">⚡ Быстрые</a>
+          <a href="#lobby/slots" class="cat" data-cat="slots">🎰 Слоты</a>
+          <a href="#lobby/table" class="cat" data-cat="table">🃏 Настольные</a>
+          <input class="search" id="search" type="search" placeholder="Поиск игры">
+        </div>
+
+        <h2 class="row-title" id="lobby-title">Все игры</h2>
+        <div class="tiles" id="tiles"></div>
+      </section>
+
+      <!-- HISTORY -->
+      <section class="view" id="view-history">
+        <h2 class="row-title">История ставок</h2>
+        <div class="stats" id="stats"></div>
+        <ul class="history" id="history"></ul>
+      </section>
+
+      <!-- GAME VIEW (shared header, one game body visible) -->
+      <section class="view" id="view-game">
+        <div class="game-head">
+          <a href="#lobby" class="back">← Лобби</a>
+          <h2 id="game-title"></h2>
+        </div>
+
+        <!-- CRASH -->
+        <div class="game" id="game-crash">
+          <div class="crash-history" id="crash-history"></div>
+          <div class="crash-stage">
+            <canvas id="crash-canvas" width="900" height="420"></canvas>
+            <div class="crash-mult" id="crash-mult">×1.00</div>
+            <div class="crash-status" id="crash-status">Сделайте ставку</div>
+          </div>
+          <div class="bet-panel">
+            <div class="bet-box">
+              <div class="bet-row">
+                <button class="step" data-step="-" data-for="crash-bet">−</button>
+                <input type="number" id="crash-bet" min="1" value="10">
+                <button class="step" data-step="+" data-for="crash-bet">+</button>
+              </div>
+              <div class="quick" data-for="crash-bet"><button>10</button><button>50</button><button>100</button><button>500</button></div>
+            </div>
+            <div class="bet-box">
+              <label class="auto"><input type="checkbox" id="crash-auto-on"> Автовывод при ×</label>
+              <input type="number" id="crash-auto" min="1.01" step="0.01" value="2.00">
+            </div>
+            <button class="btn btn-bet" id="crash-btn">Ставка</button>
+          </div>
+          <div class="message" id="crash-msg"></div>
+        </div>
+
+        <!-- MINES -->
+        <div class="game" id="game-mines">
+          <div class="mines-wrap">
+            <div class="bet-panel vertical">
+              <div class="bet-box">
+                <span class="lbl">Ставка</span>
+                <div class="bet-row">
+                  <button class="step" data-step="-" data-for="mines-bet">−</button>
+                  <input type="number" id="mines-bet" min="1" value="10">
+                  <button class="step" data-step="+" data-for="mines-bet">+</button>
+                </div>
+                <div class="quick" data-for="mines-bet"><button>10</button><button>50</button><button>100</button><button>500</button></div>
+              </div>
+              <div class="bet-box">
+                <span class="lbl">Количество мин</span>
+                <select id="mines-count"></select>
+              </div>
+              <div class="mines-info">
+                <span>Следующий: <b id="mines-next">×1.03</b></span>
+                <span>Текущий: <b id="mines-cur">×1.00</b></span>
+              </div>
+              <button class="btn btn-bet" id="mines-btn">Играть</button>
+              <button class="btn btn-ghost" id="mines-random">Случайная клетка</button>
+              <div class="message" id="mines-msg"></div>
+            </div>
+            <div class="mines-grid" id="mines-grid"></div>
+          </div>
+        </div>
+
+        <!-- PLINKO -->
+        <div class="game" id="game-plinko">
+          <div class="plinko-wrap">
+            <div class="bet-panel vertical">
+              <div class="bet-box">
+                <span class="lbl">Ставка</span>
+                <div class="bet-row">
+                  <button class="step" data-step="-" data-for="plinko-bet">−</button>
+                  <input type="number" id="plinko-bet" min="1" value="10">
+                  <button class="step" data-step="+" data-for="plinko-bet">+</button>
+                </div>
+                <div class="quick" data-for="plinko-bet"><button>10</button><button>50</button><button>100</button><button>500</button></div>
+              </div>
+              <div class="bet-box">
+                <span class="lbl">Риск</span>
+                <div class="seg" id="plinko-risk">
+                  <button data-risk="low">Низкий</button>
+                  <button data-risk="medium" class="on">Средний</button>
+                  <button data-risk="high">Высокий</button>
+                </div>
+              </div>
+              <button class="btn btn-bet" id="plinko-btn">Бросить шар</button>
+              <div class="message" id="plinko-msg"></div>
+            </div>
+            <div class="plinko-board">
+              <canvas id="plinko-canvas" width="640" height="600"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- SLOTS -->
+        <div class="game" id="game-slots">
+          <div class="slot-machine">
+            <div class="reels">
+              <div class="reel" id="reel-0">🌑</div>
+              <div class="reel" id="reel-1">🌑</div>
+              <div class="reel" id="reel-2">🌑</div>
+            </div>
+            <div class="message" id="slots-msg">Сделайте ставку и крутите барабаны</div>
+            <div class="bet-panel">
+              <div class="bet-box">
+                <div class="bet-row">
+                  <button class="step" data-step="-" data-for="slots-bet">−</button>
+                  <input type="number" id="slots-bet" min="1" value="10">
+                  <button class="step" data-step="+" data-for="slots-bet">+</button>
+                </div>
+              </div>
+              <button class="btn btn-bet" id="slots-spin">Крутить</button>
+            </div>
+            <table class="paytable" id="slots-paytable"></table>
+          </div>
+        </div>
+
+        <!-- ROULETTE -->
+        <div class="game" id="game-roulette">
+          <div class="roulette-layout">
+            <div class="wheel-wrap">
+              <div class="wheel-pointer">▼</div>
+              <canvas id="wheel" width="300" height="300"></canvas>
+              <div class="wheel-result" id="wheel-result">—</div>
+            </div>
+            <div class="roulette-side">
+              <div class="board" id="roulette-board"></div>
+              <div class="message" id="roulette-msg">Выберите фишку и кликните по полю</div>
+              <div class="bet-panel">
+                <div class="bet-box">
+                  <span class="lbl">Фишка</span>
+                  <input type="number" id="roulette-chip" min="1" value="10">
+                </div>
+                <button class="btn btn-ghost" id="roulette-clear">Очистить</button>
+                <button class="btn btn-bet" id="roulette-spin">Крутить</button>
+              </div>
+              <div class="total-bet">На столе: <b id="roulette-total">0</b></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BLACKJACK -->
+        <div class="game" id="game-blackjack">
+          <div class="bj-table">
+            <div class="hand-block">
+              <div class="hand-title">Дилер <span id="dealer-score"></span></div>
+              <div class="hand" id="dealer-hand"></div>
+            </div>
+            <div class="hand-block">
+              <div class="hand-title">Вы <span id="player-score"></span></div>
+              <div class="hand" id="player-hand"></div>
+            </div>
+            <div class="message" id="bj-msg">Блэкджек платит 3:2, дилер стоит на 17</div>
+            <div class="bet-panel">
+              <div class="bet-box">
+                <span class="lbl">Ставка</span>
+                <input type="number" id="bj-bet" min="1" value="20">
+              </div>
+              <button class="btn btn-bet" id="bj-deal">Раздать</button>
+              <button class="btn" id="bj-hit" disabled>Ещё</button>
+              <button class="btn" id="bj-stand" disabled>Хватит</button>
+              <button class="btn" id="bj-double" disabled>Удвоить</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DICE -->
+        <div class="game" id="game-dice">
+          <div class="dice-box">
+            <div class="dice-roll" id="dice-roll">00</div>
+            <div class="dice-bar"><div class="dice-fill" id="dice-fill"></div><div class="dice-marker" id="dice-marker"></div></div>
+            <label class="slider-label">Выпадет меньше <b id="dice-target-val">50</b>
+              <input type="range" id="dice-target" min="2" max="95" value="50">
+            </label>
+            <div class="dice-info">
+              <span>Шанс: <b id="dice-chance">50%</b></span>
+              <span>Множитель: <b id="dice-mult">×1.98</b></span>
+              <span>Выигрыш: <b id="dice-payout">19</b></span>
+            </div>
+            <div class="message" id="dice-msg">Число от 0 до 99. Угадайте, что оно будет меньше цели</div>
+            <div class="bet-panel">
+              <div class="bet-box">
+                <div class="bet-row">
+                  <button class="step" data-step="-" data-for="dice-bet">−</button>
+                  <input type="number" id="dice-bet" min="1" value="10">
+                  <button class="step" data-step="+" data-for="dice-bet">+</button>
+                </div>
+              </div>
+              <button class="btn btn-bet" id="dice-btn">Бросить</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>Shadow Casino — игра на виртуальные фишки (SC). Реальные деньги не принимаются и не выплачиваются.</footer>
+    </main>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="#lobby" data-nav="lobby"><span>🏠</span>Главная</a>
+    <a href="#lobby/fast" data-nav="fast"><span>⚡</span>Быстрые</a>
+    <a href="#crash" data-nav="crash"><span>🚀</span>Ракета</a>
+    <a href="#history" data-nav="history"><span>📜</span>История</a>
   </nav>
 
-  <main>
-    <!-- SLOTS -->
-    <section class="game active" id="game-slots">
-      <h2>Теневые слоты</h2>
-      <div class="slot-machine">
-        <div class="reels">
-          <div class="reel" id="reel-0">🌑</div>
-          <div class="reel" id="reel-1">🌑</div>
-          <div class="reel" id="reel-2">🌑</div>
-        </div>
-        <div class="message" id="slots-msg">Сделайте ставку и крутите барабаны</div>
-        <div class="controls">
-          <label class="bet">Ставка
-            <input type="number" id="slots-bet" min="1" value="10">
-          </label>
-          <button class="btn btn-main" id="slots-spin">Крутить</button>
-        </div>
-      </div>
-      <table class="paytable" id="slots-paytable"></table>
-    </section>
-
-    <!-- ROULETTE -->
-    <section class="game" id="game-roulette">
-      <h2>Европейская рулетка</h2>
-      <div class="roulette-layout">
-        <div class="wheel-wrap">
-          <div class="wheel-pointer">▼</div>
-          <canvas id="wheel" width="300" height="300"></canvas>
-          <div class="wheel-result" id="wheel-result">—</div>
-        </div>
-        <div class="roulette-side">
-          <div class="board" id="roulette-board"></div>
-          <div class="message" id="roulette-msg">Выберите фишку и кликните по полю</div>
-          <div class="controls">
-            <label class="bet">Фишка
-              <input type="number" id="roulette-chip" min="1" value="10">
-            </label>
-            <button class="btn btn-ghost" id="roulette-clear">Очистить</button>
-            <button class="btn btn-main" id="roulette-spin">Крутить</button>
-          </div>
-          <div class="total-bet">На столе: <b id="roulette-total">0</b></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- BLACKJACK -->
-    <section class="game" id="game-blackjack">
-      <h2>Блэкджек</h2>
-      <div class="bj-table">
-        <div class="hand-block">
-          <div class="hand-title">Дилер <span id="dealer-score"></span></div>
-          <div class="hand" id="dealer-hand"></div>
-        </div>
-        <div class="hand-block">
-          <div class="hand-title">Вы <span id="player-score"></span></div>
-          <div class="hand" id="player-hand"></div>
-        </div>
-        <div class="message" id="bj-msg">Блэкджек платит 3:2, дилер стоит на 17</div>
-        <div class="controls">
-          <label class="bet">Ставка
-            <input type="number" id="bj-bet" min="1" value="20">
-          </label>
-          <button class="btn btn-main" id="bj-deal">Раздать</button>
-          <button class="btn" id="bj-hit" disabled>Ещё</button>
-          <button class="btn" id="bj-stand" disabled>Хватит</button>
-          <button class="btn" id="bj-double" disabled>Удвоить</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- DICE -->
-    <section class="game" id="game-dice">
-      <h2>Кости: меньше чем…</h2>
-      <div class="dice-box">
-        <div class="dice-roll" id="dice-roll">00</div>
-        <div class="dice-bar"><div class="dice-fill" id="dice-fill"></div><div class="dice-marker" id="dice-marker"></div></div>
-        <label class="slider-label">Выпадет меньше <b id="dice-target-val">50</b>
-          <input type="range" id="dice-target" min="2" max="95" value="50">
-        </label>
-        <div class="dice-info">
-          <span>Шанс: <b id="dice-chance">50%</b></span>
-          <span>Множитель: <b id="dice-mult">×1.98</b></span>
-          <span>Выигрыш: <b id="dice-payout">19</b></span>
-        </div>
-        <div class="message" id="dice-msg">Число от 0 до 99. Угадайте, что оно будет меньше цели</div>
-        <div class="controls">
-          <label class="bet">Ставка
-            <input type="number" id="dice-bet" min="1" value="10">
-          </label>
-          <button class="btn btn-main" id="dice-btn">Бросить</button>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <aside class="history">
-    <h3>История</h3>
-    <ul id="history"></ul>
-  </aside>
-
-  <footer>Только виртуальные фишки. Никаких реальных денег.</footer>
-
   <script src="js/core.js"></script>
+  <script src="js/lobby.js"></script>
+  <script src="js/crash.js"></script>
+  <script src="js/mines.js"></script>
+  <script src="js/plinko.js"></script>
   <script src="js/slots.js"></script>
   <script src="js/roulette.js"></script>
   <script src="js/blackjack.js"></script>

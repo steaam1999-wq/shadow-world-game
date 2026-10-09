@@ -106,7 +106,7 @@
 
   // Wheel drawing
   const SEG = (Math.PI * 2) / ORDER.length;
-  const FILL = { red: '#c8283a', black: '#1a1a1f', green: '#138a4a' };
+  const FILL = { red: '#c8283a', black: '#1b2133', green: '#138a4a' };
   let rotation = 0;
 
   function drawWheel() {
@@ -139,7 +139,7 @@
     });
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
-    ctx.fillStyle = '#15131f';
+    ctx.fillStyle = '#161d30';
     ctx.fill();
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 3;
