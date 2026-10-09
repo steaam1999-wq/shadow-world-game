@@ -182,6 +182,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
         <button onClick={() => setComments(true)} className="flex flex-col items-center gap-1 cursor-pointer" aria-label="Комментарии">
           <Icon name="comment" size={30} />{commentCount > 0 && <span className="text-[12px] font-semibold tnum">{commentCount}</span>}
         </button>
+        <SaveButton id={s.id} size={28} />
         <button onClick={onToggleMute} className="flex flex-col items-center gap-1 cursor-pointer" aria-label={muted ? 'Включить звук' : 'Выключить звук'} aria-pressed={!muted}>
           <Icon name={muted ? 'soundOff' : 'sound'} size={28} />
         </button>
@@ -406,6 +407,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
         <button onClick={() => setComments(true)} className="inline-flex items-center gap-1 cursor-pointer" aria-label="Комментарии"><Icon name="comment" size={26} />{commentCount > 0 && <span className="text-[14px] font-semibold tnum">{commentCount}</span>}</button>
         <PlaneSend excludeId={s.authorId} size={25} className="w-7 h-7" label="Поделиться публикацией" onMore={() => setShare(true)}
           onSend={(p) => dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: pubMessage(s, author?.name) })} />
+        <SaveButton id={s.id} size={25} className="ml-auto" />
       </div>
       {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}
       <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Удалить публикацию?" text="Публикация исчезнет у всех. Вернуть её будет нельзя." action="Удалить" onConfirm={() => { setConfirm(false); void remove() }} />
@@ -543,6 +545,50 @@ export function ProfilePublications({ authorId, onMessage }: { authorId: string;
         </div>
       )}
       <NewPublication open={adding} onClose={() => setAdding(false)} onDone={() => setAdding(false)} />
+    </>
+  )
+}
+
+/** Закладка «Сохранить» для фото или видео — потом найдёте в профиле во вкладке «Сохранено». */
+function SaveButton({ id, size, className = '' }: { id: string; size: number; className?: string }) {
+  const { state, dispatch } = useStore()
+  const saved = (state.savedShorts ?? []).includes(id)
+  return (
+    <button onClick={() => dispatch({ type: 'toggleSaveShort', shortId: id })} className={`grid place-items-center cursor-pointer ${className}`}
+      aria-label={saved ? 'Убрать из сохранённого' : 'Сохранить'} aria-pressed={saved}>
+      <Icon name="bookmark" size={size} fill={saved} className={saved ? 'anim-bump' : ''} />
+    </button>
+  )
+}
+
+/** Сохранённые фото и видео (вкладка «Сохранено» в профиле). */
+export function SavedPublications({ onMessage }: { onMessage: (personId: string) => void }) {
+  const { state } = useStore()
+  const ids = state.savedShorts ?? []
+  const all = usePublications()
+  const list = ids.map((id) => all.find((s) => s.id === id)).filter((s): s is Short => !!s)
+  const [open, setOpen] = useState<Short | null>(null)
+  useBackfillThumbs(list)
+  if (!list.length) return null
+  return (
+    <>
+      <div className="grid grid-cols-3 gap-1 px-1">
+        {list.map((s) => (
+          <button key={s.id} onClick={() => setOpen(s)} className="relative block w-full aspect-[3/4] rounded-lg overflow-hidden bg-surface-2 cursor-pointer" aria-label={s.caption || (s.kind === 'video' ? 'Видео' : 'Фото')}>
+            <Tile s={s} />
+            {s.kind === 'video' && <span className="absolute right-1.5 top-1.5 text-white drop-shadow"><Icon name="reels" size={18} /></span>}
+          </button>
+        ))}
+      </div>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Публикация">
+          <button className="absolute inset-0 bg-black/60 cursor-default" aria-label="Закрыть" onClick={() => setOpen(null)} />
+          <div className="anim-rise relative w-full max-w-[480px] max-h-[92%] overflow-y-auto bg-surface rounded-t-[28px] sm:rounded-[28px] pt-2 pb-[env(safe-area-inset-bottom,0px)]">
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line" />
+            <FeedPublication s={open} onMessage={(id) => { setOpen(null); onMessage(id) }} />
+          </div>
+        </div>
+      )}
     </>
   )
 }

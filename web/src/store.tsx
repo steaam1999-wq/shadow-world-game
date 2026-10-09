@@ -53,6 +53,7 @@ export type Action =
   | { type: 'share'; personId: string; activityId: string }
   | { type: 'toggleFollow'; personId: string }
   | { type: 'toggleShortHeart'; shortId: string }
+  | { type: 'toggleSaveShort'; shortId: string }
   | { type: 'seeNotices' }
   | { type: 'setRemember'; remember: boolean }
   | { type: 'setFree'; until: number | null }
@@ -97,7 +98,7 @@ const STATUS_TEXT: Record<CapsuleStatus, string> = {
 
 /** Лайки и подписки с сервера: мои отметки, счётчики и уведомления. */
 export interface Social {
-  hearts: string[]; shortHearts: string[]; saved: string[]; following: string[]
+  hearts: string[]; shortHearts: string[]; saved: string[]; savedShorts: string[]; following: string[]
   likeCounts: Record<string, number>; followers: Record<string, number>; notices: Notice[]
   followersOf: Record<string, string[]> // personId ('me' — я) → кто подписан
   followingOf: Record<string, string[]> // personId ('me' — я) → на кого подписан
@@ -298,6 +299,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, noticesSeenAt: now }
     case 'toggleSave':
       return { ...state, saved: toggle(state.saved, action.activityId) }
+    case 'toggleSaveShort':
+      return { ...state, savedShorts: toggle(state.savedShorts ?? [], action.shortId) }
     case 'share': {
       // Пересланный план попадает в капсулу с человеком; если её нет — открываем новую.
       const activity = state.activities.find((x) => x.id === action.activityId)
@@ -436,7 +439,7 @@ function reducer(state: State, action: Action): State {
       return { ...state, blocked: (state.blocked ?? []).filter((b) => b.id !== action.personId) }
     case 'cloudSignIn':
       // Демо-данные на время входа через сервер не нужны: люди, планы и капсулы придут из базы.
-      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], groups: [], stories: [], storiesSeen: [], liked: [], hearts: [], saved: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
+      return { ...state, cloud: { userId: action.userId, email: action.email }, people: [], activities: [], capsules: [], groups: [], stories: [], storiesSeen: [], liked: [], hearts: [], saved: [], savedShorts: [], following: [], seenStories: [], blocked: [], isAdmin: false, verification: null, comments: [], shorts: [], cloudError: null }
     case 'cloudLoad':
       if (!state.cloud) return state
       return {

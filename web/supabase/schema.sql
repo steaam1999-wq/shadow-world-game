@@ -1641,3 +1641,18 @@ language sql security definer set search_path = '' as $$
 $$;
 revoke all on function public.touch_seen(boolean) from public, anon;
 grant execute on function public.touch_seen(boolean) to authenticated;
+
+-- «Сохранить» публикацию (фото или видео): видно только самому человеку.
+create table if not exists public.saved_shorts (
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  short_id uuid not null references public.shorts (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, short_id)
+);
+create index if not exists saved_shorts_short_idx on public.saved_shorts (short_id);
+alter table public.saved_shorts enable row level security;
+revoke all on public.saved_shorts from anon, authenticated;
+grant select, delete on public.saved_shorts to authenticated;
+grant insert (short_id) on public.saved_shorts to authenticated;
+drop policy if exists "saved shorts: own" on public.saved_shorts;
+create policy "saved shorts: own" on public.saved_shorts for all to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));

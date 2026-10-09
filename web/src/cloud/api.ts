@@ -608,15 +608,17 @@ export async function adminWipeContent(userId: string) {
 
 type LikeRow = { user_id: string; created_at: string }
 async function loadSocial(db: SupabaseClient, userId: string, planIds: string[], shortIds: string[], hidden: Set<string>, myPlans: Set<string>, myShorts: Set<string>): Promise<Social> {
-  const [pl, sl, fo, sv, sh] = await Promise.all([
+  const [pl, sl, fo, sv, sh, ss] = await Promise.all([
     planIds.length ? db.from('plan_likes').select('plan_id, user_id, created_at').in('plan_id', planIds).limit(10000).returns<(LikeRow & { plan_id: string })[]>() : Promise.resolve({ data: [], error: null }),
     shortIds.length ? db.from('short_likes').select('short_id, user_id, created_at').in('short_id', shortIds).limit(10000).returns<(LikeRow & { short_id: string })[]>() : Promise.resolve({ data: [], error: null }),
     db.from('follows').select('follower, followee, created_at').limit(10000).returns<{ follower: string; followee: string; created_at: string }[]>(),
     db.from('saved_plans').select('plan_id').returns<{ plan_id: string }[]>(),
     // Репосты моих планов: правила доступа отдают только их (и мои собственные).
     db.from('plan_shares').select('id, plan_id, user_id, created_at').order('created_at', { ascending: false }).limit(500).returns<{ id: number; plan_id: string; user_id: string; created_at: string }[]>(),
+    db.from('saved_shorts').select('short_id').order('created_at', { ascending: false }).returns<{ short_id: string }[]>(),
   ])
   for (const r of [pl, sl, fo, sv, sh]) if (r.error) throw r.error
+  // Таблица сохранённых публикаций могла ещё не появиться — тогда просто пусто
   const planLikes = (pl.data ?? []).filter((l) => !hidden.has(l.user_id))
   const shortLikes = (sl.data ?? []).filter((l) => !hidden.has(l.user_id))
   const follows = (fo.data ?? []).filter((f) => !hidden.has(f.follower) && !hidden.has(f.followee))
@@ -644,13 +646,14 @@ async function loadSocial(db: SupabaseClient, userId: string, planIds: string[],
     hearts: planLikes.filter((l) => l.user_id === userId).map((l) => l.plan_id),
     shortHearts: shortLikes.filter((l) => l.user_id === userId).map((l) => l.short_id),
     saved: (sv.data ?? []).map((s) => s.plan_id),
+    savedShorts: ss.error ? [] : (ss.data ?? []).map((s) => s.short_id),
     following: follows.filter((f) => f.follower === userId).map((f) => f.followee),
     likeCounts, followers, notices, followersOf, followingOf,
   }
 }
 /** Отметка «нравится», подписка или «Сохранить»: on — поставить, иначе снять. Повтор не ошибка. */
-export async function setMark(kind: 'plan_likes' | 'short_likes' | 'follows' | 'saved_plans', id: string, on: boolean, userId: string) {
-  const col = kind === 'plan_likes' ? 'plan_id' : kind === 'short_likes' ? 'short_id' : kind === 'follows' ? 'followee' : 'plan_id'
+export async function setMark(kind: 'plan_likes' | 'short_likes' | 'follows' | 'saved_plans' | 'saved_shorts', id: string, on: boolean, userId: string) {
+  const col = kind === 'plan_likes' ? 'plan_id' : kind === 'short_likes' || kind === 'saved_shorts' ? 'short_id' : kind === 'follows' ? 'followee' : 'plan_id'
   const own = kind === 'follows' ? 'follower' : 'user_id'
   const row: Record<string, string> = { [col]: id }
   const q = on ? sb().from(kind).insert(row as never) : sb().from(kind).delete().eq(col, id).eq(own, userId)

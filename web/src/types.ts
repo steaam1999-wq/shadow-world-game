@@ -249,6 +249,7 @@ export interface State {
   shorts?: Short[] // шортсы из облака (демо хранит свои в браузере)
   registrationOpen?: boolean // админ может временно закрыть регистрацию
   shortHearts?: string[] // id публикаций, которые я лайкнул
+  savedShorts?: string[] // id публикаций, которые я сохранил
   shortComments?: PlanComment[] // комментарии к публикациям (planId = id публикации)
   likeCounts?: Record<string, number> // id плана или публикации → число лайков (облако)
   followers?: Record<string, number> // personId ('me' — я) → число подписчиков (облако)

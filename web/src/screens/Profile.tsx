@@ -18,7 +18,8 @@ import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
 import { BugReportSheet } from '../components/BugReport'
 import { PlayingChip } from '../music/NowPlaying'
-import { ProfilePublications } from './Shorts'
+import { ProfilePublications, SavedPublications } from './Shorts'
+import { useOpenProfile } from '../nav'
 import { currentUser, deleteAccount, humanError, linkEmail } from '../cloud/api'
 import { VerifyCard, openVerify } from '../components/Verify'
 import { FounderBadge, GoldFrame, InviteCard, inviteUrl, profileUrl, shareLink } from '../components/Invite'
@@ -31,6 +32,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   onOpenCapsule: (activityId: string) => void
 }) {
   const { state, dispatch } = useStore()
+  const openProfile = useOpenProfile()
   const me = state.me!
   const [editVibe, setEditVibe] = useState(false)
   const [bugOpen, setBugOpen] = useState(false)
@@ -141,8 +143,11 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
 
       {tab === 'saved' && (() => {
         const list = state.activities.filter((a) => state.saved.includes(a.id))
-        return list.length ? (
-          <div className="grid grid-cols-3 gap-1 px-1">
+        const posts = (state.savedShorts ?? []).length
+        return list.length || posts ? (
+          <div className="flex flex-col gap-3">
+          {posts > 0 && <SavedPublications onMessage={openProfile} />}
+          {list.length > 0 && <div className="grid grid-cols-3 gap-1 px-1">
             {list.map((a) => (
               <button key={a.id} onClick={() => setViewing(a.id)} className="relative aspect-[3/4] max-w-full overflow-hidden rounded-lg cursor-pointer group" aria-label={`Открыть: ${a.title}`}>
                 <PostArt activity={a} />
@@ -150,12 +155,13 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
                 <span className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition" />
               </button>
             ))}
+          </div>}
           </div>
         ) : (
           <div className="py-12 px-6 text-center flex flex-col items-center gap-2">
             <span className="grid place-items-center w-16 h-16 rounded-full border-2 border-fg"><Icon name="bookmark" size={28} /></span>
             <p className="font-display font-bold text-lg">Ничего не сохранено</p>
-            <p className="text-[13px] text-muted">Нажмите на закладку под постом, чтобы вернуться к нему позже.</p>
+            <p className="text-[13px] text-muted">Нажмите на закладку под постом, фото или видео, чтобы вернуться к нему позже.</p>
           </div>
         )
       })()}

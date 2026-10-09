@@ -112,6 +112,8 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
       return s.hearts.includes(a.activityId) ? null : run(api.setMark('plan_likes', a.activityId, true, uid))
     case 'toggleShortHeart':
       return run(api.setMark('short_likes', a.shortId, !(s.shortHearts ?? []).includes(a.shortId), uid))
+    case 'toggleSaveShort':
+      return run(api.setMark('saved_shorts', a.shortId, !(s.savedShorts ?? []).includes(a.shortId), uid))
     case 'toggleSave':
       return run(api.setMark('saved_plans', a.activityId, !s.saved.includes(a.activityId), uid))
     case 'toggleFollow':
