@@ -178,7 +178,6 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
           </span>
           <div className="flex-1 min-w-0 leading-tight">
             <div className="font-semibold">Вы свободны до {hm(me.freeUntil!)}</div>
-            <div className="text-[12px] text-muted">Люди рядом видят, что вас можно позвать прямо сейчас</div>
           </div>
           <button onClick={() => dispatch({ type: 'setFree', until: null })} className="text-[13px] text-muted hover:text-fg cursor-pointer shrink-0">Отменить</button>
         </div>
@@ -200,7 +199,6 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
               <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} /><span className="absolute right-0 bottom-0 w-3.5 h-3.5 rounded-full bg-ok border-2 border-surface-2" /></span>
               <span className="text-[13px] font-semibold leading-tight">{nameAge(p.name, p.age)}</span>
               <span className="text-[11px] text-muted leading-tight">{placeLine(formatKm(p.distanceKm), `до ${hm(until)}`)}</span>
-              <ReliabilityBadge person={p} compact />
               <button disabled={invited.includes(p.id)} onClick={() => { setInvited([...invited, p.id]); onInvite(p.id) }}
                 className="mt-0.5 w-full h-8 rounded-xl bg-brand text-white text-[12px] font-semibold cursor-pointer disabled:opacity-50">
                 {invited.includes(p.id) ? 'Позвали' : 'Позвать'}

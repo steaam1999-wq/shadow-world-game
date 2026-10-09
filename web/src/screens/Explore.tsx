@@ -206,7 +206,7 @@ function EmptyResults({ onReset }: { onReset: () => void }) {
   return (
     <div className="mx-4 rounded-3xl bg-surface-2 p-8 text-center flex flex-col items-center gap-3">
       <p className="font-semibold">Ничего не нашлось</p>
-      <p className="text-[13px] text-muted">Увеличьте радиус, смените фильтры или предложите свой план.</p>
+      
       <Button variant="secondary" onClick={onReset}>Сбросить фильтры</Button>
     </div>
   )

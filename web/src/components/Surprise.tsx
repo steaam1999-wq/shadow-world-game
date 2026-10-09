@@ -57,7 +57,7 @@ export function SurpriseMeet({ onMessage }: { onMessage: (personId: string) => v
         </span>
       </button>
       <div className="relative grid grid-cols-2 gap-2">
-        <button onClick={() => save({ ...pref, skip: [...pref.skip, p.id] })} className="h-10 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer">Другой сюрприз</button>
+        <button onClick={() => save({ ...pref, skip: [...pref.skip, p.id] })} className="h-10 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer">Другой</button>
         <button onClick={() => onMessage(p.id)} className="h-10 rounded-xl bg-brand text-white font-semibold text-[14px] cursor-pointer inline-flex items-center justify-center gap-1.5"><Icon name="chat" size={16} /> Написать</button>
       </div>
     </section>

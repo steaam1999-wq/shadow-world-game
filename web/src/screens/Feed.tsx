@@ -4,7 +4,7 @@ import { FeedPublication, usePublications } from './Shorts'
 import { ListeningBadge } from '../music/NowPlaying'
 import { PlanMusicChip } from '../music/PlanMusic'
 import { useStore } from '../store'
-import { compatibility, planWhen, plural, relative, sharedAnswers, shortArea } from '../lib'
+import { compatibility, planWhen, plural, shortArea } from '../lib'
 import { Avatar, Button, Icon, Sheet, StoryRing } from '../components/ui'
 import { PostArt, likeCount } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -92,7 +92,6 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
         onMessage={(personId, text) => dispatch({ type: 'directMessage', personId, capsuleId: crypto.randomUUID(), text })} />
 
       <PushPrompt />
-      <h2 className="px-4 mb-2 font-display font-bold text-[17px]">Сейчас рядом</h2>
       <UpcomingMeeting now={now} onOpenCapsule={onOpenCapsule} />
       <VerifyBanner />
       <FreeNow now={now} onInvite={onInvite} />
@@ -145,7 +144,6 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
         <div className="py-10 flex flex-col items-center gap-2 text-center">
           <span className="grid place-items-center w-14 h-14 rounded-full border-2 border-spark text-spark"><Icon name="check" size={28} /></span>
           <p className="font-semibold">Вы всё посмотрели</p>
-          <p className="text-[13px] text-muted">Новые планы появляются каждый час</p>
         </div>
       )}
 
@@ -270,11 +268,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         </div>
       </div>
 
-      <div className="mx-4 mt-3 flex flex-col gap-2">
-        {a.groupSize && !person && <GroupStack activity={a} />}
-        {!person && <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="pin" size={15} /> Точное место увидят только в чате: {a.exactPlace}</p>}
-        {person && !a.groupSize && !responded && <p className="flex items-center gap-2 text-[13px] text-muted"><Icon name="shield" size={15} /> Точное место откроется в чате после отклика</p>}
-      </div>
+      {a.groupSize && !person && <div className="mx-4 mt-3"><GroupStack activity={a} /></div>}
 
       <div className="flex items-center gap-1 px-2.5 pt-1.5">
         <LikeButton liked={hearted} onToggle={() => dispatch({ type: 'toggleHeart', activityId: a.id })} className="w-10 h-10" />
@@ -289,12 +283,8 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         {state.cloud ? (state.likeCounts?.[a.id] ?? 0) > 0 && <span className="font-semibold tnum">{likesLabel(state.likeCounts![a.id])}</span>
           : <span className="font-semibold tnum">{likesLabel(likeCount(a.id, hearted))}</span>}
         {a.music && <span className="self-start max-w-full"><PlanMusicChip id={a.id} music={a.music} /></span>}
-        <p><span className="font-semibold">{person ? person.name : me.name}</span> {a.title}</p>
-        <p className="text-muted">#{a.category.toLowerCase()} #{a.area.toLowerCase().replace(/[^а-яёa-z0-9]+/g, '')}</p>
-        {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">Общие интересы: {compat.sharedTags.join(', ')}</p>}
-        {compat && sharedAnswers(me.answers, person!.answers).length > 0 && <p className="text-muted text-[13px]">Совпало в вайб-тесте: {sharedAnswers(me.answers, person!.answers).join(', ')}</p>}
+        {compat && compat.sharedTags.length > 0 && <p className="text-muted text-[13px]">✦ {compat.sharedTags.join(', ')}</p>}
         <CommentsPreview activity={a} onOpen={() => setComments(true)} />
-        <span className="text-[12px] text-muted">{a.timeHidden ? 'Время обсудим в чате' : started ? 'Идёт сейчас' : `Начало ${relative(a.startsAt, now)}`}</span>
       </div>
 
       {boostNote && createPortal(

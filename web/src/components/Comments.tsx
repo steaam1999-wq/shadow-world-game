@@ -22,7 +22,7 @@ function useAuthor() {
 export function CommentsPreview({ activity, onOpen }: { activity: Activity; onOpen: () => void }) {
   const list = useComments(activity.id)
   const author = useAuthor()
-  if (!list.length) return <button onClick={onOpen} className="self-start text-muted cursor-pointer">Добавить комментарий…</button>
+  if (!list.length) return null
   return (
     <>
       {list.length > 2 && <button onClick={onOpen} className="self-start text-muted cursor-pointer">Посмотреть все комментарии ({list.length})</button>}

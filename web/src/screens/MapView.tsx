@@ -156,7 +156,7 @@ export function MapTab({ items, now, onOpenPlan }: { items: Activity[]; now: num
             <section className={`rounded-[24px] p-4 flex flex-col gap-3 ${glass} !bg-surface/90`} aria-label="Ваше место">
               <div>
                 <h2 className="font-display font-bold text-[17px]">Где вы?</h2>
-                <p className="text-[13px] text-muted leading-snug mt-0.5">Появитесь на карте и увидите, кто рядом. Видно только район — не точный адрес.</p>
+                <p className="text-[13px] text-muted leading-snug mt-0.5">Видно только район, не адрес.</p>
               </div>
               <div className="grid grid-cols-[1fr_auto] gap-2">
                 <button onClick={locate} disabled={locating} className="h-11 rounded-2xl bg-brand text-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"><Icon name="pin" size={18} /> {locating ? 'Определяем…' : 'Определить по GPS'}</button>

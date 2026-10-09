@@ -285,7 +285,6 @@ function NativePushPrompt() {
         <span className="grid place-items-center w-10 h-10 shrink-0 rounded-xl bg-brand text-white"><Icon name="bell" size={20} /></span>
         <div className="flex-1 min-w-0">
           <h2 className="font-display font-bold text-[16px]">Не пропускайте сообщения</h2>
-          <p className="text-[13.5px] text-muted leading-snug mt-0.5">Звонки и сообщения придут, даже когда Komeeta закрыта.</p>
         </div>
         <button onClick={close} className="grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть"><Icon name="x" size={16} /></button>
       </div>
@@ -323,11 +322,7 @@ function WebPushPrompt() {
         <span className="grid place-items-center w-10 h-10 shrink-0 rounded-xl bg-brand text-white"><Icon name="bell" size={20} /></span>
         <div className="flex-1 min-w-0">
           <h2 className="font-display font-bold text-[16px]">Не пропускайте сообщения</h2>
-          <p className="text-[13.5px] text-muted leading-snug mt-0.5">
-            {iosBrowser
-              ? 'На iPhone уведомления приходят, только если открыть Komeeta с экрана «Домой».'
-              : 'Включите уведомления — они придут на экран, даже когда Komeeta закрыта.'}
-          </p>
+          {iosBrowser && <p className="text-[13.5px] text-muted leading-snug mt-0.5">На iPhone — только с экрана «Домой»:</p>}
         </div>
         <button onClick={close} className="grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть"><Icon name="x" size={16} /></button>
       </div>

@@ -530,7 +530,6 @@ export function ProfilePublications({ authorId, onMessage }: { authorId: string;
         <div className="py-10 px-6 flex flex-col items-center gap-3 text-center">
           <span className="grid place-items-center w-16 h-16 rounded-full border-2 border-fg"><Icon name="camera" size={28} /></span>
           <p className="font-display font-bold text-lg">Пока нет фото и видео</p>
-          {mine && <p className="text-[13px] text-muted">Нажмите «+» внизу → «Публикация», чтобы добавить первое.</p>}
           {mine && <Button variant="secondary" onClick={() => setAdding(true)}><Icon name="plus" size={18} /> Добавить</Button>}
         </div>
       )}

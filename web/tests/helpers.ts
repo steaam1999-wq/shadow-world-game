@@ -12,7 +12,7 @@ export async function enterDemo(page: Page) {
   await page.addInitScript(() => { try { if (!sessionStorage.getItem('keep-memo')) localStorage.setItem('safety-memo-seen', '1') } catch { /* ignore */ } })
   await page.goto('./')
   await page.locator('button', { hasText: 'без регистрации' }).last().click()
-  await expect(page.getByRole('heading', { name: 'Сейчас рядом' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Главная/ }).last()).toBeVisible()
 }
 
 /** Изменить демо-состояние и перезагрузить страницу. */
