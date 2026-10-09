@@ -725,7 +725,7 @@ begin
   select p.id, p.name, p.age, p.district, p.photo_path, p.verified, p.created_at,
     u.email::text, u.last_sign_in_at,
     exists (select 1 from admins a where a.user_id = p.id),
-    exists (select 1 from bans b where b.user_id = p.id),
+    private.is_banned(p.id),
     (select b.reason from bans b where b.user_id = p.id),
     (select count(*) from plans x where x.author = p.id),
     (select count(*) from shorts x where x.author = p.id),
@@ -1665,3 +1665,52 @@ grant insert (style), update (style) on public.profiles to authenticated;
 
 -- Когда человек последний раз открывал уведомления — на сервере, чтобы на всех устройствах они были просмотрены.
 alter table public.profile_private add column if not exists notices_seen_at timestamptz;
+
+-- Админ: бан на срок (until пусто — навсегда).
+alter table public.bans add column if not exists until timestamptz;
+create or replace function private.is_banned(u uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.bans where user_id = u and (until is null or until > now()))
+$$;
+
+-- Админ: поправить имя и «о себе», убрать фото (например, за неприличное).
+create or replace function public.admin_update_profile(u uuid, new_name text, new_bio text, clear_photo boolean default false) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  update profiles set
+    name = coalesce(nullif(left(trim(new_name), 40), ''), name),
+    bio = left(coalesce(new_bio, bio), 500),
+    photo = case when clear_photo then null else photo end,
+    photo_path = case when clear_photo then null else photo_path end
+  where id = u;
+end $$;
+revoke all on function public.admin_update_profile(uuid, text, text, boolean) from public, anon;
+grant execute on function public.admin_update_profile(uuid, text, text, boolean) to authenticated;
+
+-- Удаление аккаунта целиком — серверная функция admin-delete-user (через Auth API, с проверкой, что вызывает админ).
+
+-- Админ: push-уведомление одному человеку или всем (target пусто).
+create or replace function public.admin_push(title text, body text, target uuid default null) returns void
+language plpgsql security definer set search_path = public, vault, extensions as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  if coalesce(trim(body), '') = '' then raise exception 'empty' using errcode = 'P0001'; end if;
+  perform net.http_post(
+    url := 'https://mrivbqkqdaxtvwcsljzu.supabase.co/functions/v1/push',
+    body := json_build_object('broadcast', json_build_object('title', left(coalesce(nullif(trim(title), ''), 'Komeeta'), 60), 'body', left(trim(body), 300)), 'target', target)::jsonb,
+    headers := json_build_object('Content-Type', 'application/json',
+      'x-push-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'iskra_push_hook'))::jsonb,
+    timeout_milliseconds := 8000
+  );
+end $$;
+revoke all on function public.admin_push(text, text, uuid) from public, anon;
+grant execute on function public.admin_push(text, text, uuid) to authenticated;
+
+-- Админ: до какого времени бан (пусто — навсегда).
+create or replace function public.admin_ban_until(u uuid) returns timestamptz
+language sql stable security definer set search_path = public as $$
+  select case when private.is_admin() then (select until from bans where user_id = u) end
+$$;
+revoke all on function public.admin_ban_until(uuid) from public, anon;
+grant execute on function public.admin_ban_until(uuid) to authenticated;

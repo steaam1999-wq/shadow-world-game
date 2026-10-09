@@ -114,6 +114,15 @@ Deno.serve(async (req) => {
     to = [c.to_user]
     payload = JSON.stringify({ title: video ? '🎥 Видеозвонок' : '📞 Входящий звонок', body: `${who?.name ?? 'Кто-то'} звонит вам`, kind: 'call', call: c.call_id, person: c.from_user, name: who?.name ?? 'Кто-то', video: video ? '1' : '', avatar })
     topic = String(c.call_id).replace(/-/g, '').slice(0, 32)
+  } else if (body.broadcast && typeof body.broadcast.body === 'string') {
+    // Сообщение от администрации: одному человеку или всем, у кого включены уведомления.
+    if (body.target) to = [String(body.target)]
+    else {
+      const { data: all } = await db.from('push_subscriptions').select('user_id').limit(20000)
+      to = [...new Set((all ?? []).map((r: { user_id: string }) => r.user_id))]
+    }
+    payload = JSON.stringify({ title: String(body.broadcast.title || 'Komeeta').slice(0, 60), body: String(body.broadcast.body).slice(0, 300), kind: 'broadcast' })
+    topic = 'broadcast'
   } else if (body.follower && body.followee) {
     // Новая подписка: «Имя подписался(ась) на вас».
     const { data: f } = await db.from('follows').select('follower').eq('follower', body.follower).eq('followee', body.followee).maybeSingle()

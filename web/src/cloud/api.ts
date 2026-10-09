@@ -611,6 +611,30 @@ export async function adminSetAdmin(userId: string, v: boolean) {
   const { error } = await sb().rpc('admin_set_admin', { u: userId, v })
   if (error) throw new Error(/last admin/.test(error.message) ? 'Нельзя снять последнего администратора.' : error.message)
 }
+/** Админ: исправить имя и «о себе», убрать фото. */
+export async function adminUpdateProfile(userId: string, name: string, bio: string | null, clearPhoto: boolean) {
+  const { error } = await sb().rpc('admin_update_profile', { u: userId, new_name: name, new_bio: bio, clear_photo: clearPhoto })
+  if (error) throw error
+}
+/** Админ: удалить аккаунт целиком — вход, профиль, переписки, файлы. Отменить нельзя. */
+export async function adminDeleteUser(userId: string) {
+  const { data, error } = await sb().functions.invoke('admin-delete-user', { body: { user: userId } })
+  const code = (data as { error?: string } | null)?.error
+  if (code === 'admin') throw new Error('Администратора удалить нельзя — сначала снимите с него права.')
+  if (code === 'self') throw new Error('Себя удалить отсюда нельзя.')
+  if (error || code) throw new Error('Не получилось удалить аккаунт. Попробуйте ещё раз.')
+}
+/** Админ: push-уведомление одному человеку или всем (target не указан). */
+export async function adminPush(title: string, body: string, target?: string) {
+  const { error } = await sb().rpc('admin_push', { title, body, target: target ?? null })
+  if (error) throw error
+}
+/** Админ: до какого времени бан (null — навсегда или бана нет). */
+export async function adminBanUntil(userId: string): Promise<number | null> {
+  const { data } = await sb().rpc('admin_ban_until', { u: userId })
+  return data ? ms(String(data)) : null
+}
+
 /** Удалить все планы и публикации пользователя (например, после бана за спам). */
 export async function adminWipeContent(userId: string) {
   const db = sb()
@@ -1065,8 +1089,10 @@ export async function setReportStatus(id: number, status: 'open' | 'resolved') {
   if (error) throw error
 }
 
-export async function setBan(userId: string, ban: boolean, reason = '') {
-  const q = ban ? sb().from('bans').insert({ user_id: userId, reason }) : sb().from('bans').delete().eq('user_id', userId)
+/** Бан: until — до какого времени (нет — навсегда). Повторный бан заменяет прежний срок. */
+export async function setBan(userId: string, ban: boolean, reason = '', until?: number) {
+  if (ban) await sb().from('bans').delete().eq('user_id', userId)
+  const q = ban ? sb().from('bans').insert({ user_id: userId, reason, until: until ? new Date(until).toISOString() : null }) : sb().from('bans').delete().eq('user_id', userId)
   const { error } = await q
   if (error && error.code !== '23505') throw error
 }

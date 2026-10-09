@@ -5,9 +5,10 @@ import { Avatar, Button, Icon, Logo, Pill, Sheet, Toggle, inputCls } from '../co
 import { PostArt } from '../components/PostArt'
 import { DEFAULT_CATEGORIES, DEFAULT_TAGS } from '../data'
 import { requestReload } from '../cloud/sync'
+import { openProfileLater } from '../components/Invite'
 import { adminBugReports, setBugStatus, type BugReport } from '../cloud/api'
 import {
-  adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUsers, adminVerifications, adminWipeContent,
+  adminBanUntil, adminDeleteUser, adminPush, adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUpdateProfile, adminUsers, adminVerifications, adminWipeContent,
   decideVerification, deletePlan, deleteShort, humanError, setBan, setReportStatus,
   type AdminReport, type AdminStats, type AdminUser, type AdminVerification,
 } from '../cloud/api'
@@ -57,7 +58,7 @@ export function CloudAdmin({ onExit }: { onExit: () => void }) {
           </nav>
           {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
           {tab === 'overview' && <Overview onError={setError} onPending={setPending} go={setTab} />}
-          {tab === 'users' && <Users onError={setError} />}
+          {tab === 'users' && <Users onError={setError} onOpenProfile={(id) => { openProfileLater(id); onExit() }} />}
           {tab === 'moderation' && <Moderation onError={setError} />}
           {tab === 'bugs' && <Bugs onError={setError} />}
           {tab === 'content' && <Content onError={setError} />}
@@ -165,7 +166,7 @@ function Overview({ onError, onPending, go }: { onError: (e: string) => void; on
 type Filter = 'all' | 'new' | 'banned' | 'admins' | 'unverified' | 'reported'
 const FILTERS: [Filter, string][] = [['all', 'Все'], ['new', 'Новые за неделю'], ['reported', 'С жалобами'], ['unverified', 'Без галочки'], ['banned', 'Забанены'], ['admins', 'Админы']]
 
-function Users({ onError }: { onError: (e: string) => void }) {
+function Users({ onError, onOpenProfile }: { onError: (e: string) => void; onOpenProfile: (id: string) => void }) {
   const { state } = useStore()
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
@@ -211,22 +212,36 @@ function Users({ onError }: { onError: (e: string) => void }) {
           </ul>
         </>
       )}
-      <UserSheet user={open} onClose={() => setOpen(null)} onChanged={() => { load(); requestReload() }} onError={onError} self={open?.id === me} />
+      <UserSheet user={open} onClose={() => setOpen(null)} onChanged={() => { load(); requestReload() }} onError={onError} self={open?.id === me} onOpenProfile={onOpenProfile} />
     </div>
   )
 }
 
-function UserSheet({ user: u, onClose, onChanged, onError, self }: { user: AdminUser | null; onClose: () => void; onChanged: () => void; onError: (e: string) => void; self: boolean }) {
+const BAN_FOR: [string, number | null][] = [['1 день', 86400_000], ['7 дней', 7 * 86400_000], ['30 дней', 30 * 86400_000], ['Навсегда', null]]
+
+function UserSheet({ user: u, onClose, onChanged, onError, self, onOpenProfile }: { user: AdminUser | null; onClose: () => void; onChanged: () => void; onError: (e: string) => void; self: boolean; onOpenProfile: (id: string) => void }) {
   const [busy, setBusy] = useState(false)
   const [reason, setReason] = useState('')
+  const [banFor, setBanFor] = useState<number | null>(7 * 86400_000)
+  const [banUntil, setBanUntil] = useState<number | null>(null)
   const [wipe, setWipe] = useState(false)
   const [done, setDone] = useState('')
-  useEffect(() => { setReason(''); setWipe(false); setDone('') }, [u?.id])
+  const [name, setName] = useState('')
+  const [bio, setBio] = useState('')
+  const [pushTitle, setPushTitle] = useState('')
+  const [pushText, setPushText] = useState('')
+  const [deleting, setDeleting] = useState(0) // 0 — нет, 1 — спросили, 2 — подтвердили ещё раз
+  useEffect(() => {
+    setReason(''); setWipe(false); setDone(''); setDeleting(0); setPushTitle(''); setPushText('')
+    setName(u?.name ?? ''); setBio(''); setBanUntil(null)
+    if (u?.banned) void adminBanUntil(u.id).then(setBanUntil)
+  }, [u?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!u) return <Sheet open={false} onClose={onClose} title=""><span /></Sheet>
   const run = async (job: () => Promise<unknown>, msg: string) => {
     setBusy(true); onError('')
     try { await job(); setDone(msg); onChanged() } catch (e) { onError(humanError(e)) } finally { setBusy(false) }
   }
+  const section = 'rounded-2xl bg-surface-2 p-3.5 flex flex-col gap-2'
   return (
     <Sheet open={!!u} onClose={onClose} title={nameAge(u.name, u.age)}>
       <div className="flex flex-col gap-3">
@@ -239,20 +254,50 @@ function UserSheet({ user: u, onClose, onChanged, onError, self }: { user: Admin
             <span>Планов {u.plans} · публикаций {u.posts} · подписчиков {u.followers} · жалоб {u.reports}</span>
           </div>
         </div>
-        {u.banned && <p className="rounded-2xl bg-danger-soft text-danger text-[13px] p-3">Забанен(а){u.banReason ? `: ${u.banReason}` : ''}</p>}
+        {!self && <Button variant="secondary" onClick={() => onOpenProfile(u.id)}><Icon name="user" size={16} /> Открыть профиль и написать</Button>}
+        {u.banned && <p className="rounded-2xl bg-danger-soft text-danger text-[13px] p-3">Забанен(а){banUntil ? ` до ${new Date(banUntil).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}` : ' навсегда'}{u.banReason ? `: ${u.banReason}` : ''}</p>}
         {done && <p className="rounded-2xl bg-ok-soft text-ok text-[13px] p-3" role="status">{done}</p>}
         <div className="rounded-2xl bg-surface-2 px-3.5">
           <Toggle id="adm-verified" checked={u.verified} onChange={(v) => run(() => adminSetVerified(u.id, v), v ? 'Галочка поставлена' : 'Галочка снята')} label="Проверенный профиль" hint="Синяя галочка у имени" />
           <Toggle id="adm-admin" checked={u.isAdmin} onChange={(v) => run(() => adminSetAdmin(u.id, v), v ? 'Теперь администратор' : 'Больше не администратор')} label="Администратор" hint={self ? 'Это вы' : 'Доступ к этой панели'} />
         </div>
+
+        {/* Правка профиля */}
+        <div className={section}>
+          <span className="font-semibold text-[14px]">Профиль</span>
+          <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Имя" aria-label="Имя пользователя" />
+          <textarea className={`${inputCls} h-20 py-2 resize-none`} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={500} placeholder="Новый текст «О себе» (пусто — не менять)" aria-label="О себе" />
+          <div className="flex flex-wrap gap-2">
+            <Button className="h-9 text-[13px]" disabled={busy || !name.trim()} onClick={() => run(() => adminUpdateProfile(u.id, name.trim(), bio.trim() || null, false), 'Профиль обновлён')}>Сохранить</Button>
+            {u.photo && <Button variant="ghost" className="h-9 text-[13px] text-danger border border-line" disabled={busy} onClick={() => run(() => adminUpdateProfile(u.id, u.name, null, true), 'Фото убрано')}>Убрать фото</Button>}
+          </div>
+        </div>
+
+        {/* Уведомление человеку */}
+        <div className={section}>
+          <span className="font-semibold text-[14px]">Push-уведомление</span>
+          <input className={inputCls} value={pushTitle} onChange={(e) => setPushTitle(e.target.value)} maxLength={60} placeholder="Заголовок (по умолчанию Komeeta)" aria-label="Заголовок уведомления" />
+          <textarea className={`${inputCls} h-20 py-2 resize-none`} value={pushText} onChange={(e) => setPushText(e.target.value)} maxLength={300} placeholder="Текст уведомления" aria-label="Текст уведомления" />
+          <Button className="h-9 text-[13px] self-start" disabled={busy || !pushText.trim()} onClick={() => run(async () => { await adminPush(pushTitle.trim(), pushText.trim(), u.id); setPushText('') }, 'Уведомление отправлено')}><Icon name="bell" size={15} /> Отправить</Button>
+        </div>
+
+        {/* Бан */}
         {!self && (u.banned ? (
           <Button variant="secondary" disabled={busy} onClick={() => run(() => setBan(u.id, false), 'Бан снят')}>Разбанить</Button>
         ) : (
-          <div className="flex flex-col gap-2">
-            <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Причина бана (увидят только админы)" maxLength={200} aria-label="Причина бана" />
-            <Button variant="danger" disabled={busy} onClick={() => run(() => setBan(u.id, true, reason.trim() || 'Нарушение правил'), 'Забанен(а)')}>Забанить</Button>
+          <div className={section}>
+            <span className="font-semibold text-[14px]">Бан</span>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Срок бана">
+              {BAN_FOR.map(([label, ms]) => (
+                <button key={label} role="radio" aria-checked={banFor === ms} onClick={() => setBanFor(ms)}
+                  className={`h-8 px-3 rounded-full text-[13px] font-semibold cursor-pointer ${banFor === ms ? 'bg-danger text-white' : 'bg-surface'}`}>{label}</button>
+              ))}
+            </div>
+            <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Причина (увидят только админы)" maxLength={200} aria-label="Причина бана" />
+            <Button variant="danger" disabled={busy} onClick={() => run(() => setBan(u.id, true, reason.trim() || 'Нарушение правил', banFor ? Date.now() + banFor : undefined), banFor ? `Забанен(а) на ${BAN_FOR.find((b) => b[1] === banFor)?.[0]}` : 'Забанен(а) навсегда')}>Забанить</Button>
           </div>
         ))}
+
         {!self && (u.plans > 0 || u.posts > 0) && (wipe ? (
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" onClick={() => setWipe(false)}>Отмена</Button>
@@ -260,6 +305,21 @@ function UserSheet({ user: u, onClose, onChanged, onError, self }: { user: Admin
           </div>
         ) : (
           <Button variant="ghost" className="text-danger" onClick={() => setWipe(true)}><Icon name="trash" size={16} /> Удалить все планы и публикации</Button>
+        ))}
+
+        {/* Удаление аккаунта: два подтверждения */}
+        {!self && !u.isAdmin && (deleting === 0 ? (
+          <Button variant="ghost" className="text-danger" onClick={() => setDeleting(1)}><Icon name="trash" size={16} /> Удалить аккаунт</Button>
+        ) : (
+          <div className="rounded-2xl bg-danger-soft p-3.5 flex flex-col gap-2">
+            <p className="text-[13px] text-danger">Аккаунт {u.name} удалится целиком: профиль, планы, публикации, переписки и файлы. Вернуть будет нельзя.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => setDeleting(0)}>Отмена</Button>
+              {deleting === 1
+                ? <Button variant="danger" onClick={() => setDeleting(2)}>Удалить</Button>
+                : <Button variant="danger" disabled={busy} onClick={() => run(async () => { await adminDeleteUser(u.id); onClose() }, 'Аккаунт удалён')}>Точно удалить</Button>}
+            </div>
+          </div>
         ))}
       </div>
     </Sheet>
@@ -465,6 +525,8 @@ function Settings({ onError }: { onError: (e: string) => void }) {
         </div>
       </section>
 
+      <Broadcast onError={onError} />
+
       <section className={`${card} flex flex-col`}>
         <Toggle id="adm-reg" checked={regOpen} onChange={(v) => { setRegOpen(v); void save('registration_open', v, v ? 'Регистрация открыта' : 'Регистрация закрыта: новые анкеты создать нельзя') }}
           label="Регистрация открыта" hint="Выключите, чтобы временно не пускать новых людей. Уже зарегистрированные пользуются как обычно." />
@@ -473,6 +535,35 @@ function Settings({ onError }: { onError: (e: string) => void }) {
       <ListEditor title="Категории планов" hint="Из них выбирают при создании плана и фильтруют поиск." value={state.categories} fallback={DEFAULT_CATEGORIES} onSave={(v) => save('categories', v, 'Категории обновлены')} />
       <ListEditor title="Интересы" hint="Из них выбирают интересы в анкете и профиле." value={state.tags} fallback={DEFAULT_TAGS} onSave={(v) => save('tags', v, 'Интересы обновлены')} />
     </div>
+  )
+}
+
+/** Push-рассылка всем, у кого включены уведомления. */
+function Broadcast({ onError }: { onError: (e: string) => void }) {
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const [confirm, setConfirm] = useState(false)
+  const [sent, setSent] = useState(false)
+  const send = async () => {
+    onError('')
+    try { await adminPush(title.trim(), text.trim()); setSent(true); setText(''); setTitle(''); setConfirm(false); setTimeout(() => setSent(false), 3000) } catch (e) { onError(humanError(e)) }
+  }
+  return (
+    <section className={`${card} flex flex-col gap-3`}>
+      <div>
+        <h3 className="font-semibold">Push-рассылка всем</h3>
+        <p className="text-[13px] text-muted">Придёт уведомлением на телефон всем, у кого включены уведомления Komeeta. Используйте редко — частые рассылки раздражают.</p>
+      </div>
+      {sent && <p className="rounded-2xl bg-ok-soft text-ok text-[13px] p-3" role="status">Рассылка отправлена</p>}
+      <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="Заголовок (по умолчанию Komeeta)" aria-label="Заголовок рассылки" />
+      <textarea className={`${inputCls} h-24 py-2 resize-none`} value={text} onChange={(e) => setText(e.target.value)} maxLength={300} placeholder="Текст: например, «В субботу встреча в парке — приходите!»" aria-label="Текст рассылки" />
+      {confirm ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={() => setConfirm(false)}>Отмена</Button>
+          <Button onClick={() => { void send() }}>Да, отправить всем</Button>
+        </div>
+      ) : <Button className="self-start" disabled={!text.trim()} onClick={() => setConfirm(true)}><Icon name="bell" size={16} /> Отправить всем</Button>}
+    </section>
   )
 }
 

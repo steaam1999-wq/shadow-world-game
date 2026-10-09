@@ -46,6 +46,10 @@ export function takeInvitedPlan() {
 export function invitedUser() {
   try { return sessionStorage.getItem(USER_KEY) } catch { return null }
 }
+/** Открыть страницу человека, как только загрузится приложение (например, из админки). */
+export function openProfileLater(id: string) {
+  try { sessionStorage.setItem(USER_KEY, id) } catch { /* ignore */ }
+}
 export function forgetInvitedUser() {
   try { sessionStorage.removeItem(USER_KEY) } catch { /* ignore */ }
 }
