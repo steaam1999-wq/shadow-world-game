@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Icon, StoryRing } from '../components/ui'
-import { AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { AmbassadorBadge, AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
@@ -86,6 +86,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
           </h2>
           <StatusLine text={statusOf(p.style, now)} style={p.style} online={presence.online} />
+          {p.ambassador !== undefined && <div className="mt-1"><AmbassadorBadge city={p.ambassador} /></div>}
           {p.founder && <div className="mt-1.5"><FounderBadge n={p.founder} /></div>}
         </div>
 

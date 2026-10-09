@@ -705,6 +705,17 @@ begin
     'active_7d', (select count(*) from auth.users where last_sign_in_at > now() - interval '7 days'),
     'db_bytes', pg_database_size(current_database()),
     'storage_bytes', (select coalesce(sum((metadata->>'size')::bigint), 0) from storage.objects),
+    -- рост: вернулись ли новички через неделю, откликаются ли на планы, кто приводит людей
+    'ret_cohort', (select count(*) from profiles where created_at between now() - interval '35 days' and now() - interval '8 days'),
+    'ret_back', (select count(*) from profiles p join auth.users u on u.id = p.id left join presence pr on pr.user_id = p.id
+      where p.created_at between now() - interval '35 days' and now() - interval '8 days'
+        and greatest(coalesce(pr.seen_at, 'epoch'), coalesce(u.last_sign_in_at, 'epoch')) >= p.created_at + interval '7 days'),
+    'plan_responders_30d', (select count(distinct responder) from capsules where plan_id is not null and created_at > now() - interval '30 days'),
+    'agreed_total', (select count(*) from capsules where status in ('agreed', 'contacts', 'met')),
+    'met_total', (select count(*) from capsules where status = 'met'),
+    'online_now', (select count(*) from presence where online_until > now()),
+    'top_inviters', (select coalesce(json_agg(t order by t.n desc), '[]'::json) from (
+      select pr.name, count(*) as n from referrals r join profiles pr on pr.id = r.inviter group by pr.name order by count(*) desc limit 5) t),
     'daily', (select coalesce(json_agg(json_build_object('day', d::date, 'users', (select count(*) from profiles where created_at::date = d::date), 'plans', (select count(*) from plans where created_at::date = d::date), 'messages', (select count(*) from messages where created_at::date = d::date)) order by d), '[]'::json)
               from generate_series(current_date - 13, current_date, interval '1 day') d)
   );
@@ -1714,3 +1725,27 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.admin_ban_until(uuid) from public, anon;
 grant execute on function public.admin_ban_until(uuid) to authenticated;
+
+-- Амбассадоры города: помощники, которые запускают встречи. Значок видят все; ставит и снимает только админ.
+create table if not exists public.ambassadors (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  city text not null default '' check (char_length(city) <= 60),
+  granted_at timestamptz not null default now(),
+  active boolean not null default true
+);
+alter table public.ambassadors enable row level security;
+revoke all on public.ambassadors from anon, authenticated;
+grant select on public.ambassadors to authenticated;
+drop policy if exists "ambassadors: read" on public.ambassadors;
+create policy "ambassadors: read" on public.ambassadors for select to authenticated using (true);
+create or replace function public.admin_set_ambassador(u uuid, on_off boolean, city text default '') returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  insert into ambassadors (user_id, city, active) values (u, left(coalesce(city, ''), 60), on_off)
+  on conflict (user_id) do update set active = excluded.active,
+    city = case when excluded.active then excluded.city else ambassadors.city end,
+    granted_at = case when excluded.active and not ambassadors.active then now() else ambassadors.granted_at end;
+end $$;
+revoke all on function public.admin_set_ambassador(uuid, boolean, text) from public, anon;
+grant execute on function public.admin_set_ambassador(uuid, boolean, text) to authenticated;

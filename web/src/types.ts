@@ -28,6 +28,7 @@ export interface Person {
   onlyVerified?: boolean // принимает первые сообщения только от проверенных
   callsOff?: boolean // не принимает звонки
   style?: ProfileStyle
+  ambassador?: string // амбассадор Komeeta в этом городе
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number // когда получил значок — неделю его планы выше в ленте
   founderWall?: boolean // показан на «Стене основателей»
@@ -72,6 +73,7 @@ export interface Me {
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number
   style?: ProfileStyle
+  ambassador?: string // амбассадор Komeeta в этом городе (пусто — просто амбассадор)
   founderWall?: boolean
   boostPlan?: string
   boostAt?: number // последний подъём плана — следующий через 30 дней

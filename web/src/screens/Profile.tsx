@@ -13,7 +13,7 @@ import { MyPlans } from '../components/MyPlans'
 import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
-import { AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { AmbassadorBadge, AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { StyleEditor } from '../components/StyleEditor'
 import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
@@ -82,6 +82,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
             {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
           </h2>
           <StatusLine text={statusOf(me.style, now)} style={me.style} />
+          {me.ambassador !== undefined && <div className="mt-1"><AmbassadorBadge city={me.ambassador} /></div>}
           {me.founder && <div className="mt-1.5"><FounderBadge n={me.founder} /></div>}
         </div>
         <div className="relative text-[14px] leading-snug flex flex-col items-center text-center gap-2">

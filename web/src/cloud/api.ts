@@ -454,9 +454,12 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const founderRows = await db.from('founders').select('user_id, number, granted_at, on_wall, boost_plan, boost_at').returns<FounderRow[]>()
   const founders = new Map((founderRows.data ?? []).map((f) => [f.user_id, f]))
   const mine = (profiles.data ?? []).find((p) => p.id === userId) ?? null
+  // Амбассадоры городов: значок в профиле
+  const ambRows = await db.from('ambassadors').select('user_id, city').eq('active', true).returns<{ user_id: string; city: string }[]>()
+  const amb = new Map((ambRows.error ? [] : ambRows.data ?? []).map((a) => [a.user_id, a.city]))
   const missed = new Map(((missedRows.data ?? []) as { user_id: string; missed: number }[]).map((x) => [x.user_id, x.missed]))
   const reported = new Set((myNoShows.data ?? []).map((x) => x.capsule_id))
-  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)) } : null
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)), ambassador: amb.get(userId) } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
@@ -464,6 +467,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
     photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified, callsOff: !!p.calls_off, style: safeStyle(p.style),
     ...founderFields(founders.get(p.id)),
+    ambassador: amb.get(p.id),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
@@ -581,6 +585,8 @@ export interface AdminStats {
   chats: number; posts: number; likes: number; follows: number; reports_open: number; bans: number; verifications_pending: number; push_devices: number
   bugs_new: number; active_7d: number; db_bytes: number; storage_bytes: number
   daily: { day: string; users: number; plans: number; messages: number }[]
+  ret_cohort?: number; ret_back?: number; plan_responders_30d?: number; agreed_total?: number; met_total?: number; online_now?: number
+  top_inviters?: { name: string; n: number }[]
 }
 export async function adminStats(): Promise<AdminStats> {
   const { data, error } = await sb().rpc('admin_stats')
@@ -628,6 +634,16 @@ export async function adminDeleteUser(userId: string) {
 export async function adminPush(title: string, body: string, target?: string) {
   const { error } = await sb().rpc('admin_push', { title, body, target: target ?? null })
   if (error) throw error
+}
+/** Админ: сделать человека амбассадором города или снять значок. */
+export async function adminSetAmbassador(userId: string, on: boolean, city = '') {
+  const { error } = await sb().rpc('admin_set_ambassador', { u: userId, on_off: on, city })
+  if (error) throw error
+}
+/** Амбассадор ли человек (и какого города). */
+export async function ambassadorOf(userId: string): Promise<{ city: string } | null> {
+  const { data } = await sb().from('ambassadors').select('city').eq('user_id', userId).eq('active', true).maybeSingle<{ city: string }>()
+  return data ?? null
 }
 /** Админ: до какого времени бан (null — навсегда или бана нет). */
 export async function adminBanUntil(userId: string): Promise<number | null> {

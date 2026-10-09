@@ -88,3 +88,15 @@ export function Stats({ items }: { items: { n: number | string; label: string; o
     </div>
   )
 }
+
+/** Значок «Амбассадор Komeeta» — помощник, который запускает встречи в своём городе. */
+export function AmbassadorBadge({ city }: { city?: string }) {
+  if (city === undefined) return null
+  return (
+    <span className="inline-flex items-center gap-1.5 h-7 pl-1 pr-3 rounded-full text-[12.5px] font-semibold border border-[color-mix(in_srgb,var(--spark)_45%,transparent)] bg-[color-mix(in_srgb,var(--spark)_12%,transparent)]"
+      title="Амбассадор Komeeta: запускает встречи в своём городе">
+      <span className="grid place-items-center w-5 h-5 rounded-full bg-brand text-white text-[11px]">★</span>
+      Амбассадор Komeeta{city ? ` · ${city}` : ''}
+    </span>
+  )
+}

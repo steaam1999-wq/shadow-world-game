@@ -8,7 +8,7 @@ import { requestReload } from '../cloud/sync'
 import { openProfileLater } from '../components/Invite'
 import { adminBugReports, setBugStatus, type BugReport } from '../cloud/api'
 import {
-  adminBanUntil, adminDeleteUser, adminPush, adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUpdateProfile, adminUsers, adminVerifications, adminWipeContent,
+  adminBanUntil, adminDeleteUser, adminSetAmbassador, ambassadorOf, adminPush, adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUpdateProfile, adminUsers, adminVerifications, adminWipeContent,
   decideVerification, deletePlan, deleteShort, humanError, setBan, setReportStatus,
   type AdminReport, type AdminStats, type AdminUser, type AdminVerification,
 } from '../cloud/api'
@@ -71,6 +71,40 @@ export function CloudAdmin({ onExit }: { onExit: () => void }) {
 
 const card = 'rounded-[24px] bg-surface shadow-soft p-4'
 
+/** Рост: держатся ли люди и доходит ли до встреч. Цели — для запуска в одном городе. */
+function Growth({ s }: { s: AdminStats }) {
+  const cohort = s.ret_cohort ?? 0, back = s.ret_back ?? 0
+  const ret = cohort ? Math.round((back / cohort) * 100) : null
+  const rows: { label: string; value: string; note: string; tone: 'ok' | 'warn' | 'bad' }[] = [
+    { label: 'Вернулись через неделю', value: ret === null ? '—' : `${ret}%`, note: cohort ? `${back} из ${cohort} новичков (зарегистрировались 8–35 дней назад) · цель 30%+` : 'пока мало новичков старше недели', tone: ret === null ? 'ok' : ret >= 30 ? 'ok' : ret >= 15 ? 'warn' : 'bad' },
+    { label: 'Откликнулись на план', value: String(s.plan_responders_30d ?? 0), note: 'разных людей за 30 дней · главный признак, что приложение работает', tone: (s.plan_responders_30d ?? 0) >= 10 ? 'ok' : (s.plan_responders_30d ?? 0) >= 3 ? 'warn' : 'bad' },
+    { label: 'Договорились о встрече', value: String(s.agreed_total ?? 0), note: `из них встретились: ${s.met_total ?? 0}`, tone: (s.agreed_total ?? 0) > 0 ? 'ok' : 'warn' },
+    { label: 'Сейчас в сети', value: String(s.online_now ?? 0), note: 'приложение открыто прямо сейчас', tone: 'ok' },
+  ]
+  const TONE = { ok: 'bg-ok', warn: 'bg-[var(--amber)]', bad: 'bg-danger' }
+  return (
+    <section className={card}>
+      <h2 className="font-semibold">Рост</h2>
+      <p className="text-[12.5px] text-muted mb-2">Раскручивать шире стоит, когда все точки зелёные 3–4 недели подряд.</p>
+      <ul className="flex flex-col">
+        {rows.map((r) => (
+          <li key={r.label} className="border-t border-line first:border-0 flex items-center gap-3 py-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${TONE[r.tone]}`} />
+            <span className="flex-1 min-w-0"><span className="block text-[14px] font-medium">{r.label}</span><span className="block text-[12px] text-muted">{r.note}</span></span>
+            <span className="font-display font-bold text-[17px] tnum">{r.value}</span>
+          </li>
+        ))}
+      </ul>
+      {(s.top_inviters?.length ?? 0) > 0 && (
+        <div className="mt-2 pt-2 border-t border-line">
+          <span className="text-[13px] font-semibold">Больше всех пригласили</span>
+          <ol className="mt-1 text-[13px] flex flex-col gap-0.5">{s.top_inviters!.map((t, i) => <li key={t.name + i} className="flex justify-between"><span>{i + 1}. {t.name}</span><span className="tnum text-muted">{t.n}</span></li>)}</ol>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function Overview({ onError, onPending, go }: { onError: (e: string) => void; onPending: (p: { reports: number; verifs: number }) => void; go: (t: Tab) => void }) {
   const [s, setS] = useState<AdminStats | null>(null)
   const load = useCallback(() => { adminStats().then((x) => { setS(x); onPending({ reports: x.reports_open, verifs: x.verifications_pending }) }, (e) => onError(humanError(e))) }, [onError, onPending])
@@ -131,6 +165,7 @@ function Overview({ onError, onPending, go }: { onError: (e: string) => void; on
           ))}
         </ul>
       </section>
+      <Growth s={s} />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {tiles.map(([label, v, note, to]) => (
           <button key={label} onClick={() => to && go(to)} className={`${card} text-left flex flex-col gap-0.5 ${to ? 'cursor-pointer hover:brightness-95' : 'cursor-default'}`}>
@@ -231,6 +266,9 @@ function UserSheet({ user: u, onClose, onChanged, onError, self, onOpenProfile }
   const [pushTitle, setPushTitle] = useState('')
   const [pushText, setPushText] = useState('')
   const [deleting, setDeleting] = useState(0) // 0 — нет, 1 — спросили, 2 — подтвердили ещё раз
+  const [amb, setAmb] = useState<{ city: string } | null>(null)
+  const [ambCity, setAmbCity] = useState('')
+  useEffect(() => { setAmb(null); if (u) void ambassadorOf(u.id).then((a) => { setAmb(a); setAmbCity(a?.city ?? u.district ?? '') }) }, [u?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     setReason(''); setWipe(false); setDone(''); setDeleting(0); setPushTitle(''); setPushText('')
     setName(u?.name ?? ''); setBio(''); setBanUntil(null)
@@ -259,6 +297,8 @@ function UserSheet({ user: u, onClose, onChanged, onError, self, onOpenProfile }
         {done && <p className="rounded-2xl bg-ok-soft text-ok text-[13px] p-3" role="status">{done}</p>}
         <div className="rounded-2xl bg-surface-2 px-3.5">
           <Toggle id="adm-verified" checked={u.verified} onChange={(v) => run(() => adminSetVerified(u.id, v), v ? 'Галочка поставлена' : 'Галочка снята')} label="Проверенный профиль" hint="Синяя галочка у имени" />
+          <Toggle id="adm-amb" checked={!!amb} onChange={(v) => run(async () => { await adminSetAmbassador(u.id, v, ambCity.trim()); setAmb(v ? { city: ambCity.trim() } : null) }, v ? 'Теперь амбассадор' : 'Значок амбассадора снят')} label="Амбассадор" hint={`Значок в профиле: запускает встречи${ambCity ? ` · ${ambCity}` : ''}`} />
+          {!amb && <input className={`${inputCls} mb-3`} value={ambCity} onChange={(e) => setAmbCity(e.target.value)} maxLength={60} placeholder="Город амбассадора" aria-label="Город амбассадора" />}
           <Toggle id="adm-admin" checked={u.isAdmin} onChange={(v) => run(() => adminSetAdmin(u.id, v), v ? 'Теперь администратор' : 'Больше не администратор')} label="Администратор" hint={self ? 'Это вы' : 'Доступ к этой панели'} />
         </div>
 
