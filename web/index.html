@@ -36,19 +36,25 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- Если сайт не запустился (обычно — очень старый встроенный браузер Android WebView), через 10 секунд показываем, что делать -->
+    <!-- Если сайт не запустился, через 10 секунд показываем причину (текст ошибки) и что делать -->
     <script>
+      window.__bootErrors = [];
+      addEventListener('error', function (e) { __bootErrors.push(String(e.message || (e.error && e.error.message) || e.type) + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '')) });
+      addEventListener('unhandledrejection', function (e) { __bootErrors.push('promise: ' + String(e.reason && (e.reason.message || e.reason))) });
       setTimeout(function () {
         var r = document.getElementById('root');
-        if (r && r.children.length) return;
+        if (!r || r.children.length) return;
         var m = /Chrome\/(\d+)/.exec(navigator.userAgent), v = m ? +m[1] : 0;
-        var app = /KomeetaApp/.test(navigator.userAgent);
+        var old = v && v < 111;
+        var esc = function (t) { return String(t).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] }) };
         r.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font:16px system-ui,sans-serif;text-align:center;color:#20121c">' +
-          '<div style="max-width:340px"><div style="font-size:44px">🛠</div><h1 style="font-size:20px;margin:12px 0">Komeeta не запустилась</h1>' +
-          '<p style="line-height:1.4;margin:0 0 16px">' + (app
-            ? 'На телефоне устарел системный компонент <b>Android System WebView</b>' + (v ? ' (версия ' + v + ')' : '') + '. Откройте Google Play, найдите «Android System WebView» и нажмите <b>Обновить</b>, затем перезапустите Komeeta.'
-            : 'Браузер устарел' + (v ? ' (версия ' + v + ')' : '') + '. Обновите его или откройте komeeta.com в Google Chrome.') + '</p>' +
-          (app ? '<a href="https://play.google.com/store/apps/details?id=com.google.android.webview" style="display:inline-block;padding:12px 22px;border-radius:99px;background:#ff4f86;color:#fff;text-decoration:none;font-weight:600">Открыть в Google Play</a>' : '') +
+          '<div style="max-width:360px"><div style="font-size:44px">🛠</div><h1 style="font-size:20px;margin:12px 0">Komeeta не запустилась</h1>' +
+          '<p style="line-height:1.4;margin:0 0 12px">' + (old
+            ? 'Устарел встроенный браузер (версия ' + v + '). Обновите «Android System WebView» в Google Play и перезапустите Komeeta.'
+            : 'Сделайте скриншот этого экрана и отправьте разработчику.') + '</p>' +
+          '<pre style="text-align:left;white-space:pre-wrap;word-break:break-word;font-size:11px;background:rgba(0,0,0,.06);padding:10px;border-radius:12px;max-height:40vh;overflow:auto">' +
+          esc('v' + v + ' · ' + (window.Capacitor ? 'app' : 'web') + '\n' + (__bootErrors.join('\n') || 'ошибок нет — скрипты не загрузились')) + '</pre>' +
+          '<button onclick="location.reload()" style="margin-top:12px;padding:12px 22px;border-radius:99px;border:0;background:#ff4f86;color:#fff;font-size:16px;font-weight:600">Повторить</button>' +
           '</div></div>';
       }, 10000);
     </script>
