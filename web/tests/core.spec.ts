@@ -413,11 +413,26 @@ test('поиск находит людей без планов, по имени 
 test('интересы: можно вписать своё хобби, оно сохраняется в профиле', async ({ page }) => {
   await enterDemo(page)
   await nav(page, /^Профиль/)
-  await page.getByRole('button', { name: 'Редактировать', exact: true }).click()
+  await page.getByRole('button', { name: 'Редактировать профиль', exact: true }).click()
   await page.getByLabel('Своё хобби').fill('бадминтон')
   await page.getByRole('button', { name: 'Добавить', exact: true }).click()
   await page.getByRole('button', { name: 'Сохранить' }).click()
-  await expect(page.getByText(/#бадминтон/)).toBeVisible()
+  await expect(page.getByText(/^бадминтон$/i)).toBeVisible()
+})
+
+test('оформление профиля: акцент, кольцо и статус сохраняются', async ({ page }) => {
+  await enterDemo(page)
+  await nav(page, /^Профиль/)
+  await page.getByRole('button', { name: 'Оформление', exact: true }).click()
+  const sheet = page.getByRole('dialog', { name: 'Оформление' })
+  await sheet.getByRole('radio', { name: 'Шалфей' }).click()
+  await sheet.getByRole('radio', { name: 'Белое' }).click()
+  await sheet.getByLabel('Статус').fill('на кофе в центре')
+  await sheet.getByRole('button', { name: 'Сохранить' }).click()
+  await expect(sheet).toBeHidden()
+  await expect(page.getByText('на кофе в центре')).toBeVisible()
+  await page.getByRole('button', { name: 'Оформление', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Оформление' }).getByRole('radio', { name: 'Шалфей' })).toHaveAttribute('aria-checked', 'true')
 })
 
 test('вайб-тест по желанию: ответ можно снять или не указывать совсем', async ({ page }) => {

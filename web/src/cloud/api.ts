@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NATIVE_AUTH_REDIRECT, isNativeApp, nativeOAuth, nativeTelegramRedirect } from '../native'
 import { CAPSULE_TTL } from '../data'
 import { placeDistanceKm } from '../places'
-import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Story, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, Short } from '../types'
+import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Story, Message, Notice, NowPlaying, Person, PlanComment, PlanMusic, ProfileStyle, Short } from '../types'
 import type { Social } from '../store'
 import type { Track } from '../music/engine'
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config'
@@ -14,7 +14,7 @@ export function sb() {
   return client
 }
 
-interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null; consent_at?: string | null; only_verified?: boolean; calls_off?: boolean }
+interface ProfileRow { id: string; name: string; age: number | null; bio: string; district: string; hue: number; tags: string[]; answers: Record<string, string>; photo: string | null; photo_path?: string | null; verified: boolean; meetings: number; songs?: Track[] | null; now_playing?: NowPlaying | null; free_until?: string | null; consent_at?: string | null; only_verified?: boolean; calls_off?: boolean; style?: unknown }
 interface PlanRow { id: string; author: string; title: string; category: string; area: string; starts_at: string; duration_min: number; expires_at: string; x: number; y: number; photo: string | null; photo_path?: string | null; time_hidden: boolean; group_size: number | null; music?: PlanMusic | null }
 interface CapsuleRow { id: string; plan_id: string | null; author: string; responder: string; status: CapsuleStatus; created_at: string; expires_at: string; author_read_at?: string | null; responder_read_at?: string | null; author_hidden_at?: string | null; responder_hidden_at?: string | null }
 interface MessageRow { id: number; capsule_id: string; sender: string; body: string; created_at: string; photo_path?: string | null; audio_path?: string | null; audio_ms?: number | null }
@@ -65,7 +65,7 @@ async function removePhoto(p: string) {
 }
 
 // Колонки без встроенных фото: так ленту не приходится скачивать вместе со всеми фото целиком.
-const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path,free_until,only_verified,calls_off'
+const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meetings,songs,now_playing,photo_path,free_until,only_verified,calls_off,style'
 const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
 /** Загружает видео или фото в хранилище и публикует его. `thumb` — кадр-превью видео (JPEG). */
@@ -327,8 +327,23 @@ export function profileToMe(p: ProfileRow, local: Me | null): Me {
     songs: local?.privacy?.hideSongs ? local.songs : safeTracks(p.songs),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     consentAt: p.consent_at ? new Date(p.consent_at).getTime() : local?.consentAt,
-    onlyVerified: !!p.only_verified, callsOff: !!p.calls_off,
+    onlyVerified: !!p.only_verified, callsOff: !!p.calls_off, style: safeStyle(p.style),
   }
+}
+
+/** Оформление из чужого профиля: только известные значения, статус обрезаем. */
+function safeStyle(v: unknown): ProfileStyle | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const o = v as Record<string, unknown>
+  const pick = <T extends string>(x: unknown, ok: readonly T[]) => (ok.includes(x as T) ? (x as T) : undefined)
+  const s: ProfileStyle = {
+    accent: pick(o.accent, ['graphite', 'sage', 'sand', 'rose', 'blue', 'pearl'] as const),
+    cover: pick(o.cover, ['none', 'photo', 'color'] as const),
+    ring: pick(o.ring, ['none', 'accent', 'white'] as const),
+    status: typeof o.status === 'string' && o.status.trim() ? o.status.trim().slice(0, 60) : undefined,
+    statusUntil: typeof o.statusUntil === 'number' ? o.statusUntil : undefined,
+  }
+  return Object.values(s).some((x) => x !== undefined) ? s : undefined
 }
 
 // Последнее загруженное фото профиля: пока экран не обновился, повторное сохранение не должно грузить его ещё раз.
@@ -345,6 +360,7 @@ export async function saveProfile(userId: string, me: Me) {
     id: userId, name: me.name, age: me.age ?? null, bio: me.bio, district: me.district, hue: me.hue,
     tags: me.tags, answers: me.answers, photo: null, photo_path: photoPath, meetings: me.meetings,
     songs: me.privacy?.hideSongs ? [] : (me.songs ?? []).slice(0, 50), only_verified: !!me.onlyVerified, calls_off: !!me.callsOff,
+    style: safeStyle(me.style) ?? {},
   })
   if (error) throw error
   if (old && old !== photoPath) await removePhoto(old)
@@ -446,7 +462,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
     id: p.id, name: p.name, age: p.age, hue: p.hue, bio: p.bio, district: p.district,
     distanceKm: placeDistanceKm(me?.district ?? '', p.district), answers: p.answers, tags: p.tags, verified: p.verified, meetings: p.meetings,
-    photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified, callsOff: !!p.calls_off,
+    photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified, callsOff: !!p.calls_off, style: safeStyle(p.style),
     ...founderFields(founders.get(p.id)),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,

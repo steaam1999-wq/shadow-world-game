@@ -27,11 +27,22 @@ export interface Person {
   noShows?: number // сколько раз не пришёл(ла) на договорённую встречу (облако)
   onlyVerified?: boolean // принимает первые сообщения только от проверенных
   callsOff?: boolean // не принимает звонки
+  style?: ProfileStyle
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number // когда получил значок — неделю его планы выше в ленте
   founderWall?: boolean // показан на «Стене основателей»
   boostPlan?: string // план, поднятый основателем (сутки наверху ленты)
   boostAt?: number
+}
+
+/** Оформление профиля: спокойный акцентный цвет, обложка, кольцо аватарки и статус под именем. */
+export type Accent = 'graphite' | 'sage' | 'sand' | 'rose' | 'blue' | 'pearl'
+export interface ProfileStyle {
+  accent?: Accent // нет — фирменный цвет Komeeta
+  cover?: 'none' | 'photo' | 'color' // нет — мягкий фон цвета профиля
+  ring?: 'none' | 'accent' | 'white'
+  status?: string // до 60 символов
+  statusUntil?: number // статус пропадёт в это время (нет — висит, пока не уберут)
 }
 
 export interface Me {
@@ -60,6 +71,7 @@ export interface Me {
   callsOff?: boolean // «Не принимать звонки»
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number
+  style?: ProfileStyle
   founderWall?: boolean
   boostPlan?: string
   boostAt?: number // последний подъём плана — следующий через 30 дней

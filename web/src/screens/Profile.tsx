@@ -6,7 +6,7 @@ import { useNow, useStore } from '../store'
 import { getLang, setLang } from '../i18n'
 import { ReliabilityBadge } from '../components/Meet'
 import { MeetingCards } from '../components/Met'
-import { LEVELS, level, plural, profileCompleteness, nameAge, profileTint } from '../lib'
+import { LEVELS, level, plural, profileCompleteness, nameAge } from '../lib'
 import { Avatar, Button, Chip, Field, Icon, Sheet, ThemeToggle, Toggle, inputCls } from '../components/ui'
 import { PostArt } from '../components/PostArt'
 import { PostsViewer } from '../components/PostsViewer'
@@ -14,6 +14,8 @@ import { MyPlans } from '../components/MyPlans'
 import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
+import { AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { StyleEditor } from '../components/StyleEditor'
 import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
 import { BugReportSheet } from '../components/BugReport'
@@ -38,6 +40,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const [bugOpen, setBugOpen] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [styling, setStyling] = useState(false)
   const [showFollowers, setShowFollowers] = useState(false)
   const [tab, setTab] = useState<'plans' | 'posts' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
@@ -65,42 +68,41 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
 
   return (
     <div className="flex flex-col gap-3 pb-4">
-      {/* Шапка в духе Threads: имя слева, фото справа, счётчики строкой под описанием */}
-      <section className="flex flex-col gap-3 px-4 pt-3 pb-1 rounded-b-[28px]" style={profileTint(me.hue)}>
-        <div className="flex items-center gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="flex items-center gap-1.5 font-display font-bold text-[24px] leading-tight">
-              <span className="truncate">{nameAge(me.name, me.age)}</span>
-              {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
-            </h2>
-            <div className="text-[14px] text-muted truncate">{placeLine(lv.name, me.district)}</div>
-            {me.founder && <div className="mt-2.5"><FounderBadge n={me.founder} /></div>}
-          </div>
+      {/* Шапка «визитка»: обложка, аватарка по центру, имя, статус и счётчики */}
+      <section className="relative overflow-hidden flex flex-col gap-3 px-4 pt-5 pb-1 rounded-b-[28px]">
+        <ProfileCover style={me.style} photo={me.photo} hue={me.hue} />
+        <div className="relative flex flex-col items-center text-center gap-1">
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
-            <GoldFrame on={!!me.founder} medal={28} info label={`Основатель Komeeta №${me.founder}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={me.founder ? 66 : 76} /></GoldFrame>
-            {!me.founder && <span className="absolute z-[3] -right-0.5 -bottom-0.5 grid place-items-center w-7 h-7 rounded-full bg-brand text-white border-2 border-surface"><Icon name="camera" size={14} /></span>}
+            {me.founder
+              ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${me.founder}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={92} /></GoldFrame>
+              : <AvatarRing style={me.style}><Avatar name={me.name} hue={me.hue} src={me.photo} size={104} /></AvatarRing>}
+            {!me.founder && <span className="absolute z-[3] right-0.5 bottom-0.5 grid place-items-center w-8 h-8 rounded-full bg-surface text-fg border-2 border-bg shadow-soft"><Icon name="camera" size={15} /></span>}
           </button>
+          <h2 className="mt-2.5 flex items-center justify-center gap-1.5 max-w-full font-display font-bold text-[25px] leading-tight">
+            <span className="truncate">{nameAge(me.name, me.age)}</span>
+            {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
+          </h2>
+          <StatusLine text={statusOf(me.style, now)} style={me.style} />
+          <div className="text-[14px] text-muted truncate max-w-full">{placeLine(lv.name, me.district)}</div>
+          {me.founder && <div className="mt-1.5"><FounderBadge n={me.founder} /></div>}
         </div>
-        <div className="text-[14px] leading-snug flex flex-col gap-1">
+        <div className="relative text-[14px] leading-snug flex flex-col items-center text-center gap-2">
           <PlayingChip />
           {me.meetings + (me.noShows ?? 0) > 0 && <ReliabilityBadge person={{ id: 'me', meetings: me.meetings, noShows: me.noShows ?? 0 }} />}
           {me.bio ? <p className="whitespace-pre-wrap">{me.bio}</p> : <p className="text-muted">Расскажите о себе в пару строк</p>}
-          <p className="text-cobalt">{me.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
+          <TagChips tags={me.tags} />
         </div>
-        <p className="flex flex-wrap items-center gap-x-1.5 text-[14px] text-muted">
-          {state.cloud ? (
-            <button onClick={() => setShowFollowers(true)} className="cursor-pointer hover:text-fg" aria-label="Показать подписчиков и подписки">
-              <b className="text-fg tnum">{state.followers?.me ?? 0}</b> {plural(state.followers?.me ?? 0, 'подписчик', 'подписчика', 'подписчиков')}
-            </button>
-          ) : <span>уровень <b className="text-fg tnum">{lv.idx}</b></span>}
-          <span aria-hidden="true">·</span>
-          <span><b className="text-fg tnum">{myPlans.length}</b> {plural(myPlans.length, 'план', 'плана', 'планов')}</span>
-          <span aria-hidden="true">·</span>
-          <span><b className="text-fg tnum">{me.meetings}</b> {plural(me.meetings, 'встреча', 'встречи', 'встреч')}</span>
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => setEditing(true)} className="h-9 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">Редактировать</button>
-          <button onClick={share} className="h-9 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">{copied ? 'Скопировано' : 'Поделиться'}</button>
+        <div className="relative pt-1">
+          <Stats items={[
+            state.cloud ? { n: state.followers?.me ?? 0, label: plural(state.followers?.me ?? 0, 'подписчик', 'подписчика', 'подписчиков'), onClick: () => setShowFollowers(true) } : { n: lv.idx, label: 'уровень' },
+            { n: myPlans.length, label: plural(myPlans.length, 'план', 'плана', 'планов') },
+            { n: me.meetings, label: plural(me.meetings, 'встреча', 'встречи', 'встреч') },
+          ]} />
+        </div>
+        <div className="relative grid grid-cols-3 gap-2">
+          <button onClick={() => setEditing(true)} className="h-10 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95" aria-label="Редактировать профиль">Профиль</button>
+          <button onClick={() => setStyling(true)} className="h-10 rounded-xl font-semibold text-[13.5px] px-1 truncate cursor-pointer hover:brightness-95" style={{ background: accentOf(me.style).color, color: accentOf(me.style).ink }}>Оформление</button>
+          <button onClick={share} className="h-10 rounded-xl bg-surface-2 font-semibold text-[14px] cursor-pointer hover:brightness-95">{copied ? 'Скопировано' : 'Поделиться'}</button>
         </div>
         {complete < 100 && (
           <div className="flex items-center gap-3 rounded-2xl bg-surface-2 p-3">
@@ -266,6 +268,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
       </div>}
 
       <ProfileEditor open={editing} onClose={() => setEditing(false)} />
+      <StyleEditor open={styling} onClose={() => setStyling(false)} />
       <FollowersSheet personId="me" open={showFollowers} onClose={() => setShowFollowers(false)} />
 
       <Sheet open={editVibe} onClose={() => setEditVibe(false)} title="Вайб-тест">

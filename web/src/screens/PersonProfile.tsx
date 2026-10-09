@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { formatKm, placeLine } from '../places'
 import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
-import { compatibility, level, planWhen, plural, sharedAnswers, nameAge, profileTint } from '../lib'
-import { Avatar, Button, Icon, StoryRing } from '../components/ui'
+import { compatibility, level, planWhen, plural, sharedAnswers, nameAge } from '../lib'
+import { Avatar, Icon, StoryRing } from '../components/ui'
+import { AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { usePresence } from '../cloud/presence'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
 import { TrackChip } from '../music/PlayerUI'
@@ -39,6 +41,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const [showFollowers, setShowFollowers] = useState(false)
   const tasteOf = useTaste() // до раннего выхода: хуки вызываются всегда в одном порядке
   const [copied, setCopied] = useState(false)
+  const presence = usePresence(state.cloud ? personId : undefined)
   if (!p) return null
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)
@@ -70,41 +73,49 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         {copied && <span className="fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft" role="status">Ссылка на страницу скопирована</span>}
       </div>
 
-      <section className="flex flex-col gap-3 px-4 pt-3 pb-1 -mt-3 rounded-b-[28px]" style={profileTint(p.hue)}>
-        {/* Как в Threads: имя слева, фото справа */}
-        <div className="flex items-center gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="flex items-center gap-1.5 font-display font-bold text-[24px] leading-tight">
-              <span className="truncate">{nameAge(p.name, p.age)}</span>
-              {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
-            </h2>
-            <div className="text-[14px] text-muted truncate">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>
-            {p.founder && <div className="mt-2.5"><FounderBadge n={p.founder} /></div>}
-          </div>
+      <section className="relative overflow-hidden flex flex-col gap-3 px-4 pt-4 pb-1 -mt-3 rounded-b-[28px]">
+        <ProfileCover style={p.style} photo={p.photo} hue={p.hue} />
+        {/* Визитка: аватарка по центру, имя, статус и город */}
+        <div className="relative flex flex-col items-center text-center gap-1">
           {p.founder && (!plans.length || state.seenStories.includes(p.id))
             // Основатель без новых историй: только золотая рамка, без второго серого кольца.
-            ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={74} /></GoldFrame>
-            : <StoryRing seen={!plans.length || state.seenStories.includes(p.id)} size={84}>
-              <GoldFrame on={!!p.founder} medal={26} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 62 : 72} /></GoldFrame>
-            </StoryRing>}
+            ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={92} /></GoldFrame>
+            : plans.length && !state.seenStories.includes(p.id)
+              ? <StoryRing seen={false} size={112}>
+                <GoldFrame on={!!p.founder} medal={26} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 92 : 102} /></GoldFrame>
+              </StoryRing>
+              : <AvatarRing style={p.style}><Avatar name={p.name} hue={p.hue} src={p.photo} size={104} /></AvatarRing>}
+          <h2 className="mt-2.5 flex items-center justify-center gap-1.5 max-w-full font-display font-bold text-[25px] leading-tight">
+            <span className="truncate">{nameAge(p.name, p.age)}</span>
+            {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
+          </h2>
+          <StatusLine text={statusOf(p.style, now)} style={p.style} online={presence.online} />
+          <div className="text-[14px] text-muted truncate max-w-full">{placeLine(lv.name, p.district, formatKm(p.distanceKm))}</div>
+          {p.founder && <div className="mt-1.5"><FounderBadge n={p.founder} /></div>}
         </div>
 
-        <div className="text-[14px] leading-snug flex flex-col gap-1">
+        <div className="relative text-[14px] leading-snug flex flex-col items-center text-center gap-2">
           <ReliabilityBadge person={p} />
           <TrackChip track={personTrack(p)} />
-          {listening && <div className="mt-0.5"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
+          {listening && <div className="mt-0.5 self-stretch text-left"><NowPlayingCard np={listening} who="Слушает сейчас" /></div>}
           {p.bio && <p>{p.bio}</p>}
-          <p className="text-cobalt">{p.tags.map((t) => `#${t.toLowerCase()}`).join(' ')}</p>
+          <TagChips tags={p.tags} />
         </div>
-        <p className="flex flex-wrap items-center gap-x-1.5 text-[14px] text-muted">
-          <button onClick={() => setShowFollowers(true)} className="cursor-pointer hover:text-fg" aria-label="Показать подписчиков и подписки">
-            <b className="text-fg tnum">{followers.toLocaleString('ru-RU')}</b> {plural(followers, 'подписчик', 'подписчика', 'подписчиков')}
+        <div className="relative pt-1">
+          <Stats items={[
+            { n: followers.toLocaleString('ru-RU'), label: plural(followers, 'подписчик', 'подписчика', 'подписчиков'), onClick: () => setShowFollowers(true) },
+            { n: plans.length, label: plural(plans.length, 'план', 'плана', 'планов') },
+            { n: p.meetings, label: plural(p.meetings, 'встреча', 'встречи', 'встреч') },
+          ]} />
+        </div>
+        <div className="relative grid grid-cols-2 gap-2">
+          <button onClick={message} className="h-10 rounded-xl inline-flex items-center justify-center gap-1.5 font-semibold text-[14px] cursor-pointer hover:brightness-105" style={{ background: accentOf(p.style).color, color: accentOf(p.style).ink }}>
+            <Icon name="chat" size={16} /> Написать
           </button>
-          <span aria-hidden="true">·</span>
-          <span><b className="text-fg tnum">{plans.length}</b> {plural(plans.length, 'план', 'плана', 'планов')}</span>
-          <span aria-hidden="true">·</span>
-          <span><b className="text-fg tnum">{p.meetings}</b> {plural(p.meetings, 'встреча', 'встречи', 'встреч')}</span>
-        </p>
+          <button onClick={() => dispatch({ type: 'toggleFollow', personId: p.id })} aria-pressed={following} className="h-10 rounded-xl inline-flex items-center justify-center gap-1.5 bg-surface-2 font-semibold text-[14px] whitespace-nowrap cursor-pointer hover:brightness-95">
+            {following ? <><Icon name="check" size={16} /> Вы подписаны</> : 'Подписаться'}
+          </button>
+        </div>
 
         <div className="rounded-2xl bg-surface-2 px-3.5 py-2.5 text-[13px] flex items-center gap-3">
           <span className="font-display font-semibold text-xl text-brand tnum">{compat.score}%</span>
@@ -118,14 +129,6 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
           </button>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant={following ? "secondary" : "primary"} className="h-10 text-[14px] whitespace-nowrap" onClick={() => dispatch({ type: 'toggleFollow', personId: p.id })} aria-pressed={following}>
-            {following ? <><Icon name="check" size={16} /> Вы подписаны</> : 'Подписаться'}
-          </Button>
-          <Button variant="secondary" className="h-10 text-[14px] whitespace-nowrap" onClick={message}>
-            <Icon name="chat" size={16} /> Написать
-          </Button>
-        </div>
       </section>
 
       <div className="grid grid-cols-3 border-t border-line mt-1" role="tablist">

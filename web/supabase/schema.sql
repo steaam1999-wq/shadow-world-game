@@ -1656,3 +1656,9 @@ grant select, delete on public.saved_shorts to authenticated;
 grant insert (short_id) on public.saved_shorts to authenticated;
 drop policy if exists "saved shorts: own" on public.saved_shorts;
 create policy "saved shorts: own" on public.saved_shorts for all to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+
+-- Оформление профиля: акцентный цвет, обложка, кольцо аватарки и статус под именем.
+alter table public.profiles add column if not exists style jsonb not null default '{}';
+alter table public.profiles drop constraint if exists profiles_style_check;
+alter table public.profiles add constraint profiles_style_check check (jsonb_typeof(style) = 'object' and octet_length(style::text) <= 1000);
+grant insert (style), update (style) on public.profiles to authenticated;
