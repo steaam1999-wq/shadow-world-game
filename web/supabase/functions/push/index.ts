@@ -39,16 +39,18 @@ async function fcmAccessToken(sa: ServiceAccount): Promise<string> {
 /** Отправка на устройство с приложением. false — токен устарел, подписку надо удалить. */
 async function sendFcm(sa: ServiceAccount, token: string, p: Record<string, unknown>, call: boolean): Promise<boolean | null> {
   const data: Record<string, string> = {}
-  for (const k of ['chat', 'person', 'call', 'kind']) if (p[k] != null) data[k] = String(p[k])
+  for (const k of ['chat', 'person', 'call', 'kind', 'title', 'body', 'name', 'video']) if (p[k] != null) data[k] = String(p[k])
+  // Звонок и его отмена — «тихие» данные: приложение само покажет экран вызова поверх блокировки.
+  const silent = call || p.kind === 'call_end'
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
     method: 'POST', headers: { Authorization: `Bearer ${await fcmAccessToken(sa)}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: {
       token,
-      notification: { title: String(p.title ?? 'Komeeta'), body: String(p.body ?? '') },
+      ...(silent ? {} : { notification: { title: String(p.title ?? 'Komeeta'), body: String(p.body ?? '') } }),
       data,
       android: {
-        priority: 'high', ttl: call ? '45s' : '3600s',
-        notification: { channel_id: call ? 'calls' : 'messages', tag: call ? 'call' : String(p.chat ?? p.kind ?? 'komeeta'), sound: 'default', default_vibrate_timings: !call, ...(call ? { vibrate_timings: ['0s', '0.6s', '0.3s', '0.6s', '0.3s', '0.6s'] } : {}) },
+        priority: 'high', ttl: silent ? '45s' : '3600s',
+        ...(silent ? {} : { notification: { channel_id: 'messages', tag: String(p.chat ?? p.kind ?? 'komeeta'), sound: 'default', default_vibrate_timings: true } }),
       },
     } }),
   })
@@ -94,11 +96,20 @@ Deno.serve(async (req) => {
   } else if (body.call_signal_id) {
     // Входящий звонок: «Саня звонит вам» — нажатие откроет приложение с экраном звонка.
     const { data: c } = await db.from('call_signals').select('call_id, from_user, to_user, kind, payload').eq('id', body.call_signal_id).maybeSingle()
-    if (!c || c.kind !== 'offer') return new Response('no call', { status: 404 })
+    if (!c) return new Response('no call', { status: 404 })
+    if (c.kind === 'end' || c.kind === 'decline') {
+      // Звонок отменён — убрать экран вызова в приложении (только устройства с приложением).
+      const sa = serviceAccount()
+      if (!sa) return new Response('no fcm', { status: 200 })
+      const { data: subs } = await db.from('push_subscriptions').select('endpoint').in('user_id', [c.to_user]).like('endpoint', 'fcm:%')
+      await Promise.all((subs ?? []).map((s) => sendFcm(sa, s.endpoint.slice(4), { kind: 'call_end', call: c.call_id }, false).catch(() => null)))
+      return new Response('ok', { status: 200 })
+    }
+    if (c.kind !== 'offer') return new Response('no call', { status: 404 })
     const { data: who } = await db.from('profiles').select('name').eq('id', c.from_user).maybeSingle()
     const video = !!(c.payload as { video?: boolean })?.video
     to = [c.to_user]
-    payload = JSON.stringify({ title: video ? '🎥 Видеозвонок' : '📞 Входящий звонок', body: `${who?.name ?? 'Кто-то'} звонит вам`, kind: 'call', call: c.call_id, person: c.from_user })
+    payload = JSON.stringify({ title: video ? '🎥 Видеозвонок' : '📞 Входящий звонок', body: `${who?.name ?? 'Кто-то'} звонит вам`, kind: 'call', call: c.call_id, person: c.from_user, name: who?.name ?? 'Кто-то', video: video ? '1' : '' })
     topic = String(c.call_id).replace(/-/g, '').slice(0, 32)
   } else if (body.follower && body.followee) {
     // Новая подписка: «Имя подписался(ась) на вас».

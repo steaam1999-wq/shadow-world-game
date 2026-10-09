@@ -254,6 +254,37 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => { void sb().removeChannel(ch) }
   }, [uid, onSignal])
 
+  // Приложение для Android: «Принять»/«Отклонить» нажали на экране вызова поверх блокировки.
+  const autoAnswer = useRef<string | null>(null)
+  const acceptRef = useRef<() => void>(() => {})
+  acceptRef.current = () => { void accept() }
+  useEffect(() => {
+    if (!uid) return
+    const on = () => {
+      const w = window as unknown as { __komeetaCall?: { action: string; call: string } }
+      const d = w.__komeetaCall
+      w.__komeetaCall = undefined
+      if (!d?.call) return
+      if (d.action === 'answer') {
+        if (callRef.current?.id === d.call && callRef.current.phase === 'incoming') acceptRef.current()
+        else autoAnswer.current = d.call // предложение звонка ещё не дошло — примем, как только придёт
+      } else if (d.action === 'decline') {
+        void (async () => {
+          const { data } = await sb().from('call_signals').select('from_user').eq('call_id', d.call).eq('kind', 'offer').limit(1)
+          const from = (data ?? [])[0] as { from_user?: string } | undefined
+          if (from?.from_user) await send(d.call, from.from_user, 'decline').catch(() => {})
+          if (callRef.current?.id === d.call) setCall(null)
+        })()
+      }
+    }
+    on()
+    window.addEventListener('komeeta-call', on)
+    return () => window.removeEventListener('komeeta-call', on)
+  }, [uid])
+  useEffect(() => {
+    if (call?.phase === 'incoming' && autoAnswer.current === call.id) { autoAnswer.current = null; acceptRef.current() }
+  }, [call?.id, call?.phase])
+
   useRingtone(call?.phase === 'incoming' ? 'in' : call?.phase === 'outgoing' ? 'out' : null)
 
   const toggleMic = () => { const t = local.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setMuted(!t.enabled) } }
