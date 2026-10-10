@@ -2,6 +2,7 @@ import type { Action } from '../store'
 import type { State } from '../types'
 import * as api from './api'
 import { clearChatNotifications } from '../native'
+import { forgetAccount } from './accounts'
 
 let reloader: (() => void) | null = null
 export function setReloader(fn: (() => void) | null) { reloader = fn }
@@ -138,6 +139,7 @@ export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
     case 'report':
       return run(api.sendReport(a.personId, a.reason, a.text, a.shortId))
     case 'signOut':
+      forgetAccount(uid) // вышли совсем — из списка аккаунтов тоже убираем
       return run(api.signOut())
     default:
       return null

@@ -12,6 +12,7 @@ export type Action =
   | { type: 'updateMe'; patch: Partial<Me> }
   | { type: 'founderLocal'; patch: Partial<Me> } // только на экране: сервер уже знает (подъём плана, стена)
   | { type: 'signOut' }
+  | { type: 'signOutLocal' } // выйти только на этом устройстве (для входа во второй аккаунт)
   | { type: 'forgetSaved' }
   | { type: 'reset' }
   | { type: 'respond'; activityId: string; text?: string; capsuleId?: string }
@@ -120,6 +121,7 @@ function reducer(state: State, action: Action): State {
     case 'updateMe':
       return state.me ? { ...state, me: { ...state.me, ...action.patch }, savedMe: { ...state.me, ...action.patch } } : state
     case 'signOut':
+    case 'signOutLocal':
       if (state.cloud) return { ...seedState(), remember: state.remember, savedMe: state.me ?? state.savedMe, cloud: null }
       return { ...state, me: null, savedMe: state.me ?? state.savedMe }
     case 'reset':

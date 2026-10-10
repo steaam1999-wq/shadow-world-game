@@ -14,6 +14,7 @@ import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
 import { AchievementsPanel } from '../components/Achievements'
+import { AccountSwitcher } from '../components/Accounts'
 import { AmbassadorBadge, AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { StyleEditor } from '../components/StyleEditor'
 import { FollowersSheet } from '../components/Followers'
@@ -41,6 +42,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [styling, setStyling] = useState(false)
+  const [accounts, setAccounts] = useState(false)
   const [showFollowers, setShowFollowers] = useState(false)
   const [tab, setTab] = useState<'plans' | 'posts' | 'saved' | 'settings'>('plans')
   const [copied, setCopied] = useState(false)
@@ -71,9 +73,13 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
               : <AvatarRing style={me.style}><Avatar name={me.name} hue={me.hue} src={me.photo} size={104} /></AvatarRing>}
             {!me.founder && <span className="absolute z-[3] right-0.5 bottom-0.5 grid place-items-center w-8 h-8 rounded-full bg-surface text-fg border-2 border-bg shadow-soft"><Icon name="camera" size={15} /></span>}
           </button>
-          <h2 className="mt-2.5 flex items-center justify-center gap-1.5 max-w-full font-display font-bold text-[25px] leading-tight">
-            <span className="truncate">{nameAge(me.name, me.age)}</span>
-            {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
+          <h2 className="mt-2.5 max-w-full font-display font-bold text-[25px] leading-tight">
+            <button onClick={() => state.cloud && setAccounts(true)} className={`flex items-center justify-center gap-1.5 max-w-full ${state.cloud ? 'cursor-pointer' : 'cursor-default'}`}
+              aria-label={state.cloud ? 'Сменить аккаунт' : undefined} aria-haspopup={state.cloud ? 'dialog' : undefined}>
+              <span className="truncate">{nameAge(me.name, me.age)}</span>
+              {me.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}
+              {state.cloud && <Icon name="down" size={20} className="shrink-0 text-muted" />}
+            </button>
           </h2>
           <StatusLine text={statusOf(me.style, now)} style={me.style} />
           {me.ambassador !== undefined && <div className="mt-1"><AmbassadorBadge city={me.ambassador} /></div>}
@@ -254,6 +260,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
 
       <ProfileEditor open={editing} onClose={() => setEditing(false)} />
       <StyleEditor open={styling} onClose={() => setStyling(false)} />
+      <AccountSwitcher open={accounts} onClose={() => setAccounts(false)} onAddAccount={onSignOut} />
       <FollowersSheet personId="me" open={showFollowers} onClose={() => setShowFollowers(false)} />
 
       <Sheet open={editVibe} onClose={() => setEditVibe(false)} title="Вайб-тест">

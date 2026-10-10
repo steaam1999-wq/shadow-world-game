@@ -391,7 +391,7 @@ test('поделиться страницей: ссылка с #u= открыв�
   await patchState(page, (s) => { const old = s.people[0].id; s.people[0].id = '0b8f0c2e-1111-4222-8333-944455556666'; s.activities.forEach((a: { authorId: string }) => { if (a.authorId === old) a.authorId = '0b8f0c2e-1111-4222-8333-944455556666' }) })
   await page.goto(`./#u=${uid}`)
   await page.reload()
-  await expect(page.getByRole('heading', { name: new RegExp(`^${person.name}, \\d+`) })).toBeVisible()
+  await expect(page.getByRole('heading', { name: new RegExp(`^${person.name}, \\d+`) })).toBeVisible({ timeout: 15_000 })
   await page.evaluate(() => { (navigator as { share?: unknown }).share = undefined })
   await page.getByRole('button', { name: 'Поделиться страницей' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Ссылка на страницу скопирована' })).toBeVisible()

@@ -4,6 +4,7 @@ import * as api from './api'
 import { setReloader } from './sync'
 import { ageFrom } from '../lib'
 import { usePresenceHeartbeat } from './presence'
+import { rememberCurrent, watchAccounts } from './accounts'
 
 /** Держит данные в актуальном виде: первая загрузка, живые обновления из базы и страховочный опрос. */
 export function CloudSync() {
@@ -28,6 +29,8 @@ export function CloudSync() {
         if (!user || user.id !== userId) { dispatch({ type: 'signOut' }); return }
         const d = await api.loadAll(userId, ref.current.me, ref.current.cloudRead ?? {})
         if (alive) dispatch({ type: 'cloudLoad', ...d })
+        // Этот аккаунт — в список для быстрого переключения
+        if (alive && d.me) { watchAccounts(); void rememberCurrent(d.me).catch(() => {}) }
         // Прошёл день рождения — пересчитываем возраст по дате рождения.
         if (alive && d.me?.birthDate && ageFrom(d.me.birthDate) !== d.me.age) dispatch({ type: 'updateMe', patch: { age: ageFrom(d.me.birthDate) } })
         // Аватарка ещё в закрытом хранилище — один раз переносим в открытое, чтобы ссылка не устаревала.
