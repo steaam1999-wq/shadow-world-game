@@ -4,7 +4,7 @@ import { sb, sendMessage } from '../cloud/api'
 import { useStore } from '../store'
 import { Avatar, Icon } from '../components/ui'
 import type { Person } from '../types'
-import { nativeCallEnded } from '../native'
+import { nativeCallEnded, nativeVideoCall } from '../native'
 
 // Звонки и видеозвонки: WebRTC напрямую между телефонами. Сервер только передаёт «сигналы»
 // (предложение, ответ, адреса для соединения) через таблицу call_signals — звук и видео через него не идут.
@@ -371,6 +371,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // Звонок закончился — приложение снова уходит за экран блокировки
   const hadCall = useRef(false)
   useEffect(() => { const on = !!call && call.phase !== 'ended'; if (hadCall.current && !on) nativeCallEnded(); hadCall.current = on }, [call])
+  // Видеозвонок идёт — приложение для Android при сворачивании покажет его в маленьком окне
+  const videoLive = !!call?.video && (call.phase === 'outgoing' || call.phase === 'connecting' || call.phase === 'active')
+  useEffect(() => { nativeVideoCall(videoLive); return () => { if (videoLive) nativeVideoCall(false) } }, [videoLive])
   useRingtone(call?.phase === 'incoming' ? 'in' : call?.phase === 'outgoing' ? 'out' : null)
 
   const toggleMic = () => { const t = local.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setMuted(!t.enabled) } }
@@ -415,9 +418,11 @@ function Sound({ stream }: { stream: MediaStream }) {
   return <audio ref={ref} autoPlay />
 }
 
-function Video({ stream, muted, mirror, className }: { stream: MediaStream | null; muted?: boolean; mirror?: boolean; className: string }) {
+function Video({ stream, muted, mirror, className, autoPip }: { stream: MediaStream | null; muted?: boolean; mirror?: boolean; className: string; autoPip?: boolean }) {
   // (рамка, перетаскивание и приближение — снаружи, в CallScreen)
   const ref = useRef<HTMLVideoElement>(null)
+  // Браузер сам покажет это видео в маленьком окне, когда свернёте сайт (Safari на iPhone, установленный сайт в Chrome)
+  useEffect(() => { const v = ref.current; if (v && autoPip) { v.setAttribute('autopictureinpicture', ''); (v as HTMLVideoElement & { autoPictureInPicture?: boolean }).autoPictureInPicture = true } }, [autoPip])
   useEffect(() => {
     const v = ref.current
     if (!v) return
@@ -493,6 +498,14 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
   const onUp = (e: React.PointerEvent) => { touches.current.delete(e.pointerId); if (touches.current.size < 2) pinch.current = null }
   const cycleZoom = () => { onZoom(zoom < 1.5 ? 2 : zoom < 2.5 ? 3 : 1); flash() }
   const name = peer?.name ?? 'Собеседник'
+  // Разговор в маленьком окне (свернули приложение) — только видео, без кнопок и подписей
+  const [tiny, setTiny] = useState(false)
+  useEffect(() => {
+    const check = () => setTiny(!!(window as unknown as { __komeetaPip?: boolean }).__komeetaPip || (window.innerWidth < 300 && window.innerHeight < 560))
+    check()
+    window.addEventListener('resize', check); window.addEventListener('komeeta-pip', check)
+    return () => { window.removeEventListener('resize', check); window.removeEventListener('komeeta-pip', check) }
+  }, [])
   const showRemoteVideo = call.video && !!remote && remote.getVideoTracks().length > 0 && call.phase === 'active'
   const status = call.phase === 'incoming' ? (call.video ? 'Видеозвонок…' : 'Входящий звонок…')
     : call.phase === 'outgoing' ? 'Вызов…' : call.phase === 'connecting' ? 'Соединяем…'
@@ -504,12 +517,12 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
       {/* Звук собеседника (в видеозвонке он идёт вместе с видео) */}
       {!showRemoteVideo && remote && <Sound stream={remote} />}
       {showRemoteVideo && (
-        <div {...(swapped ? pipProps : { className: 'absolute inset-0' })}>
-          <Video stream={remote} className="w-full h-full object-cover pointer-events-none" />
+        <div {...(swapped && !tiny ? pipProps : { className: 'absolute inset-0' })}>
+          <Video stream={remote} autoPip className="w-full h-full object-cover pointer-events-none" />
         </div>
       )}
       {showRemoteVideo && !swapped && <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />}
-      {call.video && local && call.phase !== 'ended' && !camOff && (
+      {call.video && local && call.phase !== 'ended' && !camOff && !(tiny && showRemoteVideo) && (
         <div {...(showRemoteVideo && !swapped ? pipProps : { className: 'absolute inset-0' })}>
           <Video stream={local} muted mirror={mirror} className="w-full h-full object-cover pointer-events-none" />
         </div>
@@ -524,7 +537,7 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/.55),rgb(0_0_0/.25)_35%,rgb(0_0_0/.25)_65%,rgb(0_0_0/.6))] pointer-events-none" />
       )}
 
-      <div className={`z-[5] flex flex-col items-center gap-3 px-6 ${showRemoteVideo ? 'relative pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'absolute inset-0 justify-center pt-[calc(96px+env(safe-area-inset-top,0px))] pb-[env(safe-area-inset-bottom,0px)] pointer-events-none'}`}>
+      <div className={`z-[5] flex flex-col items-center gap-3 px-6 ${tiny ? '!hidden' : ''} ${showRemoteVideo ? 'relative pt-[calc(24px+env(safe-area-inset-top,0px))] items-start' : 'absolute inset-0 justify-center pt-[calc(96px+env(safe-area-inset-top,0px))] pb-[env(safe-area-inset-bottom,0px)] pointer-events-none'}`}>
         {!showRemoteVideo && (
           <span className="relative grid place-items-center">
             {(call.phase === 'incoming' || call.phase === 'outgoing') && <span className="absolute inset-0 -m-3 rounded-full bg-white/10 animate-ping" />}
@@ -535,7 +548,7 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
         <p className={`text-white/75 text-center ${call.phase === 'active' ? 'tnum text-[16px]' : 'text-[15px]'}`} role="status">{status}</p>
       </div>
 
-      <div className="relative z-[5] mt-auto shrink-0 px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))]">
+      <div className={`relative z-[5] mt-auto shrink-0 px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))] ${tiny ? 'hidden' : ''}`}>
         {canZoom && (
           <div className="flex justify-center mb-4">
             <button onClick={cycleZoom} className="h-9 min-w-14 px-3 rounded-full bg-black/40 backdrop-blur text-[14px] font-bold tnum cursor-pointer" aria-label={`Приближение своей камеры: ${zoom}×. Нажмите, чтобы изменить`}>

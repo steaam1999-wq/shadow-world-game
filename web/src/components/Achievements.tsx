@@ -1,126 +1,177 @@
-// Достижения: ненавязчивая панель кружков в профиле. Нажатие — за что получено и что даёт.
+// Достижения: 6 редких медалей за то, ради чего существует Komeeta, — встречи, надёжность, друзья.
 // Выдаёт их сервер (check_achievements) по данным базы, поэтому подделать нельзя.
+// Нажатие на медаль — за что, прогресс, редкость и что она даст.
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { sb } from '../cloud/api'
-import { profileCompleteness } from '../lib'
 import { Sheet } from './ui'
 
-export interface Achievement { code: string; emoji: string; title: string; how: string; perk: string; hue: number }
+type Progress = { met: number; responded: number; invites: number; noshows: number }
+export interface Achievement {
+  code: string; title: string; short: string; how: string; perk: string
+  colors: [string, string, string] // светлый, основной, тёмный
+  glyph: string // контур значка (viewBox 24)
+  goal?: (p: Progress) => [number, number] // сколько есть / сколько нужно
+}
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { code: 'profile_full', emoji: '🌱', title: 'Первый шаг', how: 'Заполнить профиль: фото, «о себе», город и хотя бы 3 интереса.', perk: 'Ваш профиль чаще показывается в подборке «Люди рядом».', hue: 140 },
-  { code: 'first_plan', emoji: '📅', title: 'Организатор', how: 'Создать свой первый план встречи.', perk: 'Открывает рамку аватарки «Организатор».', hue: 30 },
-  { code: 'soul', emoji: '🔥', title: 'Душа компании', how: 'На 5 ваших планов кто-то откликнулся.', perk: 'Ваши планы поднимаются выше в ленте.', hue: 12 },
-  { code: 'first_meet', emoji: '🤝', title: 'Первая встреча', how: 'Встретиться и подтвердить встречу кодами.', perk: 'Значок рядом с именем при отклике на план.', hue: 330 },
-  { code: 'regular', emoji: '🏆', title: 'Завсегдатай', how: '10 подтверждённых встреч.', perk: 'Ранний доступ к новым функциям Komeeta.', hue: 45 },
-  { code: 'reliable', emoji: '⭐', title: 'Надёжный', how: '5 встреч и ни одного пропуска.', perk: 'Метка «Надёжный» видна всем, с вами охотнее договариваются.', hue: 50 },
-  { code: 'guide', emoji: '💌', title: 'Проводник', how: 'Пригласить в Komeeta 3 друзей по своей ссылке.', perk: 'Особые цвета оформления профиля.', hue: 280 },
-  { code: 'author', emoji: '📸', title: 'Автор', how: 'Опубликовать 10 фото или видео.', perk: 'Ваши публикации чаще попадают в ленту.', hue: 200 },
-  { code: 'night_owl', emoji: '🌙', title: 'Полуночник', how: 'Встреча, которая началась после 22:00.', perk: 'Ночная тема оформления профиля.', hue: 250 },
-  { code: 'early_bird', emoji: '☀️', title: 'Ранняя пташка', how: 'Встреча, которая началась до 9:00.', perk: 'Утренняя тема оформления профиля.', hue: 40 },
-  { code: 'ambassador', emoji: '🎖', title: 'Амбассадор', how: 'Помогать запускать встречи в своём городе. Выдаёт команда Komeeta.', perk: 'Значок амбассадора и прямая связь с командой.', hue: 320 },
-  { code: 'founder', emoji: '👑', title: 'Основатель', how: 'Одним из первых позвать друзей в Komeeta.', perk: 'Золотая рамка и место на «Стене основателей».', hue: 48 },
+  { code: 'first_meet', title: 'Первая встреча', short: 'Встреча', colors: ['#ffd1dc', '#ff5d8f', '#b4185a'],
+    glyph: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3.5 19.5c.6-3.1 2.8-5.2 5.5-5.2s4.9 2.1 5.5 5.2M16 11a2.6 2.6 0 1 0 0-5.2M15.6 14.3c2.3.4 4.2 2.2 4.8 5.2',
+    how: 'Встретиться с человеком из Komeeta и подтвердить встречу кодами.', perk: 'Значок «Встречался» рядом с именем, когда откликаетесь на план.',
+    goal: (p) => [Math.min(p.met, 1), 1] },
+  { code: 'soul', title: 'Душа компании', short: 'Душа', colors: ['#ffe0b0', '#ff8a3d', '#b8450f'],
+    glyph: 'M12 2.8c.9 3.3 5.2 5.5 5.2 10.4a5.2 5.2 0 0 1-10.4 0c0-2.3 1.2-3.9 2.7-5-.1 2 .7 3.4 2 3.9-1-3-.9-6.2.5-9.3z',
+    how: 'На 5 ваших планов кто-то откликнулся.', perk: 'Ваши планы поднимаются выше в ленте.',
+    goal: (p) => [Math.min(p.responded, 5), 5] },
+  { code: 'reliable', title: 'Надёжный', short: 'Надёжный', colors: ['#c8f7dc', '#22c08a', '#0b6e4c'],
+    glyph: 'M12 3l7 3v5.2c0 4.4-3 8-7 9.8-4-1.8-7-5.4-7-9.8V6zM8.6 12.2l2.4 2.4 4.4-4.6',
+    how: '5 подтверждённых встреч и ни одного пропуска.', perk: 'Метка «Надёжный» видна всем — с вами охотнее договариваются.',
+    goal: (p) => [p.noshows ? 0 : Math.min(p.met, 5), 5] },
+  { code: 'guide', title: 'Проводник', short: 'Проводник', colors: ['#e2d6ff', '#8a5cff', '#4b23b8'],
+    glyph: 'M21 3 3 10.4l7.2 2.8L13 21zM10.2 13.2 21 3',
+    how: 'Пригласить в Komeeta 3 друзей по своей ссылке.', perk: 'Особые цвета оформления профиля.',
+    goal: (p) => [Math.min(p.invites, 3), 3] },
+  { code: 'regular', title: 'Легенда', short: 'Легенда', colors: ['#fff1b8', '#f5b31b', '#9a6206'],
+    glyph: 'M7 4h10v3.2a5 5 0 0 1-10 0zM7 5.2H4.2v1.3A3.4 3.4 0 0 0 7.6 10M17 5.2h2.8v1.3A3.4 3.4 0 0 1 16.4 10M12 12.2v3.3M8.6 20h6.8l-.7-3.6H9.3z',
+    how: '10 подтверждённых встреч.', perk: 'Ранний доступ к новым функциям Komeeta.',
+    goal: (p) => [Math.min(p.met, 10), 10] },
+  { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff4cc', '#e9a83a', '#7a4a06'],
+    glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
+    how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка и место на «Стене основателей».' },
 ]
 
 type Earned = Record<string, number> // code → когда получено
 
-/** Мои или чужие достижения (в облаке — с сервера, в демо — по данным в браузере). */
-function useEarned(personId: string): Earned | null {
+function useAchievements(personId: string) {
   const { state } = useStore()
   const uid = state.cloud?.userId
   const id = personId === 'me' ? uid : personId
   const [earned, setEarned] = useState<Earned | null>(null)
-  const [fresh, setFresh] = useState<string[]>([])
+  const [progress, setProgress] = useState<Progress | null>(null)
+  const [stats, setStats] = useState<{ total: number; by: Record<string, number> } | null>(null)
   useEffect(() => {
     if (!state.cloud || !id) return
     let alive = true
     void (async () => {
-      // Свои — сначала проверяем, не заработано ли что-то новое.
       if (personId === 'me') {
         const { data } = await sb().rpc('check_achievements')
-        if (alive && Array.isArray(data) && data.length) setFresh(data as string[])
+        const fresh = (Array.isArray(data) ? data as string[] : []).filter((c) => ACHIEVEMENTS.some((a) => a.code === c))
+        if (alive && fresh.length) celebrate(fresh)
+        const pr = await sb().rpc('achievement_progress')
+        if (alive && pr.data) setProgress(pr.data as Progress)
       }
-      const { data } = await sb().from('achievements').select('code, earned_at').eq('user_id', id)
-      if (alive) setEarned(Object.fromEntries((data ?? []).map((r: { code: string; earned_at: string }) => [r.code, new Date(r.earned_at).getTime()])))
+      const [{ data }, st] = await Promise.all([
+        sb().from('achievements').select('code, earned_at').eq('user_id', id),
+        sb().rpc('achievement_stats'),
+      ])
+      if (!alive) return
+      setEarned(Object.fromEntries((data ?? []).map((r: { code: string; earned_at: string }) => [r.code, new Date(r.earned_at).getTime()])))
+      const s = st.data as { total: number; by_code: Record<string, number> } | null
+      if (s) setStats({ total: s.total, by: s.by_code ?? {} })
     })().catch(() => {})
     return () => { alive = false }
   }, [id, personId, state.cloud])
-  useEffect(() => { if (fresh.length) celebrate(fresh) }, [fresh])
   if (!state.cloud) {
-    if (personId !== 'me' || !state.me) return {}
-    const me = state.me
-    return Object.fromEntries([
-      profileCompleteness(me) === 100 && 'profile_full',
-      state.activities.some((a) => a.authorId === 'me') && 'first_plan',
-      me.meetings >= 1 && 'first_meet',
-      me.meetings >= 10 && 'regular',
-    ].filter(Boolean).map((c) => [c as string, Date.now()]))
+    if (personId !== 'me' || !state.me) return { earned: {}, progress: null, stats: null }
+    const met = state.me.meetings
+    return { earned: Object.fromEntries([met >= 1 && 'first_meet', met >= 10 && 'regular'].filter(Boolean).map((c) => [c as string, Date.now()])), progress: { met, responded: 0, invites: 0, noshows: 0 }, stats: null }
   }
-  return earned
+  return { earned, progress, stats }
 }
 
-// Тихое уведомление о новом достижении (одно на всё приложение).
 let showNew: ((a: Achievement) => void) | null = null
 function celebrate(codes: string[]) {
-  const list = codes.map((c) => ACHIEVEMENTS.find((a) => a.code === c)).filter((a): a is Achievement => !!a)
-  list.forEach((a, i) => setTimeout(() => showNew?.(a), i * 2600))
+  codes.map((c) => ACHIEVEMENTS.find((a) => a.code === c)).filter((a): a is Achievement => !!a)
+    .forEach((a, i) => setTimeout(() => showNew?.(a), i * 3200))
 }
 
-function Circle({ a, got, size = 46 }: { a: Achievement; got: boolean; size?: number }) {
+/** Медаль: металлический ободок, глянец, белый значок. Не получена — тёмное стекло и кольцо прогресса. */
+export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: Achievement; got: boolean; size?: number; progress?: number; shine?: boolean }) {
+  const [light, main, dark] = a.colors
+  const ring = Math.max(3, size * 0.075)
+  const r = size / 2 - ring / 2
+  const c = 2 * Math.PI * r
   return (
-    <span className="relative grid place-items-center rounded-full shrink-0 transition"
-      style={{
-        width: size, height: size, fontSize: size * 0.46,
-        background: got ? `radial-gradient(circle at 35% 30%, hsl(${a.hue} 90% 72%), hsl(${(a.hue + 25) % 360} 75% 48%))` : 'var(--surface-2)',
-        boxShadow: got ? `0 6px 16px -6px hsl(${a.hue} 80% 50% / .7), inset 0 1px 0 rgb(255 255 255 / .45)` : 'inset 0 0 0 1.5px var(--line)',
-        filter: got ? undefined : 'grayscale(1)',
-        opacity: got ? 1 : 0.45,
-      }}>
-      {a.emoji}
-      {!got && <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center w-4 h-4 rounded-full bg-surface text-[9px]" aria-hidden="true">🔒</span>}
+    <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size }}>
+      {got ? (
+        <>
+          <span className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(from 210deg, ${light}, ${main}, ${dark}, ${main}, ${light}, ${main}, ${dark}, ${light})`, boxShadow: `0 ${size * 0.12}px ${size * 0.32}px -${size * 0.12}px ${main}` }} />
+          <span className="absolute rounded-full overflow-hidden" style={{ inset: ring, background: `radial-gradient(circle at 32% 28%, ${light} 0%, ${main} 45%, ${dark} 100%)`, boxShadow: `inset 0 ${size * 0.03}px 0 rgb(255 255 255 / .45), inset 0 -${size * 0.06}px ${size * 0.12}px rgb(0 0 0 / .28)` }}>
+            <span className="absolute inset-x-0 top-0 h-1/2 rounded-b-[50%] bg-gradient-to-b from-white/35 to-transparent" />
+            {shine && <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/45 to-transparent skew-x-[-20deg]" />}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="absolute inset-0 rounded-full bg-surface-2" style={{ boxShadow: 'inset 0 0 0 1px var(--line)' }} />
+          <svg className="absolute inset-0 -rotate-90" width={size} height={size} aria-hidden="true">
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth={ring} />
+            {progress > 0 && <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={main} strokeWidth={ring} strokeLinecap="round" strokeDasharray={`${c * Math.min(1, progress)} ${c}`} />}
+          </svg>
+        </>
+      )}
+      <svg className="relative" width={size * 0.46} height={size * 0.46} viewBox="0 0 24 24" fill="none" stroke={got ? '#fff' : 'var(--muted)'} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"
+        style={got ? { filter: `drop-shadow(0 ${size * 0.02}px ${size * 0.03}px ${dark})` } : { opacity: 0.55 }} aria-hidden="true">
+        <path d={a.glyph} />
+      </svg>
     </span>
   )
 }
 
-/** Панель достижений: строка кружков. Свой профиль — все (полученные яркие), чужой — только полученные. */
+/** Панель достижений. Свой профиль — все 6 (неполученные с прогрессом), чужой — только полученные. */
 export function AchievementsPanel({ personId }: { personId: string }) {
-  const earned = useEarned(personId)
+  const { earned, progress, stats } = useAchievements(personId)
   const [open, setOpen] = useState<Achievement | null>(null)
   if (!earned) return null
   const mine = personId === 'me'
   const got = ACHIEVEMENTS.filter((a) => earned[a.code])
-  const list = mine ? [...got, ...ACHIEVEMENTS.filter((a) => !earned[a.code])] : got
+  const list = mine ? ACHIEVEMENTS : got
   if (!list.length) return null
+  const frac = (a: Achievement) => { if (!progress || !a.goal) return 0; const [n, of] = a.goal(progress); return n / of }
   const at = open ? earned[open.code] : 0
+  const g = open && progress && open.goal ? open.goal(progress) : null
+  const holders = open && stats ? stats.by[open.code] ?? 0 : null
+  const rare = holders !== null && stats ? (holders <= Math.max(1, stats.total * 0.1) ? 'редкое' : holders <= stats.total * 0.3 ? 'необычное' : 'обычное') : ''
   return (
-    <section className="flex flex-col gap-2" aria-label="Достижения">
+    <section className="flex flex-col gap-2.5" aria-label="Достижения">
       <div className="flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-muted">Достижения</span>
-        <span className="text-[12px] text-muted tnum">{got.length} из {ACHIEVEMENTS.length}</span>
+        {mine && <span className="text-[12px] text-muted tnum">{got.length} / {ACHIEVEMENTS.length}</span>}
       </div>
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 py-1">
+      <div className={mine ? 'grid grid-cols-6 gap-1.5' : 'flex flex-wrap justify-center gap-3'}>
         {list.map((a) => (
-          <button key={a.code} onClick={() => setOpen(a)} className="cursor-pointer rounded-full" aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
-            <Circle a={a} got={!!earned[a.code]} />
+          <button key={a.code} onClick={() => setOpen(a)} className="flex flex-col items-center gap-1 min-w-0 cursor-pointer" aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
+            <Medal a={a} got={!!earned[a.code]} size={50} progress={frac(a)} />
+            <span className={`text-[10px] leading-tight tracking-tight whitespace-nowrap ${earned[a.code] ? 'text-fg font-semibold' : 'text-muted'}`}>{a.short}</span>
           </button>
         ))}
       </div>
-      <Sheet open={!!open} onClose={() => setOpen(null)} title={open?.title ?? ''}>
+      <Sheet open={!!open} onClose={() => setOpen(null)} title="Достижение">
         {open && (
-          <div className="flex flex-col items-center text-center gap-4 pb-2">
-            <Circle a={open} got={!!at} size={96} />
-            <p className={`text-[13px] font-semibold ${at ? 'text-ok' : 'text-muted'}`}>
+          <div className="flex flex-col items-center text-center gap-3 pb-2">
+            <div className="relative grid place-items-center py-3">
+              {!!at && <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-40" style={{ background: open.colors[1] }} />}
+              <Medal a={open} got={!!at} size={124} progress={g ? g[0] / g[1] : 0} shine={!!at} />
+            </div>
+            <h3 className="font-display font-bold text-[24px] leading-tight">{open.title}</h3>
+            <p className="text-[13px] text-muted -mt-1">
               {at ? `Получено ${new Date(at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Ещё не получено'}
+              {holders !== null && stats ? ` · есть у ${holders} из ${stats.total} · ${rare}` : ''}
             </p>
-            <div className="w-full flex flex-col gap-2 text-left">
+            {!at && g && (
+              <div className="w-full flex flex-col gap-1.5 px-1">
+                <div className="h-2 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(g[0] / g[1]) * 100}%`, background: `linear-gradient(90deg, ${open.colors[0]}, ${open.colors[1]})` }} /></div>
+                <span className="text-[12.5px] text-muted tnum self-end">{g[0]} из {g[1]}</span>
+              </div>
+            )}
+            <div className="w-full flex flex-col gap-2 text-left mt-1">
               <div className="rounded-2xl bg-surface-2 p-3.5">
                 <span className="block text-[12px] font-semibold text-muted mb-1">{at ? 'За что получено' : 'Как получить'}</span>
                 <span className="text-[14.5px]">{open.how}</span>
               </div>
-              <div className="rounded-2xl bg-surface-2 p-3.5">
-                <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1">Что даёт <span className="px-1.5 py-0.5 rounded-full bg-spark-soft text-spark text-[10.5px]">скоро</span></span>
+              <div className="rounded-2xl p-3.5" style={{ background: `color-mix(in srgb, ${open.colors[1]} 12%, var(--surface-2))` }}>
+                <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1">Что даёт <span className="px-1.5 py-0.5 rounded-full text-[10.5px] text-white" style={{ background: open.colors[1] }}>скоро</span></span>
                 <span className="text-[14.5px]">{open.perk}</span>
               </div>
             </div>
@@ -135,14 +186,14 @@ export function AchievementsPanel({ personId }: { personId: string }) {
 export function AchievementToast() {
   const [a, setA] = useState<Achievement | null>(null)
   useEffect(() => {
-    showNew = (x) => { setA(x); setTimeout(() => setA((cur) => (cur === x ? null : cur)), 2400) }
+    showNew = (x) => { setA(x); setTimeout(() => setA((cur) => (cur === x ? null : cur)), 3000) }
     return () => { showNew = null }
   }, [])
   if (!a) return null
   return createPortal(
-    <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[96] rounded-full bg-surface text-fg pl-1.5 pr-4 h-12 inline-flex items-center gap-2.5 shadow-soft ring-1 ring-line" role="status">
-      <Circle a={a} got size={36} />
-      <span className="text-[14px]"><b>Новое достижение:</b> {a.title}</span>
+    <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[96] rounded-full bg-surface text-fg pl-1.5 pr-5 h-14 inline-flex items-center gap-3 shadow-soft ring-1 ring-line" role="status">
+      <Medal a={a} got size={42} shine />
+      <span className="flex flex-col leading-tight"><span className="text-[11.5px] text-muted">Новое достижение</span><b className="text-[15px]">{a.title}</b></span>
     </div>,
     document.body,
   )

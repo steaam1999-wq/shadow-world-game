@@ -19,7 +19,7 @@ type Cap = {
   Plugins: {
     PushNotifications?: PushPlugin
     Browser?: { open: (o: { url: string; presentationStyle?: string }) => Promise<void>; close: () => Promise<void> }
-    KomeetaCall?: { ended: () => Promise<void> }
+    KomeetaCall?: { ended: () => Promise<void>; videoCall?: (o: { on: boolean }) => Promise<void> }
     App?: { addListener: (ev: string, cb: (x: { url?: string; isActive?: boolean }) => void) => Promise<Listener> }
   }
 }
@@ -90,6 +90,11 @@ export function clearChatNotifications(chatId: string) {
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     void navigator.serviceWorker.ready.then((r) => r.getNotifications({ tag: chatId })).then((ns) => ns.forEach((n) => n.close())).catch(() => {})
   }
+}
+
+/** Идёт видеозвонок — при сворачивании приложения разговор продолжится в маленьком окне (Android). */
+export function nativeVideoCall(on: boolean) {
+  void cap()?.Plugins.KomeetaCall?.videoCall?.({ on }).catch(() => {})
 }
 
 /** Звонок закончился — приложение снова прячется за экраном блокировки. */

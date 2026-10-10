@@ -1792,3 +1792,25 @@ begin
 end $$;
 revoke all on function public.check_achievements() from public, anon;
 grant execute on function public.check_achievements() to authenticated;
+
+-- Прогресс к достижениям (мой) и их редкость (у скольких людей есть).
+create or replace function public.achievement_progress() returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'met', (select count(*) from capsules where status = 'met' and (select auth.uid()) in (author, responder)),
+    'responded', (select count(distinct c.plan_id) from capsules c join plans pl on pl.id = c.plan_id where pl.author = (select auth.uid())),
+    'invites', (select count(*) from referrals where inviter = (select auth.uid())),
+    'noshows', (select count(*) from no_shows n join capsules c on c.id = n.capsule_id and c.status <> 'met' where n.target = (select auth.uid()))
+  )
+$$;
+revoke all on function public.achievement_progress() from public, anon;
+grant execute on function public.achievement_progress() to authenticated;
+create or replace function public.achievement_stats() returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'total', (select count(*) from profiles),
+    'by_code', coalesce((select json_object_agg(code, n) from (select code, count(*) n from achievements group by code) t), '{}'::json)
+  )
+$$;
+revoke all on function public.achievement_stats() from public, anon;
+grant execute on function public.achievement_stats() to authenticated;

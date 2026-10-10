@@ -5,7 +5,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
+import android.app.PictureInPictureParams;
+import android.content.res.Configuration;
 import android.os.Bundle;
+import android.util.Rational;
 import android.provider.Settings;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
@@ -70,6 +73,37 @@ public class MainActivity extends BridgeActivity {
         if (i == null) return;
         String c = i.getStringExtra("answerCall");
         if (c != null) { pendingAnswer = c; i.removeExtra("answerCall"); overLockScreen(true); CallNotifier.cancel(this, c); }
+    }
+
+    private boolean videoCall = false;
+
+    /** Видеозвонок идёт: свернули приложение — разговор уходит в маленькое окно поверх других приложений. */
+    void setVideoCall(boolean on) {
+        videoCall = on;
+        if (Build.VERSION.SDK_INT >= 31) {
+            try { setPictureInPictureParams(pipParams().setAutoEnterEnabled(on).build()); } catch (Exception ignored) { }
+        }
+    }
+
+    private PictureInPictureParams.Builder pipParams() {
+        return new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16));
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // До Android 12 мини-окно включаем сами, когда человек уходит с экрана (кнопка «Домой»).
+        if (videoCall && Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT < 31) {
+            try { enterPictureInPictureMode(pipParams().build()); } catch (Exception ignored) { }
+        }
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean inPip, Configuration cfg) {
+        super.onPictureInPictureModeChanged(inPip, cfg);
+        WebView w = getBridge().getWebView();
+        // Сайт прячет кнопки, пока разговор в маленьком окне
+        w.post(() -> w.evaluateJavascript("window.__komeetaPip=" + inPip + ";window.dispatchEvent(new Event('komeeta-pip'))", null));
     }
 
     /** Принятый звонок открывается поверх экрана блокировки — без ввода пароля, как в мессенджерах. */

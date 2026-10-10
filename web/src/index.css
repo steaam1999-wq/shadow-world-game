@@ -334,3 +334,8 @@ html, body { overflow-x: clip; }
   button[class*="rounded"] { transition: scale .14s cubic-bezier(.3, .7, .4, 1.4); }
   button[class*="rounded"]:active:not(:disabled) { scale: .96; transition-duration: .06s; }
 }
+
+/* Блик, пробегающий по полученной медали */
+@keyframes medal-shine { 0% { transform: translateX(0) skewX(-20deg) } 55%, 100% { transform: translateX(400%) skewX(-20deg) } }
+.medal-shine { animation: medal-shine 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .medal-shine { animation: none; opacity: 0; } }
