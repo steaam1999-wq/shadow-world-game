@@ -80,7 +80,7 @@ export function useClaimReferral() {
 }
 
 /** Белая планета-облачко с кольцами (как в логотипе) — для золотой медали. */
-function GoldPlanet({ size }: { size: number }) {
+export function GoldPlanet({ size }: { size: number }) {
   const id = useId().replace(/:/g, '')
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true" className="relative z-[1] drop-shadow-[0_1px_1.5px_rgb(90_50_0/.45)]">

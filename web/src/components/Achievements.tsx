@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { sb } from '../cloud/api'
 import { Sheet } from './ui'
+import { GoldPlanet } from './Invite'
 
 type Progress = { met: number; responded: number; invites: number; noshows: number }
 export interface Achievement {
@@ -13,6 +14,7 @@ export interface Achievement {
   colors: [string, string, string] // светлый, основной, тёмный
   glyph: string // контур значка (viewBox 24)
   goal?: (p: Progress) => [number, number] // сколько есть / сколько нужно
+  live?: boolean // преимущество уже работает (а не «скоро»)
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -36,9 +38,9 @@ export const ACHIEVEMENTS: Achievement[] = [
     glyph: 'M7 4h10v3.2a5 5 0 0 1-10 0zM7 5.2H4.2v1.3A3.4 3.4 0 0 0 7.6 10M17 5.2h2.8v1.3A3.4 3.4 0 0 1 16.4 10M12 12.2v3.3M8.6 20h6.8l-.7-3.6H9.3z',
     how: '10 подтверждённых встреч.', perk: 'Ранний доступ к новым функциям Komeeta.',
     goal: (p) => [Math.min(p.met, 10), 10] },
-  { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff4cc', '#e9a83a', '#7a4a06'],
+  { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff1b8', '#e9b949', '#8a5a12'],
     glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
-    how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка и место на «Стене основателей».' },
+    how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка вокруг фото, медаль с номером у имени и место на «Стене основателей».', live: true },
 ]
 
 type Earned = Record<string, number> // code → когда получено
@@ -75,7 +77,7 @@ function useAchievements(personId: string) {
   if (!state.cloud) {
     if (personId !== 'me' || !state.me) return { earned: {}, progress: null, stats: null }
     const met = state.me.meetings
-    return { earned: Object.fromEntries([met >= 1 && 'first_meet', met >= 10 && 'regular'].filter(Boolean).map((c) => [c as string, Date.now()])), progress: { met, responded: 0, invites: 0, noshows: 0 }, stats: null }
+    return { earned: Object.fromEntries([met >= 1 && 'first_meet', met >= 10 && 'regular', !!state.me.founder && 'founder'].filter(Boolean).map((c) => [c as string, Date.now()])), progress: { met, responded: 0, invites: 0, noshows: 0 }, stats: null }
   }
   return { earned, progress, stats }
 }
@@ -92,6 +94,17 @@ export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: A
   const ring = Math.max(3, size * 0.075)
   const r = size / 2 - ring / 2
   const c = 2 * Math.PI * r
+  // Основатель — живое золото с логотипом Komeeta, как медаль на экране приветствия
+  if (a.code === 'founder' && got) {
+    return (
+      <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.34}px -${size * 0.1}px rgb(233 185 73 / .75)` }}>
+        <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 210deg, #fff1b8, #e9b949, #8a5a12, #f7d77a, #fff1b8, #c48a1c, #8a5a12, #fff1b8)' }} />
+        <span className="gold-medal absolute grid place-items-center" style={{ inset: ring }}>
+          <GoldPlanet size={size * 0.68} />
+        </span>
+      </span>
+    )
+  }
   return (
     <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size }}>
       {got ? (
@@ -139,11 +152,11 @@ export function AchievementsPanel({ personId }: { personId: string }) {
         <span className="text-[13px] font-semibold text-muted">Достижения</span>
         {mine && <span className="text-[12px] text-muted tnum">{got.length} / {ACHIEVEMENTS.length}</span>}
       </div>
-      <div className={mine ? 'grid grid-cols-6 gap-1.5' : 'flex flex-wrap justify-center gap-3'}>
+      <div className={mine ? 'grid grid-cols-6 gap-1 -mx-1' : 'flex flex-wrap justify-center gap-3'}>
         {list.map((a) => (
           <button key={a.code} onClick={() => setOpen(a)} className="flex flex-col items-center gap-1 min-w-0 cursor-pointer" aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
             <Medal a={a} got={!!earned[a.code]} size={50} progress={frac(a)} />
-            <span className={`text-[10px] leading-tight tracking-tight whitespace-nowrap ${earned[a.code] ? 'text-fg font-semibold' : 'text-muted'}`}>{a.short}</span>
+            <span className={`text-[10px] leading-tight tracking-tight whitespace-nowrap ${earned[a.code] ? 'text-fg font-medium' : 'text-muted'}`}>{a.short}</span>
           </button>
         ))}
       </div>
@@ -171,7 +184,9 @@ export function AchievementsPanel({ personId }: { personId: string }) {
                 <span className="text-[14.5px]">{open.how}</span>
               </div>
               <div className="rounded-2xl p-3.5" style={{ background: `color-mix(in srgb, ${open.colors[1]} 12%, var(--surface-2))` }}>
-                <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1">Что даёт <span className="px-1.5 py-0.5 rounded-full text-[10.5px] text-white" style={{ background: open.colors[1] }}>скоро</span></span>
+                <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1">Что даёт {open.live
+                  ? <span className="px-1.5 py-0.5 rounded-full text-[10.5px] bg-ok text-white">уже действует</span>
+                  : <span className="px-1.5 py-0.5 rounded-full text-[10.5px] text-white" style={{ background: open.colors[1] }}>скоро</span>}</span>
                 <span className="text-[14.5px]">{open.perk}</span>
               </div>
             </div>
