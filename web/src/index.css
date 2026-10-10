@@ -280,12 +280,12 @@ html, body { overflow-x: clip; }
   background: linear-gradient(135deg, #8a5a12 0%, #d9a33a 18%, #fff1b8 34%, #e9b949 50%, #a8701a 66%, #f7d77a 82%, #9c6614 100%);
   background-size: 260% 260%;
   box-shadow: inset 0 0 0 1.5px rgb(255 240 190 / .7), inset 0 -2px 4px rgb(90 50 0 / .35), 0 3px 10px rgb(180 120 20 / .35);
-  animation: gold-flow 5s ease-in-out infinite alternate;
+  animation: gold-flow 3.5s ease-in-out infinite alternate;
 }
 .gold-medal::after {
   content: ''; position: absolute; inset: -20%;
   background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / .85) 50%, transparent 62%);
-  transform: translateX(-120%); animation: gold-shine 3.6s ease-in-out infinite;
+  transform: translateX(-120%); animation: gold-shine 2.8s ease-in-out infinite;
 }
 .gold-ribbon {
   background: linear-gradient(180deg, #2a1a08, #120a03); color: #ffd978;
@@ -339,3 +339,10 @@ html, body { overflow-x: clip; }
 @keyframes medal-shine { 0% { transform: translateX(0) skewX(-20deg) } 55%, 100% { transform: translateX(400%) skewX(-20deg) } }
 .medal-shine { animation: medal-shine 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .medal-shine { animation: none; opacity: 0; } }
+
+/* Медаль «Основатель» в достижениях: вращающийся золотой ободок и мерцающие искорки */
+@keyframes gold-ring-spin { to { transform: rotate(360deg); } }
+.gold-ring-spin { animation: gold-ring-spin 6s linear infinite; }
+@keyframes gold-twinkle { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); } 40%, 60% { opacity: 1; transform: scale(1) rotate(45deg); } }
+.gold-twinkle { opacity: 0; animation: gold-twinkle 2.6s ease-in-out infinite; filter: drop-shadow(0 0 4px rgb(255 220 120 / .9)); }
+@media (prefers-reduced-motion: reduce) { .gold-ring-spin, .gold-twinkle { animation: none; } }
