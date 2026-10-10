@@ -480,9 +480,6 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
   const canZoom = call.video && !!local && !camOff && call.phase !== 'ended' && call.phase !== 'incoming'
   const touches = useRef(new Map<number, { x: number; y: number }>())
   const pinch = useRef<{ d: number; z: number } | null>(null)
-  const [showZoom, setShowZoom] = useState(false)
-  const zoomHide = useRef(0)
-  const flash = () => { setShowZoom(true); clearTimeout(zoomHide.current); zoomHide.current = window.setTimeout(() => setShowZoom(false), 1400) }
   const dist = () => { const [a, b] = [...touches.current.values()]; return Math.hypot(a.x - b.x, a.y - b.y) }
   const onDown = (e: React.PointerEvent) => {
     if (!canZoom) return
@@ -493,10 +490,9 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
     if (!touches.current.has(e.pointerId)) return
     touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     const p = pinch.current
-    if (p && touches.current.size === 2 && p.d > 0) { onZoom(p.z * (dist() / p.d)); flash() }
+    if (p && touches.current.size === 2 && p.d > 0) { onZoom(p.z * (dist() / p.d)) }
   }
   const onUp = (e: React.PointerEvent) => { touches.current.delete(e.pointerId); if (touches.current.size < 2) pinch.current = null }
-  const cycleZoom = () => { onZoom(zoom < 1.5 ? 2 : zoom < 2.5 ? 3 : 1); flash() }
   const name = peer?.name ?? 'Собеседник'
   // Разговор в маленьком окне (свернули приложение) — только видео, без кнопок и подписей
   const [tiny, setTiny] = useState(false)
@@ -527,11 +523,6 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
           <Video stream={local} muted mirror={mirror} className="w-full h-full object-cover pointer-events-none" />
         </div>
       )}
-      {showZoom && canZoom && (
-        <div className="anim-fade absolute left-1/2 -translate-x-1/2 top-[calc(40%)] z-20 h-12 px-5 rounded-full bg-black/55 backdrop-blur grid place-items-center font-display font-bold text-[20px] tnum pointer-events-none" role="status">
-          Ваша камера · {zoom.toFixed(1).replace('.0', '')}×
-        </div>
-      )}
       {/* Пока ждём ответа — своя камера на весь экран, затемнённая для читаемости имени и кнопок */}
       {call.video && local && call.phase !== 'ended' && !camOff && !showRemoteVideo && (
         <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/.55),rgb(0_0_0/.25)_35%,rgb(0_0_0/.25)_65%,rgb(0_0_0/.6))] pointer-events-none" />
@@ -549,13 +540,6 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
       </div>
 
       <div className={`relative z-[5] mt-auto shrink-0 px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))] ${tiny ? 'hidden' : ''}`}>
-        {canZoom && (
-          <div className="flex justify-center mb-4">
-            <button onClick={cycleZoom} className="h-9 min-w-14 px-3 rounded-full bg-black/40 backdrop-blur text-[14px] font-bold tnum cursor-pointer" aria-label={`Приближение своей камеры: ${zoom}×. Нажмите, чтобы изменить`}>
-              {zoom.toFixed(1).replace('.0', '')}×
-            </button>
-          </div>
-        )}
         {call.phase === 'incoming' ? (
           <div className="flex items-center justify-between">
             <button onClick={onDecline} className={`${round} bg-[#ef4444]`} aria-label="Отклонить"><Icon name="phone" size={28} fill className="rotate-[135deg]" /></button>
