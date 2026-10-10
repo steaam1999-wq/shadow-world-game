@@ -287,7 +287,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
           </div>
         </header>
       )}
-      {!inChat && (tab !== 'reels' || person) && <div className="h-14 shrink-0" aria-hidden="true" />}
+      {!inChat && (tab !== 'reels' || person) && <div className="h-[calc(56px+env(safe-area-inset-top,0px))] shrink-0" aria-hidden="true" />}
 
       <main className={`flex-1 ${inChat ? 'flex flex-col px-4' : tab === 'reels' && !person ? '' : player.track ? 'pb-[calc(168px+env(safe-area-inset-bottom,0px))]' : 'pb-[calc(96px+env(safe-area-inset-bottom,0px))]'}`}>
         <div key={person ?? tab} className={`anim-page ${inChat ? 'flex-1 flex flex-col' : ''}`}>

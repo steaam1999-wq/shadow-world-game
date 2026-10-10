@@ -340,7 +340,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
 
   return (
     <div className="flex flex-col flex-1 min-h-[100dvh]">
-      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-2 flex flex-col gap-2">
+      <header className="sticky top-0 z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-[calc(8px+env(safe-area-inset-top,0px))] flex flex-col gap-2">
         <div className="flex items-center gap-1.5">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer rounded-2xl pr-1" aria-label={`Профиль ${p.name}`}>
