@@ -110,8 +110,71 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (cap) void sendMessage(uid, cap.id, text).catch(() => { /* не страшно */ })
   }, [uid])
 
+  // Приближение своей камеры — его видит и собеседник. Если камера умеет зум сама — просим её,
+  // иначе кадрируем картинку на холсте и отправляем уже приближенную.
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  const digital = useRef<{ video: HTMLVideoElement; track: MediaStreamTrack; raf: number } | null>(null)
+  const videoSender = () => pc.current?.getSenders().find((x) => x.track?.kind === 'video')
+  const stopDigital = (restore: boolean) => {
+    const d = digital.current
+    if (!d) return
+    digital.current = null
+    cancelAnimationFrame(d.raf); d.track.stop(); d.video.srcObject = null; d.video.remove()
+    if (restore) {
+      const camTrack = local.current?.getVideoTracks()[0]
+      if (camTrack) void videoSender()?.replaceTrack(camTrack).catch(() => {})
+      setLocalStream(new MediaStream(local.current?.getTracks() ?? []))
+    }
+  }
+  const startDigital = (camTrack: MediaStreamTrack) => {
+    const video = document.createElement('video')
+    video.muted = true; video.playsInline = true; video.setAttribute('playsinline', '')
+    video.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none'
+    document.body.append(video)
+    video.srcObject = new MediaStream([camTrack]); void video.play().catch(() => {})
+    const canvas = document.createElement('canvas')
+    const set = camTrack.getSettings()
+    canvas.width = set.width ?? 640; canvas.height = set.height ?? 480
+    const ctx = canvas.getContext('2d')!
+    const out = canvas.captureStream(30).getVideoTracks()[0]
+    out.enabled = camTrack.enabled
+    const draw = () => {
+      const d = digital.current
+      if (!d) return
+      const vw = video.videoWidth, vh = video.videoHeight
+      if (vw && vh && video.readyState >= 2) {
+        if (canvas.width !== vw || canvas.height !== vh) { canvas.width = vw; canvas.height = vh }
+        const z = zoomRef.current, sw = vw / z, sh = vh / z
+        ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, vw, vh)
+      }
+      d.raf = requestAnimationFrame(draw)
+    }
+    digital.current = { video, track: out, raf: requestAnimationFrame(draw) }
+    void videoSender()?.replaceTrack(out).catch(() => {})
+    setLocalStream(new MediaStream([out, ...(local.current?.getAudioTracks() ?? [])]))
+  }
+  const applyZoom = (want: number) => {
+    const camTrack = local.current?.getVideoTracks()[0]
+    if (!camTrack) return
+    const z = Math.min(4, Math.max(1, Math.round(want * 10) / 10))
+    if (z === zoomRef.current) return
+    zoomRef.current = z
+    setZoom(z)
+    const caps = (camTrack.getCapabilities?.() as { zoom?: { min: number; max: number } } | undefined)?.zoom
+    if (caps && caps.max > caps.min) {
+      const v = Math.min(caps.max, Math.max(caps.min, caps.min * z))
+      void camTrack.applyConstraints({ advanced: [{ zoom: v } as MediaTrackConstraintSet] }).catch(() => {})
+      return
+    }
+    if (z <= 1) stopDigital(true)
+    else if (!digital.current) startDigital(camTrack)
+  }
+
   const cleanup = useCallback(() => {
     clearTimeout(ringTimer.current)
+    { const d = digital.current; if (d) { digital.current = null; cancelAnimationFrame(d.raf); d.track.stop(); d.video.remove() } }
+    zoomRef.current = 1; setZoom(1)
     pc.current?.close(); pc.current = null
     local.current?.getTracks().forEach((t) => t.stop()); local.current = null
     pending.current = []
@@ -311,9 +374,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useRingtone(call?.phase === 'incoming' ? 'in' : call?.phase === 'outgoing' ? 'out' : null)
 
   const toggleMic = () => { const t = local.current?.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setMuted(!t.enabled) } }
-  const toggleCam = () => { const t = local.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setCamOff(!t.enabled) } }
+  const toggleCam = () => { const t = local.current?.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setCamOff(!t.enabled); if (digital.current) digital.current.track.enabled = t.enabled } }
   const flip = async () => {
     const next = facing === 'user' ? 'environment' : 'user'
+    // Другая камера — начинаем без приближения
+    stopDigital(false); zoomRef.current = 1; setZoom(1)
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: cam(next) })
       const track = s.getVideoTracks()[0]
@@ -334,7 +399,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       {call && createPortal(
         <CallScreen call={call} peer={peer} remote={remote} local={localStream} muted={muted} camOff={camOff} mirror={facing === 'user'}
           onAccept={() => void accept()} onDecline={() => finish('Звонок отклонён', 'decline')} onHangup={() => finish(call.phase === 'outgoing' ? 'Звонок отменён' : 'Звонок завершён', 'end')}
-          onMic={toggleMic} onCam={toggleCam} onFlip={() => void flip()} />,
+          onMic={toggleMic} onCam={toggleCam} onFlip={() => void flip()} zoom={zoom} onZoom={applyZoom} />,
         document.body,
       )}
     </Ctx.Provider>
@@ -351,6 +416,7 @@ function Sound({ stream }: { stream: MediaStream }) {
 }
 
 function Video({ stream, muted, mirror, className }: { stream: MediaStream | null; muted?: boolean; mirror?: boolean; className: string }) {
+  // (рамка, перетаскивание и приближение — снаружи, в CallScreen)
   const ref = useRef<HTMLVideoElement>(null)
   useEffect(() => {
     const v = ref.current
@@ -361,10 +427,71 @@ function Video({ stream, muted, mirror, className }: { stream: MediaStream | nul
   return <video ref={ref} autoPlay playsInline muted={muted} className={className} style={mirror ? { transform: 'scaleX(-1)' } : undefined} />
 }
 
-function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept, onDecline, onHangup, onMic, onCam, onFlip }: {
+const PIP_W = 112, PIP_H = 160
+
+function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept, onDecline, onHangup, onMic, onCam, onFlip, zoom, onZoom }: {
   call: CallState; peer: Person | null; remote: MediaStream | null; local: MediaStream | null; muted: boolean; camOff: boolean; mirror: boolean
   onAccept: () => void; onDecline: () => void; onHangup: () => void; onMic: () => void; onCam: () => void; onFlip: () => void
+  zoom: number; onZoom: (z: number) => void
 }) {
+  // Маленькое окошко: перетаскивается пальцем и прилипает к ближнему краю; касание — поменять местами с большим.
+  const [swapped, setSwapped] = useState(false)
+  const [pip, setPip] = useState<{ x: number; y: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const drag = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
+  const pipRef = useRef<HTMLDivElement>(null)
+  const onPipDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    const r = e.currentTarget.getBoundingClientRect()
+    drag.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: r.left, oy: r.top, moved: false }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onPipMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    e.stopPropagation()
+    const dx = e.clientX - d.sx, dy = e.clientY - d.sy
+    if (!d.moved && Math.hypot(dx, dy) < 6) return
+    if (!d.moved) { d.moved = true; setDragging(true) }
+    setPip({ x: d.ox + dx, y: d.oy + dy })
+  }
+  const onPipUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    e.stopPropagation()
+    drag.current = null
+    setDragging(false)
+    if (!d.moved) { setSwapped((v) => !v); return }
+    const W = window.innerWidth, H = window.innerHeight
+    const r = pipRef.current?.getBoundingClientRect()
+    const cx = (r?.left ?? 0) + PIP_W / 2
+    setPip({ x: cx < W / 2 ? 16 : W - PIP_W - 16, y: Math.min(H - PIP_H - 190, Math.max(16, r?.top ?? 16)) })
+  }
+  const pipCls = `absolute z-10 rounded-2xl overflow-hidden ring-2 ring-white/40 shadow-2xl touch-none cursor-grab ${pip ? '' : 'right-4 top-[calc(16px+env(safe-area-inset-top,0px))]'} ${dragging ? 'scale-105' : 'transition-[left,top,scale] duration-200'}`
+  const pipStyle: React.CSSProperties = { width: PIP_W, height: PIP_H, ...(pip ? { left: pip.x, top: pip.y } : {}) }
+  const pipProps = { ref: pipRef, className: pipCls, style: pipStyle, onPointerDown: onPipDown, onPointerMove: onPipMove, onPointerUp: onPipUp, onPointerCancel: onPipUp }
+
+  // Щипок двумя пальцами — приблизить свою камеру
+  const canZoom = call.video && !!local && !camOff && call.phase !== 'ended' && call.phase !== 'incoming'
+  const touches = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ d: number; z: number } | null>(null)
+  const [showZoom, setShowZoom] = useState(false)
+  const zoomHide = useRef(0)
+  const flash = () => { setShowZoom(true); clearTimeout(zoomHide.current); zoomHide.current = window.setTimeout(() => setShowZoom(false), 1400) }
+  const dist = () => { const [a, b] = [...touches.current.values()]; return Math.hypot(a.x - b.x, a.y - b.y) }
+  const onDown = (e: React.PointerEvent) => {
+    if (!canZoom) return
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (touches.current.size === 2) pinch.current = { d: dist(), z: zoom }
+  }
+  const onMove = (e: React.PointerEvent) => {
+    if (!touches.current.has(e.pointerId)) return
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const p = pinch.current
+    if (p && touches.current.size === 2 && p.d > 0) { onZoom(p.z * (dist() / p.d)); flash() }
+  }
+  const onUp = (e: React.PointerEvent) => { touches.current.delete(e.pointerId); if (touches.current.size < 2) pinch.current = null }
+  const cycleZoom = () => { onZoom(zoom < 1.5 ? 2 : zoom < 2.5 ? 3 : 1); flash() }
   const name = peer?.name ?? 'Собеседник'
   const showRemoteVideo = call.video && !!remote && remote.getVideoTracks().length > 0 && call.phase === 'active'
   const status = call.phase === 'incoming' ? (call.video ? 'Видеозвонок…' : 'Входящий звонок…')
@@ -372,15 +499,25 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
     : call.phase === 'active' ? fmt(Date.now() - (call.startedAt ?? Date.now())) : call.note ?? 'Звонок завершён'
   const round = 'grid place-items-center w-16 h-16 rounded-full cursor-pointer transition active:scale-95'
   return (
-    <div className="fixed inset-0 z-[120] text-white flex flex-col bg-[radial-gradient(120%_80%_at_50%_0%,#3b1d4e,#120a1c_70%)]" role="dialog" aria-modal="true" aria-label={`Звонок: ${name}`}>
+    <div className="fixed inset-0 z-[120] text-white flex flex-col bg-[radial-gradient(120%_80%_at_50%_0%,#3b1d4e,#120a1c_70%)] touch-none" role="dialog" aria-modal="true" aria-label={`Звонок: ${name}`}
+      onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       {/* Звук собеседника (в видеозвонке он идёт вместе с видео) */}
       {!showRemoteVideo && remote && <Sound stream={remote} />}
-      {showRemoteVideo && <Video stream={remote} className="absolute inset-0 w-full h-full object-cover" />}
-      {showRemoteVideo && <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />}
+      {showRemoteVideo && (
+        <div {...(swapped ? pipProps : { className: 'absolute inset-0' })}>
+          <Video stream={remote} className="w-full h-full object-cover pointer-events-none" />
+        </div>
+      )}
+      {showRemoteVideo && !swapped && <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />}
       {call.video && local && call.phase !== 'ended' && !camOff && (
-        <Video stream={local} muted mirror={mirror} className={showRemoteVideo
-          ? 'absolute right-4 top-[calc(16px+env(safe-area-inset-top,0px))] w-28 h-40 rounded-2xl object-cover ring-2 ring-white/40 shadow-2xl z-10'
-          : 'absolute inset-0 w-full h-full object-cover'} />
+        <div {...(showRemoteVideo && !swapped ? pipProps : { className: 'absolute inset-0' })}>
+          <Video stream={local} muted mirror={mirror} className="w-full h-full object-cover pointer-events-none" />
+        </div>
+      )}
+      {showZoom && canZoom && (
+        <div className="anim-fade absolute left-1/2 -translate-x-1/2 top-[calc(40%)] z-20 h-12 px-5 rounded-full bg-black/55 backdrop-blur grid place-items-center font-display font-bold text-[20px] tnum pointer-events-none" role="status">
+          Ваша камера · {zoom.toFixed(1).replace('.0', '')}×
+        </div>
       )}
       {/* Пока ждём ответа — своя камера на весь экран, затемнённая для читаемости имени и кнопок */}
       {call.video && local && call.phase !== 'ended' && !camOff && !showRemoteVideo && (
@@ -399,6 +536,13 @@ function CallScreen({ call, peer, remote, local, muted, camOff, mirror, onAccept
       </div>
 
       <div className="relative z-[5] mt-auto shrink-0 px-8 pb-[calc(40px+env(safe-area-inset-bottom,0px))]">
+        {canZoom && (
+          <div className="flex justify-center mb-4">
+            <button onClick={cycleZoom} className="h-9 min-w-14 px-3 rounded-full bg-black/40 backdrop-blur text-[14px] font-bold tnum cursor-pointer" aria-label={`Приближение своей камеры: ${zoom}×. Нажмите, чтобы изменить`}>
+              {zoom.toFixed(1).replace('.0', '')}×
+            </button>
+          </div>
+        )}
         {call.phase === 'incoming' ? (
           <div className="flex items-center justify-between">
             <button onClick={onDecline} className={`${round} bg-[#ef4444]`} aria-label="Отклонить"><Icon name="phone" size={28} fill className="rotate-[135deg]" /></button>
