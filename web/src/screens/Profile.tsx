@@ -13,6 +13,7 @@ import { MyPlans } from '../components/MyPlans'
 import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
+import { AchievementsPanel } from '../components/Achievements'
 import { AmbassadorBadge, AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { StyleEditor } from '../components/StyleEditor'
 import { FollowersSheet } from '../components/Followers'
@@ -57,13 +58,6 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const complete = profileCompleteness(me)
   const patch = (p: Partial<typeof me>) => dispatch({ type: 'updateMe', patch: p })
 
-  const badges = [
-    { id: 'first', name: 'Первая встреча', desc: 'Первая состоявшаяся встреча', got: me.meetings >= 1 },
-    { id: 'verified', name: 'Проверенный', desc: 'Прошёл верификацию', got: me.verified },
-    { id: 'full', name: 'Открытая книга', desc: 'Профиль заполнен на 100%', got: complete === 100 },
-    { id: 'host', name: 'Организатор', desc: 'Предложил свою активность', got: state.activities.some((a) => a.authorId === 'me') },
-    { id: 'fast', name: 'Без лишних слов', desc: 'Договорился быстрее 24 часов', got: state.capsules.some((c) => c.status !== 'active') },
-  ]
 
   return (
     <div className="flex flex-col gap-3 pb-4">
@@ -117,15 +111,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
         <VerifyCard />
         <InviteCard />
         <MeetingCards />
-        {/* Достижения: полученные — яркие, остальные — подсказкой, как их получить */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-4 px-4" aria-label="Достижения">
-          {[...badges].sort((x, y) => Number(y.got) - Number(x.got)).map((b) => (
-            <span key={b.id} title={b.desc} className={`shrink-0 inline-flex items-center gap-1.5 h-8 pl-1 pr-3 rounded-full text-[12px] font-semibold ${b.got ? 'bg-surface shadow-soft' : 'bg-surface-2 text-muted'}`}>
-              <span className={`grid place-items-center w-6 h-6 rounded-full ${b.got ? 'bg-brand text-white' : 'bg-line text-muted'}`}><Icon name={b.got ? 'spark' : 'clock'} size={12} fill={b.got} /></span>
-              {b.name}
-            </span>
-          ))}
-        </div>
+        <AchievementsPanel personId="me" />
       </section>
 
       <div className="grid grid-cols-4 border-t border-line" role="tablist">

@@ -22,6 +22,7 @@ import { VerifySheet, useVerifyRequests } from './components/Verify'
 import { CallProvider } from './calls/Calls'
 import { FounderSheet, captureInvite, forgetInvitedUser, invitedUser, useClaimReferral, useFounderInfoRequests } from './components/Invite'
 import { isExpired, relative } from './lib'
+import { AchievementToast } from './components/Achievements'
 import type { Activity, Me, Person, PlanComment, State } from './types'
 
 // Разделы, которые нужны не сразу, подгружаются при первом открытии — главная открывается быстрее.
@@ -263,6 +264,7 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
 
   return (
     <ProfileNav.Provider value={openProfile}>
+      <AchievementToast />
     <CallProvider>
     <div className="min-h-full mx-auto max-w-[480px] flex flex-col">
       {!inChat && (tab !== 'reels' || person) && (

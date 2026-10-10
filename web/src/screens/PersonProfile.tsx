@@ -5,6 +5,7 @@ import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Icon, StoryRing } from '../components/ui'
 import { AmbassadorBadge, AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
+import { AchievementsPanel } from '../components/Achievements'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
 import { PersonSongs, songsOf } from '../music/PersonSongs'
@@ -103,6 +104,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
             { n: p.meetings, label: plural(p.meetings, 'встреча', 'встречи', 'встреч') },
           ]} />
         </div>
+        <div className="relative"><AchievementsPanel personId={p.id} /></div>
         <div className="relative grid grid-cols-2 gap-2">
           <button onClick={message} className="h-10 rounded-xl inline-flex items-center justify-center gap-1.5 font-semibold text-[14px] cursor-pointer hover:brightness-105" style={{ background: accentOf(p.style).color, color: accentOf(p.style).ink }}>
             <Icon name="chat" size={16} /> Написать

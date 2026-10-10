@@ -1749,3 +1749,46 @@ begin
 end $$;
 revoke all on function public.admin_set_ambassador(uuid, boolean, text) from public, anon;
 grant execute on function public.admin_set_ambassador(uuid, boolean, text) to authenticated;
+
+-- Достижения: выдаются только сервером (check_achievements считает по данным базы), подделать нельзя. Видны всем.
+create table if not exists public.achievements (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  code text not null check (char_length(code) <= 40),
+  earned_at timestamptz not null default now(),
+  primary key (user_id, code)
+);
+alter table public.achievements enable row level security;
+revoke all on public.achievements from anon, authenticated;
+grant select on public.achievements to authenticated;
+drop policy if exists "achievements: read" on public.achievements;
+create policy "achievements: read" on public.achievements for select to authenticated using (true);
+
+-- Проверить мои достижения и выдать новые; возвращает коды только что полученных.
+create or replace function public.check_achievements() returns setof text
+language plpgsql security definer set search_path = public as $$
+declare
+  me uuid := (select auth.uid());
+  met int; got text[] := '{}';
+begin
+  if me is null then return; end if;
+  select count(*) into met from capsules where status = 'met' and me in (author, responder);
+  if exists (select 1 from profiles p where p.id = me and p.photo_path is not null and char_length(p.bio) > 0 and coalesce(array_length(p.tags, 1), 0) >= 3 and p.district <> '') then got := array_append(got, 'profile_full'); end if;
+  if exists (select 1 from plans where author = me) then got := array_append(got, 'first_plan'); end if;
+  if (select count(distinct c.plan_id) from capsules c join plans pl on pl.id = c.plan_id where pl.author = me) >= 5 then got := array_append(got, 'soul'); end if;
+  if met >= 1 then got := array_append(got, 'first_meet'); end if;
+  if met >= 10 then got := array_append(got, 'regular'); end if;
+  if (select count(*) from referrals where inviter = me) >= 3 then got := array_append(got, 'guide'); end if;
+  if (select count(*) from shorts where author = me) >= 10 then got := array_append(got, 'author'); end if;
+  if met >= 5 and not exists (select 1 from no_shows n join capsules c on c.id = n.capsule_id and c.status <> 'met' where n.target = me) then got := array_append(got, 'reliable'); end if;
+  if exists (select 1 from capsules c join plans pl on pl.id = c.plan_id where c.status = 'met' and me in (c.author, c.responder)
+    and extract(hour from pl.starts_at at time zone 'Europe/Minsk') >= 22) then got := array_append(got, 'night_owl'); end if;
+  if exists (select 1 from capsules c join plans pl on pl.id = c.plan_id where c.status = 'met' and me in (c.author, c.responder)
+    and extract(hour from pl.starts_at at time zone 'Europe/Minsk') < 9) then got := array_append(got, 'early_bird'); end if;
+  if exists (select 1 from ambassadors where user_id = me and active) then got := array_append(got, 'ambassador'); end if;
+  if exists (select 1 from founders where user_id = me) then got := array_append(got, 'founder'); end if;
+  return query
+    with ins as (insert into achievements (user_id, code) select me, x from unnest(got) x on conflict do nothing returning achievements.code)
+    select ins.code from ins;
+end $$;
+revoke all on function public.check_achievements() from public, anon;
+grant execute on function public.check_achievements() to authenticated;
