@@ -15,6 +15,7 @@ export interface Achievement {
   glyph: string // контур значка (viewBox 24)
   goal?: (p: Progress) => [number, number] // сколько есть / сколько нужно
   live?: boolean // преимущество уже работает (а не «скоро»)
+  special?: boolean // выдаёт команда — в профиле видна только у тех, у кого есть
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
@@ -38,6 +39,9 @@ export const ACHIEVEMENTS: Achievement[] = [
     glyph: 'M7 4h10v3.2a5 5 0 0 1-10 0zM7 5.2H4.2v1.3A3.4 3.4 0 0 0 7.6 10M17 5.2h2.8v1.3A3.4 3.4 0 0 1 16.4 10M12 12.2v3.3M8.6 20h6.8l-.7-3.6H9.3z',
     how: '10 подтверждённых встреч.', perk: 'Ранний доступ к новым функциям Komeeta.',
     goal: (p) => [Math.min(p.met, 10), 10] },
+  { code: 'ambassador', title: 'Амбассадор', short: 'Амбассадор', colors: ['#ffd0e0', '#ff4f86', '#5b23b8'],
+    glyph: 'M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z',
+    how: 'Помогать запускать встречи в своём городе. Медаль выдаёт команда Komeeta лично.', perk: 'Значок «Амбассадор Komeeta» с городом в профиле и прямая связь с командой.', live: true, special: true },
   { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff1b8', '#e9b949', '#8a5a12'],
     glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
     how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка вокруг фото, медаль с номером у имени и место на «Стене основателей».', live: true },
@@ -77,7 +81,7 @@ function useAchievements(personId: string) {
   if (!state.cloud) {
     if (personId !== 'me' || !state.me) return { earned: {}, progress: null, stats: null }
     const met = state.me.meetings
-    return { earned: Object.fromEntries([met >= 1 && 'first_meet', met >= 10 && 'regular', !!state.me.founder && 'founder'].filter(Boolean).map((c) => [c as string, Date.now()])), progress: { met, responded: 0, invites: 0, noshows: 0 }, stats: null }
+    return { earned: Object.fromEntries([met >= 1 && 'first_meet', met >= 10 && 'regular', !!state.me.founder && 'founder', state.me.ambassador !== undefined && 'ambassador'].filter(Boolean).map((c) => [c as string, Date.now()])), progress: { met, responded: 0, invites: 0, noshows: 0 }, stats: null }
   }
   return { earned, progress, stats }
 }
@@ -94,6 +98,25 @@ export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: A
   const ring = Math.max(3, size * 0.075)
   const r = size / 2 - ring / 2
   const c = 2 * Math.PI * r
+  // Амбассадор — фирменные цвета Komeeta: вращающийся ободок, звезда со свечением, лента на большой медали
+  if (a.code === 'ambassador' && got) {
+    return (
+      <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.34}px -${size * 0.1}px rgb(255 79 134 / .7)` }}>
+        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #ffb347, #ff4f86 33%, #8a5cff 66%, #ffb347)' }} />
+        <span className="absolute rounded-full overflow-hidden" style={{ inset: ring, background: 'radial-gradient(circle at 34% 28%, #ff9cbd 0%, #e2306f 42%, #5b23b8 100%)', boxShadow: `inset 0 ${size * 0.03}px 0 rgb(255 255 255 / .4), inset 0 -${size * 0.06}px ${size * 0.12}px rgb(30 0 60 / .35)` }}>
+          <span className="absolute inset-x-0 top-0 h-1/2 rounded-b-[50%] bg-gradient-to-b from-white/30 to-transparent" />
+          <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]" />
+        </span>
+        <svg className="relative" width={size * 0.5} height={size * 0.5} viewBox="0 0 24 24" aria-hidden="true" style={{ filter: `drop-shadow(0 0 ${size * 0.06}px rgb(255 220 240 / .9))` }}>
+          <path d={a.glyph} fill="#fff" />
+        </svg>
+        {size >= 90 && (
+          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 -rotate-6 px-3 py-1 rounded-lg font-display font-bold text-[12px] tracking-[.12em] text-white whitespace-nowrap"
+            style={{ background: 'linear-gradient(95deg, #ff4f86, #8a5cff)', boxShadow: '0 8px 18px -6px rgb(255 79 134 / .8)' }}>АМБАССАДОР</span>
+        )}
+      </span>
+    )
+  }
   // Основатель — живое золото с логотипом Komeeta, как медаль на экране приветствия
   if (a.code === 'founder' && got) {
     return (
@@ -144,12 +167,16 @@ export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: A
 
 /** Панель достижений. Свой профиль — все 6 (неполученные с прогрессом), чужой — только полученные. */
 export function AchievementsPanel({ personId }: { personId: string }) {
-  const { earned, progress, stats } = useAchievements(personId)
+  const { state } = useStore()
+  const { earned: raw, progress, stats } = useAchievements(personId)
+  // Амбассадор действует, пока значок не сняли: снятый — не показываем
+  const isAmb = personId === 'me' ? state.me?.ambassador !== undefined : state.people.find((p) => p.id === personId)?.ambassador !== undefined
+  const earned = raw && !isAmb && raw.ambassador ? Object.fromEntries(Object.entries(raw).filter(([c]) => c !== 'ambassador')) : raw
   const [open, setOpen] = useState<Achievement | null>(null)
   if (!earned) return null
   const mine = personId === 'me'
   const got = ACHIEVEMENTS.filter((a) => earned[a.code])
-  const list = mine ? ACHIEVEMENTS : got
+  const list = mine ? ACHIEVEMENTS.filter((a) => !a.special || earned[a.code]).sort((x, y) => Number(!!earned[y.code]) - Number(!!earned[x.code])) : got
   if (!list.length) return null
   const frac = (a: Achievement) => { if (!progress || !a.goal) return 0; const [n, of] = a.goal(progress); return n / of }
   const at = open ? earned[open.code] : 0
@@ -160,11 +187,12 @@ export function AchievementsPanel({ personId }: { personId: string }) {
     <section className="flex flex-col gap-2.5" aria-label="Достижения">
       <div className="flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-muted">Достижения</span>
-        {mine && <span className="text-[12px] text-muted tnum">{got.length} / {ACHIEVEMENTS.length}</span>}
+        {mine && <span className="text-[12px] text-muted tnum">{got.length} / {list.length}</span>}
       </div>
-      <div className={mine ? 'grid grid-cols-6 gap-1 -mx-1' : 'flex flex-wrap justify-center gap-3'}>
+      {/* До 6 медалей — ровной сеткой; больше — ряд листается пальцем */}
+      <div className={!mine ? 'flex flex-wrap justify-center gap-3' : list.length > 6 ? 'flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4' : 'grid grid-cols-6 gap-1 -mx-1'}>
         {list.map((a) => (
-          <button key={a.code} onClick={() => setOpen(a)} className="flex flex-col items-center gap-1 min-w-0 cursor-pointer" aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
+          <button key={a.code} onClick={() => setOpen(a)} className={`flex flex-col items-center gap-1 min-w-0 cursor-pointer ${mine && list.length > 6 ? 'w-[62px] shrink-0' : ''}`} aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
             <Medal a={a} got={!!earned[a.code]} size={50} progress={frac(a)} />
             <span className={`text-[10px] leading-tight tracking-tight whitespace-nowrap ${earned[a.code] ? 'text-fg font-medium' : 'text-muted'}`}>{a.short}</span>
           </button>
