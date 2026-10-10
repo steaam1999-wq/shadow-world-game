@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Icon, StoryRing } from '../components/ui'
-import { AmbassadorBadge, AvatarRing, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { AmbassadorBadge, AvatarRing, CometFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
 import { AchievementsPanel } from '../components/Achievements'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
@@ -74,7 +74,9 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         <ProfileCover style={p.style} photo={p.photo} hue={p.hue} />
         {/* Визитка: аватарка по центру, имя, статус и город */}
         <div className="relative flex flex-col items-center text-center gap-1">
-          {p.founder && (!plans.length || state.seenStories.includes(p.id))
+          {p.collector
+            ? <CometFrame on width={4}><Avatar name={p.name} hue={p.hue} src={p.photo} size={96} /></CometFrame>
+            : p.founder && (!plans.length || state.seenStories.includes(p.id))
             // Основатель без новых историй: только золотая рамка, без второго серого кольца.
             ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={92} /></GoldFrame>
             : plans.length && !state.seenStories.includes(p.id)

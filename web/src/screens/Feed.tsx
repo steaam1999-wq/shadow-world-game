@@ -20,6 +20,8 @@ import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
 import { CommentsPreview, CommentsSheet } from '../components/Comments'
+import { AmbassadorMark, CometFrame } from '../components/ProfileLook'
+import { planViewers, recordPlanView } from '../cloud/api'
 import type { Activity, Person, Short } from '../types'
 
 interface Props {
@@ -75,7 +77,10 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
   const boosted = new Set(state.people.filter((p) => p.founderAt && now - p.founderAt < FOUNDER_BOOST_MS).map((p) => p.id))
   // Подъём плана основателем (раз в месяц): сутки этот план выше остальных.
   const lifted = new Set(state.people.flatMap((p) => (p.boostPlan && p.boostAt && now - p.boostAt < BOOST_DAY_MS ? [p.boostPlan] : [])))
-  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : followed.includes(x.authorId) ? 1 : boosted.has(x.authorId) || lifted.has(x.id) ? 1.5 : 2)
+  // Бонусы: «Комета» (вся коллекция) — в самом верху ленты, амбассадоры — выше обычных планов
+  const collectors = new Set(state.people.filter((p) => p.collector).map((p) => p.id))
+  const ambassadors = new Set(state.people.filter((p) => p.ambassador !== undefined).map((p) => p.id))
+  const rank = (x: Activity) => (x.authorId === 'me' ? 0 : collectors.has(x.authorId) ? 0.5 : followed.includes(x.authorId) ? 1 : ambassadors.has(x.authorId) ? 1.3 : boosted.has(x.authorId) || lifted.has(x.id) ? 1.5 : 2)
   const posts = [...live].sort((a, b) => rank(a) - rank(b) || a.startsAt - b.startsAt)
   const openProfile = useOpenProfile()
   // Люди без активного плана: иначе новенькие не видны на главной, пока не предложат план.
@@ -203,6 +208,20 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const started = a.startsAt <= now
   const compat = person ? compatibility(me, person) : null
   const author = person ?? { name: me.name, hue: me.hue, verified: me.verified, founder: me.founder }
+  const comet = person ? !!person.collector : !!me.collector
+  const amb = person ? person.ambassador !== undefined : me.ambassador !== undefined
+  // Бонус амбассадоров и «Кометы»: видно, кто смотрел ваш план
+  const canSeeViews = !person && !!state.cloud && (me.ambassador !== undefined || !!me.collector)
+  const [viewers, setViewers] = useState<{ viewer: string; at: number }[] | null>(null)
+  // Чужой план пролистали и задержались на нём — отмечаем просмотр (один раз)
+  const card = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!person || !state.cloud || !card.current) return
+    let t = 0
+    const io = new IntersectionObserver(([e]) => { clearTimeout(t); if (e.isIntersecting) t = window.setTimeout(() => recordPlanView(a.id), 1200) }, { threshold: 0.6 })
+    io.observe(card.current)
+    return () => { clearTimeout(t); io.disconnect() }
+  }, [a.id, person, state.cloud])
 
   const onImageTap = () => {
     const t = Date.now()
@@ -214,10 +233,12 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   }
 
   return (
-    <article className="pb-7 rounded-[20px] transition-shadow" data-plan={a.id}>
+    <article ref={card} className="pb-7 rounded-[20px] transition-shadow" data-plan={a.id}>
       <header className="flex items-center gap-3 px-4 pt-1 pb-3">
         <button onClick={() => person && openProfile(person.id)} className={person ? 'cursor-pointer' : 'cursor-default'} aria-label={person ? `Профиль ${person.name}` : undefined} tabIndex={person ? 0 : -1}>
-          {author.founder && (!person || state.seenStories.includes(person.id))
+          {comet
+            ? <CometFrame on width={2.5}><Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={30} /></CometFrame>
+            : author.founder && (!person || state.seenStories.includes(person.id))
             ? <GoldFrame on medal={15} label={`Основатель Komeeta №${author.founder}`}><Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={30} /></GoldFrame>
             : <span className="relative inline-grid">
               <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>
@@ -230,7 +251,10 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
           <div className="flex items-center gap-1 font-semibold text-[14px]">
             {person ? <button onClick={() => openProfile(person.id)} className="cursor-pointer hover:underline">{person.name}</button> : me.name}
             {author.verified && <span className="grid place-items-center w-3.5 h-3.5 rounded-full bg-cobalt text-white"><Icon name="check" size={9} /></span>}
-            {!person && <span className="font-normal text-muted">· ваш план</span>}
+            {amb && <AmbassadorMark />}
+            {!person && (canSeeViews
+              ? <button onClick={() => { setViewers([]); void planViewers(a.id).then(setViewers) }} className="inline-flex items-center gap-1 font-normal text-muted hover:text-fg cursor-pointer"><Icon name="eye" size={13} /> кто смотрел</button>
+              : <span className="font-normal text-muted">· ваш план</span>)}
           </div>
           {person ? <TrackChip track={personTrack(person)} /> : <div className="text-[12px] text-muted truncate">{a.area}</div>}
         </div>
@@ -291,6 +315,24 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
         <div className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(64px+env(safe-area-inset-top,0px))] z-[95] rounded-full bg-fg text-bg px-4 h-10 inline-flex items-center text-[14px] font-medium shadow-soft whitespace-nowrap" role="status">{boostNote}</div>,
         document.body,
       )}
+      <Sheet open={viewers !== null} onClose={() => setViewers(null)} title="Кто смотрел план">
+        {viewers && !viewers.length && <p className="text-muted text-[14px] py-4 text-center">Пока никто — или просмотры ещё загружаются.</p>}
+        <ul className="flex flex-col">
+          {(viewers ?? []).map((v) => {
+            const p = state.people.find((x) => x.id === v.viewer)
+            if (!p) return null
+            return (
+              <li key={v.viewer} className="border-t border-line first:border-0">
+                <button onClick={() => { setViewers(null); openProfile(p.id) }} className="w-full flex items-center gap-3 py-2.5 text-left cursor-pointer">
+                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={42} />
+                  <span className="flex-1 min-w-0 font-semibold truncate">{p.name}</span>
+                  <span className="text-[12px] text-muted">{new Date(v.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </Sheet>
       <Sheet open={menu} onClose={() => setMenu(false)} title="Действия">
         <div className="flex flex-col divide-y divide-line -mx-5">
           {person && <button onClick={() => { setMenu(false); setReporting(person) }} className="h-12 px-5 text-left font-semibold text-danger cursor-pointer">Пожаловаться</button>}

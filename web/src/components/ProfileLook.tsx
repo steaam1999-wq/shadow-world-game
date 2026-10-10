@@ -100,3 +100,20 @@ export function AmbassadorBadge({ city }: { city?: string }) {
     </span>
   )
 }
+
+/** Рамка «Комета» — за всю коллекцию медалей: радужное кольцо медленно вращается вокруг фото. */
+export function CometFrame({ on, children, width = 3 }: { on?: boolean; children: ReactNode; width?: number }) {
+  if (!on) return <>{children}</>
+  return (
+    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: width + 2 }} title="Комета: вся коллекция медалей">
+      <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #ffb347, #ff4f86, #8a5cff, #4aa8ff, #3fd18f, #ffd27a, #ffb347)', boxShadow: '0 0 14px -2px rgb(122 92 255 / .7)' }} />
+      <span className="absolute rounded-full bg-bg" style={{ inset: width }} />
+      <span className="relative">{children}</span>
+    </span>
+  )
+}
+
+/** Отметка «Амбассадор» рядом с именем на плане. */
+export function AmbassadorMark() {
+  return <span className="inline-flex items-center gap-0.5 h-[18px] px-1.5 rounded-full text-[10.5px] font-bold text-white whitespace-nowrap" style={{ background: 'linear-gradient(95deg, #ff4f86, #8a5cff)' }} title="Амбассадор Komeeta">★ Амбассадор</span>
+}

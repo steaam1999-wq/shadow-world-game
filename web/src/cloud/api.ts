@@ -457,9 +457,11 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   // Амбассадоры городов: значок в профиле
   const ambRows = await db.from('ambassadors').select('user_id, city').eq('active', true).returns<{ user_id: string; city: string }[]>()
   const amb = new Map((ambRows.error ? [] : ambRows.data ?? []).map((a) => [a.user_id, a.city]))
+  const collRows = await db.from('achievements').select('user_id').eq('code', 'collector').returns<{ user_id: string }[]>()
+  const collectors = new Set((collRows.error ? [] : collRows.data ?? []).map((r) => r.user_id))
   const missed = new Map(((missedRows.data ?? []) as { user_id: string; missed: number }[]).map((x) => [x.user_id, x.missed]))
   const reported = new Set((myNoShows.data ?? []).map((x) => x.capsule_id))
-  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)), ambassador: amb.get(userId) } : null
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)), ambassador: amb.get(userId), collector: collectors.has(userId) || undefined } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
@@ -468,6 +470,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     photo: p.photo ?? undefined, songs: safeTracks(p.songs), noShows: missed.get(p.id) ?? 0, onlyVerified: !!p.only_verified, callsOff: !!p.calls_off, style: safeStyle(p.style),
     ...founderFields(founders.get(p.id)),
     ambassador: amb.get(p.id),
+    collector: collectors.has(p.id) || undefined,
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))
@@ -635,6 +638,19 @@ export async function adminPush(title: string, body: string, target?: string) {
   const { error } = await sb().rpc('admin_push', { title, body, target: target ?? null })
   if (error) throw error
 }
+/** Просмотр чужого плана — запоминаем один раз (видят только авторы с бонусом «кто смотрел»). */
+const viewedPlans = new Set<string>()
+export function recordPlanView(planId: string) {
+  if (viewedPlans.has(planId)) return
+  viewedPlans.add(planId)
+  void sb().from('plan_views').insert({ plan_id: planId }).then(() => {}, () => {})
+}
+/** Кто смотрел мой план (для амбассадоров и обладателей «Кометы»). */
+export async function planViewers(planId: string): Promise<{ viewer: string; at: number }[]> {
+  const { data } = await sb().from('plan_views').select('viewer, viewed_at').eq('plan_id', planId).order('viewed_at', { ascending: false }).limit(200)
+  return (data ?? []).map((r: { viewer: string; viewed_at: string }) => ({ viewer: r.viewer, at: ms(r.viewed_at) }))
+}
+
 /** Админ: сделать человека амбассадором города или снять значок. */
 export async function adminSetAmbassador(userId: string, on: boolean, city = '') {
   const { error } = await sb().rpc('admin_set_ambassador', { u: userId, on_off: on, city })

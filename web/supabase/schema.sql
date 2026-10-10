@@ -1845,3 +1845,28 @@ begin
     with ins as (insert into achievements (user_id, code) select me, x from unnest(got) x on conflict do nothing returning achievements.code)
     select ins.code from ins;
 end $$;
+
+-- Кто смотрел план: видят только авторы-амбассадоры и обладатели «Кометы». Каждый записывает только свой просмотр.
+create table if not exists public.plan_views (
+  plan_id uuid not null references public.plans (id) on delete cascade,
+  viewer uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  viewed_at timestamptz not null default now(),
+  primary key (plan_id, viewer)
+);
+create index if not exists plan_views_plan_idx on public.plan_views (plan_id);
+alter table public.plan_views enable row level security;
+revoke all on public.plan_views from anon, authenticated;
+grant select on public.plan_views to authenticated;
+grant insert (plan_id) on public.plan_views to authenticated;
+drop policy if exists "plan views: add own" on public.plan_views;
+create policy "plan views: add own" on public.plan_views for insert to authenticated
+  with check (viewer = (select auth.uid()) and not private.is_banned((select auth.uid())));
+drop policy if exists "plan views: own or perk author" on public.plan_views;
+create policy "plan views: own or perk author" on public.plan_views for select to authenticated using (
+  viewer = (select auth.uid())
+  or exists (
+    select 1 from public.plans p where p.id = plan_id and p.author = (select auth.uid())
+      and (exists (select 1 from public.ambassadors a where a.user_id = p.author and a.active)
+        or exists (select 1 from public.achievements x where x.user_id = p.author and x.code = 'collector'))
+  )
+);

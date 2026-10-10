@@ -41,11 +41,11 @@ export const ACHIEVEMENTS: Achievement[] = [
     goal: (p) => [Math.min(p.met, 10), 10] },
   { code: 'ambassador', title: 'Амбассадор', short: 'Амбассадор', colors: ['#ffd0e0', '#ff4f86', '#5b23b8'],
     glyph: 'M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z',
-    how: 'Помогать запускать встречи в своём городе. Медаль выдаёт команда Komeeta лично.', perk: 'Значок «Амбассадор Komeeta» с городом в профиле и прямая связь с командой.', live: true, special: true },
+    how: 'Помогать запускать встречи в своём городе. Медаль выдаёт команда Komeeta лично.', perk: 'Ваши планы выше в ленте, отметка «★ Амбассадор» у имени на планах, видно, кто смотрел ваши планы, значок с городом в профиле и прямая связь с командой.', live: true, special: true },
   { code: 'collector', title: 'Комета', short: 'Комета', colors: ['#d8f3ff', '#7a5cff', '#1a0b3d'],
     glyph: 'M14.5 9.5 21 3M11.5 7.5 17 2M16.5 12.5 22 7M9.5 21a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z',
     how: 'Собрать всю коллекцию: «Первая встреча», «Душа компании», «Надёжный», «Проводник» и «Легенда».',
-    perk: 'Анимированная рамка «Комета» вокруг фото, планы всегда в топе ленты города, место в «Зале славы» Komeeta и бонусы от заведений-партнёров.', special: true },
+    perk: 'Радужная рамка «Комета» вокруг фото, ваши планы в самом верху ленты и видно, кто их смотрел. Скоро: «Зал славы» и бонусы от заведений-партнёров.', live: true, special: true },
   { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff1b8', '#e9b949', '#8a5a12'],
     glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
     how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка вокруг фото, медаль с номером у имени и место на «Стене основателей».', live: true },
@@ -251,12 +251,12 @@ export function AchievementsPanel({ personId }: { personId: string }) {
             {COLLECTION.map((c) => { const a = ACHIEVEMENTS.find((x) => x.code === c)!; return <Medal key={c} a={a} got={!!earned[c]} size={44} progress={frac(a)} /> })}
           </div>
           <div className="w-full rounded-2xl p-3.5 text-left" style={{ background: 'color-mix(in srgb, #7a5cff 14%, var(--surface-2))' }}>
-            <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1.5">Что даёт полная коллекция <span className="px-1.5 py-0.5 rounded-full text-[10.5px] text-white bg-[#7a5cff]">скоро</span></span>
-            <ul className="text-[14.5px] flex flex-col gap-1">
-              <li>☄️ Анимированная рамка «Комета» вокруг фото</li>
-              <li>🔝 Ваши планы всегда в топе ленты города</li>
-              <li>🏛 Место в «Зале славы» Komeeta</li>
-              <li>🎁 Бонусы от заведений-партнёров</li>
+            <span className="block text-[12px] font-semibold text-muted mb-1.5">Что даёт полная коллекция</span>
+            <ul className="text-[14.5px] flex flex-col gap-1.5">
+              {([['☄️', 'Радужная рамка «Комета» вокруг фото', true], ['🔝', 'Ваши планы в самом верху ленты', true], ['👁', 'Видно, кто смотрел ваши планы', true], ['🏛', 'Место в «Зале славы» Komeeta', false], ['🎁', 'Бонусы от заведений-партнёров', false]] as const).map(([e, t, live]) => (
+                <li key={t} className="flex items-start gap-2"><span>{e}</span><span className="flex-1">{t}</span>
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white ${live ? 'bg-ok' : 'bg-[#7a5cff]'}`}>{live ? 'работает' : 'скоро'}</span></li>
+              ))}
             </ul>
           </div>
         </div>
