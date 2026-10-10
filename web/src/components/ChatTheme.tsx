@@ -1,10 +1,52 @@
 // Оформление личной переписки: фон, цвет своих сообщений и размер текста.
 // Хранится на этом устройстве: для отдельного чата или для всех чатов сразу.
-import { useEffect, useState, type CSSProperties } from 'react'
-import { Button, Sheet } from './ui'
+// Своё фото для фона лежит в IndexedDB (в localStorage картинки не помещаются).
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { Button, Icon, Sheet, readPhotoFull } from './ui'
 
-export interface ChatLook { wall: string; bubble: string; size: 's' | 'm' | 'l' }
+export interface ChatLook { wall: string; bubble: string; size: 's' | 'm' | 'l'; photo?: string; dim?: number }
 const DEFAULT: ChatLook = { wall: 'none', bubble: 'brand', size: 'm' }
+
+// ——— Картинки фона ———
+function db(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open('komeeta-wallpapers', 1)
+    r.onupgradeneeded = () => r.result.createObjectStore('img')
+    r.onsuccess = () => resolve(r.result)
+    r.onerror = () => reject(r.error)
+  })
+}
+async function putWall(id: string, data: string) {
+  const d = await db()
+  await new Promise<void>((ok, bad) => { const t = d.transaction('img', 'readwrite'); t.objectStore('img').put(data, id); t.oncomplete = () => ok(); t.onerror = () => bad(t.error) })
+}
+const wallCache = new Map<string, string>()
+async function getWall(id: string): Promise<string | undefined> {
+  if (wallCache.has(id)) return wallCache.get(id)
+  const d = await db()
+  const v = await new Promise<string | undefined>((ok) => { const r = d.transaction('img').objectStore('img').get(id); r.onsuccess = () => ok(r.result as string | undefined); r.onerror = () => ok(undefined) })
+  if (v) wallCache.set(id, v)
+  return v
+}
+/** Убрать картинки, которые больше ни в одном чате не используются. */
+async function pruneWalls(keep: Set<string>) {
+  try {
+    const d = await db()
+    const t = d.transaction('img', 'readwrite'), st = t.objectStore('img')
+    const r = st.getAllKeys()
+    r.onsuccess = () => { for (const k of r.result) if (!keep.has(String(k))) { st.delete(k); wallCache.delete(String(k)) } }
+  } catch { /* ignore */ }
+}
+function useWallImage(id?: string) {
+  const [src, setSrc] = useState<string | undefined>(id ? wallCache.get(id) : undefined)
+  useEffect(() => {
+    if (!id) { setSrc(undefined); return }
+    let live = true
+    getWall(id).then((v) => { if (live) setSrc(v) }).catch(() => {})
+    return () => { live = false }
+  }, [id])
+  return src
+}
 const KEY = 'komeeta-chat-look'
 const ALL = '*'
 
@@ -61,7 +103,7 @@ export function chatLookStyle(look: ChatLook): { vars: CSSProperties; wall: stri
   const px = SIZES.find((x) => x.id === look.size)?.px ?? 15.5
   return {
     vars: { '--bubble-me': b.bg, '--bubble-glow': b.glow, '--chat-fs': `${px}px` } as CSSProperties,
-    wall: w.id === 'none' ? null : w.bg,
+    wall: w.id === 'none' || look.wall === 'photo' ? null : w.bg,
     dark: !!w.dark,
   }
 }
@@ -69,6 +111,16 @@ export function chatLookStyle(look: ChatLook): { vars: CSSProperties; wall: stri
 /** Фон переписки на весь экран — под сообщениями. */
 export function ChatWallpaper({ look }: { look: ChatLook }) {
   const { wall } = chatLookStyle(look)
+  const img = useWallImage(look.wall === 'photo' ? look.photo : undefined)
+  if (look.wall === 'photo') {
+    if (!img) return null
+    return (
+      <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
+        <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <span className="absolute inset-0" style={{ background: `rgb(0 0 0 / ${look.dim ?? 0.25})` }} />
+      </div>
+    )
+  }
   if (!wall) return null
   return <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: wall }} aria-hidden="true" />
 }
@@ -80,10 +132,27 @@ export function ChatThemeSheet({ open, onClose, chatId, name }: { open: boolean;
   useEffect(() => { if (open) { setDraft(current); setForAll(false) } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const s = chatLookStyle(draft)
   const set = (p: Partial<ChatLook>) => setDraft((d) => ({ ...d, ...p }))
-  const save = () => {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [newImg, setNewImg] = useState<string | null>(null) // выбранное, но ещё не сохранённое фото
+  const [err, setErr] = useState('')
+  const savedImg = useWallImage(draft.photo)
+  const img = newImg ?? savedImg
+  useEffect(() => { if (open) { setNewImg(null); setErr('') } }, [open])
+  const pick = async (f: File) => {
+    try { setNewImg(await readPhotoFull(f, 1400)); set({ wall: 'photo' }); setErr('') } catch { setErr('Не получилось открыть фото. Выберите JPG или PNG.') }
+  }
+  const save = async () => {
+    let next = draft
+    if (draft.wall === 'photo' && newImg) {
+      const id = `w${Date.now().toString(36)}`
+      try { await putWall(id, newImg); wallCache.set(id, newImg) } catch { setErr('Не хватает места на телефоне для фото.'); return }
+      next = { ...draft, photo: id }
+    }
+    if (next.wall === 'photo' && !next.photo) next = { ...next, wall: 'none' }
     const all = readAll()
-    if (forAll) { all[ALL] = draft; delete all[chatId] } else all[chatId] = draft
+    if (forAll) { all[ALL] = next; delete all[chatId] } else all[chatId] = next
     writeAll(all)
+    void pruneWalls(new Set(Object.values(all).map((x) => x.photo).filter((x): x is string => !!x)))
     onClose()
   }
   const reset = () => {
@@ -100,6 +169,10 @@ export function ChatThemeSheet({ open, onClose, chatId, name }: { open: boolean;
       <div className="flex flex-col gap-5" style={s.vars}>
         {/* Живой предпросмотр */}
         <div className="relative h-[170px] rounded-[22px] overflow-hidden ring-1 ring-line" style={{ background: s.wall ?? 'var(--bg)' }}>
+          {draft.wall === 'photo' && img && <>
+            <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            <span className="absolute inset-0" style={{ background: `rgb(0 0 0 / ${draft.dim ?? 0.25})` }} />
+          </>}
           <div className="absolute inset-0 flex flex-col justify-end gap-1.5 p-3" style={{ fontSize: 'var(--chat-fs)' }}>
             <span className="self-start bubble-them text-fg rounded-[18px] rounded-bl-[4px] px-3 py-1.5 leading-[1.35] max-w-[75%]">Привет! Идём сегодня? 👋</span>
             <span className="self-end bubble-me text-white rounded-[18px] rounded-br-[7px] px-3 py-1.5 leading-[1.35] max-w-[75%]">Да, давай в 19:00</span>
@@ -110,6 +183,12 @@ export function ChatThemeSheet({ open, onClose, chatId, name }: { open: boolean;
         <section>
           <h3 className="text-[13px] font-semibold text-muted mb-2">Фон</h3>
           <div className="grid grid-cols-4 gap-2.5">
+            <button onClick={() => (img ? set({ wall: 'photo' }) : fileRef.current?.click())} className="flex flex-col items-center gap-1 cursor-pointer" aria-pressed={draft.wall === 'photo'} aria-label="Фон: своё фото">
+              <span className={`relative grid place-items-center w-full aspect-[3/4] rounded-2xl overflow-hidden bg-surface-2 text-muted transition ${ring(draft.wall === 'photo')}`}>
+                {img ? <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <Icon name="camera" size={22} />}
+              </span>
+              <span className="text-[11.5px] text-muted truncate max-w-full">Своё фото</span>
+            </button>
             {WALLS.map((w) => (
               <button key={w.id} onClick={() => set({ wall: w.id })} className="flex flex-col items-center gap-1 cursor-pointer" aria-pressed={draft.wall === w.id} aria-label={`Фон: ${w.name}`}>
                 <span className={`block w-full aspect-[3/4] rounded-2xl transition ${ring(draft.wall === w.id)}`} style={{ background: w.bg }} />
@@ -118,6 +197,18 @@ export function ChatThemeSheet({ open, onClose, chatId, name }: { open: boolean;
             ))}
           </div>
         </section>
+
+        <input ref={fileRef} type="file" accept="image/*" className="sr-only" aria-label="Выбрать фото для фона" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void pick(f) }} />
+        {err && <p className="-mt-3 text-[12.5px] text-danger" role="alert">{err}</p>}
+        {draft.wall === 'photo' && img && (
+          <section className="-mt-1 flex flex-col gap-2">
+            <label className="flex items-center gap-3 text-[13.5px]">
+              <span className="text-muted shrink-0">Затемнить</span>
+              <input type="range" min={0} max={0.7} step={0.05} value={draft.dim ?? 0.25} onChange={(e) => set({ dim: Number(e.target.value) })} className="flex-1 accent-[var(--spark)]" aria-label="Затемнение фона" />
+            </label>
+            <button onClick={() => fileRef.current?.click()} className="self-start inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-surface-2 text-[13.5px] font-semibold cursor-pointer"><Icon name="camera" size={16} /> Другое фото</button>
+          </section>
+        )}
 
         <section>
           <h3 className="text-[13px] font-semibold text-muted mb-2">Мои сообщения</h3>
@@ -143,7 +234,7 @@ export function ChatThemeSheet({ open, onClose, chatId, name }: { open: boolean;
         </label>
 
         <div className="flex flex-col gap-2">
-          <Button onClick={save}>Готово</Button>
+          <Button onClick={() => void save()}>Готово</Button>
           <Button variant="ghost" onClick={reset}>Сбросить</Button>
         </div>
       </div>
