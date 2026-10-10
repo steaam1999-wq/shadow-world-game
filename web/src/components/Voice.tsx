@@ -251,7 +251,7 @@ export function VoiceHoldButton({ voice, onSlide }: { voice: Voice; onSlide: (dx
       onKeyDown={keyDown} onKeyUp={keyUp}
       onContextMenu={(e) => e.preventDefault()}
       style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
-      className={`relative grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer bg-brand text-white transition-transform duration-200 ${voice.recording ? 'scale-[1.35] shadow-[0_0_0_8px_rgb(255_79_134/.18),0_10px_26px_-8px_rgb(255_79_134/.9)]' : 'shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)]'}`}>
+      className={`relative grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer chat-accent text-white transition-transform duration-200 ${voice.recording ? 'scale-[1.35] shadow-[0_0_0_8px_rgb(255_79_134/.18),0_10px_26px_-8px_rgb(255_79_134/.9)]' : 'shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)]'}`}>
       {voice.recording && <span className="absolute inset-0 rounded-full bg-spark/40 animate-ping" aria-hidden="true" />}
       <Icon name="mic" size={21} className="relative" />
     </button>

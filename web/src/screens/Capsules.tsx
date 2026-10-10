@@ -12,6 +12,7 @@ import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, readPhotoFull, useKeyb
 import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
+import { ChatThemeSheet, ChatWallpaper, chatLookStyle, useChatLook } from '../components/ChatTheme'
 import type { Capsule, CapsuleStatus, Person } from '../types'
 
 /** Человек из переписки; если профиль скрыт (бан или удаление) — заглушка, чтобы чат не ломался. */
@@ -306,6 +307,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [slide, setSlide] = useState(0)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [c?.messages.length, typing])
   const presence = usePresence(state.cloud ? c?.personId : undefined)
+  const look = useChatLook(c?.id ?? '')
+  const [themeOpen, setThemeOpen] = useState(false)
 
   if (!c) return null
   // Профиль скрыт (бан администрации или удалён): переписку видно, писать нельзя.
@@ -339,7 +342,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const seen = seenLabel(presence, now)
 
   return (
-    <div className="flex flex-col flex-1 min-h-[100dvh]">
+    <div className="flex flex-col flex-1 min-h-[100dvh]" style={chatLookStyle(look).vars}>
+      <ChatWallpaper look={look} />
       <header className="sticky top-0 z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-[calc(8px+env(safe-area-inset-top,0px))] flex flex-col gap-2">
         <div className="flex items-center gap-1.5">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
@@ -361,7 +365,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col py-3">
+      <div className="relative z-[1] flex-1 flex flex-col py-3">
         {c.messages.map((m, i) => {
           const prev = c.messages[i - 1], next = c.messages[i + 1]
           const newDay = !prev || dayKey(prev.at) !== dayKey(m.at)
@@ -396,7 +400,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                   {(m.audio || m.audioPath) ? (
                     <VoiceMessage id={m.id} src={m.audio} ms={m.audioMs ?? 0} me={me} time={time} />
                   ) : callLog(m.text) ? <CallLog log={callLog(m.text)!} me={me} time={time} onCall={canCall ? (v) => calls.start(p.id, v) : undefined} /> : m.text && (
-                    <p data-no-translate className={`whitespace-pre-wrap break-words text-[15.5px] leading-[1.35] ${m.photo ? 'px-2.5 pt-1.5 pb-1' : ''}`}>
+                    <p data-no-translate className={`whitespace-pre-wrap break-words text-[length:var(--chat-fs,15.5px)] leading-[1.35] ${m.photo ? 'px-2.5 pt-1.5 pb-1' : ''}`}>
                       {m.text}
                       {/* Время прячется в конце последней строки, как в мессенджерах */}
                       <span className="float-right ml-2.5 mt-[7px] -mb-1 translate-y-[2px]">{time}</span>
@@ -456,7 +460,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             <VoiceHoldButton voice={voice} onSlide={setSlide} />
           ) : (
             <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked}
-              className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'bg-brand text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
+              className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'chat-accent text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
               <Icon name="send" size={19} className={text.trim() ? 'translate-x-[1px]' : ''} />
             </button>
           )}
@@ -482,10 +486,12 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           {canMeet && (c.noShow
             ? <Button variant="ghost" onClick={() => { dispatch({ type: 'noShow', capsuleId: c.id, on: false }); setMenu(false) }}><Icon name="x" size={18} /> Снять отметку «не пришёл(ла)»</Button>
             : <Button variant="ghost" className="text-warn" onClick={() => { setMenu(false); setNoShowAsk(true) }}><Icon name="clock" size={18} /> {p.name} не пришёл(ла)</Button>)}
+          <Button variant="secondary" onClick={() => { setMenu(false); setThemeOpen(true) }}><Icon name="drop" size={18} /> Оформление чата</Button>
           <Button variant="secondary" onClick={() => { setMenu(false); openProfile(p.id) }}><Icon name="user" size={18} /> Профиль</Button>
           <Button variant="ghost" className="text-danger" onClick={() => { setMenu(false); setReporting(p) }}><Icon name="flag" size={18} /> Пожаловаться или заблокировать</Button>
         </div>
       </Sheet>
+      <ChatThemeSheet open={themeOpen} onClose={() => setThemeOpen(false)} chatId={c.id} name={p.name} />
       <Sheet open={noShowAsk} onClose={() => setNoShowAsk(false)} title={`${p.name} не пришёл(ла)?`}>
         <div className="flex flex-col gap-3">
           <p className="text-muted text-[14px]">Отметка честная и тихая: {p.name} не узнает, кто её поставил, а в надёжности станет на одну пропущенную встречу больше. Если потом всё-таки встретитесь и подтвердите встречу кодами — отметка перестанет считаться. Снять её можно в этом же меню.</p>
