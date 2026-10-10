@@ -98,14 +98,17 @@ export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: A
   if (a.code === 'founder' && got) {
     return (
       <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.34}px -${size * 0.1}px rgb(233 185 73 / .75)` }}>
-        {/* Ободок вращается — золото «бежит» по кругу */}
-        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #fff8d6, #e9b949, #8a5a12, #f7d77a, #fffbe8, #c48a1c, #7a4a06, #fff1b8, #fff8d6)' }} />
-        <span className="gold-medal absolute grid place-items-center" style={{ inset: ring }}>
-          <GoldPlanet size={size * 0.68} />
+        {/* Ободок вращается — ровный блик «бежит» по кругу */}
+        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #fff3c4, #d9a33a 25%, #8a5a12 37%, #d9a33a 50%, #fff3c4 62%, #d9a33a 75%, #8a5a12 87%, #fff3c4)' }} />
+        {/* Золотой диск строго по центру (обёртка задаёт размер — у .gold-medal своё позиционирование) */}
+        <span className="absolute" style={{ inset: ring }}>
+          <span className="gold-medal grid place-items-center w-full h-full">
+            <GoldPlanet size={size * 0.62} />
+          </span>
         </span>
-        {/* Искорки вокруг медали */}
-        {[[0.06, 0.18, 0], [0.84, 0.08, 0.9], [0.9, 0.78, 1.7]].map(([x, y, d], i) => (
-          <svg key={i} className="gold-twinkle absolute pointer-events-none" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: size * 0.2, height: size * 0.2, animationDelay: `${d}s` }} viewBox="0 0 24 24" aria-hidden="true">
+        {/* Искорки — внутри границ медали, симметрично */}
+        {[[0.7, 0.04, 0], [0.04, 0.72, 1.3]].map(([x, y, d], i) => (
+          <svg key={i} className="gold-twinkle absolute pointer-events-none" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: size * 0.22, height: size * 0.22, animationDelay: `${d}s` }} viewBox="0 0 24 24" aria-hidden="true">
             <path fill="#fff6cf" d="M12 0l2.4 9.6L24 12l-9.6 2.4L12 24l-2.4-9.6L0 12l9.6-2.4z" />
           </svg>
         ))}
