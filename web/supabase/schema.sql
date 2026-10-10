@@ -1814,3 +1814,34 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.achievement_stats() from public, anon;
 grant execute on function public.achievement_stats() to authenticated;
+
+-- Коллекция: собрал все 5 медалей — особая медаль «Комета» (collector).
+create or replace function public.check_achievements() returns setof text
+language plpgsql security definer set search_path = public as $$
+declare
+  me uuid := (select auth.uid());
+  met int; got text[] := '{}';
+begin
+  if me is null then return; end if;
+  select count(*) into met from capsules where status = 'met' and me in (author, responder);
+  if exists (select 1 from profiles p where p.id = me and p.photo_path is not null and char_length(p.bio) > 0 and coalesce(array_length(p.tags, 1), 0) >= 3 and p.district <> '') then got := array_append(got, 'profile_full'); end if;
+  if exists (select 1 from plans where author = me) then got := array_append(got, 'first_plan'); end if;
+  if (select count(distinct c.plan_id) from capsules c join plans pl on pl.id = c.plan_id where pl.author = me) >= 5 then got := array_append(got, 'soul'); end if;
+  if met >= 1 then got := array_append(got, 'first_meet'); end if;
+  if met >= 10 then got := array_append(got, 'regular'); end if;
+  if (select count(*) from referrals where inviter = me) >= 3 then got := array_append(got, 'guide'); end if;
+  if (select count(*) from shorts where author = me) >= 10 then got := array_append(got, 'author'); end if;
+  if met >= 5 and not exists (select 1 from no_shows n join capsules c on c.id = n.capsule_id and c.status <> 'met' where n.target = me) then got := array_append(got, 'reliable'); end if;
+  if exists (select 1 from capsules c join plans pl on pl.id = c.plan_id where c.status = 'met' and me in (c.author, c.responder)
+    and extract(hour from pl.starts_at at time zone 'Europe/Minsk') >= 22) then got := array_append(got, 'night_owl'); end if;
+  if exists (select 1 from capsules c join plans pl on pl.id = c.plan_id where c.status = 'met' and me in (c.author, c.responder)
+    and extract(hour from pl.starts_at at time zone 'Europe/Minsk') < 9) then got := array_append(got, 'early_bird'); end if;
+  if exists (select 1 from ambassadors where user_id = me and active) then got := array_append(got, 'ambassador'); end if;
+  if exists (select 1 from founders where user_id = me) then got := array_append(got, 'founder'); end if;
+  -- Вся коллекция из 5 медалей (полученных когда-либо) — особая медаль «Комета»
+  if (select count(distinct c) from (select code as c from achievements where user_id = me union select unnest(got)) t
+      where c in ('first_meet', 'soul', 'reliable', 'guide', 'regular')) = 5 then got := array_append(got, 'collector'); end if;
+  return query
+    with ins as (insert into achievements (user_id, code) select me, x from unnest(got) x on conflict do nothing returning achievements.code)
+    select ins.code from ins;
+end $$;

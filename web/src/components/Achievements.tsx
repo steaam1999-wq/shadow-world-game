@@ -42,6 +42,10 @@ export const ACHIEVEMENTS: Achievement[] = [
   { code: 'ambassador', title: 'Амбассадор', short: 'Амбассадор', colors: ['#ffd0e0', '#ff4f86', '#5b23b8'],
     glyph: 'M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z',
     how: 'Помогать запускать встречи в своём городе. Медаль выдаёт команда Komeeta лично.', perk: 'Значок «Амбассадор Komeeta» с городом в профиле и прямая связь с командой.', live: true, special: true },
+  { code: 'collector', title: 'Комета', short: 'Комета', colors: ['#d8f3ff', '#7a5cff', '#1a0b3d'],
+    glyph: 'M14.5 9.5 21 3M11.5 7.5 17 2M16.5 12.5 22 7M9.5 21a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z',
+    how: 'Собрать всю коллекцию: «Первая встреча», «Душа компании», «Надёжный», «Проводник» и «Легенда».',
+    perk: 'Анимированная рамка «Комета» вокруг фото, планы всегда в топе ленты города, место в «Зале славы» Komeeta и бонусы от заведений-партнёров.', special: true },
   { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff1b8', '#e9b949', '#8a5a12'],
     glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
     how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка вокруг фото, медаль с номером у имени и место на «Стене основателей».', live: true },
@@ -98,6 +102,27 @@ export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: A
   const ring = Math.max(3, size * 0.075)
   const r = size / 2 - ring / 2
   const c = 2 * Math.PI * r
+  // Комета — за всю коллекцию: космос, радужный ободок, хвост кометы
+  if (a.code === 'collector' && got) {
+    return (
+      <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.4}px -${size * 0.1}px rgb(122 92 255 / .8)` }}>
+        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #ffb347, #ff4f86, #8a5cff, #4aa8ff, #3fd18f, #ffd27a, #ffb347)' }} />
+        <span className="absolute rounded-full overflow-hidden" style={{ inset: ring, background: 'radial-gradient(circle at 30% 25%, #3a2a7a 0%, #160b33 55%, #07030f 100%)' }}>
+          {[[0.22, 0.3], [0.7, 0.22], [0.3, 0.75], [0.78, 0.66], [0.55, 0.5]].map(([x, y], i) => (
+            <span key={i} className="gold-twinkle absolute rounded-full bg-white" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: Math.max(1.5, size * 0.025), height: Math.max(1.5, size * 0.025), animationDelay: `${i * 0.5}s` }} />
+          ))}
+          <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-20deg]" />
+        </span>
+        <svg className="relative" width={size * 0.58} height={size * 0.58} viewBox="0 0 24 24" aria-hidden="true" style={{ filter: `drop-shadow(0 0 ${size * 0.07}px rgb(160 200 255 / .95))` }}>
+          <defs><linearGradient id="comet-tail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#fff" /></linearGradient></defs>
+          <path d="M8 16 21 3" stroke="url(#comet-tail)" strokeWidth="3.2" strokeLinecap="round" />
+          <path d="M8.5 13.5 17 5M10.5 18 19 9.5" stroke="url(#comet-tail)" strokeWidth="1.6" strokeLinecap="round" />
+          <circle cx="7.5" cy="16.5" r="4.6" fill="#fff" />
+          <circle cx="7.5" cy="16.5" r="2.4" fill="#d8ecff" />
+        </svg>
+      </span>
+    )
+  }
   // Амбассадор — фирменные цвета Komeeta: вращающийся ободок, звезда со свечением, лента на большой медали
   if (a.code === 'ambassador' && got) {
     return (
@@ -173,12 +198,16 @@ export function AchievementsPanel({ personId }: { personId: string }) {
   const isAmb = personId === 'me' ? state.me?.ambassador !== undefined : state.people.find((p) => p.id === personId)?.ambassador !== undefined
   const earned = raw && !isAmb && raw.ambassador ? Object.fromEntries(Object.entries(raw).filter(([c]) => c !== 'ambassador')) : raw
   const [open, setOpen] = useState<Achievement | null>(null)
+  const [collOpen, setCollOpen] = useState(false)
   if (!earned) return null
   const mine = personId === 'me'
   const got = ACHIEVEMENTS.filter((a) => earned[a.code])
   const list = mine ? ACHIEVEMENTS.filter((a) => !a.special || earned[a.code]).sort((x, y) => Number(!!earned[y.code]) - Number(!!earned[x.code])) : got
   if (!list.length) return null
   const frac = (a: Achievement) => { if (!progress || !a.goal) return 0; const [n, of] = a.goal(progress); return n / of }
+  const COLLECTION = ['first_meet', 'soul', 'reliable', 'guide', 'regular']
+  const inSet = COLLECTION.filter((c) => earned[c]).length
+  const comet = ACHIEVEMENTS.find((x) => x.code === 'collector')!
   const at = open ? earned[open.code] : 0
   const g = open && progress && open.goal ? open.goal(progress) : null
   const holders = open && stats ? stats.by[open.code] ?? 0 : null
@@ -198,6 +227,40 @@ export function AchievementsPanel({ personId }: { personId: string }) {
           </button>
         ))}
       </div>
+      {mine && !earned.collector && (
+        <button onClick={() => setCollOpen(true)} className="flex items-center gap-2.5 rounded-2xl bg-surface-2 px-3 py-2 text-left cursor-pointer" aria-label={`Коллекция: ${inSet} из 5. Что дадут за полную коллекцию`}>
+          <span className="flex gap-1 flex-1">
+            {COLLECTION.map((c) => {
+              const a = ACHIEVEMENTS.find((x) => x.code === c)!
+              return <span key={c} className="h-1.5 flex-1 rounded-full" style={{ background: earned[c] ? `linear-gradient(90deg, ${a.colors[0]}, ${a.colors[1]})` : 'var(--line)' }} />
+            })}
+          </span>
+          <span className="text-[12px] text-muted whitespace-nowrap">Коллекция <b className="text-fg tnum">{inSet}/5</b> · награда</span>
+          <span className="text-[13px]" aria-hidden="true">☄️</span>
+        </button>
+      )}
+      <Sheet open={collOpen} onClose={() => setCollOpen(false)} title="Коллекция">
+        <div className="flex flex-col items-center text-center gap-3 pb-2">
+          <div className="relative grid place-items-center py-2">
+            <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-40" style={{ background: comet.colors[1] }} />
+            <Medal a={comet} got size={112} />
+          </div>
+          <h3 className="font-display font-bold text-[22px] leading-tight">Соберите все 5 — получите «Комету»</h3>
+          <p className="text-[13px] text-muted -mt-1">Самая редкая медаль Komeeta. Собрано {inSet} из 5.</p>
+          <div className="flex gap-2 justify-center">
+            {COLLECTION.map((c) => { const a = ACHIEVEMENTS.find((x) => x.code === c)!; return <Medal key={c} a={a} got={!!earned[c]} size={44} progress={frac(a)} /> })}
+          </div>
+          <div className="w-full rounded-2xl p-3.5 text-left" style={{ background: 'color-mix(in srgb, #7a5cff 14%, var(--surface-2))' }}>
+            <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1.5">Что даёт полная коллекция <span className="px-1.5 py-0.5 rounded-full text-[10.5px] text-white bg-[#7a5cff]">скоро</span></span>
+            <ul className="text-[14.5px] flex flex-col gap-1">
+              <li>☄️ Анимированная рамка «Комета» вокруг фото</li>
+              <li>🔝 Ваши планы всегда в топе ленты города</li>
+              <li>🏛 Место в «Зале славы» Komeeta</li>
+              <li>🎁 Бонусы от заведений-партнёров</li>
+            </ul>
+          </div>
+        </div>
+      </Sheet>
       <Sheet open={!!open} onClose={() => setOpen(null)} title="Достижение">
         {open && (
           <div className="flex flex-col items-center text-center gap-3 pb-2">
