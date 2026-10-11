@@ -1,7 +1,7 @@
 // Достижения: 6 редких медалей за то, ради чего существует Komeeta, — встречи, надёжность, друзья.
 // Выдаёт их сервер (check_achievements) по данным базы, поэтому подделать нельзя.
 // Нажатие на медаль — за что, прогресс, редкость и что она даст.
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { sb } from '../cloud/api'
@@ -96,33 +96,73 @@ function celebrate(codes: string[]) {
     .forEach((a, i) => setTimeout(() => showNew?.(a), i * 3200))
 }
 
+const COMET_STARS: [number, number, number, number][] = [
+  [14, 22, 0.55, 0.9], [26, 12, 0.35, 0.6], [44, 20, 0.45, 0.8], [58, 9, 0.3, 0.5], [82, 44, 0.5, 0.85], [88, 62, 0.35, 0.6], [70, 78, 0.45, 0.7],
+  [52, 88, 0.3, 0.5], [18, 46, 0.3, 0.55], [10, 70, 0.4, 0.7], [62, 60, 0.28, 0.45], [36, 40, 0.25, 0.4], [76, 24, 0.3, 0.5], [24, 86, 0.3, 0.5],
+]
+
+/** Медаль «Комета»: металл и космос без мультяшности — как фото кометы в объективе. */
+function CometMedal({ size, ring }: { size: number; ring: number }) {
+  const id = useId().replace(/:/g, '')
+  const big = size >= 40
+  return (
+    <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.38}px -${size * 0.1}px rgb(70 110 220 / .55)` }}>
+      {/* Платиновый ободок: холодный металл с бегущим бликом */}
+      <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 210deg, #eef3ff, #9aa5c0 10%, #3b4259 22%, #aeb8d0 34%, #f6f9ff 46%, #6f7a97 58%, #2c3247 70%, #9ea9c4 82%, #dfe6f6 92%, #eef3ff)' }} />
+      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ background: 'conic-gradient(from 0deg, transparent 0 70%, rgb(220 235 255 / .9) 80%, transparent 90%)' }} />
+      <span className="absolute rounded-full" style={{ inset: ring * 0.55, boxShadow: 'inset 0 1px 1px rgb(0 0 0 / .45), 0 1px 0 rgb(255 255 255 / .5)' }} />
+      <span className="absolute rounded-full overflow-hidden" style={{ inset: ring }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" className="block" aria-hidden="true">
+          <defs>
+            <radialGradient id={`sky-${id}`} cx="62%" cy="38%" r="75%"><stop offset="0" stopColor="#1d2a5c" /><stop offset=".55" stopColor="#0b1131" /><stop offset="1" stopColor="#03050f" /></radialGradient>
+            <radialGradient id={`neb1-${id}`}><stop offset="0" stopColor="#7b4be0" stopOpacity=".55" /><stop offset="1" stopColor="#7b4be0" stopOpacity="0" /></radialGradient>
+            <radialGradient id={`neb2-${id}`}><stop offset="0" stopColor="#1fb2d6" stopOpacity=".35" /><stop offset="1" stopColor="#1fb2d6" stopOpacity="0" /></radialGradient>
+            <linearGradient id={`dust-${id}`} x1="30" y1="70" x2="96" y2="16" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#fff6e6" stopOpacity=".95" /><stop offset=".35" stopColor="#ffe2b8" stopOpacity=".45" /><stop offset="1" stopColor="#ffd9a8" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id={`ion-${id}`} x1="32" y1="68" x2="98" y2="4" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#e8f6ff" stopOpacity=".95" /><stop offset=".4" stopColor="#7cc8ff" stopOpacity=".55" /><stop offset="1" stopColor="#4a8dff" stopOpacity="0" />
+            </linearGradient>
+            <radialGradient id={`coma-${id}`}><stop offset="0" stopColor="#ffffff" /><stop offset=".25" stopColor="#e6f4ff" stopOpacity=".9" /><stop offset=".6" stopColor="#8fd0ff" stopOpacity=".3" /><stop offset="1" stopColor="#8fd0ff" stopOpacity="0" /></radialGradient>
+            <radialGradient id={`vig-${id}`}><stop offset=".68" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".6" /></radialGradient>
+            <filter id={`b1-${id}`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6" /></filter>
+            <filter id={`b2-${id}`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.2" /></filter>
+            <filter id={`b05-${id}`}><feGaussianBlur stdDeviation=".5" /></filter>
+          </defs>
+          <rect width="100" height="100" fill={`url(#sky-${id})`} />
+          <ellipse cx="26" cy="74" rx="34" ry="22" fill={`url(#neb1-${id})`} transform="rotate(-30 26 74)" />
+          <ellipse cx="78" cy="28" rx="30" ry="18" fill={`url(#neb2-${id})`} transform="rotate(-35 78 28)" />
+          {COMET_STARS.map(([x, y, r, o], i) => (
+            <circle key={i} cx={x} cy={y} r={r * (big ? 1 : 1.6)} fill="#fff" opacity={o} className={i % 4 === 0 ? 'gold-twinkle' : undefined} style={i % 4 === 0 ? { animationDelay: `${i * 0.37}s` } : undefined} />
+          ))}
+          {/* Пылевой хвост — широкий, изогнутый, тёплый */}
+          <path d="M33 68 Q58 52 98 20 L100 34 Q66 60 35 71 Z" fill={`url(#dust-${id})`} filter={`url(#b2-${id})`} />
+          <path d="M33 68 Q56 54 92 26 L94 32 Q62 58 34 70 Z" fill={`url(#dust-${id})`} opacity=".6" filter={`url(#b1-${id})`} />
+          {/* Ионный хвост — тонкий, прямой, голубой */}
+          <path d="M32.5 66.5 L97 4 L99.5 7.5 L34.5 68.5 Z" fill={`url(#ion-${id})`} filter={`url(#b05-${id})`} />
+          <path d="M33 67 L90 12" stroke={`url(#ion-${id})`} strokeWidth={big ? 0.7 : 1.6} opacity=".95" />
+          {/* Кома и ядро */}
+          <circle cx="33.5" cy="67.5" r={big ? 14 : 18} fill={`url(#coma-${id})`} filter={`url(#b1-${id})`} />
+          <circle cx="33.5" cy="67.5" r={big ? 3.6 : 5} fill="#fff" filter={`url(#b05-${id})`} />
+          <circle cx="33.5" cy="67.5" r="1.8" fill="#fff" />
+          <rect width="100" height="100" fill={`url(#vig-${id})`} />
+          {/* Стекло: мягкий блик сверху */}
+          <ellipse cx="34" cy="14" rx="34" ry="12" fill="#fff" opacity=".06" filter={`url(#b2-${id})`} />
+        </svg>
+        <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-[-20deg]" />
+      </span>
+    </span>
+  )
+}
+
 /** Медаль: металлический ободок, глянец, белый значок. Не получена — тёмное стекло и кольцо прогресса. */
 export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: Achievement; got: boolean; size?: number; progress?: number; shine?: boolean }) {
   const [light, main, dark] = a.colors
   const ring = Math.max(3, size * 0.075)
   const r = size / 2 - ring / 2
   const c = 2 * Math.PI * r
-  // Комета — за всю коллекцию: космос, радужный ободок, хвост кометы
-  if (a.code === 'collector' && got) {
-    return (
-      <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.4}px -${size * 0.1}px rgb(122 92 255 / .8)` }}>
-        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #ffb347, #ff4f86, #8a5cff, #4aa8ff, #3fd18f, #ffd27a, #ffb347)' }} />
-        <span className="absolute rounded-full overflow-hidden" style={{ inset: ring, background: 'radial-gradient(circle at 30% 25%, #3a2a7a 0%, #160b33 55%, #07030f 100%)' }}>
-          {[[0.22, 0.3], [0.7, 0.22], [0.3, 0.75], [0.78, 0.66], [0.55, 0.5]].map(([x, y], i) => (
-            <span key={i} className="gold-twinkle absolute rounded-full bg-white" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: Math.max(1.5, size * 0.025), height: Math.max(1.5, size * 0.025), animationDelay: `${i * 0.5}s` }} />
-          ))}
-          <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-20deg]" />
-        </span>
-        <svg className="relative" width={size * 0.58} height={size * 0.58} viewBox="0 0 24 24" aria-hidden="true" style={{ filter: `drop-shadow(0 0 ${size * 0.07}px rgb(160 200 255 / .95))` }}>
-          <defs><linearGradient id="comet-tail" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#fff" /></linearGradient></defs>
-          <path d="M8 16 21 3" stroke="url(#comet-tail)" strokeWidth="3.2" strokeLinecap="round" />
-          <path d="M8.5 13.5 17 5M10.5 18 19 9.5" stroke="url(#comet-tail)" strokeWidth="1.6" strokeLinecap="round" />
-          <circle cx="7.5" cy="16.5" r="4.6" fill="#fff" />
-          <circle cx="7.5" cy="16.5" r="2.4" fill="#d8ecff" />
-        </svg>
-      </span>
-    )
-  }
+  // Комета — за всю коллекцию: платиновый ободок, глубокий космос с туманностью и настоящая комета (ядро, кома, два хвоста)
+  if (a.code === 'collector' && got) return <CometMedal size={size} ring={ring} />
   // Амбассадор — фирменные цвета Komeeta: вращающийся ободок, звезда со свечением, лента на большой медали
   if (a.code === 'ambassador' && got) {
     return (
