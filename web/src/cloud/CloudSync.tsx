@@ -17,7 +17,7 @@ export function CloudSync() {
   useEffect(() => {
     if (!userId) return
     let alive = true, busy = false, again = false
-    let live = false, lastLoad = 0, migrated = false, movedAvatar = false
+    let live = false, lastLoad = 0, migrated = false, movedAvatar = false, triedAvatar = false
     const load = async () => {
       if (busy) { again = true; return }
       busy = true
@@ -42,6 +42,17 @@ export function CloudSync() {
           const src = d.me.photo
           void fetch(src).then((r) => r.blob()).then((b) => new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.onerror = rej; fr.readAsDataURL(b) }))
             .then((dataUrl) => { if (alive) dispatch({ type: 'updateMe', patch: { photo: dataUrl } }) }).catch(() => { movedAvatar = false })
+        }
+        // Вошли через Telegram или Google, а фото в профиле нет — один раз берём фото оттуда.
+        if (alive && d.me && !d.me.photo && !d.me.photoPath && !triedAvatar) {
+          triedAvatar = true
+          const key = `komeeta-avatar-import:${userId}`
+          let done = false
+          try { done = localStorage.getItem(key) === '1' } catch { /* ignore */ }
+          if (!done) void api.importAvatar().then((photo) => {
+            try { localStorage.setItem(key, '1') } catch { /* ignore */ }
+            if (photo && alive && !ref.current.me?.photo) dispatch({ type: 'updateMe', patch: { photo } })
+          }).catch(() => { /* попробуем при следующем входе */ })
         }
         // Старое фото профиля лежит прямо в базе — один раз переносим его в хранилище.
         if (alive && !migrated && d.me?.photo?.startsWith('data:') && !d.me.photoPath) { migrated = true; dispatch({ type: 'updateMe', patch: {} }) }

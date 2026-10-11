@@ -1251,6 +1251,14 @@ export async function askSupportBot(messages: { role: 'user' | 'assistant'; cont
   return { error: 'failed' }
 }
 
+/** Фото из Telegram или Google (если вошли через них) — для профиля без фото. null — фото там нет. */
+export async function importAvatar(): Promise<string | null> {
+  const { data, error } = await sb().functions.invoke('import-avatar', { body: {} })
+  if (error) throw error
+  const photo = (data as { photo?: string | null })?.photo
+  return typeof photo === 'string' && photo.startsWith('data:image/') ? photo : null
+}
+
 /** Основатель поднимает свой план наверх ленты на сутки — раз в 30 дней. */
 export async function founderBoost(planId: string) {
   const { data, error } = await sb().rpc('founder_boost', { plan: planId })
