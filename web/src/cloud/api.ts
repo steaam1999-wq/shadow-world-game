@@ -1223,6 +1223,20 @@ export async function claimReferral(inviter: string) {
   return !!data
 }
 
+/** Откуда пришёл новый аккаунт (метка из ссылки). Сервер примет один раз и только от свежего аккаунта. */
+export async function setSignupSource(src: string) {
+  const { error } = await sb().rpc('set_signup_source', { src })
+  if (error) throw error
+}
+
+export interface SourceRow { source: string; users: number; users_7d: number; cohort: number; back: number; made_plan: number; agreed: number; met: number; invited: number }
+export interface SourceStats { rows: SourceRow[]; users: number; referrals: number; users_30d: number; referrals_30d: number }
+export async function adminSources(): Promise<SourceStats> {
+  const { data, error } = await sb().rpc('admin_sources')
+  if (error) throw error
+  return data as SourceStats
+}
+
 /** Основатель поднимает свой план наверх ленты на сутки — раз в 30 дней. */
 export async function founderBoost(planId: string) {
   const { data, error } = await sb().rpc('founder_boost', { plan: planId })

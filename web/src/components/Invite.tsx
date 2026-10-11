@@ -1,6 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { useStore } from '../store'
-import { claimReferral, founderBoost, founderWall, humanError, myInvites, type InviteStats } from '../cloud/api'
+import { claimReferral, setSignupSource, founderBoost, founderWall, humanError, myInvites, type InviteStats } from '../cloud/api'
 import { useOpenProfile } from '../nav'
 import { Avatar, BUBBLE, Icon, RINGS, Sheet, Toggle } from './ui'
 
@@ -24,11 +24,36 @@ export function profileUrl(personId: string, fromId?: string | null) {
   return `${location.origin}${location.pathname}#u=${personId}${fromId ? `&ref=${fromId}` : ''}`
 }
 
+// Откуда пришёл человек: метка ?src=tiktok в ссылке, приглашение друга или сайт, с которого перешли.
+// Запоминаем первый источник; «напрямую» уступает место любому настоящему.
+const SRC_KEY = 'komeeta-src'
+const SITES: [RegExp, string][] = [[/tiktok/, 'tiktok'], [/instagram/, 'instagram'], [/(^|\.)vk\.(com|ru)|vk\.link/, 'vk'], [/t\.me|telegram/, 'telegram'],
+  [/google\./, 'google'], [/yandex|ya\.ru/, 'yandex'], [/youtube/, 'youtube'], [/facebook|fb\./, 'facebook'], [/ok\.ru/, 'ok']]
+export function cleanSource(v: string | null | undefined) {
+  const s = (v ?? '').trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 40)
+  return s || null
+}
+function captureSource(ref: string | undefined) {
+  const q = new URLSearchParams(location.search)
+  let src = cleanSource(q.get('src') ?? q.get('utm_source') ?? /(?:^#|&)src=([^&]+)/.exec(location.hash)?.[1])
+  if (!src && ref) src = 'invite'
+  if (!src && document.referrer) {
+    try {
+      const host = new URL(document.referrer).hostname
+      if (host && host !== location.hostname) src = SITES.find(([re]) => re.test(host))?.[1] ?? cleanSource(host.replace(/^www\./, '').split('.')[0])
+    } catch { /* ignore */ }
+  }
+  const prev = localStorage.getItem(SRC_KEY)
+  if (src) { if (!prev || prev === 'direct') localStorage.setItem(SRC_KEY, src) }
+  else if (!prev) localStorage.setItem(SRC_KEY, 'direct')
+}
+
 /** Читает приглашение из адреса до того, как адрес заменят. */
 export function captureInvite() {
   try {
     const h = location.hash
     const ref = /(?:^#|&)ref=([0-9a-f-]{36})(?:&|$)/i.exec(h)?.[1]
+    captureSource(ref)
     const plan = /(?:^#|&)plan=([\w-]{1,64})(?:&|$)/.exec(h)?.[1]
     if (ref) localStorage.setItem(REF_KEY, ref)
     if (plan) sessionStorage.setItem(PLAN_KEY, plan)
@@ -70,6 +95,11 @@ export function useClaimReferral() {
   const ready = !!state.me
   useEffect(() => {
     if (!userId || !ready) return
+    // Источник нового аккаунта — один раз (сервер сам отклонит, если аккаунт не новый).
+    try {
+      const src = localStorage.getItem(SRC_KEY), sent = localStorage.getItem(SRC_KEY + '-sent')
+      if (src && sent !== userId) setSignupSource(src).then(() => { try { localStorage.setItem(SRC_KEY + '-sent', userId) } catch { /* ignore */ } }, () => { /* в следующий раз */ })
+    } catch { /* ignore */ }
     let ref: string | null = null
     try { ref = localStorage.getItem(REF_KEY) } catch { /* ignore */ }
     if (!ref) return

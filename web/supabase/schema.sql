@@ -1870,3 +1870,56 @@ create policy "plan views: own or perk author" on public.plan_views for select t
         or exists (select 1 from public.achievements x where x.user_id = p.author and x.code = 'collector'))
   )
 );
+
+-- Откуда пришли люди: метка из ссылки (?src=tiktok), приглашение или сайт-источник. Пишет только сервер, один раз — для нового аккаунта.
+create table if not exists public.signup_sources (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  source text not null check (source ~ '^[a-z0-9_.-]{1,40}$'),
+  created_at timestamptz not null default now()
+);
+alter table public.signup_sources enable row level security;
+revoke all on public.signup_sources from anon, authenticated;
+
+create or replace function public.set_signup_source(src text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare me uuid := (select auth.uid());
+begin
+  if me is null or src is null or src !~ '^[a-z0-9_.-]{1,40}$' then return false; end if;
+  -- Только для свежего аккаунта: старым пользователям источник задним числом не приписываем.
+  if not exists (select 1 from profiles where id = me and created_at > now() - interval '3 days') then return false; end if;
+  insert into signup_sources (user_id, source) values (me, src) on conflict do nothing;
+  return found;
+end $$;
+revoke all on function public.set_signup_source(text) from public, anon;
+grant execute on function public.set_signup_source(text) to authenticated;
+
+-- Для админки: по каждому источнику — сколько пришло, вернулись ли через неделю, дошли ли до встречи; и K-фактор.
+create or replace function public.admin_sources() returns json
+language plpgsql stable security definer set search_path = public, auth as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return json_build_object(
+    'rows', (select coalesce(json_agg(r order by r.users desc), '[]'::json) from (
+      select b.src as source,
+        count(*) as users,
+        count(*) filter (where b.created_at > now() - interval '7 days') as users_7d,
+        count(*) filter (where b.created_at < now() - interval '8 days') as cohort,
+        count(*) filter (where b.created_at < now() - interval '8 days' and b.last_seen >= b.created_at + interval '7 days') as back,
+        count(*) filter (where exists (select 1 from plans x where x.author = b.id)) as made_plan,
+        count(*) filter (where exists (select 1 from capsules c where b.id in (c.author, c.responder) and c.status in ('agreed', 'contacts', 'met'))) as agreed,
+        count(*) filter (where exists (select 1 from capsules c where b.id in (c.author, c.responder) and c.status = 'met')) as met,
+        sum((select count(*) from referrals rf where rf.inviter = b.id)) as invited
+      from (select p.id, p.created_at, coalesce(s.source, 'unknown') as src,
+              greatest(coalesce(pr.seen_at, 'epoch'), coalesce(u.last_sign_in_at, 'epoch')) as last_seen
+            from profiles p join auth.users u on u.id = p.id
+            left join signup_sources s on s.user_id = p.id
+            left join presence pr on pr.user_id = p.id) b
+      group by b.src) r),
+    'users', (select count(*) from profiles),
+    'referrals', (select count(*) from referrals),
+    'users_30d', (select count(*) from profiles where created_at > now() - interval '30 days'),
+    'referrals_30d', (select count(*) from referrals where created_at > now() - interval '30 days')
+  );
+end $$;
+revoke all on function public.admin_sources() from public, anon;
+grant execute on function public.admin_sources() to authenticated;

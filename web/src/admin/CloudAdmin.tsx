@@ -6,7 +6,8 @@ import { PostArt } from '../components/PostArt'
 import { DEFAULT_CATEGORIES, DEFAULT_TAGS } from '../data'
 import { requestReload } from '../cloud/sync'
 import { openProfileLater } from '../components/Invite'
-import { adminBugReports, setBugStatus, type BugReport } from '../cloud/api'
+import { adminBugReports, adminSources, setBugStatus, type BugReport, type SourceStats } from '../cloud/api'
+import { cleanSource } from '../components/Invite'
 import {
   adminBanUntil, adminDeleteUser, adminSetAmbassador, ambassadorOf, adminPush, adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUpdateProfile, adminUsers, adminVerifications, adminWipeContent,
   decideVerification, deletePlan, deleteShort, humanError, setBan, setReportStatus,
@@ -105,6 +106,84 @@ function Growth({ s }: { s: AdminStats }) {
   )
 }
 
+const SRC_NAMES: Record<string, string> = {
+  tiktok: 'TikTok', instagram: 'Instagram', vk: 'ВКонтакте', telegram: 'Telegram', youtube: 'YouTube', google: 'Google', yandex: 'Яндекс',
+  facebook: 'Facebook', ok: 'Одноклассники', invite: 'Приглашение друга', direct: 'Напрямую', unknown: 'До учёта источников',
+  nashkraj: '«Наш край»', intex: 'Intex-press', poster: 'Листовки и плакаты',
+}
+const SRC_PRESETS = ['tiktok', 'instagram', 'vk', 'telegram', 'nashkraj', 'intex', 'poster']
+const srcName = (s: string) => SRC_NAMES[s] ?? s
+
+/** Откуда пришли: какие каналы приводят людей, которые остаются и встречаются. Плюс ссылки с метками для каждого канала. */
+function Sources({ onError }: { onError: (e: string) => void }) {
+  const [d, setD] = useState<SourceStats | null>(null)
+  const [custom, setCustom] = useState('')
+  const [copied, setCopied] = useState('')
+  useEffect(() => { adminSources().then(setD, (e) => onError(humanError(e))) }, [onError])
+  const link = (src: string) => `https://komeeta.com/?src=${src}`
+  const copy = (src: string) => {
+    void navigator.clipboard?.writeText(link(src)).then(() => { setCopied(src); setTimeout(() => setCopied(''), 1500) }, () => {})
+  }
+  const k = d && d.users ? d.referrals / d.users : 0
+  const k30 = d && d.users_30d ? d.referrals_30d / d.users_30d : 0
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—')
+  const own = cleanSource(custom)
+  return (
+    <section className={card}>
+      <h2 className="font-semibold">Откуда пришли</h2>
+      <p className="text-[12.5px] text-muted mb-2">Какой канал приводит людей, которые остаются и доходят до встречи. Вкладывайтесь в те, где зелёное.</p>
+      {!d ? <p className="text-muted text-[13px]">Загружаем…</p> : (
+        <>
+          <div className="-mx-1 overflow-x-auto">
+            <table className="w-full text-[13px] tnum">
+              <thead><tr className="text-muted text-left text-[11.5px]">
+                <th className="px-1 py-1 font-medium">Канал</th><th className="px-1 font-medium text-right">Пришли</th><th className="px-1 font-medium text-right">Неделя</th>
+                <th className="px-1 font-medium text-right">Вернулись</th><th className="px-1 font-medium text-right">Договорились</th><th className="px-1 font-medium text-right">Позвали</th>
+              </tr></thead>
+              <tbody>
+                {d.rows.map((r) => {
+                  const ret = r.cohort ? r.back / r.cohort : null
+                  return (
+                    <tr key={r.source} className="border-t border-line">
+                      <td className="px-1 py-2 font-medium">{srcName(r.source)}</td>
+                      <td className="px-1 text-right font-semibold">{r.users}</td>
+                      <td className="px-1 text-right text-muted">+{r.users_7d}</td>
+                      <td className={`px-1 text-right ${ret === null ? 'text-muted' : ret >= 0.3 ? 'text-ok' : ret >= 0.15 ? 'text-[var(--amber)]' : 'text-danger'}`}>{ret === null ? '—' : pct(r.back, r.cohort)}</td>
+                      <td className="px-1 text-right">{pct(r.agreed, r.users)}</td>
+                      <td className="px-1 text-right">{r.invited}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11.5px] text-muted mt-1">«Вернулись» — зашли снова через неделю после регистрации (считается для тех, кто пришёл больше 8 дней назад). «Договорились» — доля тех, кто договорился о встрече.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-surface-2 p-3"><span className="block text-[12px] text-muted">K-фактор за всё время</span><b className="font-display text-[20px] tnum">{k.toFixed(2)}</b></div>
+            <div className="rounded-2xl bg-surface-2 p-3"><span className="block text-[12px] text-muted">K-фактор за 30 дней</span><b className="font-display text-[20px] tnum">{k30.toFixed(2)}</b></div>
+          </div>
+          <p className="text-[11.5px] text-muted mt-1">Сколько новых людей в среднем приводит один пользователь. Больше 0,3 — сарафан работает; 1 и выше — растём сами.</p>
+        </>
+      )}
+      <div className="mt-3 pt-3 border-t border-line">
+        <span className="text-[13px] font-semibold">Ссылки с меткой — для каждого канала своя</span>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {SRC_PRESETS.map((x) => (
+            <button key={x} onClick={() => copy(x)} className="h-9 px-3 rounded-full bg-surface-2 text-[13px] font-medium cursor-pointer" aria-label={`Скопировать ссылку для ${srcName(x)}`}>
+              {copied === x ? '✓ Скопировано' : srcName(x)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex gap-2">
+          <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="своя метка, напр. blogger_ivan" className={`${inputCls} flex-1 min-w-0`} aria-label="Своя метка" />
+          <Button variant="secondary" disabled={!own} onClick={() => own && copy(own)}>{own && copied === own ? '✓' : 'Копировать'}</Button>
+        </div>
+        {own && <p className="mt-1 text-[12px] text-muted break-all">{link(own)}</p>}
+      </div>
+    </section>
+  )
+}
+
 function Overview({ onError, onPending, go }: { onError: (e: string) => void; onPending: (p: { reports: number; verifs: number }) => void; go: (t: Tab) => void }) {
   const [s, setS] = useState<AdminStats | null>(null)
   const load = useCallback(() => { adminStats().then((x) => { setS(x); onPending({ reports: x.reports_open, verifs: x.verifications_pending }) }, (e) => onError(humanError(e))) }, [onError, onPending])
@@ -166,6 +245,7 @@ function Overview({ onError, onPending, go }: { onError: (e: string) => void; on
         </ul>
       </section>
       <Growth s={s} />
+      <Sources onError={onError} />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {tiles.map(([label, v, note, to]) => (
           <button key={label} onClick={() => to && go(to)} className={`${card} text-left flex flex-col gap-0.5 ${to ? 'cursor-pointer hover:brightness-95' : 'cursor-default'}`}>
