@@ -12,6 +12,7 @@ import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, keepKeyboard, readPhot
 import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
+import { SupportChat, SupportRow } from '../components/Support'
 import { ChatThemeSheet, ChatWallpaper, chatLookStyle, useChatLook } from '../components/ChatTheme'
 import type { Capsule, CapsuleStatus, Person } from '../types'
 
@@ -183,6 +184,7 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
   const cancel = useRef<(() => void) | null>(null)
   const restore = () => { cancel.current?.(); commit.current = null; setUndo(null); setSwiped(null) }
   const [creating, setCreating] = useState(false)
+  const [support, setSupport] = useState(false)
   const [leavingGroup, setLeavingGroup] = useState<string | null>(null)
   const lastAt = (c: Capsule) => c.messages[c.messages.length - 1]?.at ?? c.createdAt
   const q = query.trim().toLowerCase()
@@ -249,6 +251,8 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
         </label>
         <button onClick={() => setCreating(true)} className="shrink-0 inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-brand text-white font-semibold text-[14px] shadow-[0_8px_20px_-10px_rgb(255_79_134/.8)] cursor-pointer"><Icon name="plus" size={18} /> Новый чат</button>
       </div>
+      {!q && <SupportRow onOpen={() => setSupport(true)} />}
+      <SupportChat open={support} onClose={() => setSupport(false)} />
       {rows.length ? (
         <ul className="flex flex-col">
           {rows.map((r) => {

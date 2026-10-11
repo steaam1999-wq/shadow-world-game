@@ -20,6 +20,7 @@ import { StyleEditor } from '../components/StyleEditor'
 import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
 import { BugReportSheet } from '../components/BugReport'
+import { SupportChat } from '../components/Support'
 import { PlayingChip } from '../music/NowPlaying'
 import { ProfilePublications, SavedPublications } from './Shorts'
 import { useOpenProfile } from '../nav'
@@ -39,6 +40,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const me = state.me!
   const [editVibe, setEditVibe] = useState(false)
   const [bugOpen, setBugOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [styling, setStyling] = useState(false)
@@ -246,6 +248,12 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
 
       <SafetySection onSignOut={onSignOut} />
 
+      <button onClick={() => setSupportOpen(true)} className="rounded-[28px] bg-surface shadow-soft p-4 flex items-center gap-3 text-left cursor-pointer">
+        <span className="grid place-items-center w-11 h-11 rounded-2xl bg-cobalt text-white shrink-0"><Icon name="chat" size={20} /></span>
+        <span className="flex-1 min-w-0"><span className="block font-semibold">Поддержка</span><span className="block text-[13px] text-muted">Чат с ботом — ответит на любой вопрос о приложении</span></span>
+        <Icon name="arrow" size={18} className="text-muted" />
+      </button>
+      <SupportChat open={supportOpen} onClose={() => setSupportOpen(false)} />
       <button onClick={() => setBugOpen(true)} className="rounded-[28px] bg-surface shadow-soft p-4 flex items-center gap-3 text-left cursor-pointer">
         <span className="grid place-items-center w-11 h-11 rounded-2xl bg-brand text-white shrink-0"><Icon name="flag" size={20} /></span>
         <span className="flex-1 min-w-0"><span className="block font-semibold">Сообщить об ошибке</span><span className="block text-[13px] text-muted">Что-то сломалось или неудобно? Напишите — исправим</span></span>

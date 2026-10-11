@@ -6,7 +6,7 @@ import { Button, Icon, Sheet, inputCls } from './ui'
 declare const __BUILD__: string
 
 /** Что за устройство — коротко, чтобы понять, где воспроизводить ошибку. */
-function deviceLine() {
+export function deviceLine() {
   const ua = navigator.userAgent
   const os = /iPhone|iPad/.exec(ua) ? `iOS ${/OS (\d+[_.]\d+)/.exec(ua)?.[1]?.replace('_', '.') ?? ''}` : /Android [\d.]+/.exec(ua)?.[0] ?? (/Mac|Windows|Linux/.exec(ua)?.[0] ?? 'Другое')
   const browser = /CriOS|Chrome/.test(ua) ? 'Chrome' : /FxiOS|Firefox/.test(ua) ? 'Firefox' : /YaBrowser/.test(ua) ? 'Яндекс' : /Safari/.test(ua) ? 'Safari' : 'браузер'

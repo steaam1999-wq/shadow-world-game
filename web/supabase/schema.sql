@@ -1937,3 +1937,26 @@ begin
 end $$;
 revoke all on function public.save_push_device(text, text, text) from public, anon;
 grant execute on function public.save_push_device(text, text, text) to authenticated;
+
+-- Бот поддержки: счётчик вопросов в сутки на человека (защита от лишних трат). Ответы — функция support-bot.
+create table if not exists public.support_usage (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  day date not null default current_date,
+  n int not null default 0,
+  primary key (user_id, day)
+);
+alter table public.support_usage enable row level security;
+revoke all on public.support_usage from anon, authenticated;
+
+create or replace function public.support_tick() returns int
+language plpgsql security definer set search_path = public as $$
+declare me uuid := (select auth.uid()); cnt int;
+begin
+  if me is null then return 1000; end if;
+  insert into support_usage (user_id, day, n) values (me, current_date, 1)
+  on conflict (user_id, day) do update set n = support_usage.n + 1
+  returning n into cnt;
+  return cnt;
+end $$;
+revoke all on function public.support_tick() from public, anon;
+grant execute on function public.support_tick() to authenticated;

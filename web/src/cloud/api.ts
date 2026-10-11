@@ -1238,6 +1238,19 @@ export async function adminSources(): Promise<SourceStats> {
   return data as SourceStats
 }
 
+/** Бот поддержки: ответ на последний вопрос с учётом переписки. null — бот на сервере не настроен (отвечаем сами по частым вопросам). */
+export async function askSupportBot(messages: { role: 'user' | 'assistant'; content: string }[]): Promise<{ text: string } | { error: 'limit' | 'busy' | 'off' | 'failed' }> {
+  const { data, error } = await sb().functions.invoke('support-bot', { body: { messages } })
+  if (!error) return { text: String((data as { text?: string })?.text ?? '') }
+  const status = (error as { context?: Response }).context?.status
+  if (status === 503) return { error: 'off' }
+  if (status === 429) {
+    const body = await (error as { context?: Response }).context?.json().catch(() => null) as { error?: string } | null
+    return { error: body?.error === 'busy' ? 'busy' : 'limit' }
+  }
+  return { error: 'failed' }
+}
+
 /** Основатель поднимает свой план наверх ленты на сутки — раз в 30 дней. */
 export async function founderBoost(planId: string) {
   const { data, error } = await sb().rpc('founder_boost', { plan: planId })
