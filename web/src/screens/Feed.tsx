@@ -268,7 +268,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
 
       {/* Кадр 4:5, детали — на матовой «стеклянной» панели снизу */}
       <div className="relative mx-3 rounded-[22px] overflow-hidden bg-surface-2 aspect-[4/5] select-none" onClick={onImageTap}>
-        <PostArt activity={a} />
+        <PostArt activity={a} fit="contain" />
         <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(180deg,rgb(0_0_0/.22)_0%,transparent_20%,transparent_45%,rgb(0_0_0/.4)_100%)]" />
         {compat && (
           <span className="glass-chip absolute right-3 top-3 rounded-full px-3 h-7 inline-flex items-center text-[12px] font-semibold text-white tnum">{compat.score}% вайб</span>

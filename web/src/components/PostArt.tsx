@@ -112,7 +112,14 @@ function hash(s: string) {
   return Math.abs(h)
 }
 
-export function PostArt({ activity, className = '' }: { activity: Pick<Activity, 'id' | 'category' | 'photo'>; className?: string }) {
+export function PostArt({ activity, className = '', fit = 'cover' }: { activity: Pick<Activity, 'id' | 'category' | 'photo'>; className?: string; fit?: 'cover' | 'contain' }) {
+  // В ленте фото показываем целиком, как загрузили: по краям — размытая копия вместо обрезки.
+  if (activity.photo && fit === 'contain') return (
+    <span className={`relative block w-full h-full overflow-hidden ${className}`}>
+      <img src={activity.photo} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-70" />
+      <img src={activity.photo} alt="" className="relative w-full h-full object-contain object-top" />
+    </span>
+  )
   if (activity.photo) return <img src={activity.photo} alt="" className={`w-full h-full object-cover ${className}`} />
   const scene = SCENES[activity.category] ?? FALLBACK
   const shift = (hash(activity.id) % 30) - 15

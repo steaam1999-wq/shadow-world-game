@@ -18,11 +18,12 @@ const MAX_MB = 50
 const CAPTION_MAX = 200
 
 type Aspect = 'orig' | '4:5' | '1:1' | '9:16'
+// По умолчанию — фото целиком, как в исходнике; обрезать можно по желанию.
 const ASPECTS: { id: Aspect; label: string; ratio?: number }[] = [
+  { id: 'orig', label: 'Оригинал' },
   { id: '4:5', label: '4:5', ratio: 4 / 5 },
   { id: '1:1', label: '1:1', ratio: 1 },
   { id: '9:16', label: '9:16', ratio: 9 / 16 },
-  { id: 'orig', label: 'Оригинал' },
 ]
 
 /** Обрезка фото по центру под выбранный формат. */
@@ -51,7 +52,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
   const [stage, setStage] = useState<'camera' | 'edit' | 'details'>('camera')
   const [shot, setShot] = useState<Shot | null>(null)
   const [filter, setFilter] = useState<FilterId>('spark')
-  const [aspect, setAspect] = useState<Aspect>('4:5')
+  const [aspect, setAspect] = useState<Aspect>('orig')
   const [caption, setCaption] = useState('')
   const [place, setPlace] = useState<string | null>(null)
   const [music, setMusic] = useState<Track | null>(null)
@@ -62,7 +63,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
 
   useEffect(() => {
     if (open) return
-    setStage('camera'); setShot(null); setFilter('spark'); setAspect('4:5'); setCaption(''); setPlace(null); setMusic(null); setAlsoStory(false); setBusy(false); setError('')
+    setStage('camera'); setShot(null); setFilter('spark'); setAspect('orig'); setCaption(''); setPlace(null); setMusic(null); setAlsoStory(false); setBusy(false); setError('')
   }, [open])
 
   if (!open) return null

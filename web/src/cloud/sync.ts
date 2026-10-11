@@ -8,6 +8,12 @@ let reloader: (() => void) | null = null
 export function setReloader(fn: (() => void) | null) { reloader = fn }
 export function requestReload() { reloader?.() }
 
+// Время последнего действия, ушедшего на сервер (лайк, сообщение…). Загрузка, начатая раньше, несёт старые данные —
+// её не показываем, иначе лайк на мгновение «снимался» на экране и следующее нажатие убирало его по-настоящему.
+let lastLocalEdit = 0
+export function markLocalEdit() { lastLocalEdit = Date.now() }
+export function editedSince(t: number) { return lastLocalEdit >= t }
+
 /** Запись действия на сервер. null — действие только локальное (таймер безопасности, просмотренные сторис). */
 export function cloudEffect(a: Action, s: State): Promise<unknown> | null {
   const cloud = s.cloud

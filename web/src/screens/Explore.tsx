@@ -5,7 +5,7 @@ import { knownKm, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { PostArt } from '../components/PostArt'
-import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls, readPhoto } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls, readPhotoFull } from '../components/ui'
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
@@ -320,7 +320,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
               <input id="act-photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
                 const f = e.target.files?.[0]
                 if (!f) return
-                try { setPhoto(await readPhoto(f)); setPhotoError('') } catch { setPhotoError('Не получилось открыть файл. Выберите JPG или PNG.') }
+                try { setPhoto(await readPhotoFull(f, 1440)); setPhotoError('') } catch { setPhotoError('Не получилось открыть файл. Выберите JPG или PNG.') }
               }} />
               <div className="text-[13px] text-muted flex flex-col gap-1">
                 <span>Фото места или настроения. Без фото будет обложка категории.</span>

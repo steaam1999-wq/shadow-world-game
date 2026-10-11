@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import * as api from './api'
-import { setReloader } from './sync'
+import { editedSince, setReloader } from './sync'
 import { ageFrom } from '../lib'
 import { usePresenceHeartbeat } from './presence'
 import { rememberCurrent, watchAccounts } from './accounts'
@@ -27,7 +27,10 @@ export function CloudSync() {
         const user = await api.currentUser()
         if (!alive) return
         if (!user || user.id !== userId) { dispatch({ type: 'signOut' }); return }
+        const started = Date.now()
         const d = await api.loadAll(userId, ref.current.me, ref.current.cloudRead ?? {})
+        // Пока грузили, человек что-то сделал — эти данные уже устарели; перечитаем ещё раз.
+        if (alive && editedSince(started)) { again = true; return }
         if (alive) dispatch({ type: 'cloudLoad', ...d })
         // Этот аккаунт — в список для быстрого переключения
         if (alive && d.me) { watchAccounts(); void rememberCurrent(d.me).catch(() => {}) }

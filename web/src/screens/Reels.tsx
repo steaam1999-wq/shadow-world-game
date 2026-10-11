@@ -72,7 +72,7 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
 
   return (
     <section className="relative h-full snap-start snap-always overflow-hidden text-white" aria-label={a.title}>
-      <div className="absolute inset-0 scale-110" onClick={onTap}><PostArt activity={a} /></div>
+      <div className={`absolute inset-0 ${a.photo ? '' : 'scale-110'}`} onClick={onTap}><PostArt activity={a} fit="contain" /></div>
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/35 via-transparent to-black/70" />
       {pop > 0 && (
         <span key={pop} className="anim-pop absolute inset-0 grid place-items-center pointer-events-none drop-shadow-lg"><Icon name="heart" size={120} fill /></span>

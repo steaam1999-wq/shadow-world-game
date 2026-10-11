@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useReducer, useRef, 
 import { CAPSULE_TTL, QUICK_REPLIES, seedState } from './data'
 import type { Activity, Capsule, CapsuleStatus, Group, Me, PlaylistItem, Reaction, Story, Notice, NowPlaying, Person, PlanComment, Report, Short, Safety, State, Verification } from './types'
 import type { Track } from './music/engine'
-import { cloudEffect, requestReload } from './cloud/sync'
+import { cloudEffect, requestReload, markLocalEdit } from './cloud/sync'
 
 const STORAGE_KEY = 'iskra-state'
 const SESSION_KEY = 'iskra-session'
@@ -528,6 +528,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (a.type === 'createActivity' && !a.id) a = { ...a, id: crypto.randomUUID() }
       if ((a.type === 'respond' || a.type === 'directMessage') && !a.capsuleId) a = { ...a, capsuleId: crypto.randomUUID() }
       const job = cloudEffect(a, before)
+      if (job) markLocalEdit()
       if (job) job.then(requestReload, (e: Error) => { baseDispatch({ type: 'cloudError', message: e.message }); requestReload() })
     }
     // Следующее действие в том же обработчике должно видеть результат этого (например, выход, потом демо).
