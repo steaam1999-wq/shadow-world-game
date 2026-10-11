@@ -196,7 +196,7 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
         <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
           {free.map(({ p, until }) => (
             <div key={p.id} className="shrink-0 w-[132px] rounded-2xl bg-surface-2 p-2.5 flex flex-col items-center gap-1.5 text-center">
-              <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} /><span className="absolute right-0 bottom-0 w-3.5 h-3.5 rounded-full bg-ok border-2 border-surface-2" /></span>
+              <Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} online />
               <span className="text-[13px] font-semibold leading-tight">{nameAge(p.name, p.age)}</span>
               <span className="text-[11px] text-muted leading-tight">{placeLine(formatKm(p.distanceKm), `до ${hm(until)}`)}</span>
               <button disabled={invited.includes(p.id)} onClick={() => { setInvited([...invited, p.id]); onInvite(p.id) }}

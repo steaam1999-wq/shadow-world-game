@@ -347,3 +347,8 @@ html, body { overflow-x: clip; }
 @keyframes gold-twinkle { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); } 40%, 60% { opacity: 1; transform: scale(1) rotate(45deg); } }
 .gold-twinkle { opacity: 0; animation: gold-twinkle 2.6s ease-in-out infinite; filter: drop-shadow(0 0 4px rgb(255 220 120 / .9)); }
 @media (prefers-reduced-motion: reduce) { .gold-ring-spin, .gold-twinkle { animation: none; } }
+
+/* В сети: мягкое зелёное свечение значка проверки или точки */
+@keyframes online-glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(34 197 94 / .55), 0 0 6px 1px rgb(34 197 94 / .55) } 50% { box-shadow: 0 0 0 3px rgb(34 197 94 / 0), 0 0 10px 2px rgb(34 197 94 / .75) } }
+.online-glow { animation: online-glow 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .online-glow { animation: none; box-shadow: 0 0 6px 1px rgb(34 197 94 / .6); } }

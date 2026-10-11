@@ -150,13 +150,15 @@ export function Avatar({ name, hue, size = 48, verified = false, ring = false, s
         {name.slice(0, 1)}
       </span>}
       {verified && (
-        <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center rounded-full bg-cobalt text-white border-2 border-surface" style={{ width: size * 0.36, height: size * 0.36, minWidth: 16, minHeight: 16 }} title="Верифицирован">
+        // Значок проверки; если человек в сети — он сам светится зелёным (без отдельной точки)
+        <span className={`absolute -right-0.5 -bottom-0.5 grid place-items-center rounded-full text-white border-2 border-surface ${online ? 'bg-[#22c55e] online-glow' : 'bg-cobalt'}`}
+          style={{ width: size * 0.36, height: size * 0.36, minWidth: 16, minHeight: 16 }} title={online ? 'Верифицирован · в сети' : 'Верифицирован'} aria-label={online ? 'Верифицирован, в сети' : undefined}>
           <Icon name="check" size={Math.max(10, size * 0.22)} />
         </span>
       )}
-      {online && (
-        // В сети: зелёная точка (если стоит значок проверки — в верхнем углу)
-        <span className={`absolute ${verified ? '-right-0.5 -top-0.5' : 'right-0 bottom-0'} rounded-full bg-[#22c55e] border-2 border-surface`}
+      {online && !verified && (
+        // В сети: зелёная точка
+        <span className="absolute right-0 bottom-0 rounded-full bg-[#22c55e] border-2 border-surface online-glow"
           style={{ width: Math.max(11, size * 0.26), height: Math.max(11, size * 0.26) }} title="В сети" aria-label="В сети" />
       )}
     </span>
