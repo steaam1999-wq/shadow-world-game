@@ -172,7 +172,11 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
     setRemoving(id)
     setTimeout(() => { setRemoving(null); setUndo({ id, name }) }, 300)
     const timer = setTimeout(() => { if (commit.current === done) done() }, 4500) // только своё удаление, не следующее
-    const done = () => { clearTimeout(timer); commit.current = null; setUndo(null); dispatch({ type: 'hideChat', capsuleId: id }) }
+    const done = () => {
+      clearTimeout(timer); commit.current = null; setUndo(null)
+      const person = state.capsules.find((x) => x.id === id)?.personId
+      for (const x of state.capsules) if (x.id === id || (person && x.personId === person && !x.hidden)) dispatch({ type: 'hideChat', capsuleId: x.id })
+    }
     commit.current = done
     cancel.current = () => clearTimeout(timer)
   }
@@ -206,7 +210,13 @@ export function CapsuleList({ now, onOpen, onNew }: { now: number; onOpen: (id: 
     ...state.capsules
       .filter((c) => !c.hidden && c.id !== undo?.id && state.people.some((x) => x.id === c.personId))
       .filter((c) => !q || personOrGone(state.people, c.personId).name.toLowerCase().includes(q))
-      .map((c) => ({ kind: 'direct' as const, id: c.id, at: lastAt(c), c })),
+      // С одним человеком — одна строка (отклики на разные планы не плодят отдельные чаты): самый свежий чат, непрочитанные — вместе.
+      .sort((a, b) => lastAt(b) - lastAt(a))
+      .filter((c, i, all) => all.findIndex((x) => x.personId === c.personId) === i)
+      .map((c) => {
+        const sibs = state.capsules.filter((x) => x.personId === c.personId && !x.hidden)
+        return { kind: 'direct' as const, id: c.id, at: lastAt(c), c: { ...c, unread: sibs.reduce((n, x) => n + x.unread, 0) } }
+      }),
     ...(state.groups ?? [])
       .filter((g) => !q || g.title.toLowerCase().includes(q))
       .map((g) => ({ kind: 'group' as const, id: g.id, at: g.messages[g.messages.length - 1]?.at ?? g.createdAt, g })),
@@ -295,8 +305,16 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const memo = useSafetyMemo()
 
   // Открыли чат или пришло новое, пока он открыт, — отмечаем прочитанным (собеседник увидит ✓✓).
-  const incoming = c?.messages.filter((m) => m.from === 'them').length ?? 0
-  useEffect(() => { dispatch({ type: 'readCapsule', capsuleId: id }) }, [id, incoming, dispatch])
+  // Вся переписка с этим человеком — одной лентой (личная и отклики на его/ваши планы).
+  const sibs = c ? state.capsules.filter((x) => x.personId === c.personId) : []
+  const origin = new Map<string, Capsule>()
+  const msgs = !c ? [] : sibs.length < 2 ? c.messages : sibs
+    .flatMap((x) => x.messages.filter((m) => x.id === c.id || m.from !== 'system' || m.text.startsWith('Точное место')).map((m) => { origin.set(m.id, x); return m }))
+    .sort((a, b) => a.at - b.at)
+  const from = (mid: string) => origin.get(mid) ?? c!
+  const incoming = msgs.filter((m) => m.from === 'them').length
+  const sibIds = sibs.map((x) => x.id).join(',')
+  useEffect(() => { for (const x of sibIds ? sibIds.split(',') : [id]) dispatch({ type: 'readCapsule', capsuleId: x }) }, [id, sibIds, incoming, dispatch])
   const [picked, setPicked] = useState<string | null>(null) // своё сообщение, у которого показана кнопка «Удалить»
   const [viewing, setViewing] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState('')
@@ -305,9 +323,9 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const voice = useVoiceRecorder((audio, ms) => { if (c) dispatch({ type: 'sendVoice', capsuleId: c.id, audio, ms }) })
   const [voiceOk] = useState(canRecordVoice)
   const [slide, setSlide] = useState(0)
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [c?.messages.length, typing])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [msgs.length, typing])
   const presence = usePresence(state.cloud ? c?.personId : undefined)
-  const look = useChatLook(c?.id ?? '')
+  const look = useChatLook(c ? `p:${c.personId}` : '')
   const [themeOpen, setThemeOpen] = useState(false)
 
   if (!c) return null
@@ -317,11 +335,11 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const a = state.activities.find((x) => x.id === c.activityId)
 
   // Защита: без ответа — не больше 3 сообщений; «только проверенные» — первое сообщение только с галочкой.
-  const waiting = waitingForReply(c.messages)
-  const theyWrote = c.messages.some((m) => m.from === 'them')
+  const waiting = waitingForReply(msgs)
+  const theyWrote = msgs.some((m) => m.from === 'them')
   const verifiedOnly = !!p.onlyVerified && !state.me?.verified && !theyWrote
   const locked = gone || waiting || verifiedOnly
-  const canCall = !!state.cloud && !gone && theyWrote && c.messages.some((m) => m.from === 'me') && !p.callsOff
+  const canCall = !!state.cloud && !gone && theyWrote && msgs.some((m) => m.from === 'me') && !p.callsOff
   const send = (e: React.FormEvent) => {
     e.preventDefault()
     const t = text.trim()
@@ -367,8 +385,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
       </header>
 
       <div className="relative z-[1] flex-1 flex flex-col py-3">
-        {c.messages.map((m, i) => {
-          const prev = c.messages[i - 1], next = c.messages[i + 1]
+        {msgs.map((m, i) => {
+          const prev = msgs[i - 1], next = msgs[i + 1]
           const newDay = !prev || dayKey(prev.at) !== dayKey(m.at)
           const day = newDay && <div key={`d-${m.id}`} className="sticky top-[calc(64px+env(safe-area-inset-top,0px))] z-[5] self-center my-3 px-3 h-6 inline-flex items-center rounded-full bg-surface/70 backdrop-blur-md ring-1 ring-line/60 text-[11.5px] font-semibold text-muted">{dayLabel(m.at, now)}</div>
           if (m.from === 'system') return [day,
@@ -377,7 +395,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           const joinPrev = !newDay && prev?.from === m.from && m.at - prev.at < GROUP_MS
           const joinNext = !!next && next.from === m.from && next.at - m.at < GROUP_MS && dayKey(next.at) === dayKey(m.at)
           const me = m.from === 'me'
-          const read = (c.theirReadAt ?? 0) >= m.at
+          const read = (from(m.id).theirReadAt ?? 0) >= m.at
           const corners = me ? `${joinPrev ? 'rounded-tr-[7px]' : ''} ${joinNext ? 'rounded-br-[7px]' : 'rounded-br-[4px]'}`
             : `${joinPrev ? 'rounded-tl-[7px]' : ''} ${joinNext ? 'rounded-bl-[7px]' : 'rounded-bl-[4px]'}`
           const time = (
@@ -410,10 +428,10 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                   {m.text && soundCloudLink(m.text) && <div className="mt-2 mb-1 w-[250px] max-w-full text-fg" onClick={(e) => e.stopPropagation()}><SoundCloudCard text={m.text} compact /></div>}
                 </div>
                 {m.from === 'them' && m.text && MONEY_RE.test(m.text) && <MoneyWarning />}
-                <ReactionChips chatId={c.id} messageId={m.id} />
-                {picked === m.id && <ReactionPicker chatId={c.id} messageId={m.id} onDone={() => setPicked(null)} />}
+                <ReactionChips chatId={from(m.id).id} messageId={m.id} />
+                {picked === m.id && <ReactionPicker chatId={from(m.id).id} messageId={m.id} onDone={() => setPicked(null)} />}
                 {picked === m.id && me && (
-                  <button onClick={() => { dispatch({ type: 'deleteMessage', capsuleId: c.id, messageId: m.id }); setPicked(null) }}
+                  <button onClick={() => { dispatch({ type: 'deleteMessage', capsuleId: from(m.id).id, messageId: m.id }); setPicked(null) }}
                     className="inline-flex items-center gap-1 h-7 px-3 rounded-full bg-danger-soft text-danger text-[12px] font-semibold cursor-pointer"><Icon name="trash" size={13} /> Удалить у всех</button>
                 )}
               </div>
@@ -469,7 +487,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
       </div>
       {viewing && (() => {
         // Все фото этого чата — листаются в просмотре.
-        const photos = c.messages.filter((m) => m.photo).map((m) => m.from === 'me'
+        const photos = msgs.filter((m) => m.photo).map((m) => m.from === 'me'
           ? { src: m.photo!, who: 'Вы', hue: state.me?.hue, avatar: state.me?.photo, at: m.at, caption: m.text }
           : { src: m.photo!, who: p.name, hue: p.hue, avatar: p.photo, at: m.at, caption: m.text })
         return <PhotoViewer photos={photos} start={Math.max(0, photos.findIndex((x) => x.src === viewing))} onClose={() => setViewing(null)} />
@@ -492,7 +510,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           <Button variant="ghost" className="text-danger" onClick={() => { setMenu(false); setReporting(p) }}><Icon name="flag" size={18} /> Пожаловаться или заблокировать</Button>
         </div>
       </Sheet>
-      <ChatThemeSheet open={themeOpen} onClose={() => setThemeOpen(false)} chatId={c.id} name={p.name} />
+      <ChatThemeSheet open={themeOpen} onClose={() => setThemeOpen(false)} chatId={`p:${c.personId}`} name={p.name} />
       <Sheet open={noShowAsk} onClose={() => setNoShowAsk(false)} title={`${p.name} не пришёл(ла)?`}>
         <div className="flex flex-col gap-3">
           <p className="text-muted text-[14px]">Отметка честная и тихая: {p.name} не узнает, кто её поставил, а в надёжности станет на одну пропущенную встречу больше. Если потом всё-таки встретитесь и подтвердите встречу кодами — отметка перестанет считаться. Снять её можно в этом же меню.</p>
