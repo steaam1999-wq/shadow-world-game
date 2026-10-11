@@ -433,7 +433,6 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <div ref={endRef} className="scroll-mb-[96px]" />
       </div>
 
-      {kb > 0 && <div className="h-[72px] shrink-0" aria-hidden="true" />}
       <div className={`sticky bottom-0 bg-bg/75 backdrop-blur-2xl backdrop-saturate-150 -mx-4 px-3 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line/60 z-10`} style={kbBar}>
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
         {locked && (

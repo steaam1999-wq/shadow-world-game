@@ -353,24 +353,23 @@ export function useKeyboardInset() {
   return useKeyboardDock().kb
 }
 
-/** Клавиатура на телефоне: высота и положение видимой части экрана.
- *  Строку ввода прижимаем к низу видимой части (а не к низу окна): на iPhone окно не уменьшается, а сдвигается,
- *  и расчёт «от низа окна» оставлял тёмную полосу над клавиатурой. Шапку — к верху видимой части. */
+/** Клавиатура на телефоне: её высота и стиль для строки ввода (прилипает к низу и поднимается над клавиатурой).
+ *  На iPhone высота клавиатуры по visualViewport включает нижний отступ экрана (полоску «домой»),
+ *  поэтому вычитаем safe-area — иначе между строкой ввода и клавиатурой оставалась тёмная полоса. */
 export function useKeyboardDock() {
-  const [v, setV] = useState({ kb: 0, top: 0, bottom: 0 })
+  const [kbRaw, setKb] = useState(0)
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const update = () => setV({ kb: Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)), top: Math.round(vv.offsetTop), bottom: Math.round(vv.offsetTop + vv.height) })
+    const update = () => setKb(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)))
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
-  const kb = v.kb < 60 ? 0 : v.kb // мелкие сдвиги (полоса адреса) — не клавиатура
-  const bar: CSSProperties | undefined = kb ? { position: 'fixed', left: 0, right: 0, top: v.bottom, transform: 'translateY(-100%)', marginLeft: 'auto', marginRight: 'auto', maxWidth: 480 } : undefined
-  const header: CSSProperties | undefined = kb && v.top ? { transform: `translateY(${v.top}px)` } : undefined
-  return { kb, bar, header }
+  const kb = kbRaw < 60 ? 0 : kbRaw // мелкие сдвиги (полоса адреса) — не клавиатура
+  const bar: CSSProperties | undefined = kb ? { bottom: `max(0px, calc(${kb}px - env(safe-area-inset-bottom, 0px)))` } : undefined
+  return { kb, bar, header: undefined as CSSProperties | undefined }
 }
 
 const THEME_KEY = 'iskra-theme'

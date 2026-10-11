@@ -201,7 +201,6 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
         <div ref={endRef} />
       </div>
 
-      {kb > 0 && <div className="h-[72px] shrink-0" aria-hidden="true" />}
       <div className={`sticky bottom-0 bg-surface/80 backdrop-blur-xl -mx-4 px-4 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line z-10`} style={kbBar}>
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
         <form onSubmit={send} className="flex gap-2">
