@@ -8,7 +8,7 @@ import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
-import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, readPhotoFull, useKeyboardInset, type Tone } from '../components/ui'
+import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, keepKeyboard, readPhotoFull, useKeyboardInset, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
@@ -328,6 +328,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
     if (!t || locked) return
     dispatch({ type: 'send', capsuleId: c.id, text: t })
     setText('')
+    document.getElementById('chat-input')?.focus() // клавиатура остаётся открытой
     if (state.cloud) return // на сервере отвечает живой человек
     setTyping(true)
     setTimeout(() => { dispatch({ type: 'reply', capsuleId: c.id }); setTyping(false) }, 1400 + Math.random() * 1200)
@@ -459,7 +460,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
             // Пустое поле — вместо «Отправить» микрофон: зажали и держите — идёт запись.
             <VoiceHoldButton voice={voice} onSlide={setSlide} />
           ) : (
-            <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked}
+            <button type="submit" aria-label="Отправить" disabled={!text.trim() || locked} {...keepKeyboard}
               className={`grid place-items-center w-12 h-12 shrink-0 rounded-full cursor-pointer transition-all duration-200 ${text.trim() && !locked ? 'chat-accent text-white shadow-[0_8px_20px_-8px_rgb(255_79_134/.9)] scale-100' : 'bg-surface-2 text-muted scale-95'}`}>
               <Icon name="send" size={19} className={text.trim() ? 'translate-x-[1px]' : ''} />
             </button>

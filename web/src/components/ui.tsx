@@ -220,6 +220,9 @@ export function Toggle({ id, checked, onChange, label, hint }: { id: string; che
   )
 }
 
+/** Кнопка «Отправить» не забирает фокус у поля ввода — клавиатура на телефоне не закрывается после отправки. */
+export const keepKeyboard = { onPointerDown: (e: { preventDefault: () => void }) => e.preventDefault(), onMouseDown: (e: { preventDefault: () => void }) => e.preventDefault() }
+
 /** Нижняя шторка (на десктопе — модальное окно по центру). */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   useEffect(() => {

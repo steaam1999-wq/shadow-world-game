@@ -297,14 +297,14 @@ export function UpcomingMeeting({ now, onOpenCapsule }: { now: number; onOpenCap
   const left = mine.startsAt - now
   const text = left > 0 ? `через ${Math.max(1, Math.round(left / 60_000))} мин · в ${hm(mine.startsAt)}` : 'уже началась'
   return (
-    <section className="mx-4 mb-4 rounded-[24px] bg-brand text-white p-4 flex items-center gap-3 shadow-soft" aria-label="Скоро встреча">
+    <section onClick={() => onOpenCapsule(mine.id)} className="mx-4 mb-4 rounded-[24px] bg-brand text-white p-4 flex items-center gap-3 shadow-soft cursor-pointer transition-transform active:scale-[.98]" aria-label="Скоро встреча">
       <span className="grid place-items-center w-11 h-11 rounded-full bg-white/20 shrink-0"><Icon name="clock" size={20} /></span>
       <span className="flex-1 min-w-0 leading-tight">
         <span className="block text-[11px] font-semibold uppercase tracking-wide opacity-90">Скоро встреча</span>
         <span className="block font-semibold truncate">{mine.title}</span>
         <span className="block text-[12px] opacity-90 truncate">{text} · {mine.exactPlace || mine.area}</span>
       </span>
-      <button onClick={() => onOpenCapsule(mine.id)} className="shrink-0 h-9 px-3 rounded-full bg-white text-[#14152a] text-[13px] font-semibold cursor-pointer">Чат</button>
+      <button onClick={(e) => { e.stopPropagation(); onOpenCapsule(mine.id) }} className="shrink-0 h-9 px-3 rounded-full bg-white text-[#14152a] text-[13px] font-semibold cursor-pointer">Чат</button>
     </section>
   )
 }

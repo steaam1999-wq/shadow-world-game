@@ -7,7 +7,7 @@ import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm } from '../lib'
-import { Avatar, Button, Icon, Sheet, readPhotoFull, useKeyboardInset } from '../components/ui'
+import { Avatar, Button, Icon, Sheet, readPhotoFull, useKeyboardInset, keepKeyboard } from '../components/ui'
 import type { Group, Person } from '../types'
 
 // Групповые чаты: создание, переписка, участники. Создатель добавляет и убирает людей,
@@ -135,6 +135,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
     if (!t) return
     dispatch({ type: 'sendGroup', groupId: g.id, text: t.slice(0, 2000) })
     setText('')
+    document.getElementById('chat-input')?.focus()
     demoReply()
   }
   const count = g.members.length + 1
@@ -211,7 +212,7 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
             try { dispatch({ type: 'sendGroupPhoto', groupId: g.id, photo: await readPhotoFull(f) }); setPhotoError('') } catch { setPhotoError('Не получилось открыть фото. Выберите JPG или PNG.') }
           }} />
           <input id="chat-input" aria-label="Сообщение" onFocus={() => setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 350)} className="flex-1 min-w-0 h-11 rounded-full border border-transparent bg-surface-2 px-4 focus:outline-none focus:border-cobalt" value={text} onChange={(e) => setText(e.target.value)} placeholder="Сообщение в группу…" autoComplete="off" />
-          <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()}><Icon name="send" size={18} /></Button>
+          <Button type="submit" className="w-11 !px-0 !rounded-full" aria-label="Отправить" disabled={!text.trim()} {...keepKeyboard}><Icon name="send" size={18} /></Button>
         </form>
       </div>
       {viewing && (() => {

@@ -223,6 +223,11 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
     return () => { clearTimeout(t); io.disconnect() }
   }, [a.id, person, state.cloud])
 
+  // Нажатие на карточку плана: откликнуться или открыть чат; свой план — чат с откликнувшимися.
+  const ownChat = !person && (state.capsules.some((c) => c.activityId === a.id) || (state.groups ?? []).some((g) => g.planId === a.id))
+  const canOpen = person ? (responded || !groupFull(a)) : ownChat
+  const openPlan = () => { if (person) { if (responded) onOpenCapsule(a.id); else if (!groupFull(a)) onRespond(a) } else if (ownChat) onOpenCapsule(a.id) }
+
   const onImageTap = () => {
     const t = Date.now()
     if (t - lastTap.current < 320) {
@@ -273,7 +278,10 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             <Icon name="heart" size={110} fill />
           </span>
         )}
-        <div className="glass-panel absolute left-2.5 right-2.5 bottom-2.5 rounded-[24px] p-3.5 text-white" onClick={(e) => e.stopPropagation()}>
+        <div className={`glass-panel absolute left-2.5 right-2.5 bottom-2.5 rounded-[24px] p-3.5 text-white ${canOpen ? 'cursor-pointer transition-transform active:scale-[.98]' : ''}`}
+          onClick={(e) => { e.stopPropagation(); if (canOpen) openPlan() }}
+          role={canOpen ? 'button' : undefined} tabIndex={canOpen ? 0 : undefined} aria-label={canOpen ? `${a.title}: ${person ? joinLabel(a, responded) : 'открыть чат'}` : undefined}
+          onKeyDown={(e) => { if (canOpen && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPlan() } }}>
           <div className="flex flex-wrap gap-1.5 mb-2">
             <span className="inline-flex items-center gap-1 h-[26px] px-2.5 rounded-full bg-white/15 text-[12px] font-medium"><Icon name="clock" size={13} /> {started && !a.timeHidden ? 'Идёт сейчас' : planWhen(a, now).replace(', ', ' · ')}</span>
             <span className="inline-flex items-center h-[26px] px-2.5 rounded-full bg-white/15 text-[12px] font-medium">{a.category}</span>
@@ -284,11 +292,14 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             {a.groupSize && <><span className="opacity-50">•</span><Icon name="people" size={14} /> <span className="shrink-0 tnum">{1 + (a.members?.length ?? 0)} из {a.groupSize}</span></>}
           </p>
           {person && (
-            <button onClick={() => (responded ? onOpenCapsule(a.id) : onRespond(a))} disabled={!responded && groupFull(a)}
+            <button onClick={(e) => { e.stopPropagation(); openPlan() }} disabled={!responded && groupFull(a)}
               className={`mt-3 w-full h-11 rounded-[14px] inline-flex items-center justify-center gap-2 font-semibold text-[15px] cursor-pointer disabled:opacity-50 disabled:cursor-default ${responded ? 'bg-white/20' : 'bg-brand shadow-[0_6px_18px_rgb(255_79_134/.4)]'}`}>
               {joinLabel(a, responded)} <Icon name={responded ? 'chat' : 'arrow'} size={18} />
             </button>
           )}
+          {!person && (ownChat
+            ? <button onClick={(e) => { e.stopPropagation(); onOpenCapsule(a.id) }} className="mt-3 w-full h-11 rounded-[14px] inline-flex items-center justify-center gap-2 font-semibold text-[15px] cursor-pointer bg-white/20">Чат по плану <Icon name="chat" size={18} /></button>
+            : <p className="mt-2.5 text-[12.5px] text-white/75">Пока никто не откликнулся — отклики придут в «Чаты»</p>)}
         </div>
       </div>
 

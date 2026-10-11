@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useOpenProfile } from '../nav'
 import { relative } from '../lib'
-import { Avatar, Icon, Sheet } from './ui'
+import { Avatar, Icon, Sheet, keepKeyboard } from './ui'
 import type { Activity, PlanComment, Short } from '../types'
 
 export function useComments(planId: string) {
@@ -107,6 +107,7 @@ function CommentsSheetBase({ list, ownerIsMe, open, onClose, empty, onAdd, onDel
     if (!t) return
     onAdd(t.slice(0, 500), replyTo?.id)
     setText(''); setReplyTo(null)
+    input.current?.focus()
   }
 
   const row = (c: PlanComment, reply: boolean) => {
@@ -180,7 +181,7 @@ function CommentsSheetBase({ list, ownerIsMe, open, onClose, empty, onAdd, onDel
             <input ref={input} value={text} onChange={(e) => setText(e.target.value)} maxLength={500}
               placeholder={replyTo ? `Ответ для ${replyName}…` : state.me ? `Комментарий от ${state.me.name}…` : 'Комментарий…'}
               className="flex-1 min-w-0 h-11 rounded-2xl bg-surface-2 px-3.5 focus:outline-none focus:ring-2 focus:ring-cobalt" aria-label={replyTo ? 'Текст ответа' : 'Текст комментария'} />
-            <button type="submit" disabled={!text.trim()} className="grid place-items-center w-11 h-11 rounded-full bg-spark text-on-spark disabled:opacity-40 cursor-pointer" aria-label={replyTo ? 'Отправить ответ' : 'Отправить комментарий'}><Icon name="send" size={18} /></button>
+            <button type="submit" disabled={!text.trim()} {...keepKeyboard} className="grid place-items-center w-11 h-11 rounded-full bg-spark text-on-spark disabled:opacity-40 cursor-pointer" aria-label={replyTo ? 'Отправить ответ' : 'Отправить комментарий'}><Icon name="send" size={18} /></button>
           </form>
         </div>
       </div>
