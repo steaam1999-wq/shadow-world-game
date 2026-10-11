@@ -299,8 +299,9 @@ export async function signOut() {
 export async function savePushSubscription(sub: PushSubscription) {
   const j = sub.toJSON()
   if (!j.endpoint || !j.keys?.p256dh || !j.keys?.auth) return
-  const { error } = await sb().from('push_subscriptions').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth })
+  const { data, error } = await sb().rpc('save_push_device', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth })
   if (error) throw error
+  if (data === false) throw new Error('push not saved')
 }
 
 export async function removePushSubscription() {

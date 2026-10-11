@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { enableNativePush, isNativeApp, nativePushGranted, onNativePushOpen } from '../native'
+import { canOpenNotificationSettings, enableNativePush, isNativeApp, nativePushGranted, onNativePushOpen, openNotificationSettings } from '../native'
 import { useStore } from '../store'
 import { cloudEnabled, VAPID_PUBLIC_KEY } from '../cloud/config'
 import { savePushSubscription } from '../cloud/api'
@@ -268,15 +268,25 @@ function NativePushPrompt() {
   const { state } = useStore()
   const [granted, setGranted] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<'denied' | 'error' | null>(null)
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(PROMPT_KEY) === '1' } catch { return false } })
-  useEffect(() => { void nativePushGranted().then(setGranted) }, [])
+  useEffect(() => {
+    void nativePushGranted().then(setGranted)
+    // Вернулись из настроек телефона с включёнными уведомлениями — подключаем устройство сами.
+    const back = () => {
+      if (document.visibilityState !== 'visible') return
+      void nativePushGranted().then((g) => { if (g) void enableNativePush(false).then((ok) => { if (ok) { setGranted(true); setFailed(null) } }) })
+    }
+    document.addEventListener('visibilitychange', back)
+    return () => document.removeEventListener('visibilitychange', back)
+  }, [])
   if (!state.cloud || hidden || granted !== false) return null
   const close = () => { setHidden(true); try { localStorage.setItem(PROMPT_KEY, '1') } catch { /* ignore */ } }
   const turnOn = async () => {
     setBusy(true)
     const ok = await enableNativePush(true)
-    setFailed(!ok); setBusy(false)
+    // Разрешение есть, но устройство не подключилось — это не «запрещено», а сбой связи.
+    setFailed(ok ? null : (await nativePushGranted()) ? 'error' : 'denied'); setBusy(false)
     if (ok) { setGranted(true); playDrop() }
   }
   return (
@@ -288,10 +298,15 @@ function NativePushPrompt() {
         </div>
         <button onClick={close} className="grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть"><Icon name="x" size={16} /></button>
       </div>
-      {failed && <p className="text-[13px] text-danger leading-snug" role="alert">Уведомления не разрешены. Откройте настройки телефона → Приложения → Komeeta → Уведомления → Разрешить.</p>}
-      <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
-        {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}
-      </button>
+      {failed === 'denied' && <p className="text-[13px] text-muted leading-snug" role="alert">Уведомления выключены в телефоне. {canOpenNotificationSettings() ? 'Нажмите «Открыть настройки» и включите их для Komeeta.' : 'Откройте Настройки → Приложения → Komeeta → Уведомления и включите их.'}</p>}
+      {failed === 'error' && <p className="text-[13px] text-muted leading-snug" role="alert">Не получилось подключить уведомления. Проверьте интернет и нажмите ещё раз.</p>}
+      {failed === 'denied' && canOpenNotificationSettings() ? (
+        <button onClick={openNotificationSettings} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer">Открыть настройки</button>
+      ) : (
+        <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
+          {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}
+        </button>
+      )}
     </section>
   )
 }
@@ -336,6 +351,7 @@ function WebPushPrompt() {
         <>
         {failed && <p className="text-[13px] text-danger leading-snug" role="alert">{perm === 'granted'
           ? `Не получилось подписать это устройство. ${/Android/.test(navigator.userAgent) ? 'Обновите Google Chrome и попробуйте ещё раз.' : 'Проверьте интернет и попробуйте ещё раз.'}`
+          : isIos() ? 'Уведомления выключены. Откройте Настройки iPhone → Уведомления → Komeeta → Допуск уведомлений, затем нажмите кнопку снова.'
           : 'Уведомления не разрешены. Откройте настройки телефона → Приложения → Komeeta (или Chrome) → Уведомления → Разрешить, затем нажмите кнопку снова.'}</p>}
         <button onClick={() => { void turnOn() }} disabled={busy} className="h-11 rounded-xl bg-brand text-white font-semibold text-[15px] cursor-pointer disabled:opacity-60">
           {busy ? 'Включаем…' : failed ? 'Попробовать ещё раз' : 'Включить уведомления'}

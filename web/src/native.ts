@@ -19,7 +19,7 @@ type Cap = {
   Plugins: {
     PushNotifications?: PushPlugin
     Browser?: { open: (o: { url: string; presentationStyle?: string }) => Promise<void>; close: () => Promise<void> }
-    KomeetaCall?: { ended: () => Promise<void>; videoCall?: (o: { on: boolean }) => Promise<void> }
+    KomeetaCall?: { ended: () => Promise<void>; videoCall?: (o: { on: boolean }) => Promise<void>; openNotificationSettings?: () => Promise<void> }
     App?: { addListener: (ev: string, cb: (x: { url?: string; isActive?: boolean }) => void) => Promise<Listener> }
   }
 }
@@ -57,8 +57,15 @@ function registerPush(ask: boolean): Promise<string | null> {
 export async function enableNativePush(ask = true): Promise<boolean> {
   const t = await registerPush(ask).catch(() => null)
   if (!t) return false
-  const { error } = await sb().from('push_subscriptions').upsert({ endpoint: `fcm:${t}`, p256dh: 'fcm', auth: 'fcm' })
-  return !error
+  // Через сервер: устройство переходит к аккаунту, который сейчас открыт (важно при нескольких аккаунтах на телефоне).
+  const { data, error } = await sb().rpc('save_push_device', { p_endpoint: `fcm:${t}`, p_p256dh: 'fcm', p_auth: 'fcm' })
+  return !error && data !== false
+}
+
+/** Открыть настройки уведомлений Komeeta в телефоне (есть в приложении начиная с новой версии). */
+export const canOpenNotificationSettings = () => !!cap()?.Plugins.KomeetaCall?.openNotificationSettings
+export function openNotificationSettings() {
+  void cap()?.Plugins.KomeetaCall?.openNotificationSettings?.().catch(() => {})
 }
 
 /** Есть ли разрешение на уведомления в приложении. */

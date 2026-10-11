@@ -1923,3 +1923,17 @@ begin
 end $$;
 revoke all on function public.admin_sources() from public, anon;
 grant execute on function public.admin_sources() to authenticated;
+
+-- Устройство для уведомлений принадлежит тому аккаунту, который сейчас в нём открыт
+-- (иначе при входе в другой аккаунт на том же телефоне устройство не сохранялось).
+create or replace function public.save_push_device(p_endpoint text, p_p256dh text, p_auth text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare me uuid := (select auth.uid());
+begin
+  if me is null or p_endpoint is null or char_length(p_endpoint) > 1000 or char_length(coalesce(p_p256dh, '')) > 200 or char_length(coalesce(p_auth, '')) > 100 then return false; end if;
+  insert into push_subscriptions (endpoint, user_id, p256dh, auth) values (p_endpoint, me, p_p256dh, p_auth)
+  on conflict (endpoint) do update set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth;
+  return true;
+end $$;
+revoke all on function public.save_push_device(text, text, text) from public, anon;
+grant execute on function public.save_push_device(text, text, text) to authenticated;
