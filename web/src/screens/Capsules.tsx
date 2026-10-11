@@ -8,7 +8,7 @@ import { ReactionChips, ReactionPicker } from '../components/Reactions'
 import { PlaylistButton } from '../music/ChatPlaylist'
 import { useOpenProfile } from '../nav'
 import { hm, planWhen, nameAge } from '../lib'
-import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, keepKeyboard, readPhotoFull, useKeyboardInset, type Tone } from '../components/ui'
+import { Avatar, Button, ConfirmSheet, Icon, Pill, Sheet, keepKeyboard, readPhotoFull, useKeyboardDock, type Tone } from '../components/ui'
 import { ReportSheet } from './Vibe'
 import { GroupAvatar, GroupCreateSheet } from './Groups'
 import { AgainCard, CheckinSheet, SafetySheet } from '../components/Meet'
@@ -300,7 +300,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const [picked, setPicked] = useState<string | null>(null) // своё сообщение, у которого показана кнопка «Удалить»
   const [viewing, setViewing] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState('')
-  const kb = useKeyboardInset() // высота клавиатуры — строка ввода остаётся над ней
+  const { kb, bar: kbBar, header: kbHeader } = useKeyboardDock() // клавиатура: строка ввода — над ней, шапка — сверху
   const photoInput = useRef<HTMLInputElement>(null)
   const voice = useVoiceRecorder((audio, ms) => { if (c) dispatch({ type: 'sendVoice', capsuleId: c.id, audio, ms }) })
   const [voiceOk] = useState(canRecordVoice)
@@ -345,7 +345,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   return (
     <div className="flex flex-col flex-1 min-h-[100dvh]" style={chatLookStyle(look).vars}>
       <ChatWallpaper look={look} />
-      <header className="sticky top-0 z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-[calc(8px+env(safe-area-inset-top,0px))] flex flex-col gap-2">
+      <header className="sticky top-0 z-10 bg-bg/90 backdrop-blur-2xl backdrop-saturate-150 border-b border-line/60 -mx-4 px-3 pb-2 pt-[calc(8px+env(safe-area-inset-top,0px))] flex flex-col gap-2" style={kbHeader}>
         <div className="flex items-center gap-1.5">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer rounded-2xl pr-1" aria-label={`Профиль ${p.name}`}>
@@ -433,7 +433,8 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <div ref={endRef} className="scroll-mb-[96px]" />
       </div>
 
-      <div className={`sticky bottom-0 bg-bg/75 backdrop-blur-2xl backdrop-saturate-150 -mx-4 px-3 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line/60 z-10`} style={kb ? { bottom: kb } : undefined}>
+      {kb > 0 && <div className="h-[72px] shrink-0" aria-hidden="true" />}
+      <div className={`sticky bottom-0 bg-bg/75 backdrop-blur-2xl backdrop-saturate-150 -mx-4 px-3 pt-2 ${kb ? 'pb-2' : 'pb-[calc(12px+env(safe-area-inset-bottom,0px))]'} flex flex-col gap-2 border-t border-line/60 z-10`} style={kbBar}>
         {photoError && <p className="text-[12px] text-danger" role="alert">{photoError}</p>}
         {locked && (
           <p className="flex items-center gap-2 text-[12.5px] text-muted px-1" role="status">

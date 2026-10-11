@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 const PATHS: Record<string, string> = {
@@ -348,17 +348,27 @@ export function readPhotoFull(file: File, max = 1600): Promise<string> {
  * Нужна, чтобы строка ввода в чате не пряталась под клавиатурой (Android Chrome, iPhone).
  */
 export function useKeyboardInset() {
-  const [inset, setInset] = useState(0)
+  return useKeyboardDock().kb
+}
+
+/** Клавиатура на телефоне: высота и положение видимой части экрана.
+ *  Строку ввода прижимаем к низу видимой части (а не к низу окна): на iPhone окно не уменьшается, а сдвигается,
+ *  и расчёт «от низа окна» оставлял тёмную полосу над клавиатурой. Шапку — к верху видимой части. */
+export function useKeyboardDock() {
+  const [v, setV] = useState({ kb: 0, top: 0, bottom: 0 })
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const update = () => setInset(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)))
+    const update = () => setV({ kb: Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)), top: Math.round(vv.offsetTop), bottom: Math.round(vv.offsetTop + vv.height) })
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
-  return inset < 60 ? 0 : inset // мелкие сдвиги (полоса адреса) — не клавиатура
+  const kb = v.kb < 60 ? 0 : v.kb // мелкие сдвиги (полоса адреса) — не клавиатура
+  const bar: CSSProperties | undefined = kb ? { position: 'fixed', left: 0, right: 0, top: v.bottom, transform: 'translateY(-100%)', marginLeft: 'auto', marginRight: 'auto', maxWidth: 480 } : undefined
+  const header: CSSProperties | undefined = kb && v.top ? { transform: `translateY(${v.top}px)` } : undefined
+  return { kb, bar, header }
 }
 
 const THEME_KEY = 'iskra-theme'
