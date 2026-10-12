@@ -1,7 +1,7 @@
 // Достижения: 6 редких медалей за то, ради чего существует Komeeta, — встречи, надёжность, друзья.
 // Выдаёт их сервер (check_achievements) по данным базы, поэтому подделать нельзя.
 // Нажатие на медаль — за что, прогресс, редкость и что она даст.
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { sb } from '../cloud/api'
@@ -96,171 +96,16 @@ function celebrate(codes: string[]) {
     .forEach((a, i) => setTimeout(() => showNew?.(a), i * 3200))
 }
 
-// ——— Пять медалей коллекции: металлический ободок и маленькая сцена внутри, как на коллекционной монете ———
-type Scene = { bezel: string; glow: string; draw: (id: string, big: boolean) => ReactNode }
-const metal = (a: string, b: string, c: string, d: string) =>
-  `conic-gradient(from 210deg, ${a}, ${b} 10%, ${c} 22%, ${b} 34%, ${a} 46%, ${d} 58%, ${c} 70%, ${b} 82%, ${a} 92%, ${a})`
-const SCENES: Record<string, Scene> = {
-  // Первая встреча — бронза: две светящиеся точки сходятся на закатном небе, между ними искра
-  first_meet: {
-    bezel: metal('#ffe2c4', '#c98a55', '#6e3b17', '#e8b48a'), glow: 'rgb(230 140 80 / .55)',
-    draw: (id, big) => <>
-      <defs>
-        <linearGradient id={`sky-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a1640" /><stop offset=".55" stopColor="#a8435a" /><stop offset="1" stopColor="#f2a35e" /></linearGradient>
-        <radialGradient id={`sun-${id}`}><stop offset="0" stopColor="#fff3d6" /><stop offset=".4" stopColor="#ffc27a" stopOpacity=".8" /><stop offset="1" stopColor="#ff8a4d" stopOpacity="0" /></radialGradient>
-        <radialGradient id={`dot-${id}`}><stop offset="0" stopColor="#fff" /><stop offset=".35" stopColor="#fff2df" /><stop offset="1" stopColor="#ffd5a8" stopOpacity="0" /></radialGradient>
-        <filter id={`b-${id}`}><feGaussianBlur stdDeviation="1.4" /></filter>
-      </defs>
-      <rect width="100" height="100" fill={`url(#sky-${id})`} />
-      <circle cx="50" cy="78" r="30" fill={`url(#sun-${id})`} />
-      <path d="M0 80 Q25 70 50 76 T100 72 V100 H0Z" fill="#3b1a2e" opacity=".85" />
-      <path d="M0 88 Q30 80 60 86 T100 84 V100 H0Z" fill="#24101e" />
-      <path d="M14 66 Q32 46 46 50" stroke="#ffe3c2" strokeWidth={big ? 0.8 : 1.4} fill="none" strokeDasharray="1.5 2.5" opacity=".7" />
-      <path d="M86 66 Q68 46 54 50" stroke="#ffe3c2" strokeWidth={big ? 0.8 : 1.4} fill="none" strokeDasharray="1.5 2.5" opacity=".7" />
-      <circle cx="43" cy="50" r={big ? 7 : 9} fill={`url(#dot-${id})`} filter={`url(#b-${id})`} />
-      <circle cx="57" cy="50" r={big ? 7 : 9} fill={`url(#dot-${id})`} filter={`url(#b-${id})`} />
-      <circle cx="43" cy="50" r={big ? 2.4 : 3.4} fill="#fff" />
-      <circle cx="57" cy="50" r={big ? 2.4 : 3.4} fill="#fff" />
-      <path d="M50 41 L51.2 48.8 L59 50 L51.2 51.2 L50 59 L48.8 51.2 L41 50 L48.8 48.8Z" fill="#fff" opacity=".95" />
-    </>,
-  },
-  // Душа компании — розовое золото: костёр, вокруг собрались огоньки
-  soul: {
-    bezel: metal('#ffe3dc', '#e0a08f', '#8a4a3c', '#f4c2b4'), glow: 'rgb(255 130 80 / .55)',
-    draw: (id, big) => <>
-      <defs>
-        <radialGradient id={`n-${id}`} cx="50%" cy="70%" r="80%"><stop offset="0" stopColor="#5a2418" /><stop offset=".5" stopColor="#24121c" /><stop offset="1" stopColor="#0c0710" /></radialGradient>
-        <radialGradient id={`f-${id}`} cx="50%" cy="85%" r="70%"><stop offset="0" stopColor="#fff6c8" /><stop offset=".35" stopColor="#ffb340" /><stop offset=".75" stopColor="#ff5a1f" /><stop offset="1" stopColor="#c21f0a" stopOpacity="0" /></radialGradient>
-        <radialGradient id={`gl-${id}`}><stop offset="0" stopColor="#ff9a3d" stopOpacity=".7" /><stop offset="1" stopColor="#ff9a3d" stopOpacity="0" /></radialGradient>
-        <radialGradient id={`p-${id}`}><stop offset="0" stopColor="#fff" /><stop offset=".4" stopColor="#ffd9a8" /><stop offset="1" stopColor="#ffb070" stopOpacity="0" /></radialGradient>
-        <filter id={`b-${id}`}><feGaussianBlur stdDeviation="1.2" /></filter>
-      </defs>
-      <rect width="100" height="100" fill={`url(#n-${id})`} />
-      <circle cx="50" cy="66" r="34" fill={`url(#gl-${id})`} />
-      <path d="M50 30 C58 42 66 48 62 62 C60 70 55 74 50 74 C45 74 40 70 38 62 C35 51 44 46 46 38 C47 44 50 46 52 46 C50 40 49 35 50 30Z" fill={`url(#f-${id})`} filter={`url(#b-${id})`} />
-      <path d="M50 46 C54 53 57 57 55 64 C54 68 52 70 50 70 C48 70 46 68 45 64 C44 58 48 55 50 46Z" fill="#fff4cf" opacity=".9" />
-      <path d="M34 78 L66 70 M34 70 L66 78" stroke="#3a1a10" strokeWidth="3.4" strokeLinecap="round" />
-      {[[18, 60], [26, 40], [74, 40], [82, 60], [50, 18]].map(([x, y], i) => (
-        <g key={i}><circle cx={x} cy={y} r={big ? 5.5 : 7} fill={`url(#p-${id})`} /><circle cx={x} cy={y} r={big ? 1.6 : 2.4} fill="#fff" /></g>
-      ))}
-    </>,
-  },
-  // Надёжный — сталь: рельефный щит с галочкой на глубоком синем
-  reliable: {
-    bezel: metal('#eef3f8', '#9aa8b8', '#3e4a5a', '#c9d3de'), glow: 'rgb(60 140 230 / .5)',
-    draw: (id, big) => <>
-      <defs>
-        <radialGradient id={`bg-${id}`} cx="45%" cy="35%" r="80%"><stop offset="0" stopColor="#1f4f8f" /><stop offset=".6" stopColor="#0c2347" /><stop offset="1" stopColor="#050c1c" /></radialGradient>
-        <linearGradient id={`sh-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f4f8ff" /><stop offset=".45" stopColor="#a9bdd6" /><stop offset=".55" stopColor="#7f95b2" /><stop offset="1" stopColor="#d6e1ef" /></linearGradient>
-        <linearGradient id={`in-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2f78d8" /><stop offset="1" stopColor="#0f3b80" /></linearGradient>
-        <filter id={`b-${id}`}><feGaussianBlur stdDeviation="2" /></filter>
-      </defs>
-      <rect width="100" height="100" fill={`url(#bg-${id})`} />
-      {Array.from({ length: 12 }, (_, i) => <path key={i} d={`M50 50 L${50 + 60 * Math.cos((i * Math.PI) / 6)} ${50 + 60 * Math.sin((i * Math.PI) / 6)}`} stroke="#5c9cff" strokeWidth="5" opacity=".05" />)}
-      <path d="M50 20 L74 29 V48 C74 63 64 75 50 82 C36 75 26 63 26 48 V29Z" fill="#000" opacity=".4" filter={`url(#b-${id})`} transform="translate(0 3)" />
-      <path d="M50 20 L74 29 V48 C74 63 64 75 50 82 C36 75 26 63 26 48 V29Z" fill={`url(#sh-${id})`} />
-      <path d="M50 26 L69 33 V48 C69 60 61 70 50 76 C39 70 31 60 31 48 V33Z" fill={`url(#in-${id})`} />
-      <path d="M40 49 L47 56 L61 41" stroke="#fff" strokeWidth={big ? 5 : 6.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M50 26 L69 33 V40 C60 36 42 36 31 41 V33Z" fill="#fff" opacity=".14" />
-    </>,
-  },
-  // Проводник — нефрит: маяк светит лучом в ночное море
-  guide: {
-    bezel: metal('#e3fff3', '#7fcfae', '#1f6a52', '#b8ecd6'), glow: 'rgb(60 210 160 / .5)',
-    draw: (id, big) => <>
-      <defs>
-        <linearGradient id={`sky-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#06141f" /><stop offset=".65" stopColor="#0f3a46" /><stop offset="1" stopColor="#14594f" /></linearGradient>
-        <linearGradient id={`beam-${id}`} x1="1" y1="0" x2="0" y2="0"><stop offset="0" stopColor="#fff7d1" stopOpacity="0" /><stop offset="1" stopColor="#fff7d1" stopOpacity=".75" /></linearGradient>
-        <radialGradient id={`lamp-${id}`}><stop offset="0" stopColor="#fff" /><stop offset=".3" stopColor="#fff2b0" /><stop offset="1" stopColor="#ffd75e" stopOpacity="0" /></radialGradient>
-        <filter id={`b-${id}`}><feGaussianBlur stdDeviation="1.6" /></filter>
-      </defs>
-      <rect width="100" height="100" fill={`url(#sky-${id})`} />
-      {[[16, 18], [30, 10], [70, 14], [86, 26], [60, 22]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={big ? 0.6 : 1} fill="#fff" opacity=".7" />)}
-      <path d="M56 34 L100 18 L100 42Z" fill={`url(#beam-${id})`} filter={`url(#b-${id})`} />
-      <path d="M44 34 L0 22 L0 44Z" fill={`url(#beam-${id})`} filter={`url(#b-${id})`} transform="scale(-1 1) translate(-100 0)" opacity=".6" />
-      <path d="M0 74 Q25 70 50 74 T100 72 V100 H0Z" fill="#0a2a33" />
-      <path d="M8 80 Q20 78 32 80 M60 82 Q74 79 88 82 M30 88 Q45 86 60 88" stroke="#5fd3b3" strokeWidth="1" opacity=".5" fill="none" />
-      <path d="M44 74 L46.5 40 H53.5 L56 74Z" fill="#f2f5f4" />
-      <path d="M45.3 56 H54.7 L55.3 64 H44.7Z M46 44 H54 L54.4 50 H45.6Z" fill="#d0463e" />
-      <rect x="45" y="33" width="10" height="7" rx="1" fill="#1c2b30" />
-      <path d="M44 33 L50 27 L56 33Z" fill="#d0463e" />
-      <circle cx="50" cy="36.5" r={big ? 9 : 12} fill={`url(#lamp-${id})`} />
-      <circle cx="50" cy="36.5" r="2.2" fill="#fff" />
-    </>,
-  },
-  // Легенда — тёмное золото: лавровый венок, над ним дугой — 10 звёзд (10 встреч)
-  regular: {
-    bezel: metal('#fff4cf', '#d9a43a', '#6b4508', '#f2cf7c'), glow: 'rgb(240 180 60 / .55)',
-    draw: (id, big) => {
-      const stars = Array.from({ length: 10 }, (_, i) => { const t = Math.PI * (1.08 + (i / 9) * 0.84); return [50 + 30 * Math.cos(t), 56 + 30 * Math.sin(t)] as const })
-      const leaves = Array.from({ length: 7 }, (_, i) => i / 6)
-      return <>
-        <defs>
-          <radialGradient id={`bg-${id}`} cx="50%" cy="40%" r="80%"><stop offset="0" stopColor="#3b2a5c" /><stop offset=".6" stopColor="#181033" /><stop offset="1" stopColor="#07050f" /></radialGradient>
-          <linearGradient id={`gold-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff2c2" /><stop offset=".45" stopColor="#e2ad3f" /><stop offset="1" stopColor="#8a5a0c" /></linearGradient>
-          <radialGradient id={`s-${id}`}><stop offset="0" stopColor="#fff" /><stop offset=".4" stopColor="#ffe9a8" /><stop offset="1" stopColor="#ffd25e" stopOpacity="0" /></radialGradient>
-        </defs>
-        <rect width="100" height="100" fill={`url(#bg-${id})`} />
-        <path d={`M${stars[0][0]} ${stars[0][1]} A30 30 0 0 1 ${stars[9][0]} ${stars[9][1]}`} stroke="#ffe7a3" strokeWidth={big ? 0.5 : 0.9} opacity=".3" fill="none" />
-        {stars.map(([x, y], i) => <g key={i}><circle cx={x} cy={y} r={big ? 3.4 : 4.6} fill={`url(#s-${id})`} /><circle cx={x} cy={y} r={big ? 1.1 : 1.7} fill="#fff" /></g>)}
-        {[1, -1].map((side) => (
-          <g key={side} transform={side > 0 ? undefined : 'translate(100 0) scale(-1 1)'}>
-            <path d="M48 84 C34 82 24 72 24 56" stroke={`url(#gold-${id})`} strokeWidth="1.6" fill="none" strokeLinecap="round" />
-            {leaves.map((t) => {
-              const ang = Math.PI * (0.5 + t * 0.62)
-              const x = 48 - 24 * Math.sin(t * 1.25) * 1.0 - (t > 0.6 ? 2 : 0), y = 84 - 28 * t
-              const r = (-ang * 180) / Math.PI
-              return <g key={t}>
-                <ellipse cx={x - 3.2} cy={y - 1} rx="1.6" ry="4" fill={`url(#gold-${id})`} transform={`rotate(${r + 150} ${x - 3.2} ${y - 1})`} />
-                <ellipse cx={x + 1.6} cy={y - 2.6} rx="1.6" ry="4" fill={`url(#gold-${id})`} transform={`rotate(${r + 200} ${x + 1.6} ${y - 2.6})`} />
-              </g>
-            })}
-          </g>
-        ))}
-        <text x="50" y="66" textAnchor="middle" fontSize="20" fontWeight="800" fill={`url(#gold-${id})`} fontFamily="Unbounded, Onest, sans-serif">10</text>
-      </>
-    },
-  },
-}
-
-function SceneMedal({ code, size, ring, shine }: { code: string; size: number; ring: number; shine?: boolean }) {
-  const id = useId().replace(/:/g, '')
-  const sc = SCENES[code]
-  const big = size >= 40
-  return (
-    <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.36}px -${size * 0.1}px ${sc.glow}` }}>
-      <span className="absolute inset-0 rounded-full" style={{ background: sc.bezel }} />
-      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ background: 'conic-gradient(from 0deg, transparent 0 72%, rgb(255 255 255 / .75) 81%, transparent 90%)' }} />
-      <span className="absolute rounded-full" style={{ inset: ring * 0.55, boxShadow: 'inset 0 1px 1px rgb(0 0 0 / .45), 0 1px 0 rgb(255 255 255 / .5)' }} />
-      <span className="absolute rounded-full overflow-hidden" style={{ inset: ring }}>
-        <svg viewBox="0 0 100 100" width="100%" height="100%" className="block" aria-hidden="true">
-          {sc.draw(id, big)}
-          <radialGradient id={`v-${id}`}><stop offset=".68" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".55" /></radialGradient>
-          <rect width="100" height="100" fill={`url(#v-${id})`} />
-        </svg>
-        {shine && <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg]" />}
-      </span>
-    </span>
-  )
-}
-
 const COMET_STARS: [number, number, number, number][] = [
   [14, 22, 0.55, 0.9], [26, 12, 0.35, 0.6], [44, 20, 0.45, 0.8], [58, 9, 0.3, 0.5], [82, 44, 0.5, 0.85], [88, 62, 0.35, 0.6], [70, 78, 0.45, 0.7],
   [52, 88, 0.3, 0.5], [18, 46, 0.3, 0.55], [10, 70, 0.4, 0.7], [62, 60, 0.28, 0.45], [36, 40, 0.25, 0.4], [76, 24, 0.3, 0.5], [24, 86, 0.3, 0.5],
 ]
 
-/** Медаль «Комета»: металл и космос без мультяшности — как фото кометы в объективе. */
-function CometMedal({ size, ring }: { size: number; ring: number }) {
+/** Космос с кометой — поле монеты «Комета» (ядро, кома, два хвоста, туманности). */
+function CometSky({ big }: { big: boolean }) {
   const id = useId().replace(/:/g, '')
-  const big = size >= 40
   return (
-    <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.38}px -${size * 0.1}px rgb(70 110 220 / .55)` }}>
-      {/* Платиновый ободок: холодный металл с бегущим бликом */}
-      <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 210deg, #eef3ff, #9aa5c0 10%, #3b4259 22%, #aeb8d0 34%, #f6f9ff 46%, #6f7a97 58%, #2c3247 70%, #9ea9c4 82%, #dfe6f6 92%, #eef3ff)' }} />
-      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ background: 'conic-gradient(from 0deg, transparent 0 70%, rgb(220 235 255 / .9) 80%, transparent 90%)' }} />
-      <span className="absolute rounded-full" style={{ inset: ring * 0.55, boxShadow: 'inset 0 1px 1px rgb(0 0 0 / .45), 0 1px 0 rgb(255 255 255 / .5)' }} />
-      <span className="absolute rounded-full overflow-hidden" style={{ inset: ring }}>
-        <svg viewBox="0 0 100 100" width="100%" height="100%" className="block" aria-hidden="true">
+    <svg viewBox="0 0 100 100" width="100%" height="100%" className="absolute inset-0 block" aria-hidden="true">
           <defs>
             <radialGradient id={`sky-${id}`} cx="62%" cy="38%" r="75%"><stop offset="0" stopColor="#1d2a5c" /><stop offset=".55" stopColor="#0b1131" /><stop offset="1" stopColor="#03050f" /></radialGradient>
             <radialGradient id={`neb1-${id}`}><stop offset="0" stopColor="#7b4be0" stopOpacity=".55" /><stop offset="1" stopColor="#7b4be0" stopOpacity="0" /></radialGradient>
@@ -297,82 +142,93 @@ function CometMedal({ size, ring }: { size: number; ring: number }) {
           {/* Стекло: мягкий блик сверху */}
           <ellipse cx="34" cy="14" rx="34" ry="12" fill="#fff" opacity=".06" filter={`url(#b2-${id})`} />
         </svg>
-        <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-[-20deg]" />
+  )
+}
+
+// ——— Медали-монеты: переливающийся хромовый обод, поле, глянцевый знак, бегущий свет и блик.
+// На крупной медали (в карточке) — настоящая толщина ребра и мягкое покачивание в 3D.
+type Coin = { rim: string; edge: string; field: string; ink: 'dark' | 'light' | 'gold'; glow: string; fill?: boolean }
+const HOLO = '#ff3d6e, #ffb340, #fff36b, #45ffb0, #3dc9ff, #7a5cff, #ff3dd1, #ff3d6e'
+const GOLD_RIM = '#fff3c4, #d9a33a, #ffffff, #ffd36b, #8a5a12, #fff7dc, #ffb347, #fff3c4'
+const COINS: Record<string, Coin> = {
+  first_meet: { rim: '#ffffff, #9aa0aa, #f4f4f6, #c9b8ff, #a5ecff, #ffffff, #6c717a, #e8e8ea, #ffd0ea, #ffffff', edge: 'linear-gradient(90deg, #5d626b, #e9eaec, #7b808a)',
+    field: 'radial-gradient(circle at 38% 30%, #ffffff, #d7d9dd 28%, #9ea2a9 55%, #eceef0 72%, #7c8088 100%)', ink: 'dark', glow: 'rgb(190 200 220 / .5)' },
+  soul: { rim: '#ffb36b, #ff5a4a, #ffe9a8, #ffffff, #b9e5ff, #ffc96b, #ff6a3d, #fff4d6, #ffb36b', edge: 'linear-gradient(90deg, #a0603a, #ffe2bd, #b8653a)',
+    field: 'radial-gradient(circle at 40% 32%, #ffffff, #fbf8f2 45%, #ece5d9 80%, #d9cfbf)', ink: 'dark', glow: 'rgb(255 140 80 / .5)', fill: true },
+  reliable: { rim: '#a5ecff, #4f86d6, #ffffff, #c9b8ff, #2f5fb3, #e6f4ff, #6fb8ff, #a5ecff', edge: 'linear-gradient(90deg, #0f2a6e, #8fb8ff, #16347f)',
+    field: 'radial-gradient(circle at 50% 36%, #7aa8ff, #2a5bd0 50%, #0f2a6e 80%, #081638)', ink: 'light', glow: 'rgb(79 134 214 / .55)' },
+  guide: { rim: '#9cff6b, #2ee6c5, #6fa8ff, #e6f7ff, #ffe66b, #9cff6b, #1d8f4a, #c6ffd9, #9cff6b', edge: 'linear-gradient(90deg, #0d4f24, #6bff9d, #1a6a35)',
+    field: 'radial-gradient(circle at 50% 38%, #8ef59a, #2aa449 48%, #0f5a25 78%, #072e13)', ink: 'light', glow: 'rgb(63 191 120 / .55)' },
+  regular: { rim: GOLD_RIM, edge: 'linear-gradient(90deg, #6b4508, #ffe2a0, #7a500e)',
+    field: 'radial-gradient(circle at 40% 30%, #3a3a40, #141416 55%, #000)', ink: 'gold', glow: 'rgb(220 162 58 / .55)' },
+  ambassador: { rim: '#ffb347, #ff4f86, #ffd0e0, #8a5cff, #ffffff, #ff4f86, #ffb347', edge: 'linear-gradient(90deg, #5b23b8, #ff9cbd, #6a2bc4)',
+    field: 'radial-gradient(circle at 34% 28%, #ff9cbd, #e2306f 42%, #5b23b8 100%)', ink: 'light', glow: 'rgb(255 79 134 / .6)', fill: true },
+  founder: { rim: GOLD_RIM, edge: 'linear-gradient(90deg, #6e4508, #ffe2a0, #7a500e)',
+    field: 'radial-gradient(circle at 36% 28%, #fff6d0, #f2c45a 40%, #b07a1c 75%, #6e4508)', ink: 'gold', glow: 'rgb(233 185 73 / .6)' },
+  collector: { rim: HOLO, edge: 'linear-gradient(90deg, #2a1b6e, #b9a6ff, #1d2a5c)', field: '#03050f', ink: 'light', glow: 'rgb(110 120 255 / .6)' },
+}
+const INK = {
+  dark: ['#6a6a72', '#1a1a1d', '#000000'],
+  light: ['#ffffff', '#eef2fa', '#b9c2d6'],
+  gold: ['#fff3c4', '#e9b949', '#8a5a12'],
+}
+
+function CoinMedal({ a, size }: { a: Achievement; size: number }) {
+  const id = useId().replace(/:/g, '')
+  const k = COINS[a.code]
+  const deep = size >= 90
+  const ink = INK[k.ink]
+  const art = a.code === 'collector' ? <CometSky big={size >= 40} />
+    : a.code === 'founder' ? <span className="coin-m__art"><GoldPlanet size={size * 0.6} /></span>
+    : (
+      <svg className="coin-m__art" width={size * 0.5} height={size * 0.5} viewBox="0 0 24 24" aria-hidden="true"
+        style={{ filter: `drop-shadow(0 ${Math.max(1, size * 0.02)}px ${Math.max(1, size * 0.03)}px rgb(0 0 0 / ${k.ink === 'dark' ? 0.35 : 0.55}))` }}>
+        <defs><linearGradient id={`ink-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={ink[0]} /><stop offset=".5" stopColor={ink[1]} /><stop offset="1" stopColor={ink[2]} /></linearGradient></defs>
+        <path d={a.glyph} fill={k.fill ? `url(#ink-${id})` : 'none'} stroke={`url(#ink-${id})`} strokeWidth={k.fill ? 0.6 : 2.3} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  const delay = ACHIEVEMENTS.findIndex((x) => x.code === a.code) * 0.7
+  return (
+    <span className={`coin-m${deep ? ' coin-m--3d' : ''}`} style={{ width: size, height: size, '--rimc': k.rim, '--edge': k.edge, '--field': k.field,
+      '--rim': `${Math.max(2, size * 0.05)}px`, '--depth': `${size * 0.07}px`, '--coin-delay': `${delay}s` } as CSSProperties}>
+      <span className="coin-m__body">
+        {deep && Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className="coin-m__edge" style={{ transform: `translateZ(calc(var(--depth) * ${(i / 9 - 0.5).toFixed(3)}))`, filter: `brightness(${(0.55 + 0.45 * Math.sin((i / 9) * Math.PI)).toFixed(2)})` }} />
+        ))}
+        <span className="coin-m__face" style={{ boxShadow: `0 ${size * 0.1}px ${size * 0.3}px -${size * 0.08}px ${k.glow}, inset 0 0 0 1px rgb(255 255 255 / .35)` }}>
+          <span className="coin-m__inner">{art}</span>
+        </span>
       </span>
     </span>
   )
 }
 
-/** Медаль: металлический ободок, глянец, белый значок. Не получена — тёмное стекло и кольцо прогресса. */
-export function Medal({ a, got, size = 56, progress = 0, shine = false }: { a: Achievement; got: boolean; size?: number; progress?: number; shine?: boolean }) {
-  const [light, main, dark] = a.colors
+/** Медаль. Получена — монета; не получена — тёмное стекло, контур значка и кольцо прогресса. */
+export function Medal({ a, got, size = 56, progress = 0 }: { a: Achievement; got: boolean; size?: number; progress?: number; shine?: boolean }) {
+  const main = a.colors[1]
   const ring = Math.max(3, size * 0.075)
   const r = size / 2 - ring / 2
   const c = 2 * Math.PI * r
-  // Комета — за всю коллекцию: платиновый ободок, глубокий космос с туманностью и настоящая комета (ядро, кома, два хвоста)
-  if (a.code === 'collector' && got) return <CometMedal size={size} ring={ring} />
-  if (got && SCENES[a.code]) return <SceneMedal code={a.code} size={size} ring={ring} shine={shine} />
-  // Амбассадор — фирменные цвета Komeeta: вращающийся ободок, звезда со свечением, лента на большой медали
-  if (a.code === 'ambassador' && got) {
-    return (
-      <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.34}px -${size * 0.1}px rgb(255 79 134 / .7)` }}>
-        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #ffb347, #ff4f86 33%, #8a5cff 66%, #ffb347)' }} />
-        <span className="absolute rounded-full overflow-hidden" style={{ inset: ring, background: 'radial-gradient(circle at 34% 28%, #ff9cbd 0%, #e2306f 42%, #5b23b8 100%)', boxShadow: `inset 0 ${size * 0.03}px 0 rgb(255 255 255 / .4), inset 0 -${size * 0.06}px ${size * 0.12}px rgb(30 0 60 / .35)` }}>
-          <span className="absolute inset-x-0 top-0 h-1/2 rounded-b-[50%] bg-gradient-to-b from-white/30 to-transparent" />
-          <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]" />
-        </span>
-        <svg className="relative" width={size * 0.5} height={size * 0.5} viewBox="0 0 24 24" aria-hidden="true" style={{ filter: `drop-shadow(0 0 ${size * 0.06}px rgb(255 220 240 / .9))` }}>
-          <path d={a.glyph} fill="#fff" />
-        </svg>
-        {size >= 90 && (
-          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 -rotate-6 px-3 py-1 rounded-lg font-display font-bold text-[12px] tracking-[.12em] text-white whitespace-nowrap"
+  if (got && COINS[a.code]) {
+    if (a.code === 'ambassador' && size >= 90) {
+      return (
+        <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+          <CoinMedal a={a} size={size} />
+          <span className="absolute z-[1] -bottom-2 left-1/2 -translate-x-1/2 -rotate-6 px-3 py-1 rounded-lg font-display font-bold text-[12px] tracking-[.12em] text-white whitespace-nowrap"
             style={{ background: 'linear-gradient(95deg, #ff4f86, #8a5cff)', boxShadow: '0 8px 18px -6px rgb(255 79 134 / .8)' }}>АМБАССАДОР</span>
-        )}
-      </span>
-    )
-  }
-  // Основатель — живое золото с логотипом Komeeta, как медаль на экране приветствия
-  if (a.code === 'founder' && got) {
-    return (
-      <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size, boxShadow: `0 ${size * 0.12}px ${size * 0.34}px -${size * 0.1}px rgb(233 185 73 / .75)` }}>
-        {/* Ободок вращается — ровный блик «бежит» по кругу */}
-        <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #fff3c4, #d9a33a 25%, #8a5a12 37%, #d9a33a 50%, #fff3c4 62%, #d9a33a 75%, #8a5a12 87%, #fff3c4)' }} />
-        {/* Золотой диск строго по центру (обёртка задаёт размер — у .gold-medal своё позиционирование) */}
-        <span className="absolute" style={{ inset: ring }}>
-          <span className="gold-medal grid place-items-center w-full h-full">
-            <GoldPlanet size={size * 0.62} />
-          </span>
         </span>
-        {/* Искорки — внутри границ медали, симметрично */}
-        {[[0.7, 0.04, 0], [0.04, 0.72, 1.3]].map(([x, y, d], i) => (
-          <svg key={i} className="gold-twinkle absolute pointer-events-none" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: size * 0.22, height: size * 0.22, animationDelay: `${d}s` }} viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#fff6cf" d="M12 0l2.4 9.6L24 12l-9.6 2.4L12 24l-2.4-9.6L0 12l9.6-2.4z" />
-          </svg>
-        ))}
-      </span>
-    )
+      )
+    }
+    return <CoinMedal a={a} size={size} />
   }
   return (
     <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size }}>
-      {got ? (
-        <>
-          <span className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(from 210deg, ${light}, ${main}, ${dark}, ${main}, ${light}, ${main}, ${dark}, ${light})`, boxShadow: `0 ${size * 0.12}px ${size * 0.32}px -${size * 0.12}px ${main}` }} />
-          <span className="absolute rounded-full overflow-hidden" style={{ inset: ring, background: `radial-gradient(circle at 32% 28%, ${light} 0%, ${main} 45%, ${dark} 100%)`, boxShadow: `inset 0 ${size * 0.03}px 0 rgb(255 255 255 / .45), inset 0 -${size * 0.06}px ${size * 0.12}px rgb(0 0 0 / .28)` }}>
-            <span className="absolute inset-x-0 top-0 h-1/2 rounded-b-[50%] bg-gradient-to-b from-white/35 to-transparent" />
-            {shine && <span className="medal-shine absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/45 to-transparent skew-x-[-20deg]" />}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="absolute inset-0 rounded-full bg-surface-2" style={{ boxShadow: 'inset 0 0 0 1px var(--line)' }} />
-          <svg className="absolute inset-0 -rotate-90" width={size} height={size} aria-hidden="true">
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth={ring} />
-            {progress > 0 && <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={main} strokeWidth={ring} strokeLinecap="round" strokeDasharray={`${c * Math.min(1, progress)} ${c}`} />}
-          </svg>
-        </>
-      )}
-      <svg className="relative" width={size * 0.46} height={size * 0.46} viewBox="0 0 24 24" fill="none" stroke={got ? '#fff' : 'var(--muted)'} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"
-        style={got ? { filter: `drop-shadow(0 ${size * 0.02}px ${size * 0.03}px ${dark})` } : { opacity: 0.55 }} aria-hidden="true">
+      <span className="absolute inset-0 rounded-full bg-surface-2" style={{ boxShadow: 'inset 0 0 0 1px var(--line)' }} />
+      <svg className="absolute inset-0 -rotate-90" width={size} height={size} aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth={ring} />
+        {progress > 0 && <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={main} strokeWidth={ring} strokeLinecap="round" strokeDasharray={`${c * Math.min(1, progress)} ${c}`} />}
+      </svg>
+      <svg className="relative" width={size * 0.46} height={size * 0.46} viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.55 }} aria-hidden="true">
         <path d={a.glyph} />
       </svg>
     </span>

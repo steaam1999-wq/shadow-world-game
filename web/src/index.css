@@ -352,3 +352,31 @@ html, body { overflow-x: clip; }
 @keyframes online-glow { 0%, 100% { box-shadow: 0 0 0 0 rgb(34 197 94 / .55), 0 0 6px 1px rgb(34 197 94 / .55) } 50% { box-shadow: 0 0 0 3px rgb(34 197 94 / 0), 0 0 10px 2px rgb(34 197 94 / .75) } }
 .online-glow { animation: online-glow 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .online-glow { animation: none; box-shadow: 0 0 6px 1px rgb(34 197 94 / .6); } }
+
+/* Медали-монеты: обод переливается и вращается, по полю ходит свет, раз в несколько секунд проходит блик.
+   .coin-m--3d — крупная медаль: толщина ребра из слоёв и мягкое покачивание. */
+@property --coin-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@property --coin-lx { syntax: '<percentage>'; inherits: false; initial-value: 30%; }
+@property --coin-ly { syntax: '<percentage>'; inherits: false; initial-value: 24%; }
+.coin-m { position: relative; display: inline-block; flex-shrink: 0; perspective: 600px; }
+.coin-m__body { position: absolute; inset: 0; transform-style: preserve-3d; }
+.coin-m--3d .coin-m__body { animation: coin-wobble 6s ease-in-out infinite; }
+.coin-m__edge { position: absolute; inset: 0; border-radius: 9999px; background: var(--edge); }
+.coin-m__face { position: absolute; inset: 0; border-radius: 9999px; padding: var(--rim); background: conic-gradient(from var(--coin-a), var(--rimc)); animation: coin-rim 6s linear infinite; }
+.coin-m--3d .coin-m__face { transform: translateZ(calc(var(--depth) / 2)); }
+.coin-m__inner { position: relative; display: grid; place-items: center; width: 100%; height: 100%; border-radius: 9999px; overflow: hidden; background: var(--field);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .3), inset 0 -2px 6px rgb(0 0 0 / .3); }
+.coin-m__inner::before { content: ''; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none; mix-blend-mode: overlay;
+  background: radial-gradient(circle at var(--coin-lx) var(--coin-ly), rgb(255 255 255 / .6), rgb(255 255 255 / 0) 45%); animation: coin-light 7s ease-in-out infinite; }
+.coin-m__inner::after { content: ''; position: absolute; inset: -40%; z-index: 3; pointer-events: none;
+  background: linear-gradient(115deg, transparent 42%, rgb(255 255 255 / .5) 49%, rgb(255 255 255 / .1) 53%, transparent 58%);
+  transform: translateX(-60%); animation: coin-sweep 4.5s ease-in-out infinite; animation-delay: var(--coin-delay, 0s); }
+.coin-m__art { position: relative; z-index: 1; display: grid; place-items: center; animation: coin-breathe 4s ease-in-out infinite; }
+@keyframes coin-rim { to { --coin-a: 360deg; } }
+@keyframes coin-light { 0%, 100% { --coin-lx: 28%; --coin-ly: 22%; } 33% { --coin-lx: 72%; --coin-ly: 30%; } 66% { --coin-lx: 45%; --coin-ly: 75%; } }
+@keyframes coin-sweep { 0%, 55% { transform: translateX(-60%); } 85%, 100% { transform: translateX(60%); } }
+@keyframes coin-breathe { 50% { transform: scale(1.04); } }
+@keyframes coin-wobble { 0%, 100% { transform: rotateY(-12deg) rotateX(4deg); } 50% { transform: rotateY(12deg) rotateX(-3deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .coin-m__body, .coin-m__face, .coin-m__inner::before, .coin-m__inner::after, .coin-m__art { animation: none !important; }
+}
