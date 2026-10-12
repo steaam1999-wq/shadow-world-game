@@ -8,7 +8,7 @@ import { sb } from '../cloud/api'
 import { Sheet } from './ui'
 import { GoldPlanet } from './Invite'
 
-type Progress = { met: number; responded: number; invites: number; noshows: number }
+type Progress = { met: number; responded: number; invites: number; noshows: number; active_invites?: number }
 export interface Achievement {
   code: string; title: string; short: string; how: string; perk: string
   colors: [string, string, string] // светлый, основной, тёмный
@@ -44,7 +44,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     how: 'Помогать запускать встречи в своём городе. Медаль выдаёт команда Komeeta лично.', perk: 'Ваши планы выше в ленте, отметка «★ Амбассадор» у имени на планах, видно, кто смотрел ваши планы, значок с городом в профиле и прямая связь с командой.', live: true, special: true },
   { code: 'collector', title: 'Комета', short: 'Комета', colors: ['#d8f3ff', '#7a5cff', '#1a0b3d'],
     glyph: 'M14.5 9.5 21 3M11.5 7.5 17 2M16.5 12.5 22 7M9.5 21a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z',
-    how: 'Собрать всю коллекцию: «Первая встреча», «Душа компании», «Надёжный», «Проводник» и «Легенда».',
+    how: 'Собрать всю коллекцию из 5 медалей и привести 5 активных друзей: у каждого фото и «о себе», от 3 публикаций или планов, заходил 5 дней из первой недели и общался в Komeeta не только с вами.',
     perk: 'Радужная рамка «Комета» вокруг фото, ваши планы в самом верху ленты и видно, кто их смотрел. Скоро: «Зал славы» и бонусы от заведений-партнёров.', live: true, special: true },
   { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff1b8', '#e9b949', '#8a5a12'],
     glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
@@ -397,6 +397,7 @@ export function AchievementsPanel({ personId }: { personId: string }) {
   const COLLECTION = ['first_meet', 'soul', 'reliable', 'guide', 'regular']
   const inSet = COLLECTION.filter((c) => earned[c]).length
   const comet = ACHIEVEMENTS.find((x) => x.code === 'collector')!
+  const active = Math.min(progress?.active_invites ?? 0, 5)
   const at = open ? earned[open.code] : 0
   const g = open && progress && open.goal ? open.goal(progress) : null
   const holders = open && stats ? stats.by[open.code] ?? 0 : null
@@ -417,27 +418,33 @@ export function AchievementsPanel({ personId }: { personId: string }) {
         ))}
       </div>
       {mine && !earned.collector && (
-        <button onClick={() => setCollOpen(true)} className="flex items-center gap-2.5 rounded-2xl bg-surface-2 px-3 py-2 text-left cursor-pointer" aria-label={`Коллекция: ${inSet} из 5. Что дадут за полную коллекцию`}>
+        <button onClick={() => setCollOpen(true)} className="flex items-center gap-2.5 rounded-2xl bg-surface-2 px-3 py-2 text-left cursor-pointer" aria-label={`Комета: медали ${inSet} из 5, активные друзья ${active} из 5`}>
           <span className="flex gap-1 flex-1">
             {COLLECTION.map((c) => {
               const a = ACHIEVEMENTS.find((x) => x.code === c)!
               return <span key={c} className="h-1.5 flex-1 rounded-full" style={{ background: earned[c] ? `linear-gradient(90deg, ${a.colors[0]}, ${a.colors[1]})` : 'var(--line)' }} />
             })}
           </span>
-          <span className="text-[12px] text-muted whitespace-nowrap">Коллекция <b className="text-fg tnum">{inSet}/5</b> · награда</span>
+          <span className="text-[12px] text-muted whitespace-nowrap">Комета <b className="text-fg tnum">{inSet}/5</b> · друзья <b className="text-fg tnum">{active}/5</b></span>
           <span className="text-[13px]" aria-hidden="true">☄️</span>
         </button>
       )}
-      <Sheet open={collOpen} onClose={() => setCollOpen(false)} title="Коллекция">
+      <Sheet open={collOpen} onClose={() => setCollOpen(false)} title="Комета">
         <div className="flex flex-col items-center text-center gap-3 pb-2">
           <div className="relative grid place-items-center py-2">
             <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-40" style={{ background: comet.colors[1] }} />
             <Medal a={comet} got size={112} />
           </div>
-          <h3 className="font-display font-bold text-[22px] leading-tight">Соберите все 5 — получите «Комету»</h3>
-          <p className="text-[13px] text-muted -mt-1">Самая редкая медаль Komeeta. Собрано {inSet} из 5.</p>
+          <h3 className="font-display font-bold text-[22px] leading-tight">Самая редкая медаль Komeeta</h3>
+          <p className="text-[13px] text-muted -mt-1">Два условия — оба навсегда: медаль не забирается.</p>
+          <span className="self-start text-[13px] font-semibold">1. Вся коллекция · <span className="tnum">{inSet} из 5</span></span>
           <div className="flex gap-2 justify-center">
             {COLLECTION.map((c) => { const a = ACHIEVEMENTS.find((x) => x.code === c)!; return <Medal key={c} a={a} got={!!earned[c]} size={44} progress={frac(a)} /> })}
+          </div>
+          <div className="w-full flex flex-col gap-1.5 text-left">
+            <span className="text-[13px] font-semibold">2. Пять активных друзей · <span className="tnum">{active} из 5</span></span>
+            <div className="flex gap-1">{[0, 1, 2, 3, 4].map((i) => <span key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < active ? 'linear-gradient(90deg, #d8f3ff, #7a5cff)' : 'var(--line)' }} />)}</div>
+            <span className="text-[12.5px] text-muted leading-snug">Друг пришёл по вашей ссылке и за первую неделю: заполнил фото и «о себе», выложил от 3 публикаций или планов, заходил 5 дней из 7 и переписывался не только с вами.{progress ? ` Пришло по ссылке: ${progress.invites}.` : ''}</span>
           </div>
           <div className="w-full rounded-2xl p-3.5 text-left" style={{ background: 'color-mix(in srgb, #7a5cff 14%, var(--surface-2))' }}>
             <span className="block text-[12px] font-semibold text-muted mb-1.5">Что даёт полная коллекция</span>

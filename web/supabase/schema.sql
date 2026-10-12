@@ -1818,7 +1818,64 @@ $$;
 revoke all on function public.achievement_stats() from public, anon;
 grant execute on function public.achievement_stats() to authenticated;
 
--- Коллекция: собрал все 5 медалей — особая медаль «Комета» (collector).
+-- Дни, когда человек заходил в приложение (для «Кометы»: приглашённый был активен неделю). Пишет только touch_seen.
+create table if not exists public.active_days (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  day date not null,
+  primary key (user_id, day)
+);
+alter table public.active_days enable row level security;
+create or replace function public.touch_seen(on_line boolean) returns void
+language sql security definer set search_path = '' as $$
+  insert into public.presence (user_id, seen_at, online_until)
+  values ((select auth.uid()), now(), case when on_line then now() + interval '90 seconds' end)
+  on conflict (user_id) do update set seen_at = excluded.seen_at, online_until = excluded.online_until;
+  insert into public.active_days (user_id, day)
+  select (select auth.uid()), (now() at time zone 'Europe/Minsk')::date
+  where exists (select 1 from public.profiles where id = (select auth.uid()))
+  on conflict do nothing;
+$$;
+revoke all on function public.touch_seen(boolean) from public, anon;
+grant execute on function public.touch_seen(boolean) to authenticated;
+-- Прошлые дни восстанавливаем по сообщениям, планам, публикациям и последнему заходу.
+insert into public.active_days (user_id, day)
+select u, d from (
+  select sender u, (created_at at time zone 'Europe/Minsk')::date d from public.messages
+  union select author, (created_at at time zone 'Europe/Minsk')::date from public.shorts
+  union select author, (created_at at time zone 'Europe/Minsk')::date from public.plans
+  union select user_id, (seen_at at time zone 'Europe/Minsk')::date from public.presence
+) t where exists (select 1 from public.profiles p where p.id = t.u)
+on conflict do nothing;
+
+-- Активный приглашённый: фото и «о себе», от 3 публикаций/планов, заходил 5 из первых 7 дней
+-- и переписывался не только с пригласившим (защита от фейков).
+create or replace function private.active_invites(who uuid) returns int
+language sql stable security definer set search_path = '' as $$
+  select count(*)::int from public.referrals r join public.profiles p on p.id = r.invitee
+  where r.inviter = who
+    and p.photo_path is not null and char_length(p.bio) > 0
+    and (select count(*) from public.shorts s where s.author = p.id) + (select count(*) from public.plans pl where pl.author = p.id) >= 3
+    and (select count(*) from public.active_days a where a.user_id = p.id
+         and a.day between (p.created_at at time zone 'Europe/Minsk')::date and (p.created_at at time zone 'Europe/Minsk')::date + 6) >= 5
+    and exists (select 1 from public.messages m join public.capsules c on c.id = m.capsule_id
+         where m.sender = p.id and who not in (c.author, c.responder))
+$$;
+revoke all on function private.active_invites(uuid) from public, anon, authenticated;
+
+create or replace function public.achievement_progress() returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'met', (select count(*) from capsules where status = 'met' and (select auth.uid()) in (author, responder)),
+    'responded', (select count(distinct c.plan_id) from capsules c join plans pl on pl.id = c.plan_id where pl.author = (select auth.uid())),
+    'invites', (select count(*) from referrals where inviter = (select auth.uid())),
+    'active_invites', private.active_invites((select auth.uid())),
+    'noshows', (select count(*) from no_shows n join capsules c on c.id = n.capsule_id and c.status <> 'met' where n.target = (select auth.uid()))
+  )
+$$;
+revoke all on function public.achievement_progress() from public, anon;
+grant execute on function public.achievement_progress() to authenticated;
+
+-- «Комета» (collector): вся коллекция из 5 медалей И 5 активных приглашённых (см. private.active_invites).
 create or replace function public.check_achievements() returns setof text
 language plpgsql security definer set search_path = public as $$
 declare
@@ -1841,9 +1898,10 @@ begin
     and extract(hour from pl.starts_at at time zone 'Europe/Minsk') < 9) then got := array_append(got, 'early_bird'); end if;
   if exists (select 1 from ambassadors where user_id = me and active) then got := array_append(got, 'ambassador'); end if;
   if exists (select 1 from founders where user_id = me) then got := array_append(got, 'founder'); end if;
-  -- Вся коллекция из 5 медалей (полученных когда-либо) — особая медаль «Комета»
+  -- Вся коллекция из 5 медалей (полученных когда-либо) + 5 активных приглашённых — «Комета»
   if (select count(distinct c) from (select code as c from achievements where user_id = me union select unnest(got)) t
-      where c in ('first_meet', 'soul', 'reliable', 'guide', 'regular')) = 5 then got := array_append(got, 'collector'); end if;
+      where c in ('first_meet', 'soul', 'reliable', 'guide', 'regular')) = 5
+     and private.active_invites(me) >= 5 then got := array_append(got, 'collector'); end if;
   return query
     with ins as (insert into achievements (user_id, code) select me, x from unnest(got) x on conflict do nothing returning achievements.code)
     select ins.code from ins;
