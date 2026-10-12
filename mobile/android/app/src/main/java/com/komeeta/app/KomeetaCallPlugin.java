@@ -1,5 +1,6 @@
 package com.komeeta.app;
 
+import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -45,5 +46,28 @@ public class KomeetaCallPlugin extends Plugin {
             getContext().startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + pkg)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
         call.resolve();
+    }
+
+    /** Ссылка из сообщения: системное окно «Открыть с помощью» — человек сам выбирает браузер. */
+    @PluginMethod
+    public void openUrl(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) {
+            call.reject("bad url");
+            return;
+        }
+        Intent view = new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE);
+        Intent chooser = Intent.createChooser(view, "Открыть ссылку в…");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // Сама Komeeta в списке не нужна: ссылку открываем наружу.
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, new ComponentName[] { new ComponentName(getContext(), MainActivity.class) });
+        }
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(chooser);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("no browser");
+        }
     }
 }

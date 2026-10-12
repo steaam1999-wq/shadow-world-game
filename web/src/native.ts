@@ -19,7 +19,7 @@ type Cap = {
   Plugins: {
     PushNotifications?: PushPlugin
     Browser?: { open: (o: { url: string; presentationStyle?: string }) => Promise<void>; close: () => Promise<void> }
-    KomeetaCall?: { ended: () => Promise<void>; videoCall?: (o: { on: boolean }) => Promise<void>; openNotificationSettings?: () => Promise<void> }
+    KomeetaCall?: { ended: () => Promise<void>; videoCall?: (o: { on: boolean }) => Promise<void>; openNotificationSettings?: () => Promise<void>; openUrl?: (o: { url: string }) => Promise<void> }
     App?: { addListener: (ev: string, cb: (x: { url?: string; isActive?: boolean }) => void) => Promise<Listener> }
   }
 }
@@ -148,9 +148,13 @@ export function nativeTelegramRedirect(botId: number) {
   location.href = `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${encodeURIComponent(location.origin)}&request_access=write&lang=ru&return_to=${encodeURIComponent(back)}`
 }
 
-/** Ссылка из сообщения: в приложении — во встроенном браузере поверх, на сайте — в новой вкладке. */
+/** Ссылка из сообщения: в Android-приложении — системный выбор браузера, на сайте — новая вкладка. */
 export function openLink(url: string) {
-  const browser = cap()?.Plugins.Browser
-  if (browser) void browser.open({ url, presentationStyle: 'popover' }).catch(() => { window.open(url, '_blank', 'noopener,noreferrer') })
-  else window.open(url, '_blank', 'noopener,noreferrer')
+  const c = cap()?.Plugins
+  const tab = () => { window.open(url, '_blank', 'noopener,noreferrer') }
+  const inApp = () => (c?.Browser ? c.Browser.open({ url, presentationStyle: 'popover' }).catch(tab) : tab())
+  // Старые версии приложения (без openUrl) — открываем как раньше, во встроенном браузере.
+  if (c?.KomeetaCall?.openUrl) void c.KomeetaCall.openUrl({ url }).catch(inApp)
+  else if (c) void inApp()
+  else tab()
 }
