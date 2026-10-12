@@ -227,7 +227,10 @@ export function CameraView({ filter, onFilter, onShot, onClose, maxRecSec = 30, 
       }
     }
     const cleanup = () => { cancelAnimationFrame(raf); extra.forEach((t) => t.stop()) }
-    const r = type ? new MediaRecorder(src, { mimeType: type }) : new MediaRecorder(src)
+    // ~2,5 Мбит/с: минута видео ≈ 20 МБ — грузится быстро и на мобильном интернете, качество для телефона хорошее.
+    let r: MediaRecorder
+    try { r = new MediaRecorder(src, { ...(type ? { mimeType: type } : {}), videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 }) }
+    catch { r = type ? new MediaRecorder(src, { mimeType: type }) : new MediaRecorder(src) }
     const chunks: Blob[] = []
     const started = Date.now()
     r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }

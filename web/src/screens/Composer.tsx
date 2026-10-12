@@ -53,6 +53,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
   const [shot, setShot] = useState<Shot | null>(null)
   const [filter, setFilter] = useState<FilterId>('spark')
   const [aspect, setAspect] = useState<Aspect>('orig')
+  const [progress, setProgress] = useState(0)
   const [caption, setCaption] = useState('')
   const [place, setPlace] = useState<string | null>(null)
   const [music, setMusic] = useState<Track | null>(null)
@@ -87,14 +88,14 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
 
   const publish = async () => {
     if (!shot) return
-    setBusy(true); setError('')
+    setBusy(true); setError(''); setProgress(0)
     try {
       const file = shot.kind === 'photo' && ratio ? await cropPhoto(shot.file, ratio) : shot.file
       const extra = { ...(filter !== 'none' ? { filter } : {}), ...(music ? { music: slimTrack(music) } : {}), ...(place ? { place } : {}) }
       const thumb = shot.kind === 'video' ? await videoFrame(shot.url) : null
       const text = caption.trim().slice(0, CAPTION_MAX)
       if (state.cloud) {
-        await uploadShort(state.cloud.userId, file, text, Math.round(shot.duration * 10) / 10, shot.kind, thumb, extra)
+        await uploadShort(state.cloud.userId, file, text, Math.round(shot.duration * 10) / 10, shot.kind, thumb, extra, setProgress)
         requestReload()
       } else {
         await idbRun('readwrite', (s) => s.put({ id: crypto.randomUUID(), caption: text, at: Date.now(), blob: file, kind: shot.kind, thumb, ...extra } satisfies StoredShort))
@@ -215,7 +216,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
             </div>
             <div className="px-4 pt-2 pb-[calc(14px+env(safe-area-inset-bottom,0px))] border-t border-line">
               <button onClick={() => void publish()} disabled={busy} className="w-full h-12 rounded-full bg-brand text-white font-semibold cursor-pointer disabled:opacity-60 inline-flex items-center justify-center gap-2">
-                {busy ? <><span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> Загружаем…</> : <><Icon name="send" size={18} /> Опубликовать</>}
+                {busy ? <><span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> {progress > 0 && progress < 100 ? `Загружаем… ${progress}%` : 'Загружаем…'}</> : <><Icon name="send" size={18} /> Опубликовать</>}
               </button>
             </div>
           </div>

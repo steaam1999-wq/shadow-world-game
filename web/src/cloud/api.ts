@@ -69,14 +69,42 @@ const PROFILE_COLS = 'id,name,age,bio,district,hue,tags,answers,verified,meeting
 const PLAN_COLS = 'id,author,title,category,area,starts_at,duration_min,expires_at,x,y,time_hidden,group_size,photo_path,music'
 
 /** Загружает видео или фото в хранилище и публикует его. `thumb` — кадр-превью видео (JPEG). */
-export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video', thumb?: Blob | null, extra: { filter?: string; music?: Track; place?: string } = {}) {
+/** Загрузка файла в хранилище с процентами. Если минуту нет ни байта прогресса — связь оборвалась, отменяем с понятной ошибкой
+ *  (раньше большое видео на медленном интернете висело на «Загружаем…» бесконечно). */
+async function uploadWithProgress(bucket: string, path: string, file: Blob, type: string, onProgress?: (pct: number) => void) {
+  const { data } = await sb().auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Войдите в аккаунт ещё раз')
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    let stall = 0
+    const watch = () => { clearTimeout(stall); stall = window.setTimeout(() => { xhr.abort(); reject(new Error('Связь оборвалась — проверьте интернет и попробуйте ещё раз')) }, 60_000) }
+    xhr.open('POST', `${SUPABASE_URL}/storage/v1/object/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY)
+    xhr.setRequestHeader('Content-Type', type)
+    xhr.setRequestHeader('x-upsert', 'false')
+    xhr.upload.onprogress = (e) => { watch(); if (e.lengthComputable) onProgress?.(Math.min(99, Math.round((e.loaded / e.total) * 100))) }
+    xhr.onload = () => {
+      clearTimeout(stall)
+      if (xhr.status >= 200 && xhr.status < 300) { onProgress?.(100); resolve(); return }
+      let msg = ''
+      try { msg = (JSON.parse(xhr.responseText) as { message?: string; error?: string }).message ?? '' } catch { /* ignore */ }
+      reject(new Error(xhr.status === 413 || /exceeded|too large/i.test(msg) ? 'too large' : msg || `Не получилось загрузить (${xhr.status})`))
+    }
+    xhr.onerror = () => { clearTimeout(stall); reject(new Error('Нет связи с сервером — проверьте интернет и попробуйте ещё раз')) }
+    watch()
+    xhr.send(file)
+  })
+}
+
+export async function uploadShort(userId: string, file: Blob & { name?: string }, caption: string, duration: number, kind: 'video' | 'photo' = 'video', thumb?: Blob | null, extra: { filter?: string; music?: Track; place?: string } = {}, onProgress?: (pct: number) => void) {
   const fromType = file.type.includes('quicktime') ? 'mov' : file.type.includes('webm') ? 'webm' : 'mp4'
   const ext = kind === 'photo' ? 'jpg' : ((file.name?.includes('.') ? file.name.split('.').pop()! : '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || fromType)
   const id = crypto.randomUUID()
   const path = `${userId}/${id}.${ext}`
   const type = kind === 'photo' ? 'image/jpeg' : file.type || (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
-  const up = await sb().storage.from('shorts').upload(path, file, { contentType: type, upsert: false })
-  if (up.error) throw up.error
+  await uploadWithProgress('shorts', path, file, type, onProgress)
   // Превью не обязательно: если не получилось, видео всё равно публикуется.
   let thumbPath: string | null = null
   if (kind === 'video' && thumb) {
