@@ -270,6 +270,81 @@ export function compressPhoto(file: File): Promise<Blob> {
   })
 }
 
+/** Тяжёлое видео (исходник камеры iPhone: 4K, HEVC/.mov, 20+ Мбит/с) пересобираем в MP4 720p ~2,5 Мбит/с прямо в телефоне:
+ *  такое видео грузится в ленте у всех быстро и играет на любом телефоне. Идёт в реальном времени (видео до 60 с).
+ *  Если браузер не умеет писать MP4 или что-то пошло не так — возвращаем исходник. */
+/** Заголовок MP4: видео H.264 (avc1) и звук AAC (mp4a) или без звука — такое играет на любом телефоне. */
+async function playableEverywhere(b: Blob) {
+  const head = new TextDecoder('latin1').decode(new Uint8Array(await b.slice(0, 256 * 1024).arrayBuffer()))
+  return head.includes('avc1') && !/vp09|av01|hvc1|hev1/.test(head) && (head.includes('mp4a') || !/Opus/.test(head))
+}
+export function needsCompress(file: Blob, duration: number) {
+  const mbps = (file.size * 8) / Math.max(1, duration) / 1e6
+  return /quicktime|hevc/i.test(file.type) || mbps > 4
+}
+export function audioContextNow() {
+  // Создавать прямо в обработчике нажатия: иначе iPhone не даст включить звук для записи.
+  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  try { return AC ? new AC() : null } catch { return null }
+}
+export async function compressVideo(file: Blob, onProgress?: (pct: number) => void, audio: AudioContext | null = audioContextNow()): Promise<Blob> {
+  // Только H.264 в MP4 — его показывают все телефоны. Просто «video/mp4» берём лишь в Safari (там это всегда H.264);
+  // в других браузерах внутри может оказаться VP9, а его iPhone не покажет.
+  const safari = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Android/.test(navigator.userAgent)
+  const mime = ['video/mp4;codecs=avc1.42E01F,mp4a.40.2', 'video/mp4;codecs=avc1.4D401F,mp4a.40.2', 'video/mp4;codecs=avc1', ...(safari ? ['video/mp4'] : [])]
+    .find((t) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t))
+  if (!mime) return file
+  const ctx = audio
+  const url = URL.createObjectURL(file)
+  const v = document.createElement('video')
+  v.src = url; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'
+  try {
+    await new Promise<void>((res, rej) => { v.onloadedmetadata = () => res(); v.onerror = () => rej(new Error('video')); setTimeout(() => rej(new Error('timeout')), 15000) })
+    const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight))
+    const c = document.createElement('canvas')
+    c.width = Math.round(v.videoWidth * k / 2) * 2; c.height = Math.round(v.videoHeight * k / 2) * 2
+    const g = c.getContext('2d')!
+    const stream = (c as HTMLCanvasElement & { captureStream: (fps?: number) => MediaStream }).captureStream(30)
+    // Звук: через Web Audio в поток записи (в динамики не идёт — человек ничего не слышит).
+    if (ctx) {
+      try {
+        const src = ctx.createMediaElementSource(v)
+        const dest = ctx.createMediaStreamDestination()
+        src.connect(dest)
+        dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t))
+        await ctx.resume().catch(() => {})
+      } catch { /* без звука лучше, чем никак */ }
+    } else v.muted = true
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 })
+    const parts: Blob[] = []
+    rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data) }
+    const done = new Promise<void>((res) => { rec.onstop = () => res() })
+    let raf = 0
+    const draw = () => {
+      g.drawImage(v, 0, 0, c.width, c.height)
+      if (v.duration) onProgress?.(Math.min(99, Math.round((v.currentTime / v.duration) * 100)))
+      raf = requestAnimationFrame(draw)
+    }
+    rec.start(1000)
+    await v.play()
+    draw()
+    await new Promise<void>((res) => { v.onended = () => res(); v.onerror = () => res() })
+    cancelAnimationFrame(raf)
+    rec.stop()
+    await done
+    const out = new Blob(parts, { type: 'video/mp4' })
+    // Браузер мог пообещать H.264, а записать VP9 — проверяем, что внутри: иначе у части людей видео не откроется.
+    if (!(await playableEverywhere(out))) return file
+    // Сжатие должно реально помочь и не обрезать видео
+    return out.size > 100_000 && out.size < file.size * 0.8 ? out : file
+  } catch {
+    return file
+  } finally {
+    v.pause(); v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url)
+    void ctx?.close().catch(() => {})
+  }
+}
+
 export function readVideoDuration(url: string): Promise<number> {
   return new Promise((resolve) => {
     const v = document.createElement('video')

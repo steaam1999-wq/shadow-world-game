@@ -7,7 +7,7 @@ import { FILTERS, filterOf, filterStyle, type FilterId } from '../components/sto
 import { humanError, uploadShort } from '../cloud/api'
 import { requestReload } from '../cloud/sync'
 import { slimTrack, usePlayer } from '../music/player'
-import { idbRun, reloadDemoPublications, videoFrame, type StoredShort } from './Shorts'
+import { idbRun, reloadDemoPublications, videoFrame, type StoredShort, audioContextNow, compressVideo, needsCompress } from './Shorts'
 import type { Track } from '../music/engine'
 
 // Новая публикация в три шага, как в современных соцсетях:
@@ -54,6 +54,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
   const [filter, setFilter] = useState<FilterId>('spark')
   const [aspect, setAspect] = useState<Aspect>('orig')
   const [progress, setProgress] = useState(0)
+  const [step, setStep] = useState<'compress' | 'upload'>('upload')
   const [caption, setCaption] = useState('')
   const [place, setPlace] = useState<string | null>(null)
   const [music, setMusic] = useState<Track | null>(null)
@@ -88,9 +89,18 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
 
   const publish = async () => {
     if (!shot) return
-    setBusy(true); setError(''); setProgress(0)
+    setBusy(true); setError(''); setProgress(0); setStep('upload')
+    const heavy = shot.kind === 'video' && needsCompress(shot.file, shot.duration)
+    const audio = heavy ? audioContextNow() : null // до первого await — пока идёт нажатие
     try {
-      const file = shot.kind === 'photo' && ratio ? await cropPhoto(shot.file, ratio) : shot.file
+      let file: Blob = shot.kind === 'photo' && ratio ? await cropPhoto(shot.file, ratio) : shot.file
+      // Тяжёлое видео сначала сжимаем — иначе у других оно долго грузится в ленте
+      if (heavy) {
+        setStep('compress')
+        file = await compressVideo(shot.file, setProgress, audio)
+        setProgress(0)
+      }
+      setStep('upload')
       const extra = { ...(filter !== 'none' ? { filter } : {}), ...(music ? { music: slimTrack(music) } : {}), ...(place ? { place } : {}) }
       const thumb = shot.kind === 'video' ? await videoFrame(shot.url) : null
       const text = caption.trim().slice(0, CAPTION_MAX)
@@ -216,7 +226,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
             </div>
             <div className="px-4 pt-2 pb-[calc(14px+env(safe-area-inset-bottom,0px))] border-t border-line">
               <button onClick={() => void publish()} disabled={busy} className="w-full h-12 rounded-full bg-brand text-white font-semibold cursor-pointer disabled:opacity-60 inline-flex items-center justify-center gap-2">
-                {busy ? <><span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> {progress > 0 && progress < 100 ? `Загружаем… ${progress}%` : 'Загружаем…'}</> : <><Icon name="send" size={18} /> Опубликовать</>}
+                {busy ? <><span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> {step === 'compress' ? `Сжимаем видео… ${progress}%` : progress > 0 && progress < 100 ? `Загружаем… ${progress}%` : 'Загружаем…'}</> : <><Icon name="send" size={18} /> Опубликовать</>}
               </button>
             </div>
           </div>
