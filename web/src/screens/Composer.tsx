@@ -123,7 +123,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
       <div className="relative w-full max-w-[480px] h-full overflow-hidden">
         {stage === 'camera' && (
           <CameraView filter={filter} onFilter={setFilter} onClose={() => { if (!busy) onClose() }} videoOnly={videoOnly} maxRecSec={MAX_SEC} maxVideoSec={MAX_SEC}
-            onShot={(s, fromGallery) => { setShot(s); if (fromGallery) setFilter('none'); setAspect(s.kind === 'video' ? 'orig' : '4:5'); setStage('edit') }}
+            onShot={(s, fromGallery) => { setShot(s); if (fromGallery) setFilter('none'); setAspect('orig'); setStage('edit') }}
             footer={<p className="text-center text-[12px] font-semibold">{title}</p>} />
         )}
 
@@ -175,7 +175,7 @@ export function NewPublication({ open, kind, onClose, onDone }: { open: boolean;
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
               <div className="flex gap-3">
-                <div className="relative w-20 shrink-0 self-start rounded-xl overflow-hidden bg-black" style={{ aspectRatio: String(ratio ?? (shot.kind === 'video' ? 9 / 16 : 4 / 5)) }}>
+                <div className="relative w-20 shrink-0 self-start rounded-xl overflow-hidden bg-black" style={{ aspectRatio: String(ratio ?? (shot.kind === 'video' ? 9 / 16 : 3 / 4)) }}>
                   {media('absolute inset-0 w-full h-full object-cover')}
                 </div>
                 <div className="flex-1 flex flex-col">
