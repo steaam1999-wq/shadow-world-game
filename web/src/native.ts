@@ -50,7 +50,10 @@ function registerPush(ask: boolean): Promise<string | null> {
       void push.register().catch(() => { clearTimeout(t); resolve(null) })
     })
   })()
-  return token
+  // Неудачу не запоминаем: разрешат уведомления в настройках — следующая попытка должна пройти заново.
+  const mine = token
+  void mine.then((t) => { if (!t && token === mine) token = null })
+  return mine
 }
 
 /** Включить уведомления в приложении: спросить разрешение и сохранить устройство на сервере. */
