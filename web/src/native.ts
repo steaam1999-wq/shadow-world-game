@@ -147,3 +147,10 @@ export function nativeTelegramRedirect(botId: number) {
   const back = `${location.origin}/?source=app`
   location.href = `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${encodeURIComponent(location.origin)}&request_access=write&lang=ru&return_to=${encodeURIComponent(back)}`
 }
+
+/** Ссылка из сообщения: в приложении — во встроенном браузере поверх, на сайте — в новой вкладке. */
+export function openLink(url: string) {
+  const browser = cap()?.Plugins.Browser
+  if (browser) void browser.open({ url, presentationStyle: 'popover' }).catch(() => { window.open(url, '_blank', 'noopener,noreferrer') })
+  else window.open(url, '_blank', 'noopener,noreferrer')
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Linkify } from '../components/Linkify'
 import { soundCloudLink } from '../music/soundcloud'
 import { SoundCloudCard } from '../music/SoundCloudCard'
 import { createPortal } from 'react-dom'
@@ -424,7 +425,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
                     <VoiceMessage id={m.id} src={m.audio} ms={m.audioMs ?? 0} me={me} time={time} />
                   ) : callLog(m.text) ? <CallLog log={callLog(m.text)!} me={me} time={time} onCall={canCall ? (v) => calls.start(p.id, v) : undefined} /> : m.text && (
                     <p data-no-translate className={`whitespace-pre-wrap break-words text-[length:var(--chat-fs,15.5px)] leading-[1.35] ${m.photo ? 'px-2.5 pt-1.5 pb-1' : ''}`}>
-                      {m.text}
+                      <Linkify text={m.text} />
                       {/* Время прячется в конце последней строки, как в мессенджерах */}
                       <span className="float-right ml-2.5 mt-[7px] -mb-1 translate-y-[2px]">{time}</span>
                     </p>

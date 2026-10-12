@@ -2,6 +2,7 @@
 // или нет связи — отвечаем по встроенным частым вопросам. «Позвать человека» — переписка уходит команде.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Linkify } from './Linkify'
 import { useStore } from '../store'
 import { askSupportBot, sendBugReport } from '../cloud/api'
 import { deviceLine } from './BugReport'
@@ -126,7 +127,7 @@ export function SupportChat({ open, onClose }: { open: boolean; onClose: () => v
       <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 flex flex-col gap-2">
         {shown.map((m) => m.from === 'system'
           ? <p key={m.id} className="self-center max-w-[90%] my-1 text-center text-[12.5px] text-muted bg-surface-2/70 rounded-2xl px-3 py-1.5">{m.text}</p>
-          : <div key={m.id} className={`msg-in max-w-[85%] rounded-[20px] px-3.5 py-2 text-[15.5px] leading-[1.38] whitespace-pre-wrap break-words ${m.from === 'me' ? 'self-end bubble-me text-white rounded-br-[6px]' : 'self-start bubble-them text-fg rounded-bl-[6px]'}`}>{m.text}</div>)}
+          : <div key={m.id} className={`msg-in max-w-[85%] rounded-[20px] px-3.5 py-2 text-[15.5px] leading-[1.38] whitespace-pre-wrap break-words ${m.from === 'me' ? 'self-end bubble-me text-white rounded-br-[6px]' : 'self-start bubble-them text-fg rounded-bl-[6px]'}`}><Linkify text={m.text} /></div>)}
         {busy && (
           <div className="self-start bubble-them rounded-[20px] rounded-bl-[6px] h-10 px-4 inline-flex items-center gap-1" role="status" aria-label="Бот печатает…">
             {[0, 1, 2].map((d) => <span key={d} className="typing-dot w-2 h-2 rounded-full bg-muted" style={{ animationDelay: `${d * 0.15}s` }} />)}
