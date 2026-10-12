@@ -1560,17 +1560,20 @@ alter table public.profiles add column if not exists calls_off boolean not null 
 grant select (calls_off), insert (calls_off), update (calls_off) on public.profiles to authenticated;
 
 -- Звонить можно только тому, с кем уже переписывались в обе стороны; без блокировок, банов и запрета звонков.
-create or replace function private.can_call(other uuid) returns boolean language sql stable security definer set search_path to 'public' as $$
+create or replace function private.can_call(other uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  -- Звонить можно тому, с кем переписывались в обе стороны — в любом из общих чатов (в приложении они показываются одним чатом);
+  -- без блокировок, банов и запрета звонков.
   select (select auth.uid()) is not null and other <> (select auth.uid())
     and not exists (select 1 from public.bans where user_id in (other, (select auth.uid())))
     and not exists (select 1 from public.blocks b where (b.blocker = other and b.blocked = (select auth.uid())) or (b.blocker = (select auth.uid()) and b.blocked = other))
     and not exists (select 1 from public.profiles where id = other and calls_off)
     and exists (
-      select 1 from public.capsules c
-      where ((c.author = other and c.responder = (select auth.uid())) or (c.responder = other and c.author = (select auth.uid())))
-        and exists (select 1 from public.messages m where m.capsule_id = c.id and m.sender = other)
-        and exists (select 1 from public.messages m where m.capsule_id = c.id and m.sender = (select auth.uid()))
-    )
+      select 1 from public.capsules c join public.messages m on m.capsule_id = c.id
+      where ((c.author = other and c.responder = (select auth.uid())) or (c.responder = other and c.author = (select auth.uid()))) and m.sender = other)
+    and exists (
+      select 1 from public.capsules c join public.messages m on m.capsule_id = c.id
+      where ((c.author = other and c.responder = (select auth.uid())) or (c.responder = other and c.author = (select auth.uid()))) and m.sender = (select auth.uid()))
 $$;
 revoke all on function private.can_call(uuid) from public, anon;
 grant execute on function private.can_call(uuid) to authenticated;
