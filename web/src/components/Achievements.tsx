@@ -434,3 +434,8 @@ export function AchievementToast() {
     document.body,
   )
 }
+
+/** Монета «Комета» для рамки вокруг фото. */
+export function CometBadge({ size = 34 }: { size?: number }) {
+  return <Medal a={ACHIEVEMENTS.find((x) => x.code === 'collector')!} got size={size} />
+}

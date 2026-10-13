@@ -101,14 +101,39 @@ export function AmbassadorBadge({ city }: { city?: string }) {
   )
 }
 
-/** Рамка «Комета» — за всю коллекцию медалей: радужное кольцо медленно вращается вокруг фото. */
-export function CometFrame({ on, children, width = 3 }: { on?: boolean; children: ReactNode; width?: number }) {
+/** Рамка «Комета» — за всю коллекцию медалей. Как оправа ювелирной работы: платиновый бортик
+ *  с голографическим переливом, бусинный ободок, бегущий блик и искры; снизу — монета «Комета».
+ *  На маленьких аватарках (лента) — только бортик с переливом. */
+export function CometFrame({ on, children, width = 3, badge }: { on?: boolean; children: ReactNode; width?: number; badge?: ReactNode }) {
   if (!on) return <>{children}</>
+  const big = width >= 4
+  const w = big ? 9 : width + 1
   return (
-    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: width + 2 }} title="Комета: вся коллекция медалей">
-      <span className="gold-ring-spin absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 0deg, #ffb347, #ff4f86, #8a5cff, #4aa8ff, #3fd18f, #ffd27a, #ffb347)', boxShadow: '0 0 14px -2px rgb(122 92 255 / .7)' }} />
-      <span className="absolute rounded-full bg-bg" style={{ inset: width }} />
+    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: w + (big ? 3 : 1) }} title="Комета: вся коллекция медалей">
+      {big && <span className="absolute -inset-3 rounded-full pointer-events-none" style={{ background: 'radial-gradient(closest-side, rgb(140 120 255 / .35), rgb(80 170 255 / .15) 60%, transparent)', filter: 'blur(6px)' }} />}
+      {/* Платиновый бортик */}
+      <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 200deg, #ffffff, #b8bdc8 12%, #5d636e 24%, #e9ecf2 36%, #8a909c 50%, #ffffff 62%, #6b717c 76%, #d5d9e1 88%, #ffffff)',
+        boxShadow: '0 4px 14px -4px rgb(0 0 0 / .6), inset 0 0 0 1px rgb(255 255 255 / .5)' }} />
+      {/* Голографическая плёнка — медленно переливается */}
+      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-overlay opacity-80" style={{ animationDuration: '9s', background: 'conic-gradient(from 0deg, #ff6aa8, #ffd36b, #7dffcf, #6ab8ff, #b18cff, #ff6aa8)' }} />
+      {/* Бегущий блик */}
+      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ animationDuration: '4.5s', background: 'conic-gradient(from 0deg, transparent 0 74%, rgb(255 255 255 / .95) 82%, transparent 90%)' }} />
+      {big && (
+        // Бусинный ободок и гравированная канавка
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="47.6" fill="none" stroke="rgb(255 255 255 / .85)" strokeWidth="1.5" strokeDasharray="0 3.32" strokeLinecap="round" />
+          <circle cx="50" cy="50" r="45" fill="none" stroke="rgb(20 22 28 / .45)" strokeWidth=".6" />
+        </svg>
+      )}
+      {/* Внутренний срез оправы */}
+      <span className="absolute rounded-full bg-bg" style={{ inset: w, boxShadow: 'inset 0 2px 3px rgb(0 0 0 / .55), 0 0 0 1px rgb(255 255 255 / .55)' }} />
       <span className="relative">{children}</span>
+      {big && [[0.08, 0.1, 0], [0.84, 0.18, 1.1], [0.9, 0.7, 2]].map(([x, y, d], i) => (
+        <svg key={i} className="gold-twinkle absolute pointer-events-none" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: 14, height: 14, animationDelay: `${d}s`, filter: 'drop-shadow(0 0 4px rgb(190 200 255 / .9))' }} viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#fff" d="M12 0l2.4 9.6L24 12l-9.6 2.4L12 24l-2.4-9.6L0 12l9.6-2.4z" />
+        </svg>
+      ))}
+      {big && badge && <span className="absolute z-[2] left-1/2 -bottom-3 -translate-x-1/2 leading-[0]">{badge}</span>}
     </span>
   )
 }
