@@ -30,6 +30,7 @@ export interface Person {
   style?: ProfileStyle
   ambassador?: string // амбассадор Komeeta в этом городе
   collector?: boolean // собрал всю коллекцию медалей («Комета»)
+  medals?: string[] // коды полученных медалей
   founder?: number // «Основатель Komeeta» №N
   founderAt?: number // когда получил значок — неделю его планы выше в ленте
   founderWall?: boolean // показан на «Стене основателей»
@@ -43,6 +44,7 @@ export interface ProfileStyle {
   accent?: Accent // нет — фирменный цвет Komeeta
   cover?: 'none' | 'photo' | 'color' // нет — мягкий фон цвета профиля
   ring?: 'none' | 'accent' | 'white'
+  frame?: string // рамка за медаль (код медали) или 'none'; нет — самая престижная из полученных
   status?: string // до 60 символов
   statusUntil?: number // статус пропадёт в это время (нет — висит, пока не уберут)
 }
@@ -76,6 +78,7 @@ export interface Me {
   style?: ProfileStyle
   ambassador?: string // амбассадор Komeeta в этом городе (пусто — просто амбассадор)
   collector?: boolean // собрал всю коллекцию медалей («Комета»)
+  medals?: string[] // коды полученных медалей
   founderWall?: boolean
   boostPlan?: string
   boostAt?: number // последний подъём плана — следующий через 30 дней

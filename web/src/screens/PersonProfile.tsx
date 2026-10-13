@@ -3,9 +3,10 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Icon, StoryRing } from '../components/ui'
-import { AmbassadorBadge, AvatarRing, CometFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { AmbassadorBadge, AvatarRing, MedalFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
 import { AchievementsPanel } from '../components/Achievements'
+import { frameOf } from '../components/medalMetals'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
 import { PostArt } from '../components/PostArt'
 import { PersonSongs, songsOf } from '../music/PersonSongs'
@@ -44,6 +45,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)
   const plans = state.activities.filter((a) => a.authorId === p.id && a.expiresAt > now).sort((a, b) => a.startsAt - b.startsAt)
+  const frame = frameOf(p.style, p.medals, p.founder)
   const compat = compatibility(me, p)
   const shared = sharedAnswers(me.answers, p.answers)
   const followers = state.cloud ? state.followers?.[p.id] ?? 0 : followerBase(p) + (following ? 1 : 0)
@@ -74,14 +76,14 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         <ProfileCover style={p.style} photo={p.photo} hue={p.hue} />
         {/* Визитка: аватарка по центру, имя, статус и город */}
         <div className="relative flex flex-col items-center text-center gap-1">
-          {p.collector
-            ? <CometFrame on width={4}><Avatar name={p.name} hue={p.hue} src={p.photo} size={96} /></CometFrame>
-            : p.founder && (!plans.length || state.seenStories.includes(p.id))
+          {frame && frame !== 'founder'
+            ? <MedalFrame code={frame}><Avatar name={p.name} hue={p.hue} src={p.photo} size={96} /></MedalFrame>
+            : frame === 'founder' && (!plans.length || state.seenStories.includes(p.id))
             // Основатель без новых историй: только золотая рамка, без второго серого кольца.
             ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={92} /></GoldFrame>
             : plans.length && !state.seenStories.includes(p.id)
               ? <StoryRing seen={false} size={112}>
-                <GoldFrame on={!!p.founder} medal={26} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={p.founder ? 92 : 102} /></GoldFrame>
+                <GoldFrame on={frame === 'founder'} medal={26} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={frame === 'founder' ? 92 : 102} /></GoldFrame>
               </StoryRing>
               : <AvatarRing style={p.style}><Avatar name={p.name} hue={p.hue} src={p.photo} size={104} /></AvatarRing>}
           <h2 className="mt-2.5 flex items-center justify-center gap-1.5 max-w-full font-display font-bold text-[25px] leading-tight">

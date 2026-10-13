@@ -369,6 +369,7 @@ function safeStyle(v: unknown): ProfileStyle | undefined {
     accent: pick(o.accent, ['graphite', 'sage', 'sand', 'rose', 'blue', 'pearl'] as const),
     cover: pick(o.cover, ['none', 'photo', 'color'] as const),
     ring: pick(o.ring, ['none', 'accent', 'white'] as const),
+    frame: typeof o.frame === 'string' && /^[a-z_]{1,20}$/.test(o.frame) ? o.frame : undefined,
     status: typeof o.status === 'string' && o.status.trim() ? o.status.trim().slice(0, 60) : undefined,
     statusUntil: typeof o.statusUntil === 'number' ? o.statusUntil : undefined,
   }
@@ -486,11 +487,14 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
   // Амбассадоры городов: значок в профиле
   const ambRows = await db.from('ambassadors').select('user_id, city').eq('active', true).returns<{ user_id: string; city: string }[]>()
   const amb = new Map((ambRows.error ? [] : ambRows.data ?? []).map((a) => [a.user_id, a.city]))
-  const collRows = await db.from('achievements').select('user_id').eq('code', 'collector').returns<{ user_id: string }[]>()
-  const collectors = new Set((collRows.error ? [] : collRows.data ?? []).map((r) => r.user_id))
+  // Медали всех — для рамок вокруг фото и «Кометы»
+  const medalRows = await db.from('achievements').select('user_id, code').returns<{ user_id: string; code: string }[]>()
+  const medalsOf = new Map<string, string[]>()
+  for (const r of medalRows.error ? [] : medalRows.data ?? []) medalsOf.set(r.user_id, [...(medalsOf.get(r.user_id) ?? []), r.code])
+  const collectors = new Set([...medalsOf].filter(([, c]) => c.includes('collector')).map(([u]) => u))
   const missed = new Map(((missedRows.data ?? []) as { user_id: string; missed: number }[]).map((x) => [x.user_id, x.missed]))
   const reported = new Set((myNoShows.data ?? []).map((x) => x.capsule_id))
-  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)), ambassador: amb.get(userId), collector: collectors.has(userId) || undefined } : null
+  const me = mine ? { ...profileToMe(mine, local), birthDate: priv.data?.birth_date ?? undefined, noShows: missed.get(userId) ?? 0, ...founderFields(founders.get(userId)), ambassador: amb.get(userId), collector: collectors.has(userId) || undefined, medals: medalsOf.get(userId) } : null
   const place = new Map((secrets.data ?? []).map((s) => [s.plan_id, s.exact_place]))
 
   const people: Person[] = (profiles.data ?? []).filter((p) => p.id !== userId).map((p) => ({
@@ -500,6 +504,7 @@ export async function loadAll(userId: string, local: Me | null, read: Record<str
     ...founderFields(founders.get(p.id)),
     ambassador: amb.get(p.id),
     collector: collectors.has(p.id) || undefined,
+    medals: medalsOf.get(p.id),
     freeUntil: p.free_until ? new Date(p.free_until).getTime() : undefined,
     nowPlaying: p.now_playing?.track && Date.now() - p.now_playing.at < NOW_PLAYING_TTL && safeTrack(p.now_playing.track) ? { track: safeTrack(p.now_playing.track)!, at: p.now_playing.at } : null,
   }))

@@ -1,5 +1,5 @@
 // Аверс памятной монеты, нарисованный на canvas (без WebGL):
-// зеркальное поле с гильоше (тонкая гравировка лучами и кольцами), выпуклая матовая эмблема,
+// чистое зеркальное поле, выпуклая матовая эмблема,
 // надпись по кругу, бусинный бортик. Выдаёт три карты: цвет, высоту (рельеф) и шероховатость
 // (поле — зеркало, рельеф — мат, как у монет «пруф»).
 
@@ -68,18 +68,6 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
       const [h, hg] = canvas(FACE)
       hg.fillStyle = '#000'
       hg.fillRect(0, 0, FACE, FACE)
-      // гильоше на поле: лучи и кольца (очень низкие)
-      hg.save()
-      hg.beginPath(); hg.arc(C, C, FIELD, 0, Math.PI * 2); hg.clip()
-      hg.strokeStyle = 'rgb(40 40 40)'
-      hg.lineWidth = 2 * K
-      for (let i = 0; i < 240; i++) {
-        const a = (i / 240) * Math.PI * 2
-        hg.beginPath(); hg.moveTo(C, C); hg.lineTo(C + Math.cos(a) * FIELD, C + Math.sin(a) * FIELD); hg.stroke()
-      }
-      hg.strokeStyle = 'rgb(26 26 26)'
-      for (let r = 14 * K; r < FIELD; r += 14 * K) { hg.beginPath(); hg.arc(C, C, r, 0, Math.PI * 2); hg.stroke() }
-      hg.restore()
       // кольцо-граница поля и надписи
       hg.filter = `blur(${2 * K}px)`
       hg.strokeStyle = '#d0d0d0'

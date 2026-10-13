@@ -4,7 +4,8 @@ import { useStore } from '../store'
 import { nameAge } from '../lib'
 import type { ProfileStyle } from '../types'
 import { Avatar, Button, Sheet, Toggle } from './ui'
-import { ACCENTS, AvatarRing, ProfileCover, StatusLine, accentOf } from './ProfileLook'
+import { ACCENTS, AvatarRing, MedalFrame, ProfileCover, StatusLine, accentOf } from './ProfileLook'
+import { FRAME_RANK, FRAME_TITLE, frameOf } from './medalMetals'
 
 const DAY = 24 * 60 * 60_000
 
@@ -40,6 +41,9 @@ export function StyleEditor({ open, onClose }: { open: boolean; onClose: () => v
     onClose()
   }
   const preview = { ...draft, status: draft.status?.trim() || undefined }
+  // Рамки открываются медалями: каждая полученная медаль — своя рамка
+  const frames = FRAME_RANK.filter((c) => me.medals?.includes(c) || (c === 'founder' && !!me.founder))
+  const shown = frameOf(preview, me.medals, me.founder)
 
   return (
     <Sheet open={open} onClose={onClose} title="Оформление">
@@ -47,7 +51,9 @@ export function StyleEditor({ open, onClose }: { open: boolean; onClose: () => v
         {/* Предпросмотр шапки */}
         <div className="relative overflow-hidden rounded-3xl bg-bg border border-line px-4 pt-5 pb-4 flex flex-col items-center text-center gap-1">
           <ProfileCover style={preview} photo={me.photo} hue={me.hue} />
-          <span className="relative"><AvatarRing style={preview}><Avatar name={me.name} hue={me.hue} src={me.photo} size={72} /></AvatarRing></span>
+          <span className="relative">{shown
+            ? <MedalFrame code={shown}><Avatar name={me.name} hue={me.hue} src={me.photo} size={68} /></MedalFrame>
+            : <AvatarRing style={preview}><Avatar name={me.name} hue={me.hue} src={me.photo} size={72} /></AvatarRing>}</span>
           <span className="relative mt-1.5 font-display font-bold text-[19px]">{nameAge(me.name, me.age)}</span>
           <span className="relative"><StatusLine text={preview.status ?? null} style={preview} /></span>
           <span className="relative mt-2 h-8 px-5 rounded-xl grid place-items-center text-[13px] font-semibold" style={{ background: accentOf(preview).color, color: accentOf(preview).ink }}>Написать</span>
@@ -73,6 +79,28 @@ export function StyleEditor({ open, onClose }: { open: boolean; onClose: () => v
         <div className="flex flex-col gap-2">
           <span className="text-[13px] font-semibold text-muted">Кольцо аватарки</span>
           <Segment label="Кольцо аватарки" value={draft.ring ?? 'none'} onChange={(v) => set({ ring: v })} options={[['none', 'Без'], ['accent', 'Акцент'], ['white', 'Белое']]} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-muted">Рамка за медаль{frames.length ? '' : ' — откроется с первой медалью'}</span>
+          {frames.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1 py-1" role="radiogroup" aria-label="Рамка за медаль">
+              <button role="radio" aria-checked={shown === null} onClick={() => set({ frame: 'none' })}
+                className="flex flex-col items-center gap-1.5 shrink-0 w-[68px] cursor-pointer">
+                <span className={`grid place-items-center w-[52px] h-[52px] rounded-full border border-dashed border-line text-muted text-[11px] ${shown === null ? 'ring-2 ring-fg ring-offset-2 ring-offset-surface' : ''}`}>нет</span>
+                <span className="text-[11px] text-muted">Без рамки</span>
+              </button>
+              {frames.map((c) => (
+                <button key={c} role="radio" aria-checked={shown === c} onClick={() => set({ frame: c })}
+                  className="flex flex-col items-center gap-1.5 shrink-0 w-[68px] cursor-pointer">
+                  <span className={`rounded-full ${shown === c ? 'ring-2 ring-fg ring-offset-2 ring-offset-surface' : ''}`}>
+                    <MedalFrame code={c} big={false}><Avatar name={me.name} hue={me.hue} src={me.photo} size={44} /></MedalFrame>
+                  </span>
+                  <span className={`text-[11px] leading-tight text-center ${shown === c ? 'text-fg font-semibold' : 'text-muted'}`}>{FRAME_TITLE[c]}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">

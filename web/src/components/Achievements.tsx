@@ -7,6 +7,7 @@ import { useStore } from '../store'
 import { sb } from '../cloud/api'
 import { Sheet } from './ui'
 import { GoldPlanet } from './Invite'
+import { MEDAL, METALS, METAL_NAME } from './medalMetals'
 
 type Progress = { met: number; responded: number; invites: number; noshows: number; active_invites?: number }
 export interface Achievement {
@@ -147,22 +148,6 @@ function CometSky({ big }: { big: boolean }) {
 
 // ——— Медали — памятные монеты: только металл, гравировка, надпись по кругу, выпуклая матовая эмблема.
 // Настоящее 3D (Three.js): в списке — кадр монеты под углом, в карточке — живая монета, вращается на ребре.
-type Metal = [string, string, string]
-const METALS: Record<string, Metal> = {
-  bronze: ['#f0c39a', '#a8693a', '#4e2a10'],
-  copper: ['#f4c0a8', '#b86f52', '#55291c'],
-  steel: ['#e4e9ee', '#8a94a0', '#353b43'],
-  silver: ['#ffffff', '#c3c7cf', '#5c616a'],
-  gold: ['#fff0bf', '#cfa040', '#654308'],
-  platinum: ['#ffffff', '#dcdfe5', '#787d87'],
-  gunmetal: ['#c4c8d0', '#565a62', '#1b1d21'],
-}
-const METAL_NAME: Record<string, string> = { bronze: 'Бронза', copper: 'Медь', steel: 'Сталь', silver: 'Серебро', gold: 'Золото', platinum: 'Платина', gunmetal: 'Тёмный металл' }
-const MEDAL: Record<string, { metal: keyof typeof METALS; iridescent?: boolean }> = {
-  first_meet: { metal: 'bronze' }, soul: { metal: 'copper' }, reliable: { metal: 'steel' }, guide: { metal: 'silver' },
-  regular: { metal: 'gold' }, ambassador: { metal: 'platinum' }, founder: { metal: 'gold' }, collector: { metal: 'gunmetal', iridescent: true },
-}
-
 function starFacets(cx: number, cy: number, R: number, r: number) {
   const pt = (k: number, rad: number) => [cx + rad * Math.sin((k * Math.PI) / 5), cy - rad * Math.cos((k * Math.PI) / 5)].map((v) => v.toFixed(2)).join(' ')
   const out: [string, boolean][] = []
@@ -219,6 +204,7 @@ function faceSpec(a: Achievement, render: (el: ReactElement) => string) {
     emblemScale: a.code === 'founder' ? 0.5 : 0.56,
   }
 }
+const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v3:${code}:${px}`) } catch { return null } }
 let webgl: boolean | null = null
 const canWebGL = () => {
   if (webgl === null) { try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { webgl = false } }
@@ -226,14 +212,16 @@ const canWebGL = () => {
 }
 
 function Coin3D({ a, size, spin = false }: { a: Achievement; size: number; spin?: boolean }) {
+  const px = Math.round(size * Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1, 3))
+  // Готовый 3D-кадр берём из памяти браузера: на чужих страницах медали появляются сразу, без пересчёта
+  const [url, setUrl] = useState<string | null>(() => (spin ? null : cachedShot(a.code, px)))
   const [flat, setFlat] = useState<string | null>(null)
-  const [url, setUrl] = useState<string | null>(null)
   const [live, setLive] = useState(false)
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
+    if (!spin && cachedShot(a.code, px)) return
     let off = false
     let dispose: (() => void) | undefined
-    const px = Math.round(size * Math.min(window.devicePixelRatio || 1, 3))
     void Promise.all([import('./medalFace'), import('react-dom/server')]).then(async ([f, srv]) => {
       const spec = faceSpec(a, srv.renderToStaticMarkup)
       const img = await f.faceImage(spec, px)
@@ -252,7 +240,7 @@ function Coin3D({ a, size, spin = false }: { a: Achievement; size: number; spin?
       }
     }).catch(() => {})
     return () => { off = true; dispose?.() }
-  }, [a, size, spin])
+  }, [a, size, spin, px])
   const [light, base, dark] = METALS[MEDAL[a.code].metal]
   const shadow = `drop-shadow(0 ${size * 0.07}px ${size * 0.09}px rgb(0 0 0 / .55))`
   const ready = spin ? live : !!url

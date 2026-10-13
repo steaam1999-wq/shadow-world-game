@@ -20,7 +20,8 @@ import { useOpenProfile } from '../nav'
 import { personTrack } from '../music/player'
 import { ReportSheet } from './Vibe'
 import { CommentsPreview, CommentsSheet } from '../components/Comments'
-import { AmbassadorMark, CometFrame } from '../components/ProfileLook'
+import { AmbassadorMark, MedalFrame } from '../components/ProfileLook'
+import { frameOf } from '../components/medalMetals'
 import { planViewers, recordPlanView } from '../cloud/api'
 import type { Activity, Person, Short } from '../types'
 
@@ -208,7 +209,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
   const started = a.startsAt <= now
   const compat = person ? compatibility(me, person) : null
   const author = person ?? { name: me.name, hue: me.hue, verified: me.verified, founder: me.founder }
-  const comet = person ? !!person.collector : !!me.collector
+  const frame = person ? frameOf(person.style, person.medals, person.founder) : frameOf(me.style, me.medals, me.founder)
   const amb = person ? person.ambassador !== undefined : me.ambassador !== undefined
   // Бонус амбассадоров и «Кометы»: видно, кто смотрел ваш план
   const canSeeViews = !person && !!state.cloud && (me.ambassador !== undefined || !!me.collector)
@@ -241,9 +242,9 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
     <article ref={card} className="pb-7 rounded-[20px] transition-shadow" data-plan={a.id}>
       <header className="flex items-center gap-3 px-4 pt-1 pb-3">
         <button onClick={() => person && openProfile(person.id)} className={person ? 'cursor-pointer' : 'cursor-default'} aria-label={person ? `Профиль ${person.name}` : undefined} tabIndex={person ? 0 : -1}>
-          {comet
-            ? <CometFrame on width={2.5}><Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={30} /></CometFrame>
-            : author.founder && (!person || state.seenStories.includes(person.id))
+          {frame && frame !== 'founder'
+            ? <MedalFrame code={frame} big={false}><Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={30} /></MedalFrame>
+            : frame === 'founder' && (!person || state.seenStories.includes(person.id))
             ? <GoldFrame on medal={15} label={`Основатель Komeeta №${author.founder}`}><Avatar name={author.name} hue={author.hue} src={person ? person.photo : me.photo} size={30} /></GoldFrame>
             : <span className="relative inline-grid">
               <StoryRing seen={!person || state.seenStories.includes(person.id)} size={40}>

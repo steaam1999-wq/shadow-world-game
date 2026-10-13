@@ -14,8 +14,9 @@ import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
 import { AchievementsPanel } from '../components/Achievements'
+import { frameOf } from '../components/medalMetals'
 import { AccountSwitcher } from '../components/Accounts'
-import { AmbassadorBadge, AvatarRing, CometFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
+import { AmbassadorBadge, AvatarRing, MedalFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { StyleEditor } from '../components/StyleEditor'
 import { FollowersSheet } from '../components/Followers'
 import { AlertSettings } from '../components/Alerts'
@@ -59,6 +60,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
     setTimeout(() => setCopied(false), 1600)
   }
   const lv = level(me.meetings)
+  const frame = frameOf(me.style, me.medals, me.founder)
   const complete = profileCompleteness(me)
   const patch = (p: Partial<typeof me>) => dispatch({ type: 'updateMe', patch: p })
 
@@ -70,12 +72,12 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
         <ProfileCover style={me.style} photo={me.photo} hue={me.hue} />
         <div className="relative flex flex-col items-center text-center gap-1">
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
-            {me.collector
-              ? <CometFrame on width={4}><Avatar name={me.name} hue={me.hue} src={me.photo} size={96} /></CometFrame>
-              : me.founder
+            {frame === 'founder' && me.founder
               ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${me.founder}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={92} /></GoldFrame>
+              : frame
+              ? <MedalFrame code={frame}><Avatar name={me.name} hue={me.hue} src={me.photo} size={96} /></MedalFrame>
               : <AvatarRing style={me.style}><Avatar name={me.name} hue={me.hue} src={me.photo} size={104} /></AvatarRing>}
-            {!me.founder && <span className="absolute z-[3] right-0.5 bottom-0.5 grid place-items-center w-8 h-8 rounded-full bg-surface text-fg border-2 border-bg shadow-soft"><Icon name="camera" size={15} /></span>}
+            {frame !== 'founder' && <span className="absolute z-[3] right-0.5 bottom-0.5 grid place-items-center w-8 h-8 rounded-full bg-surface text-fg border-2 border-bg shadow-soft"><Icon name="camera" size={15} /></span>}
           </button>
           <h2 className="mt-2.5 max-w-full font-display font-bold text-[25px] leading-tight">
             <button onClick={() => state.cloud && setAccounts(true)} className={`flex items-center justify-center gap-1.5 max-w-full ${state.cloud ? 'cursor-pointer' : 'cursor-default'}`}

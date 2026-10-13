@@ -1,5 +1,6 @@
 // Оформление профиля: обложка, кольцо аватарки, статус и акцентный цвет — спокойные, без кричащих эффектов.
-import { useId, type CSSProperties, type ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { FRAME_TITLE, MEDAL, METALS } from './medalMetals'
 import type { Accent, ProfileStyle } from '../types'
 
 export const ACCENTS: { id: Accent; name: string; color: string; ink: string }[] = [
@@ -101,49 +102,21 @@ export function AmbassadorBadge({ city }: { city?: string }) {
   )
 }
 
-/** Корона «Кометы» — строгий ювелирный знак: пять тонких зубцов с жемчужинами и узкий обод, платина.
- *  Контур цвета фона «врезает» корону в кольцо рамки. */
-function Crown({ width }: { width: number }) {
-  const id = useId().replace(/:/g, '')
-  const tips: [number, number, number][] = [[5, 10, 1.6], [12.5, 5.5, 1.7], [20, 2.4, 2], [27.5, 5.5, 1.7], [35, 10, 1.6]]
-  const bases = [9, 14.5, 20, 25.5, 31]
-  const prong = ([x, y]: [number, number, number], bx: number) => `M${x - 0.7} ${y} L${x + 0.7} ${y} L${bx + 2} 20 L${bx - 2} 20 Z`
-  const shape = <>
-    {tips.map((t, i) => <path key={i} d={prong(t, bases[i])} />)}
-    {tips.map(([x, y, r], i) => <circle key={`p${i}`} cx={x} cy={y - r * 0.6} r={r} />)}
-    <rect x="7" y="19.4" width="26" height="4.2" rx="1.6" />
-  </>
-  return (
-    <svg width={width} height={width * 0.66} viewBox="0 -1 40 26" aria-hidden="true" style={{ overflow: 'visible' }}>
-      <defs>
-        <linearGradient id={`pt-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" /><stop offset=".45" stopColor="#d9dde4" /><stop offset=".62" stopColor="#8d939e" /><stop offset="1" stopColor="#eef0f4" />
-        </linearGradient>
-      </defs>
-      <g fill="var(--bg)" stroke="var(--bg)" strokeWidth="3" strokeLinejoin="round">{shape}</g>
-      <g fill={`url(#pt-${id})`}>{shape}</g>
-      <rect x="7" y="21.2" width="26" height=".6" fill="#6b717c" opacity=".55" />
-    </svg>
-  )
-}
-
-/** Рамка «Комета» — за всю коллекцию медалей. Тонкое платиновое кольцо с медленным бликом
- *  и небольшая корона, врезанная в кольцо сверху. Сдержанно, как ювелирное изделие. */
-export function CometFrame({ on, children, width = 3 }: { on?: boolean; children: ReactNode; width?: number }) {
-  if (!on) return <>{children}</>
-  const big = width >= 4
-  const ring = big ? 2.5 : 1.5
+/** Рамка за медаль: металлическое кольцо цвета медали (бронза, медь, сталь, серебро, золото, платина),
+ *  тонкий срез к фото и редкий мягкий блик. У «Кометы» поверх металла — едва заметный перелив.
+ *  big — профиль, иначе — маленькая аватарка в ленте. */
+export function MedalFrame({ code, big = true, children }: { code: string; big?: boolean; children: ReactNode }) {
+  const [light, base, dark] = METALS[MEDAL[code]?.metal ?? 'silver']
+  const ring = big ? 4 : 2
   const gap = big ? 3 : 1.5
   return (
-    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: ring + gap }} title="Комета: вся коллекция медалей">
-      <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 210deg, #ffffff, #aab0bb 18%, #e8ebf0 34%, #7c828d 52%, #f4f5f8 68%, #a4aab5 84%, #ffffff)',
-        boxShadow: big ? '0 0 0 .5px rgb(255 255 255 / .25), 0 6px 18px -8px rgb(0 0 0 / .7)' : undefined }} />
-      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ animationDuration: '9s', background: 'conic-gradient(from 0deg, transparent 0 80%, rgb(255 255 255 / .8) 87%, transparent 93%)' }} />
-      <span className="absolute rounded-full bg-bg" style={{ inset: ring }} />
+    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: ring + gap }} title={`Рамка «${FRAME_TITLE[code] ?? ''}»`}>
+      <span className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(from 210deg, ${light}, ${base} 16%, ${dark} 30%, ${base} 44%, ${light} 58%, ${base} 72%, ${dark} 86%, ${light})`,
+        boxShadow: big ? '0 6px 16px -8px rgb(0 0 0 / .6), inset 0 0 0 .5px rgb(255 255 255 / .45)' : undefined }} />
+      {MEDAL[code]?.iridescent && <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-overlay opacity-50" style={{ animationDuration: '14s', background: 'conic-gradient(#ff6aa8, #ffd36b, #7dffcf, #6ab8ff, #b18cff, #ff6aa8)' }} />}
+      {big && <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ animationDuration: '10s', background: 'conic-gradient(from 0deg, transparent 0 82%, rgb(255 255 255 / .65) 88%, transparent 94%)' }} />}
+      <span className="absolute rounded-full bg-bg" style={{ inset: ring, boxShadow: 'inset 0 1px 2px rgb(0 0 0 / .45)' }} />
       <span className="relative">{children}</span>
-      <span className="absolute z-[3] left-1/2 -translate-x-1/2 leading-[0] pointer-events-none" style={{ top: big ? -11 : -5.5 }}>
-        <Crown width={big ? 30 : 13} />
-      </span>
     </span>
   )
 }
