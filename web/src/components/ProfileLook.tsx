@@ -101,82 +101,48 @@ export function AmbassadorBadge({ city }: { city?: string }) {
   )
 }
 
-/** Хромовая голографическая корона над фото «Кометы»: зеркальный металл, радуга перетекает по нему,
- *  пробегает блик, камни поблёскивают. */
-function HoloCrown({ width }: { width: number }) {
+/** Корона «Кометы» — строгий ювелирный знак: пять тонких зубцов с жемчужинами и узкий обод, платина.
+ *  Контур цвета фона «врезает» корону в кольцо рамки. */
+function Crown({ width }: { width: number }) {
   const id = useId().replace(/:/g, '')
-  const body = 'M10 58L12 22 24 40 31 14 41 36 50 4 59 36 69 14 76 40 88 22 90 58Q50 66 10 58z'
-  const band = 'M8 56Q50 66 92 56L92 66Q50 76 8 66z'
-  const balls: [number, number, number][] = [[12, 21, 4.2], [31, 13, 4.6], [50, 4, 5.4], [69, 13, 4.6], [88, 21, 4.2]]
-  const layer = (fill: string, extra?: CSSProperties) => (
-    <g style={extra}><path d={body} fill={fill} /><path d={band} fill={fill} />{balls.map(([x, y, r]) => <circle key={x} cx={x} cy={y} r={r} fill={fill} />)}</g>
-  )
+  const tips: [number, number, number][] = [[5, 10, 1.6], [12.5, 5.5, 1.7], [20, 2.4, 2], [27.5, 5.5, 1.7], [35, 10, 1.6]]
+  const bases = [9, 14.5, 20, 25.5, 31]
+  const prong = ([x, y]: [number, number, number], bx: number) => `M${x - 0.7} ${y} L${x + 0.7} ${y} L${bx + 2} 20 L${bx - 2} 20 Z`
+  const shape = <>
+    {tips.map((t, i) => <path key={i} d={prong(t, bases[i])} />)}
+    {tips.map(([x, y, r], i) => <circle key={`p${i}`} cx={x} cy={y - r * 0.6} r={r} />)}
+    <rect x="7" y="19.4" width="26" height="4.2" rx="1.6" />
+  </>
   return (
-    <svg width={width} height={width * 0.78} viewBox="0 -3 100 80" aria-hidden="true" style={{ overflow: 'visible', filter: 'drop-shadow(0 3px 4px rgb(0 0 0 / .55)) drop-shadow(0 0 1px rgb(255 255 255 / .5))' }}>
+    <svg width={width} height={width * 0.66} viewBox="0 -1 40 26" aria-hidden="true" style={{ overflow: 'visible' }}>
       <defs>
-        <linearGradient id={`c-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" /><stop offset=".25" stopColor="#d7dbe3" /><stop offset=".48" stopColor="#5a5f6e" /><stop offset=".58" stopColor="#f3f5f8" /><stop offset=".8" stopColor="#a3a9b6" /><stop offset="1" stopColor="#f7f8fa" />
-        </linearGradient>
-        <radialGradient id={`b-${id}`} cx=".36" cy=".3" r=".75"><stop offset="0" stopColor="#fff" /><stop offset=".45" stopColor="#9aa1ae" /><stop offset=".8" stopColor="#2b2f39" /><stop offset="1" stopColor="#c9ced8" /></radialGradient>
-        <linearGradient id={`h-${id}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="80" y2="40" spreadMethod="repeat">
-          <stop offset="0" stopColor="#ff3d6e" /><stop offset=".17" stopColor="#ffb340" /><stop offset=".34" stopColor="#fff36b" /><stop offset=".5" stopColor="#45ffb0" />
-          <stop offset=".66" stopColor="#3dc9ff" /><stop offset=".83" stopColor="#7a5cff" /><stop offset="1" stopColor="#ff3d6e" />
-          <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="80 40" dur="6s" repeatCount="indefinite" />
-        </linearGradient>
-        <linearGradient id={`s-${id}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="30">
-          <stop offset=".4" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".95" /><stop offset=".6" stopColor="#fff" stopOpacity="0" />
-          <animateTransform attributeName="gradientTransform" type="translate" values="-130 0; -130 0; 130 0" keyTimes="0; .5; 1" dur="4s" repeatCount="indefinite" />
+        <linearGradient id={`pt-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" /><stop offset=".45" stopColor="#d9dde4" /><stop offset=".62" stopColor="#8d939e" /><stop offset="1" stopColor="#eef0f4" />
         </linearGradient>
       </defs>
-      {layer(`url(#c-${id})`)}
-      {balls.map(([x, y, r]) => <circle key={x} cx={x} cy={y} r={r} fill={`url(#b-${id})`} />)}
-      {/* правые грани зубцов темнее — объём */}
-      <path d="M12 22L24 40 24 60 12 59zM31 14L41 36 41 62 31 61zM50 4L59 36 59 63 50 63zM69 14L76 40 76 61 69 61zM88 22L90 58 88 58z" fill="#1d2230" opacity=".28" />
-      {layer(`url(#h-${id})`, { mixBlendMode: 'overlay', opacity: 0.42 })}
-      {layer(`url(#s-${id})`, { mixBlendMode: 'screen' })}
-      <path d="M50 34l5 9-5 9-5-9z" fill="#e0263a" /><path d="M50 34l5 9h-10z" fill="#ff6a5a" />
-      <path d="M31 40l3.6 6.5L31 53l-3.6-6.5z" fill="#2a4bff" /><path d="M69 40l3.6 6.5L69 53l-3.6-6.5z" fill="#2a4bff" />
-      {balls.map(([x, y, r]) => <circle key={`g${x}`} cx={x - r * 0.35} cy={y - r * 0.35} r={r * 0.32} fill="#fff" opacity=".9" />)}
+      <g fill="var(--bg)" stroke="var(--bg)" strokeWidth="3" strokeLinejoin="round">{shape}</g>
+      <g fill={`url(#pt-${id})`}>{shape}</g>
+      <rect x="7" y="21.2" width="26" height=".6" fill="#6b717c" opacity=".55" />
     </svg>
   )
 }
 
-/** Рамка «Комета» — за всю коллекцию медалей. Как оправа ювелирной работы: платиновый бортик
- *  с голографическим переливом, бусинный ободок, бегущий блик и искры; сверху — хромовая корона, снизу — монета «Комета».
- *  На маленьких аватарках (лента) — бортик с переливом и маленькая корона. */
-export function CometFrame({ on, children, width = 3, badge }: { on?: boolean; children: ReactNode; width?: number; badge?: ReactNode }) {
+/** Рамка «Комета» — за всю коллекцию медалей. Тонкое платиновое кольцо с медленным бликом
+ *  и небольшая корона, врезанная в кольцо сверху. Сдержанно, как ювелирное изделие. */
+export function CometFrame({ on, children, width = 3 }: { on?: boolean; children: ReactNode; width?: number }) {
   if (!on) return <>{children}</>
   const big = width >= 4
-  const w = big ? 9 : width + 1
+  const ring = big ? 2.5 : 1.5
+  const gap = big ? 3 : 1.5
   return (
-    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: w + (big ? 3 : 1) }} title="Комета: вся коллекция медалей">
-      {big && <span className="absolute -inset-3 rounded-full pointer-events-none" style={{ background: 'radial-gradient(closest-side, rgb(140 120 255 / .35), rgb(80 170 255 / .15) 60%, transparent)', filter: 'blur(6px)' }} />}
-      {/* Платиновый бортик */}
-      <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 200deg, #ffffff, #b8bdc8 12%, #5d636e 24%, #e9ecf2 36%, #8a909c 50%, #ffffff 62%, #6b717c 76%, #d5d9e1 88%, #ffffff)',
-        boxShadow: '0 4px 14px -4px rgb(0 0 0 / .6), inset 0 0 0 1px rgb(255 255 255 / .5)' }} />
-      {/* Голографическая плёнка — медленно переливается */}
-      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-overlay opacity-80" style={{ animationDuration: '9s', background: 'conic-gradient(from 0deg, #ff6aa8, #ffd36b, #7dffcf, #6ab8ff, #b18cff, #ff6aa8)' }} />
-      {/* Бегущий блик */}
-      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ animationDuration: '4.5s', background: 'conic-gradient(from 0deg, transparent 0 74%, rgb(255 255 255 / .95) 82%, transparent 90%)' }} />
-      {big && (
-        // Бусинный ободок и гравированная канавка
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" aria-hidden="true">
-          <circle cx="50" cy="50" r="47.6" fill="none" stroke="rgb(255 255 255 / .85)" strokeWidth="1.5" strokeDasharray="0 3.32" strokeLinecap="round" />
-          <circle cx="50" cy="50" r="45" fill="none" stroke="rgb(20 22 28 / .45)" strokeWidth=".6" />
-        </svg>
-      )}
-      {/* Внутренний срез оправы */}
-      <span className="absolute rounded-full bg-bg" style={{ inset: w, boxShadow: 'inset 0 2px 3px rgb(0 0 0 / .55), 0 0 0 1px rgb(255 255 255 / .55)' }} />
+    <span className="relative inline-grid place-items-center rounded-full leading-[0] shrink-0" style={{ padding: ring + gap }} title="Комета: вся коллекция медалей">
+      <span className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(from 210deg, #ffffff, #aab0bb 18%, #e8ebf0 34%, #7c828d 52%, #f4f5f8 68%, #a4aab5 84%, #ffffff)',
+        boxShadow: big ? '0 0 0 .5px rgb(255 255 255 / .25), 0 6px 18px -8px rgb(0 0 0 / .7)' : undefined }} />
+      <span className="gold-ring-spin absolute inset-0 rounded-full mix-blend-screen" style={{ animationDuration: '9s', background: 'conic-gradient(from 0deg, transparent 0 80%, rgb(255 255 255 / .8) 87%, transparent 93%)' }} />
+      <span className="absolute rounded-full bg-bg" style={{ inset: ring }} />
       <span className="relative">{children}</span>
-      {big && [[0.08, 0.1, 0], [0.84, 0.18, 1.1], [0.9, 0.7, 2]].map(([x, y, d], i) => (
-        <svg key={i} className="gold-twinkle absolute pointer-events-none" style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: 14, height: 14, animationDelay: `${d}s`, filter: 'drop-shadow(0 0 4px rgb(190 200 255 / .9))' }} viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="#fff" d="M12 0l2.4 9.6L24 12l-9.6 2.4L12 24l-2.4-9.6L0 12l9.6-2.4z" />
-        </svg>
-      ))}
-      {big && badge && <span className="absolute z-[2] left-1/2 -bottom-3 -translate-x-1/2 leading-[0]">{badge}</span>}
-      {/* Корона над фото — слегка наклонена и плавно покачивается */}
-      <span className="absolute z-[3] left-1/2 leading-[0] pointer-events-none" style={{ top: big ? -30 : -9, transform: `translateX(-50%) rotate(${big ? -6 : -8}deg)` }}>
-        <span className={big ? "block anim-float" : "block"} style={{ animationDuration: "4.5s" }}><HoloCrown width={big ? 58 : 18} /></span>
+      <span className="absolute z-[3] left-1/2 -translate-x-1/2 leading-[0] pointer-events-none" style={{ top: big ? -11 : -5.5 }}>
+        <Crown width={big ? 30 : 13} />
       </span>
     </span>
   )

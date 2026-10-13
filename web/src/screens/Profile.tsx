@@ -13,7 +13,7 @@ import { MyPlans } from '../components/MyPlans'
 import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
-import { AchievementsPanel, CometBadge } from '../components/Achievements'
+import { AchievementsPanel } from '../components/Achievements'
 import { AccountSwitcher } from '../components/Accounts'
 import { AmbassadorBadge, AvatarRing, CometFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { StyleEditor } from '../components/StyleEditor'
@@ -71,7 +71,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
         <div className="relative flex flex-col items-center text-center gap-1">
           <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
             {me.collector
-              ? <CometFrame on width={4} badge={<CometBadge />}><Avatar name={me.name} hue={me.hue} src={me.photo} size={96} /></CometFrame>
+              ? <CometFrame on width={4}><Avatar name={me.name} hue={me.hue} src={me.photo} size={96} /></CometFrame>
               : me.founder
               ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${me.founder}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={92} /></GoldFrame>
               : <AvatarRing style={me.style}><Avatar name={me.name} hue={me.hue} src={me.photo} size={104} /></AvatarRing>}
