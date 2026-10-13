@@ -1,5 +1,5 @@
 // Оформление профиля: обложка, кольцо аватарки, статус и акцентный цвет — спокойные, без кричащих эффектов.
-import type { CSSProperties, ReactNode } from 'react'
+import { useId, type CSSProperties, type ReactNode } from 'react'
 import type { Accent, ProfileStyle } from '../types'
 
 export const ACCENTS: { id: Accent; name: string; color: string; ink: string }[] = [
@@ -101,9 +101,49 @@ export function AmbassadorBadge({ city }: { city?: string }) {
   )
 }
 
+/** Хромовая голографическая корона над фото «Кометы»: зеркальный металл, радуга перетекает по нему,
+ *  пробегает блик, камни поблёскивают. */
+function HoloCrown({ width }: { width: number }) {
+  const id = useId().replace(/:/g, '')
+  const body = 'M10 58L12 22 24 40 31 14 41 36 50 4 59 36 69 14 76 40 88 22 90 58Q50 66 10 58z'
+  const band = 'M8 56Q50 66 92 56L92 66Q50 76 8 66z'
+  const balls: [number, number, number][] = [[12, 21, 4.2], [31, 13, 4.6], [50, 4, 5.4], [69, 13, 4.6], [88, 21, 4.2]]
+  const layer = (fill: string, extra?: CSSProperties) => (
+    <g style={extra}><path d={body} fill={fill} /><path d={band} fill={fill} />{balls.map(([x, y, r]) => <circle key={x} cx={x} cy={y} r={r} fill={fill} />)}</g>
+  )
+  return (
+    <svg width={width} height={width * 0.78} viewBox="0 -3 100 80" aria-hidden="true" style={{ overflow: 'visible', filter: 'drop-shadow(0 3px 4px rgb(0 0 0 / .55)) drop-shadow(0 0 1px rgb(255 255 255 / .5))' }}>
+      <defs>
+        <linearGradient id={`c-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" /><stop offset=".25" stopColor="#d7dbe3" /><stop offset=".48" stopColor="#5a5f6e" /><stop offset=".58" stopColor="#f3f5f8" /><stop offset=".8" stopColor="#a3a9b6" /><stop offset="1" stopColor="#f7f8fa" />
+        </linearGradient>
+        <radialGradient id={`b-${id}`} cx=".36" cy=".3" r=".75"><stop offset="0" stopColor="#fff" /><stop offset=".45" stopColor="#9aa1ae" /><stop offset=".8" stopColor="#2b2f39" /><stop offset="1" stopColor="#c9ced8" /></radialGradient>
+        <linearGradient id={`h-${id}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="80" y2="40" spreadMethod="repeat">
+          <stop offset="0" stopColor="#ff3d6e" /><stop offset=".17" stopColor="#ffb340" /><stop offset=".34" stopColor="#fff36b" /><stop offset=".5" stopColor="#45ffb0" />
+          <stop offset=".66" stopColor="#3dc9ff" /><stop offset=".83" stopColor="#7a5cff" /><stop offset="1" stopColor="#ff3d6e" />
+          <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="80 40" dur="6s" repeatCount="indefinite" />
+        </linearGradient>
+        <linearGradient id={`s-${id}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="30">
+          <stop offset=".4" stopColor="#fff" stopOpacity="0" /><stop offset=".5" stopColor="#fff" stopOpacity=".95" /><stop offset=".6" stopColor="#fff" stopOpacity="0" />
+          <animateTransform attributeName="gradientTransform" type="translate" values="-130 0; -130 0; 130 0" keyTimes="0; .5; 1" dur="4s" repeatCount="indefinite" />
+        </linearGradient>
+      </defs>
+      {layer(`url(#c-${id})`)}
+      {balls.map(([x, y, r]) => <circle key={x} cx={x} cy={y} r={r} fill={`url(#b-${id})`} />)}
+      {/* правые грани зубцов темнее — объём */}
+      <path d="M12 22L24 40 24 60 12 59zM31 14L41 36 41 62 31 61zM50 4L59 36 59 63 50 63zM69 14L76 40 76 61 69 61zM88 22L90 58 88 58z" fill="#1d2230" opacity=".28" />
+      {layer(`url(#h-${id})`, { mixBlendMode: 'overlay', opacity: 0.42 })}
+      {layer(`url(#s-${id})`, { mixBlendMode: 'screen' })}
+      <path d="M50 34l5 9-5 9-5-9z" fill="#e0263a" /><path d="M50 34l5 9h-10z" fill="#ff6a5a" />
+      <path d="M31 40l3.6 6.5L31 53l-3.6-6.5z" fill="#2a4bff" /><path d="M69 40l3.6 6.5L69 53l-3.6-6.5z" fill="#2a4bff" />
+      {balls.map(([x, y, r]) => <circle key={`g${x}`} cx={x - r * 0.35} cy={y - r * 0.35} r={r * 0.32} fill="#fff" opacity=".9" />)}
+    </svg>
+  )
+}
+
 /** Рамка «Комета» — за всю коллекцию медалей. Как оправа ювелирной работы: платиновый бортик
- *  с голографическим переливом, бусинный ободок, бегущий блик и искры; снизу — монета «Комета».
- *  На маленьких аватарках (лента) — только бортик с переливом. */
+ *  с голографическим переливом, бусинный ободок, бегущий блик и искры; сверху — хромовая корона, снизу — монета «Комета».
+ *  На маленьких аватарках (лента) — бортик с переливом и маленькая корона. */
 export function CometFrame({ on, children, width = 3, badge }: { on?: boolean; children: ReactNode; width?: number; badge?: ReactNode }) {
   if (!on) return <>{children}</>
   const big = width >= 4
@@ -134,6 +174,10 @@ export function CometFrame({ on, children, width = 3, badge }: { on?: boolean; c
         </svg>
       ))}
       {big && badge && <span className="absolute z-[2] left-1/2 -bottom-3 -translate-x-1/2 leading-[0]">{badge}</span>}
+      {/* Корона над фото — слегка наклонена и плавно покачивается */}
+      <span className="absolute z-[3] left-1/2 leading-[0] pointer-events-none" style={{ top: big ? -30 : -9, transform: `translateX(-50%) rotate(${big ? -6 : -8}deg)` }}>
+        <span className={big ? "block anim-float" : "block"} style={{ animationDuration: "4.5s" }}><HoloCrown width={big ? 58 : 18} /></span>
+      </span>
     </span>
   )
 }
