@@ -17,7 +17,8 @@ export function CloudSync() {
   useEffect(() => {
     if (!userId) return
     let alive = true, busy = false, again = false
-    let live = false, lastLoad = 0, migrated = false, movedAvatar = false, triedAvatar = false
+    let live = false, lastLoad = 0, migrated = false, movedAvatar = false, triedAvatar = false, fails = 0
+    const isNet = (m: string) => /Нет связи/.test(m)
     const load = async () => {
       if (busy) { again = true; return }
       busy = true
@@ -32,6 +33,9 @@ export function CloudSync() {
         // Пока грузили, человек что-то сделал — эти данные уже устарели; перечитаем ещё раз.
         if (alive && editedSince(started)) { again = true; return }
         if (alive) dispatch({ type: 'cloudLoad', ...d })
+        // Связь вернулась — убираем прежний баннер «нет связи», он уже неверный.
+        fails = 0
+        if (alive && ref.current.cloudError && isNet(ref.current.cloudError)) dispatch({ type: 'cloudError', message: null })
         // Этот аккаунт — в список для быстрого переключения
         if (alive && d.me) { watchAccounts(); void rememberCurrent(d.me).catch(() => {}) }
         // Прошёл день рождения — пересчитываем возраст по дате рождения.
@@ -57,7 +61,10 @@ export function CloudSync() {
         // Старое фото профиля лежит прямо в базе — один раз переносим его в хранилище.
         if (alive && !migrated && d.me?.photo?.startsWith('data:') && !d.me.photoPath) { migrated = true; dispatch({ type: 'updateMe', patch: {} }) }
       } catch (e) {
-        if (alive) dispatch({ type: 'cloudError', message: api.humanError(e) })
+        const msg = api.humanError(e)
+        // iPhone после фона отдаёт первую «битую» попытку — тихо повторяем и ругаемся, только если связи нет совсем.
+        if (isNet(msg) && ++fails < 3) { if (alive) setTimeout(() => void load(), 900 * fails) }
+        else if (alive) dispatch({ type: 'cloudError', message: msg })
       } finally {
         busy = false
         if (again && alive) { again = false; void load() }
