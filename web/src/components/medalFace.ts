@@ -147,6 +147,22 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
       grad.addColorStop(1, dark)
       mg.fillStyle = grad
       mg.fillRect(0, 0, FACE, FACE)
+      // Контактная тень от эмблемы (свет сверху-слева — тень вниз-вправо) и светлая кромка: глубина читается даже на маленькой медали
+      if (emblem && !sky) {
+        const e = FACE * (s.emblemScale ?? 0.56)
+        mg.save()
+        mg.globalCompositeOperation = 'multiply'
+        mg.globalAlpha = 0.6
+        mg.filter = `brightness(0) blur(${9 * K}px)`
+        mg.drawImage(emblem, C - e / 2 + 9 * K, C - e / 2 + 12 * K, e, e)
+        mg.restore()
+        mg.save()
+        mg.globalCompositeOperation = 'screen'
+        mg.globalAlpha = 0.22
+        mg.filter = `grayscale(1) blur(${2 * K}px)`
+        mg.drawImage(emblem, C - e / 2 - 3 * K, C - e / 2 - 4 * K, e, e)
+        mg.restore()
+      }
       mg.globalCompositeOperation = 'soft-light'
       mg.globalAlpha = 0.55
       mg.drawImage(h, 0, 0)
@@ -176,7 +192,7 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
         dg.globalAlpha = 1
         dg.filter = 'none'
       }
-      return { map: m, height: h, rough: r, normal: normalFromHeight(h, 7 * K), disp: d }
+      return { map: m, height: h, rough: r, normal: normalFromHeight(h, 12 * K), disp: d }
     })()
     cache.set(id, p)
   }

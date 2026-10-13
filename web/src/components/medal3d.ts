@@ -34,7 +34,8 @@ function envFor(r: THREE.WebGLRenderer) {
   return env
 }
 
-const DEPTH = 0.024 // насколько эмблема поднята над полем (рельеф ниже кромки обода)
+const DEPTH = 0.052 // насколько эмблема поднята над полем
+const SINK = 0.034 // насколько поле утоплено ниже кромки обода — рельеф не выступает за край
 
 /** Сетка-диск: квадратная сетка, переложенная на круг без искажения текстуры. Нужна для выдавливания по карте высот. */
 function discGrid(radius: number, seg: number) {
@@ -63,7 +64,7 @@ async function buildCoin(s: CoinSpec, res: number, maxAniso: number) {
   const rim = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 32, 160), rimMat)
   rim.scale.z = (T / 2 + 0.02) / tube
   coin.add(rim)
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(R - tube, R - tube, T, 96, 1), new THREE.MeshStandardMaterial({ color: s.rim, metalness: 1, roughness: 0.35 }))
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(R - tube, R - tube, T - SINK * 2, 96, 1, true), new THREE.MeshStandardMaterial({ color: s.rim, metalness: 1, roughness: 0.35 }))
   core.rotation.x = Math.PI / 2
   coin.add(core)
   // Аверс/реверс: металл, зеркальное поле и матовый рельеф
@@ -73,9 +74,9 @@ async function buildCoin(s: CoinSpec, res: number, maxAniso: number) {
     displacementMap: dsp, displacementScale: DEPTH, displacementBias: 0 })
   const faceGeo = discGrid(R - tube * 1.1, res >= 1536 ? 224 : 160)
   const front = new THREE.Mesh(faceGeo, faceMat)
-  front.position.z = T / 2 + 0.002
+  front.position.z = T / 2 - SINK
   const back = new THREE.Mesh(faceGeo, faceMat)
-  back.position.z = -T / 2 - 0.002
+  back.position.z = -(T / 2 - SINK)
   back.rotation.y = Math.PI
   coin.add(front, back)
   return coin
@@ -98,7 +99,10 @@ function makeScene(renderer: THREE.WebGLRenderer, dist = 4.7) {
   key.position.set(-2, 3, 4)
   const rimLight = new THREE.DirectionalLight(0xbfd8ff, 1.1)
   rimLight.position.set(3, -1, 2)
-  scene.add(key, rimLight)
+  // Боковой «скользящий» свет — вытягивает рельеф: кромки эмблемы ловят блик, впадины в тени
+  const rake = new THREE.DirectionalLight(0xfff2dd, 1.5)
+  rake.position.set(-4.5, 1.2, 1.4)
+  scene.add(key, rimLight, rake)
   const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 20)
   camera.position.set(0, 0, dist)
   return { scene, camera, key }
@@ -118,7 +122,7 @@ let shot: { r: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Perspectiv
 const shots = new Map<string, Promise<string>>()
 let queue: Promise<unknown> = Promise.resolve()
 
-const STORE = 'komeeta-medal3d:v6:'
+const STORE = 'komeeta-medal3d:v7:'
 export function cachedSnapshot(key: string, px: number): string | null {
   try { return localStorage.getItem(`${STORE}${key}:${px}`) } catch { return null }
 }
@@ -136,7 +140,7 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
         shot = { r, scene, camera }
       }
       const coin = await buildCoin(s, 1024, shot.r.capabilities.getMaxAnisotropy())
-      coin.rotation.set(0.2, -0.5, 0.04)
+      coin.rotation.set(0.26, -0.58, 0.03)
       shot.scene.add(coin)
       // Рендер в полтора раза крупнее: при уменьшении браузер даёт чистые края
       const big = Math.min(2048, Math.round(px * 2))
@@ -193,7 +197,9 @@ export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: nu
       }
     }
     const auto = phase < 0.65 ? ease(phase / 0.65) * Math.PI * 2 : Math.PI * 2
-    coin.rotation.set(0.14 + Math.sin(now / 1800) * 0.03, angle + auto, 0)
+    // Монета всегда чуть покачивается, даже в паузе между оборотами — объём виден, а не только при вращении
+    const sway = reduce ? 0.3 : Math.sin(now / 1700) * 0.38
+    coin.rotation.set(0.16 + Math.sin(now / 2300) * 0.1, angle + auto + sway, 0)
     key.position.set(Math.sin(now / 2600) * 3, 3, 4)
     r.render(scene, camera)
     raf = requestAnimationFrame(tick)
