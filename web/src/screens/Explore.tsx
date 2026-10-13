@@ -5,7 +5,8 @@ import { knownKm, placeDistanceKm, placeInfo, placeXY } from '../places'
 import { HOUR } from '../data'
 import { useStore } from '../store'
 import { PostArt } from '../components/PostArt'
-import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls, readPhotoFull } from '../components/ui'
+import { Avatar, Button, Chip, Field, Icon, Sheet, inputCls } from '../components/ui'
+import { PlanPhotoPicker } from '../components/PlanPhotoPicker'
 import { compatibility, planWhen } from '../lib'
 import { Post } from './Feed'
 import { Vibe } from './Vibe'
@@ -224,7 +225,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
   const [hideTime, setHideTime] = useState(false)
   const [groupSize, setGroupSize] = useState(0) // 0 — вдвоём
   const [photo, setPhoto] = useState<string | undefined>()
-  const [photoError, setPhotoError] = useState('')
+  const [stockId, setStockId] = useState<string | undefined>()
   const [music, setMusic] = useState<PlanMusic | undefined>()
   const [when, setWhen] = useState<'hour' | 'evening' | 'tomorrow' | 'custom' | 'later'>('evening')
   const [more, setMore] = useState(false)
@@ -261,7 +262,7 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         expiresAt: hideTime ? now + 48 * HOUR : startsAt + duration * 60_000, x: x + (Math.random() * 3 - 1.5), y: y + (Math.random() * 3 - 1.5), photo, music,
       },
     })
-    setTitle(''); setExactPlace(''); setPhoto(undefined); setMusic(undefined)
+    setTitle(''); setExactPlace(''); setPhoto(undefined); setStockId(undefined); setMusic(undefined)
     onClose()
   }
 
@@ -276,13 +277,16 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
         {!title && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5 -mt-2" aria-label="Идеи">
             {IDEAS.map(([t, c]) => (
-              <button key={t} type="button" onClick={() => { setTitle(t); if (state.categories.includes(c)) setCategory(c) }} className="shrink-0 h-8 px-3 rounded-full border border-dashed border-line text-[13px] text-muted hover:text-fg cursor-pointer">💡 {t}</button>
+              <button key={t} type="button" onClick={() => { setTitle(t); if (state.categories.includes(c)) { setCategory(c); if (stockId) { setPhoto(undefined); setStockId(undefined) } } }} className="shrink-0 h-8 px-3 rounded-full border border-dashed border-line text-[13px] text-muted hover:text-fg cursor-pointer">💡 {t}</button>
             ))}
           </div>
         )}
         <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-5 px-5" role="radiogroup" aria-label="Категория">
-          {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => setCategory(c)} className="shrink-0">{c}</Chip>)}
+          {state.categories.map((c) => <Chip key={c} active={category === c} onClick={() => { setCategory(c); if (stockId) { setPhoto(undefined); setStockId(undefined) } }} className="shrink-0">{c}</Chip>)}
         </div>
+
+        {/* Фото: готовые реалистичные кадры по категории или своё */}
+        <PlanPhotoPicker category={category} title={title} photo={photo} stockId={stockId} onChange={(p, id) => { setPhoto(p); setStockId(id) }} />
 
         {/* 2. Когда — одним касанием */}
         <div className="flex flex-col gap-2">
@@ -306,28 +310,11 @@ export function CreateActivity({ open, onClose, now }: { open: boolean; onClose:
 
         {/* 3. Остальное — по желанию */}
         <button type="button" onClick={() => setMore((x) => !x)} aria-expanded={more} className="flex items-center justify-between gap-2 min-h-11 py-2 px-4 rounded-2xl bg-surface-2 text-[14px] font-semibold text-left cursor-pointer">
-          <span>Ещё настройки <span className="font-normal text-muted">· фото, компания, место, музыка</span></span>
+          <span>Ещё настройки <span className="font-normal text-muted">· компания, место, музыка</span></span>
           <Icon name="down" size={18} className={`transition ${more ? 'rotate-180' : ''}`} />
         </button>
         {more && (
           <div className="flex flex-col gap-4">
-            <div className="flex gap-3 items-center">
-              <label htmlFor="act-photo" className="relative w-20 h-20 shrink-0 rounded-2xl overflow-hidden border-2 border-dashed border-line cursor-pointer hover:border-cobalt grid place-items-center text-muted">
-                {photo ? <img src={photo} alt="Фото плана" className="w-full h-full object-cover" /> : (
-                  <span className="absolute inset-0"><PostArt activity={{ id: title || 'new', category, photo: undefined }} /><span className="absolute inset-0 grid place-items-center bg-black/25 text-white"><Icon name="camera" size={24} /></span></span>
-                )}
-              </label>
-              <input id="act-photo" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
-                const f = e.target.files?.[0]
-                if (!f) return
-                try { setPhoto(await readPhotoFull(f, 1440)); setPhotoError('') } catch { setPhotoError('Не получилось открыть файл. Выберите JPG или PNG.') }
-              }} />
-              <div className="text-[13px] text-muted flex flex-col gap-1">
-                <span>Фото места или настроения. Без фото будет обложка категории.</span>
-                {photo && <button type="button" onClick={() => setPhoto(undefined)} className="self-start text-danger font-semibold cursor-pointer">Убрать фото</button>}
-                {photoError && <span className="text-danger">{photoError}</span>}
-              </div>
-            </div>
             <div className="flex flex-col gap-2">
               <span className="text-[13px] font-semibold text-muted">Сколько человек</span>
               <div className="flex flex-wrap gap-2">
