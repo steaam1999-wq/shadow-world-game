@@ -383,8 +383,20 @@ export function useKeyboardDock() {
     vv.addEventListener('scroll', update)
     return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
-  const kb = kbRaw < 60 ? 0 : kbRaw // мелкие сдвиги (полоса адреса) — не клавиатура
-  const bar: CSSProperties | undefined = kb ? { bottom: `max(0px, calc(${kb}px - env(safe-area-inset-bottom, 0px)))` } : undefined
+  // Когда iPhone сам уменьшает страницу под клавиатуру, visualViewport не меняется и высота клавиатуры = 0.
+  // Тогда признак клавиатуры — фокус в поле ввода: нижний отступ «домой» под строкой ввода не нужен.
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const isField = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
+    const on = (e: FocusEvent) => { if (isField(e.target)) setTyping(true) }
+    const off = () => setTimeout(() => setTyping(isField(document.activeElement)), 60)
+    document.addEventListener('focusin', on)
+    document.addEventListener('focusout', off)
+    setTyping(isField(document.activeElement))
+    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off) }
+  }, [])
+  const kb = kbRaw < 60 ? (typing ? 1 : 0) : kbRaw // мелкие сдвиги (полоса адреса) — не клавиатура
+  const bar: CSSProperties | undefined = kbRaw >= 60 ? { bottom: `max(0px, calc(${kb}px - env(safe-area-inset-bottom, 0px)))` } : undefined
   return { kb, bar, header: undefined as CSSProperties | undefined }
 }
 
