@@ -3,72 +3,27 @@
 // Загружается лениво — только когда на экране есть медали.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { faceMaps, type FaceSpec } from './medalFace'
 
-export interface CoinSpec {
-  key: string
-  field: string[] // цвета поля от центра блика к краю
-  fieldAt: [number, number] // где блик на поле (0..1)
-  metal: number // насколько поле металлическое (0 — эмаль, 1 — металл)
-  rim: string // базовый цвет обода (поверх — радужная плёнка)
-  art: string // SVG-разметка рисунка (viewBox 0 0 100 100)
-  artScale: number // доля рисунка от поля
-  fullBleed?: boolean // рисунок закрывает всё поле (комета)
-  relief?: boolean // выпуклый рисунок
+export interface CoinSpec extends FaceSpec {
+  rim: string // цвет металла обода
+  iridescent?: boolean // радужная плёнка на ободе (только у самой редкой)
 }
 
 const R = 1
 const T = 0.17
-const TEX = 1024
 
-function loadSvg(svg: string): Promise<HTMLImageElement> {
-  return new Promise((ok, fail) => {
-    const img = new Image()
-    img.onload = () => ok(img)
-    img.onerror = fail
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-  })
-}
-
-const faceCache = new Map<string, Promise<{ map: THREE.CanvasTexture; bump: THREE.CanvasTexture }>>()
+const texCache = new Map<string, Promise<{ map: THREE.CanvasTexture; bump: THREE.CanvasTexture; rough: THREE.CanvasTexture }>>()
 function faceTextures(s: CoinSpec) {
-  let p = faceCache.get(s.key)
+  let p = texCache.get(s.key)
   if (!p) {
-    p = (async () => {
-      const img = await loadSvg(s.art)
-      const c = document.createElement('canvas')
-      c.width = c.height = TEX
-      const g = c.getContext('2d')!
-      const grad = g.createRadialGradient(TEX * s.fieldAt[0], TEX * s.fieldAt[1], 0, TEX / 2, TEX / 2, TEX * 0.62)
-      s.field.forEach((col, i) => grad.addColorStop(i / Math.max(1, s.field.length - 1), col))
-      g.fillStyle = grad
-      g.fillRect(0, 0, TEX, TEX)
-      const a = TEX * s.artScale
-      if (s.fullBleed) g.drawImage(img, 0, 0, TEX, TEX)
-      else g.drawImage(img, (TEX - a) / 2, (TEX - a) / 2, a, a)
-
-      // Рельеф: рисунок белым по чёрному, размытый — края мягко поднимаются, как у чеканки
-      const b = document.createElement('canvas')
-      b.width = b.height = TEX
-      const h = b.getContext('2d')!
-      h.fillStyle = '#000'
-      h.fillRect(0, 0, TEX, TEX)
-      if (s.relief !== false && !s.fullBleed) {
-        const stamp = (blur: number, alpha: number) => {
-          h.globalAlpha = alpha
-          h.filter = `brightness(0) invert(1) blur(${blur}px)`
-          h.drawImage(img, (TEX - a) / 2, (TEX - a) / 2, a, a)
-        }
-        stamp(14, 1)
-        stamp(4, 0.7)
-        h.filter = 'none'
-        h.globalAlpha = 1
-      }
-      const map = new THREE.CanvasTexture(c)
-      map.colorSpace = THREE.SRGBColorSpace
-      map.anisotropy = 4
-      return { map, bump: new THREE.CanvasTexture(b) }
-    })()
-    faceCache.set(s.key, p)
+    p = faceMaps(s).then(({ map, height, rough }) => {
+      const m = new THREE.CanvasTexture(map)
+      m.colorSpace = THREE.SRGBColorSpace
+      m.anisotropy = 8
+      return { map: m, bump: new THREE.CanvasTexture(height), rough: new THREE.CanvasTexture(rough) }
+    })
+    texCache.set(s.key, p)
   }
   return p
 }
@@ -81,28 +36,23 @@ function envFor(r: THREE.WebGLRenderer) {
 }
 
 async function buildCoin(s: CoinSpec) {
-  const { map, bump } = await faceTextures(s)
+  const { map, bump, rough } = await faceTextures(s)
   const coin = new THREE.Group()
-  // Обод: сплюснутый тор — одновременно ребро монеты и выпуклая рамка с обеих сторон
+  // Обод: сплюснутый тор — ребро монеты и выпуклая рамка с обеих сторон
   const rimMat = new THREE.MeshPhysicalMaterial({
-    color: s.rim, metalness: 1, roughness: 0.16,
-    iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [250, 900],
-    clearcoat: 1, clearcoatRoughness: 0.08,
+    color: s.rim, metalness: 1, roughness: 0.2,
+    ...(s.iridescent ? { iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [250, 900] as [number, number] } : {}),
   })
-  const tube = 0.085
+  const tube = 0.075
   const rim = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 40, 180), rimMat)
-  rim.scale.z = (T / 2 + 0.035) / tube
+  rim.scale.z = (T / 2 + 0.03) / tube
   coin.add(rim)
-  // Тело между сторонами — чтобы на ребре не было просвета
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(R - tube, R - tube, T, 96, 1), new THREE.MeshStandardMaterial({ color: s.rim, metalness: 1, roughness: 0.3 }))
+  const core = new THREE.Mesh(new THREE.CylinderGeometry(R - tube, R - tube, T, 96, 1), new THREE.MeshStandardMaterial({ color: s.rim, metalness: 1, roughness: 0.35 }))
   core.rotation.x = Math.PI / 2
   coin.add(core)
-  // Лицевая и обратная стороны: эмаль/металл + лак + рельеф
-  const faceMat = new THREE.MeshPhysicalMaterial({
-    map, bumpMap: bump, bumpScale: 6, metalness: s.metal, roughness: s.metal > 0.6 ? 0.22 : 0.38,
-    clearcoat: 1, clearcoatRoughness: 0.12,
-  })
-  const faceGeo = new THREE.CircleGeometry(R - tube * 1.15, 128)
+  // Аверс/реверс: металл, зеркальное поле и матовый рельеф
+  const faceMat = new THREE.MeshPhysicalMaterial({ map, bumpMap: bump, bumpScale: 4, roughnessMap: rough, roughness: 1, metalness: 1 })
+  const faceGeo = new THREE.CircleGeometry(R - tube * 1.1, 128)
   const front = new THREE.Mesh(faceGeo, faceMat)
   front.position.z = T / 2 + 0.002
   const back = new THREE.Mesh(faceGeo, faceMat)

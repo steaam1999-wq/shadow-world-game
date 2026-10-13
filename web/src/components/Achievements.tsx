@@ -1,7 +1,7 @@
 // Достижения: 6 редких медалей за то, ради чего существует Komeeta, — встречи, надёжность, друзья.
 // Выдаёт их сервер (check_achievements) по данным базы, поэтому подделать нельзя.
 // Нажатие на медаль — за что, прогресс, редкость и что она даст.
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { sb } from '../cloud/api'
@@ -145,35 +145,23 @@ function CometSky({ big }: { big: boolean }) {
   )
 }
 
-// ——— Медали-монеты: переливающийся хромовый обод, поле, глянцевый знак, бегущий свет и блик.
-// На крупной медали (в карточке) — настоящая толщина ребра и мягкое покачивание в 3D.
-type Coin = { rim: string; edge: string; field: string; ink: 'dark' | 'light' | 'gold'; glow: string; fill?: boolean }
-const HOLO = '#ff3d6e, #ffb340, #fff36b, #45ffb0, #3dc9ff, #7a5cff, #ff3dd1, #ff3d6e'
-const GOLD_RIM = '#fff3c4, #d9a33a, #ffffff, #ffd36b, #8a5a12, #fff7dc, #ffb347, #fff3c4'
-const COINS: Record<string, Coin> = {
-  first_meet: { rim: '#ffffff, #9aa0aa, #f4f4f6, #c9b8ff, #a5ecff, #ffffff, #6c717a, #e8e8ea, #ffd0ea, #ffffff', edge: 'linear-gradient(90deg, #5d626b, #e9eaec, #7b808a)',
-    field: 'radial-gradient(circle at 38% 30%, #ffffff, #d7d9dd 28%, #9ea2a9 55%, #eceef0 72%, #7c8088 100%)', ink: 'dark', glow: 'rgb(190 200 220 / .5)' },
-  soul: { rim: '#ffb36b, #ff5a4a, #ffe9a8, #ffffff, #b9e5ff, #ffc96b, #ff6a3d, #fff4d6, #ffb36b', edge: 'linear-gradient(90deg, #a0603a, #ffe2bd, #b8653a)',
-    field: 'radial-gradient(circle at 40% 32%, #ffffff, #fbf8f2 45%, #ece5d9 80%, #d9cfbf)', ink: 'dark', glow: 'rgb(255 140 80 / .5)', fill: true },
-  reliable: { rim: '#a5ecff, #4f86d6, #ffffff, #c9b8ff, #2f5fb3, #e6f4ff, #6fb8ff, #a5ecff', edge: 'linear-gradient(90deg, #0f2a6e, #8fb8ff, #16347f)',
-    field: 'radial-gradient(circle at 50% 36%, #7aa8ff, #2a5bd0 50%, #0f2a6e 80%, #081638)', ink: 'light', glow: 'rgb(79 134 214 / .55)' },
-  guide: { rim: '#9cff6b, #2ee6c5, #6fa8ff, #e6f7ff, #ffe66b, #9cff6b, #1d8f4a, #c6ffd9, #9cff6b', edge: 'linear-gradient(90deg, #0d4f24, #6bff9d, #1a6a35)',
-    field: 'radial-gradient(circle at 50% 38%, #8ef59a, #2aa449 48%, #0f5a25 78%, #072e13)', ink: 'light', glow: 'rgb(63 191 120 / .55)' },
-  regular: { rim: GOLD_RIM, edge: 'linear-gradient(90deg, #6b4508, #ffe2a0, #7a500e)',
-    field: 'radial-gradient(circle at 40% 30%, #3a3a40, #141416 55%, #000)', ink: 'gold', glow: 'rgb(220 162 58 / .55)' },
-  ambassador: { rim: '#ffb347, #ff4f86, #ffd0e0, #8a5cff, #ffffff, #ff4f86, #ffb347', edge: 'linear-gradient(90deg, #5b23b8, #ff9cbd, #6a2bc4)',
-    field: 'radial-gradient(circle at 34% 28%, #ff9cbd, #e2306f 42%, #5b23b8 100%)', ink: 'light', glow: 'rgb(255 79 134 / .6)', fill: true },
-  founder: { rim: GOLD_RIM, edge: 'linear-gradient(90deg, #6e4508, #ffe2a0, #7a500e)',
-    field: 'radial-gradient(circle at 36% 28%, #fff6d0, #f2c45a 40%, #b07a1c 75%, #6e4508)', ink: 'gold', glow: 'rgb(233 185 73 / .6)' },
-  collector: { rim: HOLO, edge: 'linear-gradient(90deg, #2a1b6e, #b9a6ff, #1d2a5c)', field: '#03050f', ink: 'light', glow: 'rgb(110 120 255 / .6)' },
+// ——— Медали — памятные монеты: только металл, гравировка, надпись по кругу, выпуклая матовая эмблема.
+// Настоящее 3D (Three.js): в списке — кадр монеты под углом, в карточке — живая монета, вращается на ребре.
+type Metal = [string, string, string]
+const METALS: Record<string, Metal> = {
+  bronze: ['#f0c39a', '#a8693a', '#4e2a10'],
+  copper: ['#f4c0a8', '#b86f52', '#55291c'],
+  steel: ['#e4e9ee', '#8a94a0', '#353b43'],
+  silver: ['#ffffff', '#c3c7cf', '#5c616a'],
+  gold: ['#fff0bf', '#cfa040', '#654308'],
+  platinum: ['#ffffff', '#dcdfe5', '#787d87'],
+  gunmetal: ['#c4c8d0', '#565a62', '#1b1d21'],
 }
-const INK = {
-  dark: ['#6a6a72', '#1a1a1d', '#000000'],
-  light: ['#ffffff', '#eef2fa', '#b9c2d6'],
-  gold: ['#fff3c4', '#e9b949', '#8a5a12'],
+const MEDAL: Record<string, { metal: keyof typeof METALS; iridescent?: boolean }> = {
+  first_meet: { metal: 'bronze' }, soul: { metal: 'copper' }, reliable: { metal: 'steel' }, guide: { metal: 'silver' },
+  regular: { metal: 'gold' }, ambassador: { metal: 'platinum' }, founder: { metal: 'gold' }, collector: { metal: 'gunmetal', iridescent: true },
 }
 
-// Закрашенные объёмные рисунки на монетах (viewBox 100): градиенты, грани, блики — как чеканка.
 function starFacets(cx: number, cy: number, R: number, r: number) {
   const pt = (k: number, rad: number) => [cx + rad * Math.sin((k * Math.PI) / 5), cy - rad * Math.cos((k * Math.PI) / 5)].map((v) => v.toFixed(2)).join(' ')
   const out: [string, boolean][] = []
@@ -183,131 +171,52 @@ function starFacets(cx: number, cy: number, R: number, r: number) {
   }
   return out
 }
-const ART: Record<string, (id: string) => ReactNode> = {
-  // Двое встретились — глянцевые чёрные силуэты на хроме
-  first_meet: (id) => <>
-    <defs>
-      <linearGradient id={`fa-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#6a6a72" /><stop offset=".45" stopColor="#1a1a1d" /><stop offset="1" stopColor="#000" /></linearGradient>
-      <linearGradient id={`fb-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#8a8a92" /><stop offset=".5" stopColor="#3a3a40" /><stop offset="1" stopColor="#141416" /></linearGradient>
-    </defs>
-    <g fill={`url(#fb-${id})`}><circle cx="63" cy="35" r="11" /><path d="M43 79c0-15 9-24 20-24s20 9 20 24z" /></g>
-    <g fill={`url(#fa-${id})`} stroke="#d7d9dd" strokeWidth="2.5"><circle cx="39" cy="39" r="12.5" /><path d="M16 84c0-17 10.5-27 23-27s23 10 23 27z" /></g>
-    <ellipse cx="35" cy="33" rx="4.5" ry="3" fill="#fff" opacity=".45" /><ellipse cx="60" cy="30" rx="3.5" ry="2.4" fill="#fff" opacity=".35" />
-    <path d="M24 70c3-6 8-9 13-10" stroke="#fff" strokeOpacity=".3" strokeWidth="2" fill="none" strokeLinecap="round" />
+// Эмблемы — карты высоты: белое выше, серое ниже (viewBox 100). Строгая геральдика вместо картинок.
+const EMBLEM: Record<string, () => ReactNode> = {
+  // Два сцепленных кольца — встреча
+  first_meet: () => <g fill="none" strokeWidth="7"><circle cx="38" cy="50" r="22" stroke="#fff" /><circle cx="62" cy="50" r="22" stroke="#d8d8d8" /><path d="M50 31.5a22 22 0 0 1 0 37" stroke="#fff" /></g>,
+  // Пламя с внутренним языком
+  soul: () => <>
+    <path d="M50 8c6 16 24 24 24 46 0 17-11 30-24 30S26 71 26 54c0-12 7-20 14-26 0 10 4 16 9 18-5-12-4-26 1-38z" fill="#fff" />
+    <path d="M50 40c4 10 13 14 13 26 0 9-6 15-13 15s-13-6-13-15c0-8 5-12 8-16 1 6 3 8 5 9-2-7-2-13 0-19z" fill="#9a9a9a" />
   </>,
-  // Костёр: поленья и трёхслойное пламя
-  soul: (id) => <>
-    <defs>
-      <linearGradient id={`lg-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#a8683a" /><stop offset="1" stopColor="#4a240f" /></linearGradient>
-      <radialGradient id={`f1-${id}`} cx=".5" cy=".75" r=".8"><stop offset="0" stopColor="#ffb347" /><stop offset=".55" stopColor="#ff4d1f" /><stop offset="1" stopColor="#a30f0c" /></radialGradient>
-      <radialGradient id={`f2-${id}`} cx=".5" cy=".8" r=".7"><stop offset="0" stopColor="#fff6c2" /><stop offset="1" stopColor="#ffb02e" /></radialGradient>
-    </defs>
-    <rect x="22" y="78" width="56" height="9" rx="4.5" fill={`url(#lg-${id})`} transform="rotate(-11 50 82)" />
-    <rect x="22" y="78" width="56" height="9" rx="4.5" fill={`url(#lg-${id})`} transform="rotate(11 50 82)" />
-    <path d="M50 10c6 16 24 24 24 46 0 16-11 27-24 27S26 72 26 56c0-12 7-20 14-26 0 10 4 16 9 18-5-12-4-26 1-38z" fill={`url(#f1-${id})`} />
-    <path d="M50 38c4 10 13 14 13 26 0 9-6 15-13 15s-13-6-13-15c0-8 5-12 8-16 1 6 3 8 5 9-2-7-2-13 0-19z" fill={`url(#f2-${id})`} />
-    <ellipse cx="50" cy="70" rx="5.5" ry="7.5" fill="#fffbe6" />
-    <path d="M40 26c-4 6-7 13-6 22" stroke="#fff" strokeOpacity=".45" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+  // Щит с выпуклой галочкой
+  reliable: () => <>
+    <path d="M50 8l32 10v26c0 22-14 37-32 46-18-9-32-24-32-46V18z" fill="#fff" />
+    <path d="M50 18l23 7v19c0 16-10 28-23 35-13-7-23-19-23-35V25z" fill="#8c8c8c" />
+    <path d="M37 50l9 9 17-18" stroke="#fff" strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
   </>,
-  // Щит: хромовая оправа, синяя эмаль, выпуклая галочка
-  reliable: (id) => <>
-    <defs>
-      <linearGradient id={`sc-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ffffff" /><stop offset=".35" stopColor="#c9d3e6" /><stop offset=".6" stopColor="#6f7c99" /><stop offset="1" stopColor="#eef2fa" /></linearGradient>
-      <linearGradient id={`se-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4a82f0" /><stop offset="1" stopColor="#163a94" /></linearGradient>
-    </defs>
-    <path d="M50 10l31 10v25c0 21-13 36-31 44-18-8-31-23-31-44V20z" fill={`url(#sc-${id})`} />
-    <path d="M50 19l23 8v18c0 16-10 28-23 35-13-7-23-19-23-35V27z" fill={`url(#se-${id})`} />
-    <path d="M50 19L27 27v18c0 16 10 28 23 35z" fill="#fff" opacity=".14" />
-    <path d="M37 50l9 9 17-18" stroke="#0b2466" strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round" transform="translate(0 1.8)" />
-    <path d="M37 50l9 9 17-18" stroke="#ffffff" strokeWidth="6.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-  </>,
-  // Бумажный самолётик с изгибами и следом
+  // Роза ветров
   guide: () => <>
-    <path d="M18 74q8-6 16-3" stroke="#fff" strokeOpacity=".55" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeDasharray="3 4" />
-    <path d="M12 47L86 17 44 59z" fill="#ffffff" />
-    <path d="M44 59L86 17 61 83z" fill="#dbe4ee" />
-    <path d="M44 59l3 19 9-11z" fill="#9fb0c4" />
-    <path d="M44 59L86 17" stroke="#b7c4d4" strokeWidth="1.2" />
-    <path d="M20 46l50-20" stroke="#fff" strokeOpacity=".8" strokeWidth="1.6" strokeLinecap="round" />
+    <circle cx="50" cy="50" r="17" fill="none" stroke="#bbb" strokeWidth="2.5" />
+    {[0, 90, 180, 270].map((d) => <g key={d} transform={`rotate(${d + 45} 50 50)`}><path d="M50 50L46 46 50 24z" fill="#9a9a9a" /><path d="M50 50L54 46 50 24z" fill="#7a7a7a" /></g>)}
+    {[0, 90, 180, 270].map((d) => <g key={d} transform={`rotate(${d} 50 50)`}><path d="M50 50L44 44 50 6z" fill="#fff" /><path d="M50 50L56 44 50 6z" fill="#b8b8b8" /></g>)}
+    <circle cx="50" cy="50" r="5" fill="#fff" />
   </>,
-  // Золотой кубок со звездой
-  regular: (id) => <>
-    <defs>
-      <linearGradient id={`g-${id}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#8a5a12" /><stop offset=".22" stopColor="#ffe9a3" /><stop offset=".5" stopColor="#e9b949" /><stop offset=".8" stopColor="#b07a1c" /><stop offset="1" stopColor="#6e4508" /></linearGradient>
-      <linearGradient id={`gb-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#d9a33a" /><stop offset="1" stopColor="#6e4508" /></linearGradient>
-    </defs>
-    <path d="M33 25H21c0 14 6 21 14 21M67 25h12c0 14-6 21-14 21" stroke={`url(#g-${id})`} strokeWidth="5" fill="none" strokeLinecap="round" />
-    <path d="M31 16h38v20c0 15-8 24-19 24s-19-9-19-24z" fill={`url(#g-${id})`} />
-    <rect x="45" y="59" width="10" height="12" fill={`url(#gb-${id})`} />
-    <rect x="35" y="70" width="30" height="8" rx="2" fill={`url(#g-${id})`} />
-    <rect x="30" y="78" width="40" height="7" rx="2" fill={`url(#gb-${id})`} />
-    <path d="M50 26l3 6.5 7 .8-5.2 4.8 1.4 7L50 41.6l-6.2 3.5 1.4-7-5.2-4.8 7-.8z" fill="#7a4d0c" opacity=".75" />
-    <path d="M36 20v15c0 8 3 13 7 16" stroke="#fff" strokeOpacity=".6" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+  // Лавровый венок и «10»
+  regular: () => <>
+    {[-1, 1].map((side) => Array.from({ length: 9 }, (_, i) => {
+      const f = (128 + i * 14) * (Math.PI / 180) // левая дуга снизу вверх
+      const x0 = 50 + 35 * Math.cos(f), y = 52 + 35 * Math.sin(f)
+      const x = side < 0 ? x0 : 100 - x0
+      const rot = (f * 180) / Math.PI + 90 + 28
+      return <ellipse key={`${side}${i}`} cx={x} cy={y} rx="6.6" ry="2.9" fill={i % 2 ? '#e2e2e2' : '#fff'} transform={`rotate(${side < 0 ? rot : -rot} ${x} ${y})`} />
+    }))}
+    <text x="50" y="62" textAnchor="middle" fontSize="30" fontWeight="700" fontFamily="Georgia, 'Times New Roman', serif" fill="#fff">10</text>
   </>,
-  // Гранёная серебряная звезда
-  ambassador: (id) => <>
-    <defs><linearGradient id={`st-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".5" /><stop offset=".5" stopColor="#fff" stopOpacity="0" /></linearGradient></defs>
-    {starFacets(50, 53, 40, 17).map(([d, light], i) => <path key={i} d={d} fill={light ? '#ffffff' : '#c7c9dd'} />)}
-    <path d={starFacets(50, 53, 40, 17).map(([d]) => d).join('')} fill={`url(#st-${id})`} />
-  </>,
-}
-
-function CoinMedal({ a, size, spin = false }: { a: Achievement; size: number; spin?: boolean }) {
-  const id = useId().replace(/:/g, '')
-  const k = COINS[a.code]
-  const deep = size >= 90
-  const ink = INK[k.ink]
-  const shadow = `drop-shadow(0 ${Math.max(1, size * 0.02)}px ${Math.max(1, size * 0.03)}px rgb(0 0 0 / ${k.ink === 'dark' ? 0.35 : 0.55}))`
-  const art = a.code === 'collector' ? <CometSky big={size >= 40} />
-    : a.code === 'founder' ? <span className="coin-m__art"><GoldPlanet size={size * 0.6} /></span>
-    : ART[a.code] ? (
-      <svg className="coin-m__art" width={size * 0.66} height={size * 0.66} viewBox="0 0 100 100" aria-hidden="true" style={{ filter: shadow }}>{ART[a.code](id)}</svg>
-    ) : (
-      <svg className="coin-m__art" width={size * 0.5} height={size * 0.5} viewBox="0 0 24 24" aria-hidden="true" style={{ filter: shadow }}>
-        <defs><linearGradient id={`ink-${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={ink[0]} /><stop offset=".5" stopColor={ink[1]} /><stop offset="1" stopColor={ink[2]} /></linearGradient></defs>
-        <path d={a.glyph} fill={k.fill ? `url(#ink-${id})` : 'none'} stroke={`url(#ink-${id})`} strokeWidth={k.fill ? 0.6 : 2.3} strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  const delay = ACHIEVEMENTS.findIndex((x) => x.code === a.code) * 0.7
-  const layers = spin ? 18 : 10
-  const glow = `0 ${size * 0.1}px ${size * 0.3}px -${size * 0.08}px ${k.glow}, inset 0 0 0 1px rgb(255 255 255 / .35)`
-  return (
-    <span className={`coin-m${deep ? ' coin-m--3d' : ''}${spin ? ' coin-m--spin' : ''}`} style={{ width: size, height: size, '--rimc': k.rim, '--edge': k.edge, '--field': k.field,
-      '--rim': `${Math.max(2, size * 0.05)}px`, '--depth': `${size * (spin ? 0.09 : 0.07)}px`, '--coin-delay': `${delay}s` } as CSSProperties}>
-      <span className="coin-m__body">
-        {deep && Array.from({ length: layers }, (_, i) => (
-          <span key={i} className="coin-m__edge" style={{ transform: `translateZ(calc(var(--depth) * ${(i / (layers - 1) - 0.5).toFixed(3)}))`, filter: `brightness(${(0.55 + 0.45 * Math.sin((i / (layers - 1)) * Math.PI)).toFixed(2)})` }} />
-        ))}
-        {spin && (
-          <span className="coin-m__face coin-m__face--back" style={{ boxShadow: glow }}>
-            <span className="coin-m__inner"><span className="contents">{art}</span></span>
-          </span>
-        )}
-        <span className="coin-m__face" style={{ boxShadow: glow }}>
-          <span className="coin-m__inner">{art}</span>
-        </span>
-      </span>
-    </span>
-  )
-}
-
-// ——— Настоящее 3D (Three.js): в списке — объёмный кадр монеты под углом, в карточке — живая монета на ребре ———
-type Spec3D = { field: string[]; at: [number, number]; metal: number; rim: string; scale: number; full?: boolean }
-const SPEC3D: Record<string, Spec3D> = {
-  first_meet: { field: ['#ffffff', '#d7d9dd', '#9ea2a9', '#eceef0', '#7c8088'], at: [0.38, 0.3], metal: 0.9, rim: '#e8eaf0', scale: 0.74 },
-  soul: { field: ['#ffffff', '#fbf8f2', '#ece5d9', '#d9cfbf'], at: [0.4, 0.32], metal: 0.05, rim: '#ffb36b', scale: 0.76 },
-  reliable: { field: ['#7aa8ff', '#2a5bd0', '#0f2a6e', '#081638'], at: [0.5, 0.36], metal: 0.25, rim: '#9cc4ff', scale: 0.76 },
-  guide: { field: ['#8ef59a', '#2aa449', '#0f5a25', '#072e13'], at: [0.5, 0.38], metal: 0.25, rim: '#a6f7b0', scale: 0.76 },
-  regular: { field: ['#3a3a40', '#141416', '#000000'], at: [0.4, 0.3], metal: 0.5, rim: '#f2c45a', scale: 0.76 },
-  ambassador: { field: ['#ff9cbd', '#e2306f', '#5b23b8'], at: [0.34, 0.28], metal: 0.3, rim: '#ff9cc4', scale: 0.76 },
-  founder: { field: ['#fff6d0', '#f2c45a', '#b07a1c', '#6e4508'], at: [0.36, 0.28], metal: 1, rim: '#f2c45a', scale: 0.72 },
-  collector: { field: ['#03050f'], at: [0.5, 0.5], metal: 0.2, rim: '#c9b8ff', scale: 1, full: true },
+  // Гранёная звезда
+  ambassador: () => <>{starFacets(50, 53, 40, 17).map(([d, light], i) => <path key={i} d={d} fill={light ? '#fff' : '#a8a8a8'} />)}</>,
 }
 const XMLNS = (svg: string) => svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
-function artMarkup(code: string, render: (el: ReactElement) => string) {
-  if (code === 'collector') return XMLNS(render(<CometSky big />)).replace('width="100%" height="100%"', 'width="512" height="512"')
-  if (code === 'founder') return XMLNS(render(<GoldPlanet size={512} />))
-  return XMLNS(render(<svg viewBox="0 0 100 100" width="512" height="512">{ART[code]?.(`m${code}`)}</svg>))
+function faceSpec(a: Achievement, render: (el: ReactElement) => string) {
+  const m = MEDAL[a.code]
+  return {
+    key: a.code, metal: METALS[m.metal], rim: METALS[m.metal][1], iridescent: m.iridescent, title: a.title,
+    emblem: a.code === 'founder' ? XMLNS(render(<GoldPlanet size={512} />))
+      : EMBLEM[a.code] ? XMLNS(render(<svg viewBox="0 0 100 100" width="512" height="512">{EMBLEM[a.code]()}</svg>)) : undefined,
+    sky: a.code === 'collector' ? XMLNS(render(<CometSky big />)).replace('width="100%" height="100%"', 'width="512" height="512"') : undefined,
+    emblemScale: a.code === 'founder' ? 0.5 : 0.56,
+  }
 }
 let webgl: boolean | null = null
 const canWebGL = () => {
@@ -316,37 +225,48 @@ const canWebGL = () => {
 }
 
 function Coin3D({ a, size, spin = false }: { a: Achievement; size: number; spin?: boolean }) {
+  const [flat, setFlat] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const [live, setLive] = useState(false)
   const ref = useRef<HTMLCanvasElement>(null)
-  const sp = SPEC3D[a.code]
   useEffect(() => {
-    if (!sp || !canWebGL()) return
     let off = false
     let dispose: (() => void) | undefined
-    void Promise.all([import('./medal3d'), import('react-dom/server')]).then(async ([m, srv]) => {
+    const px = Math.round(size * Math.min(window.devicePixelRatio || 1, 3))
+    void Promise.all([import('./medalFace'), import('react-dom/server')]).then(async ([f, srv]) => {
+      const spec = faceSpec(a, srv.renderToStaticMarkup)
+      const img = await f.faceImage(spec, px)
       if (off) return
-      const spec = { key: a.code, field: sp.field, fieldAt: sp.at, metal: sp.metal, rim: sp.rim, art: artMarkup(a.code, srv.renderToStaticMarkup), artScale: sp.scale, fullBleed: sp.full }
+      setFlat(img)
+      if (!canWebGL()) return
+      const m = await import('./medal3d')
+      if (off) return
       if (spin) {
         if (!ref.current) return
         const d = await m.mountCoin(ref.current, spec, size)
         if (off) d(); else { dispose = d; setLive(true) }
       } else {
-        const u = await m.snapshotCoin(spec, Math.round(size * Math.min(window.devicePixelRatio || 1, 3)))
+        const u = await m.snapshotCoin(spec, px)
         if (!off) setUrl(u)
       }
     }).catch(() => {})
     return () => { off = true; dispose?.() }
-  }, [a.code, size, spin, sp])
-  const glow = COINS[a.code]?.glow ?? 'transparent'
+  }, [a, size, spin])
+  const [light, base, dark] = METALS[MEDAL[a.code].metal]
+  const shadow = `drop-shadow(0 ${size * 0.07}px ${size * 0.09}px rgb(0 0 0 / .55))`
   const ready = spin ? live : !!url
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-      {!ready && <CoinMedal a={a} size={size} spin={spin} />}
-      {spin && <canvas ref={ref} className="absolute inset-0 touch-none cursor-grab" aria-hidden="true"
-        style={{ width: size, height: size, opacity: live ? 1 : 0, filter: `drop-shadow(0 ${size * 0.08}px ${size * 0.14}px ${glow})` }} />}
-      {!spin && url && <img src={url} alt="" draggable={false} className="absolute inset-0 select-none pointer-events-none"
-        style={{ width: size, height: size, filter: `drop-shadow(0 ${size * 0.06}px ${size * 0.1}px ${glow})` }} />}
+      {!ready && (
+        // Пока готовится 3D (или если его нет): металлический бортик и плоский аверс
+        <span className="absolute inset-0 rounded-full" style={{ padding: Math.max(2, size * 0.06), background: `conic-gradient(from 210deg, ${light}, ${base}, ${dark}, ${base}, ${light}, ${base}, ${dark}, ${light})`, filter: shadow }}>
+          <span className="block w-full h-full rounded-full overflow-hidden" style={{ background: `radial-gradient(circle at 35% 30%, ${light}, ${base} 50%, ${dark})` }}>
+            {flat && <img src={flat} alt="" draggable={false} className="w-full h-full select-none pointer-events-none" />}
+          </span>
+        </span>
+      )}
+      {spin && <canvas ref={ref} className="absolute inset-0 touch-none cursor-grab" aria-hidden="true" style={{ width: size, height: size, opacity: live ? 1 : 0, filter: shadow }} />}
+      {!spin && url && <img src={url} alt="" draggable={false} className="absolute inset-0 select-none pointer-events-none" style={{ width: size, height: size, filter: shadow }} />}
     </span>
   )
 }
@@ -357,7 +277,7 @@ export function Medal({ a, got, size = 56, progress = 0, spin = false }: { a: Ac
   const ring = Math.max(3, size * 0.075)
   const r = size / 2 - ring / 2
   const c = 2 * Math.PI * r
-  if (got && COINS[a.code]) {
+  if (got && MEDAL[a.code]) {
     if (a.code === 'ambassador' && size >= 90) {
       return (
         <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
