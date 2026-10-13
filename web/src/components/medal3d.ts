@@ -124,7 +124,7 @@ let shot: { r: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Perspectiv
 const shots = new Map<string, Promise<string>>()
 let queue: Promise<unknown> = Promise.resolve()
 
-const STORE = 'komeeta-medal3d:v9:'
+const STORE = 'komeeta-medal3d:v11:'
 export function cachedSnapshot(key: string, px: number): string | null {
   try { return localStorage.getItem(`${STORE}${key}:${px}`) } catch { return null }
 }
@@ -143,7 +143,7 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
         shot = { r, scene, camera }
       }
       const coin = await buildCoin(s, 1024, shot.r.capabilities.getMaxAnisotropy())
-      coin.rotation.set(0.26, -0.58, 0.03)
+      coin.rotation.set(0, 0, 0)
       shot.scene.add(coin)
       // Рендер в полтора раза крупнее: при уменьшении браузер даёт чистые края
       const big = Math.min(2048, Math.round(px * 2))
@@ -202,9 +202,7 @@ export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: nu
       }
     }
     const auto = phase < 0.65 ? ease(phase / 0.65) * Math.PI * 2 : Math.PI * 2
-    // Монета всегда чуть покачивается, даже в паузе между оборотами — объём виден, а не только при вращении
-    const sway = reduce ? 0.3 : Math.sin(now / 1700) * 0.38
-    coin.rotation.set(0.16 + Math.sin(now / 2300) * 0.1, angle + auto + sway, 0)
+    coin.rotation.set(0, angle + auto, 0)
     key.position.set(Math.sin(now / 2600) * 3, 3, 4)
     r.render(scene, camera)
     raf = requestAnimationFrame(tick)
