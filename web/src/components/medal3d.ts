@@ -4,6 +4,7 @@
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { dropFace, faceMaps, type FaceSpec } from './medalFace'
+import { PAD } from './medalMetals'
 
 export interface CoinSpec extends FaceSpec {
   rim: string // цвет металла обода
@@ -94,7 +95,7 @@ let shot: { r: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Perspectiv
 const shots = new Map<string, Promise<string>>()
 let queue: Promise<unknown> = Promise.resolve()
 
-const STORE = 'komeeta-medal3d:v4:'
+const STORE = 'komeeta-medal3d:v5:'
 export function cachedSnapshot(key: string, px: number): string | null {
   try { return localStorage.getItem(`${STORE}${key}:${px}`) } catch { return null }
 }
@@ -108,7 +109,7 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
     p = queue.then(async () => {
       if (!shot) {
         const r = newRenderer(undefined, true)
-        const { scene, camera } = makeScene(r, 4.02)
+        const { scene, camera } = makeScene(r, 4.6)
         shot = { r, scene, camera }
       }
       const coin = await buildCoin(s, 1024, shot.r.capabilities.getMaxAnisotropy())
@@ -136,8 +137,8 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
 export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: number) {
   const r = newRenderer(canvas)
   r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3))
-  r.setSize(size, size, false)
-  const { scene, camera, key } = makeScene(r, 4.3)
+  r.setSize(Math.round(size * PAD), Math.round(size * PAD), false)
+  const { scene, camera, key } = makeScene(r, 4.6)
   const coin = await buildCoin(s, 2048, Math.min(8, r.capabilities.getMaxAnisotropy()))
   dropFace(s.key)
   scene.add(coin)

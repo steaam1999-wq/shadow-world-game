@@ -44,6 +44,8 @@ export interface ProfileStyle {
   accent?: Accent // нет — фирменный цвет Komeeta
   cover?: 'none' | 'photo' | 'color' // нет — мягкий фон цвета профиля
   ring?: 'none' | 'accent' | 'white'
+  hideAch?: string[] // медали, скрытые из панели достижений (для других)
+  hideAllAch?: boolean // панель достижений скрыта целиком
   frame?: string // рамка за медаль (код медали) или 'none'; нет — самая престижная из полученных
   status?: string // до 60 символов
   statusUntil?: number // статус пропадёт в это время (нет — висит, пока не уберут)

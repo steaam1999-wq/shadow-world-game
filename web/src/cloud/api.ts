@@ -369,6 +369,8 @@ function safeStyle(v: unknown): ProfileStyle | undefined {
     accent: pick(o.accent, ['graphite', 'sage', 'sand', 'rose', 'blue', 'pearl'] as const),
     cover: pick(o.cover, ['none', 'photo', 'color'] as const),
     ring: pick(o.ring, ['none', 'accent', 'white'] as const),
+    hideAch: Array.isArray(o.hideAch) ? o.hideAch.filter((c): c is string => typeof c === 'string' && /^[a-z_]{1,20}$/.test(c)).slice(0, 10) : undefined,
+    hideAllAch: o.hideAllAch === true ? true : undefined,
     frame: typeof o.frame === 'string' && /^[a-z_]{1,20}$/.test(o.frame) ? o.frame : undefined,
     status: typeof o.status === 'string' && o.status.trim() ? o.status.trim().slice(0, 60) : undefined,
     statusUntil: typeof o.statusUntil === 'number' ? o.statusUntil : undefined,

@@ -7,7 +7,7 @@ import { useStore } from '../store'
 import { sb } from '../cloud/api'
 import { Sheet } from './ui'
 import { GoldPlanet } from './Invite'
-import { MEDAL, METALS, METAL_NAME } from './medalMetals'
+import { MEDAL, METALS, METAL_NAME, PAD } from './medalMetals'
 
 type Progress = { met: number; responded: number; invites: number; noshows: number; active_invites?: number }
 export interface Achievement {
@@ -204,7 +204,7 @@ function faceSpec(a: Achievement, render: (el: ReactElement) => string) {
     emblemScale: a.code === 'founder' ? 0.5 : 0.56,
   }
 }
-const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v4:${code}:${px}`) } catch { return null } }
+const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v5:${code}:${px}`) } catch { return null } }
 let webgl: boolean | null = null
 const canWebGL = () => {
   if (webgl === null) { try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { webgl = false } }
@@ -242,20 +242,25 @@ function Coin3D({ a, size, spin = false }: { a: Achievement; size: number; spin?
     return () => { off = true; dispose?.() }
   }, [a, size, spin, px])
   const [light, base, dark] = METALS[MEDAL[a.code].metal]
-  const shadow = `drop-shadow(0 ${size * 0.07}px ${size * 0.09}px rgb(0 0 0 / .55))`
+  // Тень — мягкое пятно под монетой без CSS-фильтров: на iPhone фильтр на холсте с прозрачностью показывает рамку квадрата
+  const PADX = PAD
+  const off = -((PADX - 1) / 2) * size
+  const big = size * PADX
   const ready = spin ? live : !!url
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      <span className="absolute left-1/2 -translate-x-1/2 rounded-[50%] pointer-events-none" aria-hidden="true"
+        style={{ bottom: -size * 0.05, width: size * 0.78, height: size * 0.16, background: 'radial-gradient(closest-side, rgb(0 0 0 / .42), transparent)', opacity: ready ? 1 : 0.6 }} />
       {!ready && (
         // Пока готовится 3D (или если его нет): металлический бортик и плоский аверс
-        <span className="absolute inset-0 rounded-full" style={{ padding: Math.max(2, size * 0.06), background: `conic-gradient(from 210deg, ${light}, ${base}, ${dark}, ${base}, ${light}, ${base}, ${dark}, ${light})`, filter: shadow }}>
+        <span className="absolute inset-0 rounded-full" style={{ padding: Math.max(2, size * 0.06), background: `conic-gradient(from 210deg, ${light}, ${base}, ${dark}, ${base}, ${light}, ${base}, ${dark}, ${light})` }}>
           <span className="block w-full h-full rounded-full overflow-hidden" style={{ background: `radial-gradient(circle at 35% 30%, ${light}, ${base} 50%, ${dark})` }}>
             {flat && <img src={flat} alt="" draggable={false} className="w-full h-full select-none pointer-events-none" />}
           </span>
         </span>
       )}
-      {spin && <canvas ref={ref} className="absolute inset-0 touch-none cursor-grab" aria-hidden="true" style={{ width: size, height: size, opacity: live ? 1 : 0, filter: shadow }} />}
-      {!spin && url && <img src={url} alt="" draggable={false} className="absolute inset-0 select-none pointer-events-none" style={{ width: size, height: size, filter: shadow }} />}
+      {spin && <canvas ref={ref} className="absolute touch-none cursor-grab" aria-hidden="true" style={{ left: off, top: off, width: big, height: big, opacity: live ? 1 : 0 }} />}
+      {!spin && url && <img src={url} alt="" draggable={false} className="absolute select-none pointer-events-none" style={{ left: off, top: off, width: big, height: big }} />}
     </span>
   )
 }
@@ -303,9 +308,17 @@ export function Medal({ a, got, size = 56, progress = 0, spin = false }: { a: Ac
   )
 }
 
+function EyeIcon({ off, size = 14 }: { off?: boolean; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" />{off && <path d="M4 4l16 16" />}
+    </svg>
+  )
+}
+
 /** Панель достижений. Свой профиль — все 6 (неполученные с прогрессом), чужой — только полученные. */
 export function AchievementsPanel({ personId }: { personId: string }) {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const { earned: raw, progress, stats } = useAchievements(personId)
   // Амбассадор действует, пока значок не сняли: снятый — не показываем
   const isAmb = personId === 'me' ? state.me?.ambassador !== undefined : state.people.find((p) => p.id === personId)?.ambassador !== undefined
@@ -314,8 +327,15 @@ export function AchievementsPanel({ personId }: { personId: string }) {
   const [collOpen, setCollOpen] = useState(false)
   if (!earned) return null
   const mine = personId === 'me'
+  // Что человек скрыл из панели: другие этих медалей не видят, он сам — видит с пометкой
+  const style = mine ? state.me?.style : state.people.find((p) => p.id === personId)?.style
+  const hidden = new Set(style?.hideAch ?? [])
+  const allHidden = !!style?.hideAllAch
+  const setStyle = (patch: Partial<NonNullable<typeof style>>) => dispatch({ type: 'updateMe', patch: { style: { ...state.me?.style, ...patch } } })
+  const toggleHide = (code: string) => setStyle({ hideAch: hidden.has(code) ? [...hidden].filter((c) => c !== code) : [...hidden, code] })
   const got = ACHIEVEMENTS.filter((a) => earned[a.code])
-  const list = mine ? ACHIEVEMENTS.filter((a) => !a.special || earned[a.code]).sort((x, y) => Number(!!earned[y.code]) - Number(!!earned[x.code])) : got
+  const list = mine ? ACHIEVEMENTS.filter((a) => !a.special || earned[a.code]).sort((x, y) => Number(!!earned[y.code]) - Number(!!earned[x.code])) : got.filter((a) => !hidden.has(a.code))
+  if (!mine && allHidden) return null
   if (!list.length) return null
   const frac = (a: Achievement) => { if (!progress || !a.goal) return 0; const [n, of] = a.goal(progress); return n / of }
   const COLLECTION = ['first_meet', 'soul', 'reliable', 'guide', 'regular']
@@ -330,13 +350,24 @@ export function AchievementsPanel({ personId }: { personId: string }) {
     <section className="flex flex-col gap-2.5" aria-label="Достижения">
       <div className="flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-muted">Достижения</span>
-        {mine && <span className="text-[12px] text-muted tnum">{got.length} / {list.length}</span>}
+        {mine ? (
+          <span className="flex items-center gap-3">
+            <span className="text-[12px] text-muted tnum">{got.length} / {list.length}</span>
+            <button type="button" onClick={() => setStyle({ hideAllAch: allHidden ? undefined : true })} aria-pressed={allHidden}
+              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-line text-[12px] text-muted cursor-pointer">
+              <EyeIcon off={allHidden} />{allHidden ? 'Скрыты от всех' : 'Видны всем'}
+            </button>
+          </span>
+        ) : null}
       </div>
       {/* До 6 медалей — ровной сеткой; больше — ряд листается пальцем */}
       <div className={!mine ? 'flex flex-wrap justify-center gap-3' : list.length > 6 ? 'flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4' : 'grid grid-cols-6 gap-1 -mx-1'}>
         {list.map((a) => (
           <button key={a.code} onClick={() => setOpen(a)} className={`flex flex-col items-center gap-1 min-w-0 cursor-pointer ${mine && list.length > 6 ? 'w-[62px] shrink-0' : ''}`} aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
-            <Medal a={a} got={!!earned[a.code]} size={56} progress={frac(a)} />
+            <span className="relative">
+              <span className={mine && (allHidden || hidden.has(a.code)) && earned[a.code] ? 'block opacity-55' : 'block'}><Medal a={a} got={!!earned[a.code]} size={56} progress={frac(a)} /></span>
+              {mine && earned[a.code] && (allHidden || hidden.has(a.code)) && <span className="absolute -right-1 -bottom-1 grid place-items-center w-5 h-5 rounded-full bg-surface border border-line text-muted"><EyeIcon off size={11} /></span>}
+            </span>
             <span className={`text-[10px] leading-tight tracking-tight whitespace-nowrap ${earned[a.code] ? 'text-fg font-medium' : 'text-muted'}`}>{a.short}</span>
           </button>
         ))}
@@ -356,7 +387,7 @@ export function AchievementsPanel({ personId }: { personId: string }) {
       <Sheet open={collOpen} onClose={() => setCollOpen(false)} title="Комета">
         <div className="flex flex-col items-center text-center gap-3 pb-2">
           <div className="relative grid place-items-center py-2">
-            <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-40" style={{ background: comet.colors[1] }} />
+            <span className="absolute w-52 h-52 rounded-full opacity-30 pointer-events-none" style={{ background: 'radial-gradient(closest-side, #aab4ff, transparent)' }} />
             <Medal a={comet} got size={136} spin />
           </div>
           <h3 className="font-display font-bold text-[22px] leading-tight">Самая редкая медаль Komeeta</h3>
@@ -389,9 +420,9 @@ export function AchievementsPanel({ personId }: { personId: string }) {
             <div className="flex flex-col items-center text-center pb-1">
               {/* Сцена: мягкий свет сверху и тень «на столе» под монетой */}
               <div className="relative grid place-items-center w-full pt-2 pb-5">
-                <span className="absolute top-0 w-56 h-56 rounded-full blur-3xl opacity-[.18]" style={{ background: `radial-gradient(closest-side, ${metal[0]}, transparent)` }} />
+                <span className="absolute top-0 w-64 h-64 rounded-full opacity-[.2] pointer-events-none" style={{ background: `radial-gradient(closest-side, ${metal[0]}, transparent)` }} />
                 <Medal a={open} got={!!at} size={150} progress={g ? g[0] / g[1] : 0} spin={!!at} />
-                {!!at && <span className="absolute bottom-1 w-28 h-3 rounded-[50%] bg-black/50 blur-md" />}
+                {!!at && <span className="absolute bottom-1 w-28 h-3 rounded-[50%] pointer-events-none" style={{ background: 'radial-gradient(closest-side, rgb(0 0 0 / .45), transparent)' }} />}
               </div>
               <span className="text-[11px] font-semibold uppercase tracking-[.2em] text-muted">
                 {MEDAL[open.code] ? METAL_NAME[MEDAL[open.code].metal] : 'Медаль'}{rare ? ` · ${rare}` : ''}
@@ -413,6 +444,21 @@ export function AchievementsPanel({ personId }: { personId: string }) {
                   <div className="flex justify-between text-[12px] text-muted tnum"><span>Прогресс</span><span>{g[0]} / {g[1]}</span></div>
                   <div className="h-1 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(g[0] / g[1]) * 100}%`, background: `linear-gradient(90deg, ${metal[1]}, ${metal[0]})` }} /></div>
                 </div>
+              )}
+              {mine && !!at && (
+                <label htmlFor="ach-visible" className="w-full mt-4 flex items-center gap-3 rounded-[20px] border border-line px-4 py-3 text-left cursor-pointer">
+                  <span className="grid place-items-center w-8 h-8 shrink-0 rounded-full border border-line text-muted"><EyeIcon off={hidden.has(open.code) || allHidden} /></span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-medium">Показывать в профиле</span>
+                    <span className="block text-[12.5px] text-muted">{allHidden ? 'Сейчас все достижения скрыты' : hidden.has(open.code) ? 'Другие не видят эту медаль' : 'Эту медаль видят все'}</span>
+                  </span>
+                  <span className="relative w-[46px] h-7 shrink-0">
+                    <input id="ach-visible" type="checkbox" role="switch" checked={!hidden.has(open.code) && !allHidden} disabled={allHidden}
+                      onChange={() => toggleHide(open.code)} className="absolute inset-0 opacity-0 z-[1] cursor-pointer" />
+                    <span className={`absolute inset-0 rounded-full transition-colors ${!hidden.has(open.code) && !allHidden ? 'bg-ok' : 'bg-line'}`} />
+                    <span className={`absolute top-[3px] left-[3px] w-[22px] h-[22px] rounded-full bg-white shadow transition-transform ${!hidden.has(open.code) && !allHidden ? 'translate-x-[18px]' : ''}`} />
+                  </span>
+                </label>
               )}
               <div className="w-full mt-5 rounded-[20px] border border-line overflow-hidden text-left">
                 <div className="flex gap-3 p-4">

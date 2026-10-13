@@ -32,3 +32,6 @@ export function frameOf(style: ProfileStyle | undefined, medals: string[] | unde
   if (style?.frame && own.includes(style.frame)) return style.frame
   return own[0] ?? null
 }
+
+/** Запас вокруг 3D-монеты: она занимает 1/PAD кадра, чтобы края не обрезались и не было видно рамки квадрата. */
+export const PAD = 1.14
