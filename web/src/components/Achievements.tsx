@@ -204,7 +204,7 @@ function faceSpec(a: Achievement, render: (el: ReactElement) => string) {
     emblemScale: a.code === 'founder' ? 0.5 : 0.56,
   }
 }
-const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v12:${code}:${px}`) } catch { return null } }
+const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v13:${code}:${px}`) } catch { return null } }
 let webgl: boolean | null = null
 const canWebGL = () => {
   if (webgl === null) { try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { webgl = false } }
@@ -260,7 +260,7 @@ function Coin3D({ a, size, spin = false }: { a: Achievement; size: number; spin?
         </span>
       )}
       {spin && <canvas ref={ref} className="absolute touch-none cursor-grab" aria-hidden="true" style={{ left: off, top: off, width: big, height: big, opacity: live ? 1 : 0 }} />}
-      {!spin && url && <img src={url} alt="" draggable={false} className="absolute select-none pointer-events-none" style={{ left: off, top: off, width: big, height: big }} />}
+      {!spin && url && <img src={url} alt="" draggable={false} className="absolute select-none pointer-events-none" style={{ left: off, top: off, width: big, height: big, maxWidth: 'none' }} />}
     </span>
   )
 }
