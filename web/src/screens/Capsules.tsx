@@ -372,7 +372,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <div className="flex items-center gap-1.5">
           <button onClick={onBack} className="grid place-items-center w-10 h-10 -ml-2 rounded-full hover:bg-surface-2 cursor-pointer" aria-label="К списку чатов"><Icon name="back" /></button>
           <button onClick={() => openProfile(p.id)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer rounded-2xl pr-1" aria-label={`Профиль ${p.name}`}>
-          <Avatar name={p.name} hue={p.hue} src={p.photo} size={38} verified={p.verified} online={presence.online} />
+          <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={38} verified={p.verified} online={presence.online} />
           <div className="flex-1 min-w-0 leading-tight">
             <div className="font-semibold text-[15.5px] truncate">{nameAge(p.name, p.age)}</div>
             <div className="text-[12px] text-muted truncate mt-0.5">
@@ -411,7 +411,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
           )
           return [day,
             <div key={m.id} className={`msg-in flex items-end gap-2 max-w-[84%] ${joinPrev ? 'mt-[3px]' : 'mt-2.5'} ${me ? 'self-end' : 'self-start'}`}>
-              {!me && <span className="w-7 shrink-0">{!joinNext && <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />}</span>}
+              {!me && <span className="w-7 shrink-0">{!joinNext && <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={28} />}</span>}
               <div className={`min-w-0 flex flex-col gap-1 ${me ? 'items-end' : 'items-start'}`}>
                 <div onClick={() => setPicked(picked === m.id ? null : m.id)}
                   className={`relative rounded-[20px] cursor-pointer select-none transition-transform active:scale-[.98] ${corners} ${m.photo ? 'p-[3px]' : 'pl-3.5 pr-3 py-2'} ${me ? 'bubble-me text-white' : 'bubble-them text-fg'}`}>
@@ -447,7 +447,7 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
         <AgainCard capsule={c} person={p} />
         {typing && (
           <div className="msg-in self-start flex items-end gap-2 mt-2.5">
-            <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} />
+            <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={28} />
             <div className="bubble-them rounded-[20px] rounded-bl-[4px] h-10 px-4 inline-flex items-center gap-1" role="status" aria-label={`${p.name} печатает…`}>
               {[0, 1, 2].map((d) => <span key={d} className="typing-dot w-2 h-2 rounded-full bg-muted" style={{ animationDelay: `${d * 0.15}s` }} />)}
             </div>
@@ -599,5 +599,5 @@ function CallButtons({ person, canCall, hint }: { person: Person; canCall: boole
 /** Аватар собеседника с зелёной точкой, когда он в сети. */
 function PersonAvatar({ p, size, ring }: { p: Person; size: number; ring?: boolean }) {
   const { online } = usePresence(p.id)
-  return <Avatar name={p.name} hue={p.hue} src={p.photo} size={size} verified={p.verified} ring={ring} online={online} />
+  return <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={size} verified={p.verified} ring={ring} online={online} />
 }

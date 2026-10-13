@@ -449,7 +449,7 @@ export function MessageAlerts({ openChat, onOpen, onOpenProfile }: { openChat: s
     <button key={banner.key} onClick={() => { setBanner(null); if (banner.profile) onOpenProfile(banner.person.id); else onOpen(banner.chat) }}
       className="anim-rise fixed left-1/2 -translate-x-1/2 top-[calc(10px+env(safe-area-inset-top,0px))] z-[60] w-[calc(100%-24px)] max-w-[456px] glass glass-solid rounded-[22px] p-3 flex items-center gap-3 text-left shadow-soft cursor-pointer" role="status" aria-live="polite">
       <span className="relative shrink-0">
-        <Avatar name={banner.person.name} hue={banner.person.hue} src={banner.person.photo} size={42} />
+        <Avatar name={banner.person.name} hue={banner.person.hue} src={banner.person.photo} of={banner.person} size={42} />
         <span className="absolute -right-1 -bottom-1 grid place-items-center w-5 h-5 rounded-full bg-cobalt text-white border-2 border-surface"><Icon name="drop" size={11} fill /></span>
       </span>
       <span className="flex-1 min-w-0">

@@ -56,7 +56,7 @@ function PeoplePicker({ exclude = [], picked, onToggle }: { exclude?: string[]; 
             return (
               <li key={p.id}>
                 <button onClick={() => onToggle(p.id)} role="checkbox" aria-checked={on} className="w-full flex items-center gap-3 px-2 py-2 rounded-2xl hover:bg-surface-2 text-left cursor-pointer">
-                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={42} verified={p.verified} />
+                  <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={42} verified={p.verified} />
                   <span className="flex-1 min-w-0 font-semibold truncate">{p.name}</span>
                   <span className={`grid place-items-center w-6 h-6 rounded-full border-2 ${on ? 'bg-spark border-spark text-on-spark' : 'border-line'}`}>{on && <Icon name="check" size={14} />}</span>
                 </button>
@@ -281,7 +281,7 @@ function GroupInfoSheet({ group: g, open, onClose, onLeft }: { group: Group; ope
           {members.map((p) => (
             <li key={p.id} className="flex items-center gap-3 px-2 py-2 rounded-2xl hover:bg-surface-2">
               <button onClick={() => { onClose(); openProfile(p.id) }} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
-                <Avatar name={p.name} hue={p.hue} src={p.photo} size={40} verified={p.verified} />
+                <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={40} verified={p.verified} />
                 <span className="flex-1 min-w-0 font-semibold truncate">{p.name}{p.id === g.ownerId && <span className="text-muted font-normal"> · создатель</span>}</span>
               </button>
               {owner && <button onClick={() => dispatch({ type: 'removeGroupMember', groupId: g.id, personId: p.id })} className="h-8 px-3 rounded-full text-[13px] text-danger hover:bg-danger-soft cursor-pointer" aria-label={`Убрать ${p.name} из группы`}>Убрать</button>}

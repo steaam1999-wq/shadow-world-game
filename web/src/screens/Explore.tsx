@@ -179,7 +179,7 @@ function PeopleResults({ people, full }: { people: Person[]; full: boolean }) {
       <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
         {people.map((p) => (
           <button key={p.id} onClick={() => openProfile(p.id)} className="flex flex-col items-center gap-1 w-[68px] shrink-0 cursor-pointer" aria-label={`Профиль ${p.name}`}>
-            <Avatar name={p.name} hue={p.hue} src={p.photo} size={60} verified={p.verified} />
+            <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={60} verified={p.verified} />
             <span className="text-[12px] font-medium truncate w-full text-center">{p.name}</span>
           </button>
         ))}
@@ -190,7 +190,7 @@ function PeopleResults({ people, full }: { people: Person[]; full: boolean }) {
     <div className="flex flex-col px-2" aria-label="Найденные люди">
       {people.map((p) => (
         <button key={p.id} onClick={() => openProfile(p.id)} className="flex items-center gap-3 p-2 rounded-2xl text-left hover:bg-surface-2 cursor-pointer" aria-label={`Профиль ${p.name}`}>
-          <Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} />
+          <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={48} verified={p.verified} />
           <span className="flex-1 min-w-0">
             <span className="block font-semibold truncate">{p.name}{p.age ? `, ${p.age}` : ''}</span>
             <span className="block text-[13px] text-muted truncate">{[p.district, p.tags.slice(0, 3).map((t) => `#${t.toLowerCase()}`).join(' ')].filter(Boolean).join(' · ')}</span>

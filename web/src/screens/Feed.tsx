@@ -109,7 +109,7 @@ export function Feed({ now, onRespond, onOpenCapsule, onCreate, onInvite, onMess
           <div className="flex gap-3.5 overflow-x-auto no-scrollbar px-4">
             {quiet.map((p) => (
               <button key={p.id} onClick={() => openProfile(p.id)} className="flex flex-col items-center gap-1 w-[64px] shrink-0 cursor-pointer" aria-label={`Профиль ${p.name}`}>
-                <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} /><ListeningBadge person={p} /></span>
+                <span className="relative"><Avatar name={p.name} hue={p.hue} src={p.photo} size={52} verified={p.verified} of={p} /><ListeningBadge person={p} /></span>
                 <span className="text-[12px] truncate w-full text-center">{p.name}</span>
               </button>
             ))}
@@ -336,7 +336,7 @@ export function Post({ activity: a, person, now, onRespond, onOpenCapsule, onHid
             return (
               <li key={v.viewer} className="border-t border-line first:border-0">
                 <button onClick={() => { setViewers(null); openProfile(p.id) }} className="w-full flex items-center gap-3 py-2.5 text-left cursor-pointer">
-                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={42} />
+                  <Avatar name={p.name} hue={p.hue} src={p.photo} size={42} of={p} />
                   <span className="flex-1 min-w-0 font-semibold truncate">{p.name}</span>
                   <span className="text-[12px] text-muted">{new Date(v.at).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                 </button>

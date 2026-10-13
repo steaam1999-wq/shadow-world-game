@@ -1,5 +1,7 @@
 import { useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { FRAME_TITLE, MEDAL, METALS, frameOf } from './medalMetals'
+import type { ProfileStyle } from '../types'
 
 const PATHS: Record<string, string> = {
   // Нижняя панель: единый набор — сетка 24, скругления, одинаковая толщина линий.
@@ -135,12 +137,26 @@ export function Logo({ className = '' }: { className?: string }) {
 }
 
 /** Аватар: инициал на цветном фоне, оттенок уникален для человека. Вместо фото в демо. */
-export function Avatar({ name, hue, size = 48, verified = false, ring = false, src, online = false }: { name: string; hue: number; size?: number; verified?: boolean; ring?: boolean; src?: string; online?: boolean }) {
+/** Тонкая рамка за медаль вокруг маленькой аватарки: снаружи фото, размер блока не меняется. */
+function FrameRing({ code, size }: { code: string; size: number }) {
+  const [light, base, dark] = METALS[MEDAL[code]?.metal ?? 'silver']
+  const t = size >= 56 ? 3 : size >= 36 ? 2.5 : 2
+  const out = t + 1.5
+  return (
+    <span className="absolute pointer-events-none rounded-full" title={`Рамка «${FRAME_TITLE[code] ?? ''}»`} aria-hidden="true"
+      style={{ inset: -out, background: `conic-gradient(from 210deg, ${light}, ${base} 18%, ${dark} 32%, ${base} 46%, ${light} 60%, ${base} 74%, ${dark} 88%, ${light})`,
+        WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - ${t}px), #000 calc(100% - ${t - 0.5}px))`, mask: `radial-gradient(farthest-side, transparent calc(100% - ${t}px), #000 calc(100% - ${t - 0.5}px))` }} />
+  )
+}
+
+export function Avatar({ name, hue, size = 48, verified = false, ring = false, src, online = false, of }: { name: string; hue: number; size?: number; verified?: boolean; ring?: boolean; src?: string; online?: boolean; of?: { style?: ProfileStyle; medals?: string[]; founder?: number } }) {
+  const frame = of ? frameOf(of.style, of.medals, of.founder) : null
   // Ссылка на фото устарела или не загрузилась — показываем букву имени, а не значок сломанной картинки.
   const [broken, setBroken] = useState<string | null>(null)
   const show = src && broken !== src
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      {frame && <FrameRing code={frame} size={size} />}
       {show ? (
         <img src={src} alt="" onError={() => setBroken(src)} className={`block w-full h-full rounded-full object-cover ${ring ? 'ring-2 ring-spark ring-offset-2 ring-offset-surface' : ''}`} />
       ) : <span

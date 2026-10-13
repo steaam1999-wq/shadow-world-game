@@ -50,7 +50,7 @@ export function SurpriseMeet({ onMessage }: { onMessage: (personId: string) => v
         <button onClick={() => save({ ...pref, hidden: true })} className="grid place-items-center w-7 h-7 rounded-full text-muted hover:bg-surface-2 cursor-pointer" aria-label="Скрыть до следующей недели"><Icon name="x" size={14} /></button>
       </div>
       <button onClick={() => openProfile(p.id)} className="relative flex items-center gap-3 text-left cursor-pointer">
-        <Avatar name={p.name} hue={p.hue} src={p.photo} size={56} verified={p.verified} />
+        <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={56} verified={p.verified} />
         <span className="flex-1 min-w-0">
           <span className="block font-display font-bold text-lg leading-tight">{nameAge(p.name, p.age)}</span>
           <span className="block text-[13px] text-muted">{why}</span>

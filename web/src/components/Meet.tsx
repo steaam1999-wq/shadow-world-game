@@ -196,7 +196,7 @@ export function FreeNow({ now, onInvite }: { now: number; onInvite: (personId: s
         <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
           {free.map(({ p, until }) => (
             <div key={p.id} className="shrink-0 w-[132px] rounded-2xl bg-surface-2 p-2.5 flex flex-col items-center gap-1.5 text-center">
-              <Avatar name={p.name} hue={p.hue} src={p.photo} size={48} verified={p.verified} online />
+              <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={48} verified={p.verified} online />
               <span className="text-[13px] font-semibold leading-tight">{nameAge(p.name, p.age)}</span>
               <span className="text-[11px] text-muted leading-tight">{placeLine(formatKm(p.distanceKm), `до ${hm(until)}`)}</span>
               <button disabled={invited.includes(p.id)} onClick={() => { setInvited([...invited, p.id]); onInvite(p.id) }}
@@ -233,9 +233,9 @@ export function GroupStack({ activity, light = false }: { activity: Activity; li
   const ids = [activity.authorId, ...(activity.members ?? [])]
   const free = Math.max(0, activity.groupSize - ids.length)
   const face = (id: string) => {
-    if (id === 'me') return state.me ? <Avatar name={state.me.name} hue={state.me.hue} src={state.me.photo} size={28} /> : null
+    if (id === 'me') return state.me ? <Avatar name={state.me.name} hue={state.me.hue} src={state.me.photo} of={state.me} size={28} /> : null
     const p = state.people.find((x) => x.id === id)
-    return p ? <Avatar name={p.name} hue={p.hue} src={p.photo} size={28} /> : null
+    return p ? <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={28} /> : null
   }
   return (
     <div className="flex items-center gap-2.5">

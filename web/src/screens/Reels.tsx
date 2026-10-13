@@ -88,7 +88,7 @@ function Reel({ a, p, now, onRespond, onOpenCapsule }: { a: Activity; p: Person;
 
       <div className="absolute left-0 right-16 bottom-0 p-4 pb-[calc(96px+env(safe-area-inset-bottom,0px))] flex flex-col gap-3">
         <div className="flex items-center gap-2.5">
-          <Avatar name={p.name} hue={p.hue} src={p.photo} size={34} verified={p.verified} />
+          <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={34} verified={p.verified} />
           <span className="font-semibold">{nameAge(p.name, p.age)}</span>
           <span className="rounded-full bg-white/20 backdrop-blur-md px-2.5 h-6 inline-flex items-center text-[12px] font-semibold tnum">{compat.score}% вайб</span>
         </div>

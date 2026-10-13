@@ -575,7 +575,7 @@ function PublicationShare({ s, authorName, open, onClose, onMessage, onReport, o
                 return (
                   <button key={p.id} onClick={() => { if (!done) sendTo(p) }} className="flex flex-col items-center gap-1 w-[64px] shrink-0 cursor-pointer" aria-label={done ? `Отправлено ${p.name}` : `Отправить ${p.name}`}>
                     <span className="relative">
-                      <Avatar name={p.name} hue={p.hue} src={p.photo} size={56} />
+                      <Avatar name={p.name} hue={p.hue} src={p.photo} of={p} size={56} />
                       {done && <span className="absolute -right-0.5 -bottom-0.5 grid place-items-center w-6 h-6 rounded-full bg-brand text-white ring-2 ring-surface"><Icon name="check" size={13} /></span>}
                     </span>
                     <span className="text-[12px] truncate w-full text-center">{p.name}</span>

@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
 import { Avatar, Icon, StoryRing } from '../components/ui'
+import { PhotoViewer } from '../components/PhotoViewer'
 import { AmbassadorBadge, AvatarRing, MedalFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
 import { AchievementsPanel } from '../components/Achievements'
@@ -38,6 +39,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const [reporting, setReporting] = useState<Person | null>(null)
   const [tab, setTab] = useState<'plans' | 'posts' | 'songs'>('posts')
   const [showFollowers, setShowFollowers] = useState(false)
+  const [photoOpen, setPhotoOpen] = useState(false)
   const tasteOf = useTaste() // до раннего выхода: хуки вызываются всегда в одном порядке
   const [copied, setCopied] = useState(false)
   const presence = usePresence(state.cloud ? personId : undefined)
@@ -76,6 +78,7 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
         <ProfileCover style={p.style} photo={p.photo} hue={p.hue} />
         {/* Визитка: аватарка по центру, имя, статус и город */}
         <div className="relative flex flex-col items-center text-center gap-1">
+          <button type="button" onClick={() => p.photo && setPhotoOpen(true)} disabled={!p.photo} className={`rounded-full ${p.photo ? 'cursor-zoom-in' : 'cursor-default'}`} aria-label={p.photo ? `Открыть фото: ${p.name}` : undefined}>
           {frame && frame !== 'founder'
             ? <MedalFrame code={frame}><Avatar name={p.name} hue={p.hue} src={p.photo} size={96} /></MedalFrame>
             : frame === 'founder' && (!plans.length || state.seenStories.includes(p.id))
@@ -86,6 +89,8 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
                 <GoldFrame on={frame === 'founder'} medal={26} info label={`Основатель Komeeta №${p.founder}`}><Avatar name={p.name} hue={p.hue} src={p.photo} size={frame === 'founder' ? 92 : 102} /></GoldFrame>
               </StoryRing>
               : <AvatarRing style={p.style}><Avatar name={p.name} hue={p.hue} src={p.photo} size={104} /></AvatarRing>}
+          </button>
+          {photoOpen && p.photo && <PhotoViewer photos={[{ src: p.photo, who: p.name, hue: p.hue, avatar: p.photo }]} start={0} onClose={() => setPhotoOpen(false)} />}
           <h2 className="mt-2.5 flex items-center justify-center gap-1.5 max-w-full font-display font-bold text-[25px] leading-tight">
             <span className="truncate">{nameAge(p.name, p.age)}</span>
             {p.verified && <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-cobalt text-white"><Icon name="check" size={12} /></span>}

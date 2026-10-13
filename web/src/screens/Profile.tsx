@@ -14,6 +14,7 @@ import type { Activity } from '../types'
 import { RulesSheet } from '../components/Rules'
 import { ProfileEditor } from '../components/ProfileEditor'
 import { AchievementsPanel } from '../components/Achievements'
+import { PhotoViewer } from '../components/PhotoViewer'
 import { frameOf } from '../components/medalMetals'
 import { AccountSwitcher } from '../components/Accounts'
 import { AmbassadorBadge, AvatarRing, MedalFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
@@ -44,6 +45,7 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
   const [supportOpen, setSupportOpen] = useState(false)
   const [viewing, setViewing] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  const [photoOpen, setPhotoOpen] = useState(false)
   const [styling, setStyling] = useState(false)
   const [accounts, setAccounts] = useState(false)
   const [showFollowers, setShowFollowers] = useState(false)
@@ -71,14 +73,17 @@ export function Profile({ onSignOut, onAdmin, onRespond, onOpenCapsule, onCreate
       <section className="relative overflow-hidden flex flex-col gap-3 px-4 pt-5 pb-1 rounded-b-[28px]">
         <ProfileCover style={me.style} photo={me.photo} hue={me.hue} />
         <div className="relative flex flex-col items-center text-center gap-1">
-          <button onClick={() => setEditing(true)} className="relative cursor-pointer shrink-0" title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото">
+          <span className="relative shrink-0">
+            <button type="button" onClick={() => (me.photo ? setPhotoOpen(true) : setEditing(true))} className="rounded-full cursor-pointer" aria-label={me.photo ? 'Открыть фото' : 'Добавить фото'}>
             {frame === 'founder' && me.founder
               ? <GoldFrame on medal={30} info label={`Основатель Komeeta №${me.founder}`}><Avatar name={me.name} hue={me.hue} src={me.photo} size={92} /></GoldFrame>
               : frame
               ? <MedalFrame code={frame}><Avatar name={me.name} hue={me.hue} src={me.photo} size={96} /></MedalFrame>
               : <AvatarRing style={me.style}><Avatar name={me.name} hue={me.hue} src={me.photo} size={104} /></AvatarRing>}
-            {frame !== 'founder' && <span className="absolute z-[3] right-0.5 bottom-0.5 grid place-items-center w-8 h-8 rounded-full bg-surface text-fg border-2 border-bg shadow-soft"><Icon name="camera" size={15} /></span>}
-          </button>
+            </button>
+            {frame !== 'founder' && <button type="button" onClick={() => setEditing(true)} title="Редактировать профиль и фото" aria-label="Редактировать профиль и фото" className="absolute z-[3] right-0.5 bottom-0.5 grid place-items-center w-8 h-8 rounded-full bg-surface text-fg border-2 border-bg shadow-soft cursor-pointer"><Icon name="camera" size={15} /></button>}
+          </span>
+          {photoOpen && me.photo && <PhotoViewer photos={[{ src: me.photo, who: me.name, hue: me.hue, avatar: me.photo }]} start={0} onClose={() => setPhotoOpen(false)} />}
           <h2 className="mt-2.5 max-w-full font-display font-bold text-[25px] leading-tight">
             <button onClick={() => state.cloud && setAccounts(true)} className={`flex items-center justify-center gap-1.5 max-w-full ${state.cloud ? 'cursor-pointer' : 'cursor-default'}`}
               aria-label={state.cloud ? 'Сменить аккаунт' : undefined} aria-haspopup={state.cloud ? 'dialog' : undefined}>
