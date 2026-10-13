@@ -11,7 +11,7 @@ export interface CoinSpec extends FaceSpec {
 }
 
 const R = 1
-const T = 0.17
+const T = 0.11
 
 const texCache = new Map<string, Promise<{ map: THREE.CanvasTexture; bump: THREE.CanvasTexture; rough: THREE.CanvasTexture }>>()
 function faceTextures(s: CoinSpec) {
@@ -45,7 +45,7 @@ async function buildCoin(s: CoinSpec) {
   })
   const tube = 0.075
   const rim = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 40, 180), rimMat)
-  rim.scale.z = (T / 2 + 0.03) / tube
+  rim.scale.z = (T / 2 + 0.02) / tube
   coin.add(rim)
   const core = new THREE.Mesh(new THREE.CylinderGeometry(R - tube, R - tube, T, 96, 1), new THREE.MeshStandardMaterial({ color: s.rim, metalness: 1, roughness: 0.35 }))
   core.rotation.x = Math.PI / 2
