@@ -1,7 +1,7 @@
 // Достижения: 6 редких медалей за то, ради чего существует Komeeta, — встречи, надёжность, друзья.
 // Выдаёт их сервер (check_achievements) по данным базы, поэтому подделать нельзя.
 // Нажатие на медаль — за что, прогресс, редкость и что она даст.
-import { useEffect, useId, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '../store'
 import { sb } from '../cloud/api'
@@ -291,6 +291,66 @@ function CoinMedal({ a, size, spin = false }: { a: Achievement; size: number; sp
   )
 }
 
+// ——— Настоящее 3D (Three.js): в списке — объёмный кадр монеты под углом, в карточке — живая монета на ребре ———
+type Spec3D = { field: string[]; at: [number, number]; metal: number; rim: string; scale: number; full?: boolean }
+const SPEC3D: Record<string, Spec3D> = {
+  first_meet: { field: ['#ffffff', '#d7d9dd', '#9ea2a9', '#eceef0', '#7c8088'], at: [0.38, 0.3], metal: 0.9, rim: '#e8eaf0', scale: 0.74 },
+  soul: { field: ['#ffffff', '#fbf8f2', '#ece5d9', '#d9cfbf'], at: [0.4, 0.32], metal: 0.05, rim: '#ffb36b', scale: 0.76 },
+  reliable: { field: ['#7aa8ff', '#2a5bd0', '#0f2a6e', '#081638'], at: [0.5, 0.36], metal: 0.25, rim: '#9cc4ff', scale: 0.76 },
+  guide: { field: ['#8ef59a', '#2aa449', '#0f5a25', '#072e13'], at: [0.5, 0.38], metal: 0.25, rim: '#a6f7b0', scale: 0.76 },
+  regular: { field: ['#3a3a40', '#141416', '#000000'], at: [0.4, 0.3], metal: 0.5, rim: '#f2c45a', scale: 0.76 },
+  ambassador: { field: ['#ff9cbd', '#e2306f', '#5b23b8'], at: [0.34, 0.28], metal: 0.3, rim: '#ff9cc4', scale: 0.76 },
+  founder: { field: ['#fff6d0', '#f2c45a', '#b07a1c', '#6e4508'], at: [0.36, 0.28], metal: 1, rim: '#f2c45a', scale: 0.72 },
+  collector: { field: ['#03050f'], at: [0.5, 0.5], metal: 0.2, rim: '#c9b8ff', scale: 1, full: true },
+}
+const XMLNS = (svg: string) => svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
+function artMarkup(code: string, render: (el: ReactElement) => string) {
+  if (code === 'collector') return XMLNS(render(<CometSky big />)).replace('width="100%" height="100%"', 'width="512" height="512"')
+  if (code === 'founder') return XMLNS(render(<GoldPlanet size={512} />))
+  return XMLNS(render(<svg viewBox="0 0 100 100" width="512" height="512">{ART[code]?.(`m${code}`)}</svg>))
+}
+let webgl: boolean | null = null
+const canWebGL = () => {
+  if (webgl === null) { try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { webgl = false } }
+  return webgl
+}
+
+function Coin3D({ a, size, spin = false }: { a: Achievement; size: number; spin?: boolean }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [live, setLive] = useState(false)
+  const ref = useRef<HTMLCanvasElement>(null)
+  const sp = SPEC3D[a.code]
+  useEffect(() => {
+    if (!sp || !canWebGL()) return
+    let off = false
+    let dispose: (() => void) | undefined
+    void Promise.all([import('./medal3d'), import('react-dom/server')]).then(async ([m, srv]) => {
+      if (off) return
+      const spec = { key: a.code, field: sp.field, fieldAt: sp.at, metal: sp.metal, rim: sp.rim, art: artMarkup(a.code, srv.renderToStaticMarkup), artScale: sp.scale, fullBleed: sp.full }
+      if (spin) {
+        if (!ref.current) return
+        const d = await m.mountCoin(ref.current, spec, size)
+        if (off) d(); else { dispose = d; setLive(true) }
+      } else {
+        const u = await m.snapshotCoin(spec, Math.round(size * Math.min(window.devicePixelRatio || 1, 3)))
+        if (!off) setUrl(u)
+      }
+    }).catch(() => {})
+    return () => { off = true; dispose?.() }
+  }, [a.code, size, spin, sp])
+  const glow = COINS[a.code]?.glow ?? 'transparent'
+  const ready = spin ? live : !!url
+  return (
+    <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+      {!ready && <CoinMedal a={a} size={size} spin={spin} />}
+      {spin && <canvas ref={ref} className="absolute inset-0 touch-none cursor-grab" aria-hidden="true"
+        style={{ width: size, height: size, opacity: live ? 1 : 0, filter: `drop-shadow(0 ${size * 0.08}px ${size * 0.14}px ${glow})` }} />}
+      {!spin && url && <img src={url} alt="" draggable={false} className="absolute inset-0 select-none pointer-events-none"
+        style={{ width: size, height: size, filter: `drop-shadow(0 ${size * 0.06}px ${size * 0.1}px ${glow})` }} />}
+    </span>
+  )
+}
+
 /** Медаль. Получена — монета; не получена — тёмное стекло, контур значка и кольцо прогресса. */
 export function Medal({ a, got, size = 56, progress = 0, spin = false }: { a: Achievement; got: boolean; size?: number; progress?: number; shine?: boolean; spin?: boolean }) {
   const main = a.colors[1]
@@ -301,13 +361,13 @@ export function Medal({ a, got, size = 56, progress = 0, spin = false }: { a: Ac
     if (a.code === 'ambassador' && size >= 90) {
       return (
         <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
-          <CoinMedal a={a} size={size} spin={spin} />
+          <Coin3D a={a} size={size} spin={spin} />
           <span className="absolute z-[1] -bottom-2 left-1/2 -translate-x-1/2 -rotate-6 px-3 py-1 rounded-lg font-display font-bold text-[12px] tracking-[.12em] text-white whitespace-nowrap"
             style={{ background: 'linear-gradient(95deg, #ff4f86, #8a5cff)', boxShadow: '0 8px 18px -6px rgb(255 79 134 / .8)' }}>АМБАССАДОР</span>
         </span>
       )
     }
-    return <CoinMedal a={a} size={size} spin={spin} />
+    return <Coin3D a={a} size={size} spin={spin} />
   }
   return (
     <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size }}>
