@@ -115,7 +115,18 @@ export function GroupChat({ id, onBack }: { id: string; onBack: () => void }) {
   const endRef = useRef<HTMLDivElement>(null)
   const incoming = g?.messages.filter((m) => m.from === 'them').length ?? 0
   useEffect(() => { dispatch({ type: 'readGroup', groupId: id }) }, [id, incoming, dispatch])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [g?.messages.length, typing])
+  // Первый показ — сразу на последней строке (без плавной прокрутки, с подстраховкой пока грузятся фото); новые сообщения — плавно
+  const opened = useRef(false)
+  useEffect(() => {
+    const el = endRef.current
+    if (!opened.current) {
+      opened.current = true
+      el?.scrollIntoView({ block: 'end' })
+      const t = [120, 400, 900].map((ms) => setTimeout(() => endRef.current?.scrollIntoView({ block: 'end' }), ms))
+      return () => t.forEach(clearTimeout)
+    }
+    el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [g?.messages.length, typing])
 
   // Группу удалили или меня из неё убрали — возвращаемся к списку.
   const gone = !g

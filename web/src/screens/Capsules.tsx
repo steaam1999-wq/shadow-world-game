@@ -328,7 +328,18 @@ export function CapsuleChat({ id, now, onBack }: { id: string; now: number; onBa
   const voice = useVoiceRecorder((audio, ms) => { if (c) dispatch({ type: 'sendVoice', capsuleId: c.id, audio, ms }) })
   const [voiceOk] = useState(canRecordVoice)
   const [slide, setSlide] = useState(0)
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }) }, [msgs.length, typing])
+  // Первый показ — сразу на последней строке (без плавной прокрутки, с подстраховкой пока грузятся фото); новые сообщения — плавно
+  const opened = useRef(false)
+  useEffect(() => {
+    const el = endRef.current
+    if (!opened.current) {
+      opened.current = true
+      el?.scrollIntoView({ block: 'end' })
+      const t = [120, 400, 900].map((ms) => setTimeout(() => endRef.current?.scrollIntoView({ block: 'end' }), ms))
+      return () => t.forEach(clearTimeout)
+    }
+    el?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [msgs.length, typing])
   const presence = usePresence(state.cloud ? c?.personId : undefined)
   const look = useChatLook(c ? `p:${c.personId}` : '')
   const [themeOpen, setThemeOpen] = useState(false)

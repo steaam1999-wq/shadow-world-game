@@ -124,7 +124,7 @@ let shot: { r: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Perspectiv
 const shots = new Map<string, Promise<string>>()
 let queue: Promise<unknown> = Promise.resolve()
 
-const STORE = 'komeeta-medal3d:v11:'
+const STORE = 'komeeta-medal3d:v12:'
 export function cachedSnapshot(key: string, px: number): string | null {
   try { return localStorage.getItem(`${STORE}${key}:${px}`) } catch { return null }
 }
@@ -143,7 +143,7 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
         shot = { r, scene, camera }
       }
       const coin = await buildCoin(s, 1024, shot.r.capabilities.getMaxAnisotropy())
-      coin.rotation.set(0, 0, 0)
+      coin.rotation.set(0.05, -0.2, 0)
       shot.scene.add(coin)
       // Рендер в полтора раза крупнее: при уменьшении браузер даёт чистые края
       const big = Math.min(2048, Math.round(px * 2))
