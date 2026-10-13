@@ -51,7 +51,38 @@ function arcText(g: CanvasRenderingContext2D, C: number, text: string, r: number
   g.restore()
 }
 
-export interface FaceMaps { map: HTMLCanvasElement; height: HTMLCanvasElement; rough: HTMLCanvasElement }
+/** Карта нормалей из карты высоты (оператор Собеля): рельеф освещается гладко,
+ *  без «ряби» и пикселей, которые даёт bump-map на уменьшенной текстуре. */
+function normalFromHeight(h: HTMLCanvasElement, strength: number) {
+  const n = h.width
+  const src = h.getContext('2d')!.getImageData(0, 0, n, n).data
+  const H = new Float32Array(n * n)
+  for (let i = 0; i < n * n; i++) H[i] = src[i * 4] / 255
+  const out = document.createElement('canvas')
+  out.width = out.height = n
+  const g = out.getContext('2d')!
+  const img = g.createImageData(n, n)
+  const d = img.data
+  const at = (x: number, y: number) => H[Math.min(n - 1, Math.max(0, y)) * n + Math.min(n - 1, Math.max(0, x))]
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const dx = (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1))
+      const dy = (at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1))
+      let nx = -dx * strength, ny = dy * strength, nz = 1
+      const l = Math.hypot(nx, ny, nz)
+      nx /= l; ny /= l; nz /= l
+      const i = (y * n + x) * 4
+      d[i] = (nx * 0.5 + 0.5) * 255
+      d[i + 1] = (ny * 0.5 + 0.5) * 255
+      d[i + 2] = (nz * 0.5 + 0.5) * 255
+      d[i + 3] = 255
+    }
+  }
+  g.putImageData(img, 0, 0)
+  return out
+}
+
+export interface FaceMaps { map: HTMLCanvasElement; height: HTMLCanvasElement; rough: HTMLCanvasElement; normal: HTMLCanvasElement }
 const cache = new Map<string, Promise<FaceMaps>>()
 
 /** res — сторона текстуры: 1024 для маленьких медалей, 2048 для живой монеты в карточке. */
@@ -130,7 +161,7 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
         rg.save(); rg.beginPath(); rg.arc(C, C, FIELD, 0, Math.PI * 2); rg.clip(); rg.fillStyle = 'rgb(20 20 20)'; rg.fillRect(0, 0, FACE, FACE); rg.restore()
         hg.save(); hg.beginPath(); hg.arc(C, C, FIELD, 0, Math.PI * 2); hg.clip(); hg.fillStyle = '#000'; hg.fillRect(0, 0, FACE, FACE); hg.restore()
       }
-      return { map: m, height: h, rough: r }
+      return { map: m, height: h, rough: r, normal: normalFromHeight(h, 7 * K) }
     })()
     cache.set(id, p)
   }
