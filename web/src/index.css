@@ -380,3 +380,8 @@ html, body { overflow-x: clip; }
 @media (prefers-reduced-motion: reduce) {
   .coin-m__body, .coin-m__face, .coin-m__inner::before, .coin-m__inner::after, .coin-m__art { animation: none !important; }
 }
+/* В карточке медали монета вращается на ребре: оборот, пауза, оборот. Обратная сторона — та же чеканка. */
+.coin-m--spin .coin-m__body { animation: coin-spin 5s cubic-bezier(.45, 0, .2, 1) infinite; }
+.coin-m--3d .coin-m__face--back { transform: rotateY(180deg) translateZ(calc(var(--depth) / 2)); }
+@keyframes coin-spin { 0% { transform: rotateX(8deg) rotateY(0); } 65%, 100% { transform: rotateX(8deg) rotateY(360deg); } }
+@media (prefers-reduced-motion: reduce) { .coin-m--spin .coin-m__body { animation: none; } }
