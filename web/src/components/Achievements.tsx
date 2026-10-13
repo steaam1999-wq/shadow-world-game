@@ -20,34 +20,34 @@ export interface Achievement {
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { code: 'first_meet', title: 'Первая встреча', short: 'Встреча', colors: ['#ffe2c4', '#d08a52', '#6e3b17'],
+  { code: 'first_meet', title: 'Первая встреча', short: 'Встреча', colors: ['#f3c08e', '#c8782f', '#5a2e0c'],
     glyph: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3.5 19.5c.6-3.1 2.8-5.2 5.5-5.2s4.9 2.1 5.5 5.2M16 11a2.6 2.6 0 1 0 0-5.2M15.6 14.3c2.3.4 4.2 2.2 4.8 5.2',
     how: 'Встретиться с человеком из Komeeta и подтвердить встречу кодами.', perk: 'Значок «Встречался» рядом с именем, когда откликаетесь на план.',
     goal: (p) => [Math.min(p.met, 1), 1] },
-  { code: 'soul', title: 'Душа компании', short: 'Душа', colors: ['#ffe3dc', '#e8907a', '#8a4a3c'],
+  { code: 'soul', title: 'Душа компании', short: 'Душа', colors: ['#ffb3b9', '#d1243a', '#5c0a16'],
     glyph: 'M12 2.8c.9 3.3 5.2 5.5 5.2 10.4a5.2 5.2 0 0 1-10.4 0c0-2.3 1.2-3.9 2.7-5-.1 2 .7 3.4 2 3.9-1-3-.9-6.2.5-9.3z',
     how: 'На 5 ваших планов кто-то откликнулся.', perk: 'Ваши планы поднимаются выше в ленте.',
     goal: (p) => [Math.min(p.responded, 5), 5] },
-  { code: 'reliable', title: 'Надёжный', short: 'Надёжный', colors: ['#dbe8f8', '#4f86d6', '#1f3f73'],
+  { code: 'reliable', title: 'Надёжный', short: 'Надёжный', colors: ['#b5d0ff', '#2f6fe0', '#0e2a66'],
     glyph: 'M12 3l7 3v5.2c0 4.4-3 8-7 9.8-4-1.8-7-5.4-7-9.8V6zM8.6 12.2l2.4 2.4 4.4-4.6',
     how: '5 подтверждённых встреч и ни одного пропуска.', perk: 'Метка «Надёжный» видна всем — с вами охотнее договариваются.',
     goal: (p) => [p.noshows ? 0 : Math.min(p.met, 5), 5] },
-  { code: 'guide', title: 'Проводник', short: 'Проводник', colors: ['#d8fbec', '#3fbf95', '#1f6a52'],
+  { code: 'guide', title: 'Проводник', short: 'Проводник', colors: ['#a8f0c8', '#1fae6e', '#08462c'],
     glyph: 'M21 3 3 10.4l7.2 2.8L13 21zM10.2 13.2 21 3',
     how: 'Пригласить в Komeeta 3 друзей по своей ссылке.', perk: 'Особые цвета оформления профиля.',
     goal: (p) => [Math.min(p.invites, 3), 3] },
-  { code: 'regular', title: 'Легенда', short: 'Легенда', colors: ['#fff4cf', '#dca23a', '#6b4508'],
+  { code: 'regular', title: 'Легенда', short: 'Легенда', colors: ['#e0c6ff', '#8e4fe0', '#3a1670'],
     glyph: 'M7 4h10v3.2a5 5 0 0 1-10 0zM7 5.2H4.2v1.3A3.4 3.4 0 0 0 7.6 10M17 5.2h2.8v1.3A3.4 3.4 0 0 1 16.4 10M12 12.2v3.3M8.6 20h6.8l-.7-3.6H9.3z',
     how: '10 подтверждённых встреч.', perk: 'Ранний доступ к новым функциям Komeeta.',
     goal: (p) => [Math.min(p.met, 10), 10] },
-  { code: 'ambassador', title: 'Амбассадор', short: 'Амбассадор', colors: ['#ffd0e0', '#ff4f86', '#5b23b8'],
+  { code: 'ambassador', title: 'Амбассадор', short: 'Амбассадор', colors: ['#ffc2d9', '#ee5a95', '#6d1a45'],
     glyph: 'M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z',
     how: 'Помогать запускать встречи в своём городе. Медаль выдаёт команда Komeeta лично.', perk: 'Ваши планы выше в ленте, отметка «★ Амбассадор» у имени на планах, видно, кто смотрел ваши планы, значок с городом в профиле и прямая связь с командой.', live: true, special: true },
-  { code: 'collector', title: 'Комета', short: 'Комета', colors: ['#d8f3ff', '#7a5cff', '#1a0b3d'],
+  { code: 'collector', title: 'Комета', short: 'Комета', colors: ['#c4f4ff', '#2bb7d6', '#0b4a5c'],
     glyph: 'M14.5 9.5 21 3M11.5 7.5 17 2M16.5 12.5 22 7M9.5 21a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z',
     how: 'Собрать всю коллекцию из 5 медалей и привести 5 активных друзей: у каждого фото и «о себе», от 3 публикаций или планов, заходил 5 дней из первой недели и общался в Komeeta не только с вами.',
     perk: 'Радужная рамка «Комета» вокруг фото, ваши планы в самом верху ленты и видно, кто их смотрел. Скоро: «Зал славы» и бонусы от заведений-партнёров.', live: true, special: true },
-  { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff1b8', '#e9b949', '#8a5a12'],
+  { code: 'founder', title: 'Основатель', short: 'Основатель', colors: ['#fff0bf', '#cfa040', '#654308'],
     glyph: 'M3.8 8.2 8 12l4-6.8 4 6.8 4.2-3.8-1.9 9.6H5.7zM6 20h12',
     how: 'Одним из первых позвать друзей в Komeeta по программе основателей.', perk: 'Золотая рамка вокруг фото, медаль с номером у имени и место на «Стене основателей».', live: true },
 ]
@@ -204,7 +204,7 @@ function faceSpec(a: Achievement, render: (el: ReactElement) => string) {
     emblemScale: a.code === 'founder' ? 0.5 : 0.56,
   }
 }
-const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v7:${code}:${px}`) } catch { return null } }
+const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v8:${code}:${px}`) } catch { return null } }
 let webgl: boolean | null = null
 const canWebGL = () => {
   if (webgl === null) { try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { webgl = false } }

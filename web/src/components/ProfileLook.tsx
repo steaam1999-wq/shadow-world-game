@@ -106,7 +106,7 @@ export function AmbassadorBadge({ city }: { city?: string }) {
  *  тонкий срез к фото и редкий мягкий блик. У «Кометы» поверх металла — едва заметный перелив.
  *  big — профиль, иначе — маленькая аватарка в ленте. */
 export function MedalFrame({ code, big = true, children }: { code: string; big?: boolean; children: ReactNode }) {
-  const [light, base, dark] = METALS[MEDAL[code]?.metal ?? 'silver']
+  const [light, base, dark] = METALS[MEDAL[code]?.metal ?? 'aqua']
   const ring = big ? 4 : 2
   const gap = big ? 3 : 1.5
   return (
