@@ -139,7 +139,7 @@ export function Logo({ className = '' }: { className?: string }) {
 /** Аватар: инициал на цветном фоне, оттенок уникален для человека. Вместо фото в демо. */
 /** Тонкая рамка за медаль вокруг маленькой аватарки: снаружи фото, размер блока не меняется. */
 function FrameRing({ code, size }: { code: string; size: number }) {
-  const [light, base, dark] = METALS[MEDAL[code]?.metal ?? 'aqua']
+  const [light, base, dark] = METALS[MEDAL[code]?.metal ?? 'gold']
   const t = size >= 56 ? 3 : size >= 36 ? 2.5 : 2
   const out = t + 1.5
   return (

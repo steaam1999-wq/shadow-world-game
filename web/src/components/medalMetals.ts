@@ -8,15 +8,15 @@ export const METALS: Record<string, Metal> = {
   sapphire: ['#b5d0ff', '#2f6fe0', '#0e2a66'],
   emerald: ['#a8f0c8', '#1fae6e', '#08462c'],
   amethyst: ['#e0c6ff', '#8e4fe0', '#3a1670'],
-  rose: ['#ffc2d9', '#ee5a95', '#6d1a45'],
   gold: ['#fff0bf', '#cfa040', '#654308'],
-  aqua: ['#c4f4ff', '#2bb7d6', '#0b4a5c'],
+  platinum: ['#ffffff', '#dcdfe5', '#787d87'],
+  gunmetal: ['#c4c8d0', '#565a62', '#1b1d21'],
 }
-export const METAL_NAME: Record<string, string> = { bronze: 'Бронза', ruby: 'Рубин', sapphire: 'Сапфир', emerald: 'Изумруд', amethyst: 'Аметист', rose: 'Розовое золото', gold: 'Золото', aqua: 'Аквамарин' }
-// У каждой медали свой цвет; рамка вокруг фото берёт тот же цвет.
+export const METAL_NAME: Record<string, string> = { bronze: 'Бронза', ruby: 'Рубин', sapphire: 'Сапфир', emerald: 'Изумруд', amethyst: 'Аметист', gold: 'Золото', platinum: 'Платина', gunmetal: 'Тёмный металл' }
+// У каждой медали свой цвет; рамка вокруг фото берёт тот же цвет. «Амбассадор», «Основатель» и «Комета» остались прежними.
 export const MEDAL: Record<string, { metal: keyof typeof METALS; iridescent?: boolean }> = {
   first_meet: { metal: 'bronze' }, soul: { metal: 'ruby' }, reliable: { metal: 'sapphire' }, guide: { metal: 'emerald' },
-  regular: { metal: 'amethyst' }, ambassador: { metal: 'rose' }, founder: { metal: 'gold' }, collector: { metal: 'aqua', iridescent: true },
+  regular: { metal: 'amethyst' }, ambassador: { metal: 'platinum' }, founder: { metal: 'gold' }, collector: { metal: 'gunmetal', iridescent: true },
 }
 
 /** Рамки за медали — от самой престижной к простой. Каждая полученная медаль открывает свою рамку. */
