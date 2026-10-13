@@ -336,7 +336,7 @@ export function AchievementsPanel({ personId }: { personId: string }) {
       <div className={!mine ? 'flex flex-wrap justify-center gap-3' : list.length > 6 ? 'flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4' : 'grid grid-cols-6 gap-1 -mx-1'}>
         {list.map((a) => (
           <button key={a.code} onClick={() => setOpen(a)} className={`flex flex-col items-center gap-1 min-w-0 cursor-pointer ${mine && list.length > 6 ? 'w-[62px] shrink-0' : ''}`} aria-label={`${a.title}${earned[a.code] ? '' : ' — ещё не получено'}`}>
-            <Medal a={a} got={!!earned[a.code]} size={50} progress={frac(a)} />
+            <Medal a={a} got={!!earned[a.code]} size={56} progress={frac(a)} />
             <span className={`text-[10px] leading-tight tracking-tight whitespace-nowrap ${earned[a.code] ? 'text-fg font-medium' : 'text-muted'}`}>{a.short}</span>
           </button>
         ))}
@@ -357,13 +357,13 @@ export function AchievementsPanel({ personId }: { personId: string }) {
         <div className="flex flex-col items-center text-center gap-3 pb-2">
           <div className="relative grid place-items-center py-2">
             <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-40" style={{ background: comet.colors[1] }} />
-            <Medal a={comet} got size={112} spin />
+            <Medal a={comet} got size={136} spin />
           </div>
           <h3 className="font-display font-bold text-[22px] leading-tight">Самая редкая медаль Komeeta</h3>
           <p className="text-[13px] text-muted -mt-1">Два условия — оба навсегда: медаль не забирается.</p>
           <span className="self-start text-[13px] font-semibold">1. Вся коллекция · <span className="tnum">{inSet} из 5</span></span>
           <div className="flex gap-2 justify-center">
-            {COLLECTION.map((c) => { const a = ACHIEVEMENTS.find((x) => x.code === c)!; return <Medal key={c} a={a} got={!!earned[c]} size={44} progress={frac(a)} /> })}
+            {COLLECTION.map((c) => { const a = ACHIEVEMENTS.find((x) => x.code === c)!; return <Medal key={c} a={a} got={!!earned[c]} size={50} progress={frac(a)} /> })}
           </div>
           <div className="w-full flex flex-col gap-1.5 text-left">
             <span className="text-[13px] font-semibold">2. Пять активных друзей · <span className="tnum">{active} из 5</span></span>
@@ -385,8 +385,8 @@ export function AchievementsPanel({ personId }: { personId: string }) {
         {open && (
           <div className="flex flex-col items-center text-center gap-3 pb-2">
             <div className="relative grid place-items-center py-3">
-              {!!at && <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-40" style={{ background: open.colors[1] }} />}
-              <Medal a={open} got={!!at} size={124} progress={g ? g[0] / g[1] : 0} spin={!!at} />
+              {!!at && <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-30" style={{ background: MEDAL[open.code] ? METALS[MEDAL[open.code].metal][1] : open.colors[1] }} />}
+              <Medal a={open} got={!!at} size={150} progress={g ? g[0] / g[1] : 0} spin={!!at} />
             </div>
             <h3 className="font-display font-bold text-[24px] leading-tight">{open.title}</h3>
             <p className="text-[13px] text-muted -mt-1">

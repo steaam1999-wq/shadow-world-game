@@ -12,8 +12,6 @@ export interface FaceSpec {
   emblemScale?: number
 }
 
-export const FACE = 1024
-const C = FACE / 2
 
 function loadSvg(svg: string): Promise<HTMLImageElement> {
   return new Promise((ok, fail) => {
@@ -24,14 +22,14 @@ function loadSvg(svg: string): Promise<HTMLImageElement> {
   })
 }
 
-function canvas() {
+function canvas(n: number) {
   const c = document.createElement('canvas')
-  c.width = c.height = FACE
+  c.width = c.height = n
   return [c, c.getContext('2d')!] as const
 }
 
 /** Текст по дуге: сверху — по часовой, снизу — буквы стоят прямо и читаются слева направо. */
-function arcText(g: CanvasRenderingContext2D, text: string, r: number, bottom: boolean, px: number) {
+function arcText(g: CanvasRenderingContext2D, C: number, text: string, r: number, bottom: boolean, px: number) {
   g.save()
   g.font = `600 ${px}px Georgia, 'Times New Roman', 'PT Serif', serif`
   g.textAlign = 'center'
@@ -56,42 +54,45 @@ function arcText(g: CanvasRenderingContext2D, text: string, r: number, bottom: b
 export interface FaceMaps { map: HTMLCanvasElement; height: HTMLCanvasElement; rough: HTMLCanvasElement }
 const cache = new Map<string, Promise<FaceMaps>>()
 
-export function faceMaps(s: FaceSpec): Promise<FaceMaps> {
-  let p = cache.get(s.key)
+/** res — сторона текстуры: 1024 для маленьких медалей, 2048 для живой монеты в карточке. */
+export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
+  const id = `${s.key}:${res}`
+  let p = cache.get(id)
   if (!p) {
     p = (async () => {
+      const FACE = res, C = res / 2, K = res / 1024
       const [emblem, sky] = await Promise.all([s.emblem ? loadSvg(s.emblem) : null, s.sky ? loadSvg(s.sky) : null])
       const FIELD = C * 0.64, TEXT = C * 0.79, BEADS = C * 0.93
 
       // ——— Высота ———
-      const [h, hg] = canvas()
+      const [h, hg] = canvas(FACE)
       hg.fillStyle = '#000'
       hg.fillRect(0, 0, FACE, FACE)
       // гильоше на поле: лучи и кольца (очень низкие)
       hg.save()
       hg.beginPath(); hg.arc(C, C, FIELD, 0, Math.PI * 2); hg.clip()
       hg.strokeStyle = 'rgb(40 40 40)'
-      hg.lineWidth = 2
+      hg.lineWidth = 2 * K
       for (let i = 0; i < 240; i++) {
         const a = (i / 240) * Math.PI * 2
         hg.beginPath(); hg.moveTo(C, C); hg.lineTo(C + Math.cos(a) * FIELD, C + Math.sin(a) * FIELD); hg.stroke()
       }
       hg.strokeStyle = 'rgb(26 26 26)'
-      for (let r = 14; r < FIELD; r += 14) { hg.beginPath(); hg.arc(C, C, r, 0, Math.PI * 2); hg.stroke() }
+      for (let r = 14 * K; r < FIELD; r += 14 * K) { hg.beginPath(); hg.arc(C, C, r, 0, Math.PI * 2); hg.stroke() }
       hg.restore()
       // кольцо-граница поля и надписи
-      hg.filter = 'blur(2px)'
+      hg.filter = `blur(${2 * K}px)`
       hg.strokeStyle = '#d0d0d0'
-      hg.lineWidth = 7
-      hg.beginPath(); hg.arc(C, C, FIELD + 10, 0, Math.PI * 2); hg.stroke()
+      hg.lineWidth = 7 * K
+      hg.beginPath(); hg.arc(C, C, FIELD + 10 * K, 0, Math.PI * 2); hg.stroke()
       // надпись и бусины
       hg.fillStyle = '#e8e8e8'
-      arcText(hg, s.title.toUpperCase(), TEXT, false, 64)
-      arcText(hg, 'KOMEETA', TEXT, true, 58)
-      for (const a of [Math.PI * 0.86, Math.PI * 0.14]) { hg.beginPath(); hg.arc(C + TEXT * Math.cos(a), C + TEXT * Math.sin(a), 8, 0, Math.PI * 2); hg.fill() }
+      arcText(hg, C, s.title.toUpperCase(), TEXT, false, 64 * K)
+      arcText(hg, C, 'KOMEETA', TEXT, true, 58 * K)
+      for (const a of [Math.PI * 0.86, Math.PI * 0.14]) { hg.beginPath(); hg.arc(C + TEXT * Math.cos(a), C + TEXT * Math.sin(a), 8 * K, 0, Math.PI * 2); hg.fill() }
       for (let i = 0; i < 90; i++) {
         const a = (i / 90) * Math.PI * 2
-        hg.beginPath(); hg.arc(C + BEADS * Math.cos(a), C + BEADS * Math.sin(a), 9, 0, Math.PI * 2); hg.fill()
+        hg.beginPath(); hg.arc(C + BEADS * Math.cos(a), C + BEADS * Math.sin(a), 9 * K, 0, Math.PI * 2); hg.fill()
       }
       hg.filter = 'none'
       // эмблема: мягкий подъём + чёткая вершина
@@ -99,7 +100,7 @@ export function faceMaps(s: FaceSpec): Promise<FaceMaps> {
         const e = FACE * (s.emblemScale ?? 0.56)
         const stamp = (blur: number, alpha: number) => {
           hg.globalAlpha = alpha
-          hg.filter = `grayscale(1) blur(${blur}px)`
+          hg.filter = `grayscale(1) blur(${blur * K}px)`
           hg.drawImage(emblem, C - e / 2, C - e / 2, e, e)
         }
         stamp(12, 1)
@@ -109,7 +110,7 @@ export function faceMaps(s: FaceSpec): Promise<FaceMaps> {
       }
 
       // ——— Шероховатость: поле — зеркало, всё выпуклое — мат ———
-      const [r, rg] = canvas()
+      const [r, rg] = canvas(FACE)
       rg.fillStyle = 'rgb(36 36 36)'
       rg.fillRect(0, 0, FACE, FACE)
       rg.globalAlpha = 0.75
@@ -119,7 +120,7 @@ export function faceMaps(s: FaceSpec): Promise<FaceMaps> {
       rg.globalAlpha = 1
 
       // ——— Цвет: металл с лёгким градиентом, рельеф чуть светлее, углубления темнее ———
-      const [m, mg] = canvas()
+      const [m, mg] = canvas(FACE)
       const [light, base, dark] = s.metal
       const grad = mg.createRadialGradient(C * 0.7, C * 0.6, 0, C, C, C * 1.05)
       grad.addColorStop(0, light)
@@ -143,14 +144,14 @@ export function faceMaps(s: FaceSpec): Promise<FaceMaps> {
       }
       return { map: m, height: h, rough: r }
     })()
-    cache.set(s.key, p)
+    cache.set(id, p)
   }
   return p
 }
 
 /** Плоская картинка аверса — когда 3D недоступно, и как заглушка, пока 3D готовится. */
 export async function faceImage(s: FaceSpec, px: number) {
-  const { map, height } = await faceMaps(s)
+  const { map, height } = await faceMaps(s, 1024)
   const c = document.createElement('canvas')
   c.width = c.height = px
   const g = c.getContext('2d')!
@@ -161,4 +162,9 @@ export async function faceImage(s: FaceSpec, px: number) {
   g.globalAlpha = 0.5
   g.drawImage(height, -px * 0.004, -px * 0.004, px, px)
   return c.toDataURL('image/png')
+}
+
+/** Освободить память канвасов, когда медаль уже отрисована. */
+export function dropFace(key: string) {
+  for (const k of [...cache.keys()]) if (k.startsWith(`${key}:`)) cache.delete(k)
 }

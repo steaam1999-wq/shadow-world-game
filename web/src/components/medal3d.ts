@@ -3,7 +3,7 @@
 // Загружается лениво — только когда на экране есть медали.
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { faceMaps, type FaceSpec } from './medalFace'
+import { dropFace, faceMaps, type FaceSpec } from './medalFace'
 
 export interface CoinSpec extends FaceSpec {
   rim: string // цвет металла обода
@@ -13,19 +13,14 @@ export interface CoinSpec extends FaceSpec {
 const R = 1
 const T = 0.11
 
-const texCache = new Map<string, Promise<{ map: THREE.CanvasTexture; bump: THREE.CanvasTexture; rough: THREE.CanvasTexture }>>()
-function faceTextures(s: CoinSpec) {
-  let p = texCache.get(s.key)
-  if (!p) {
-    p = faceMaps(s).then(({ map, height, rough }) => {
-      const m = new THREE.CanvasTexture(map)
-      m.colorSpace = THREE.SRGBColorSpace
-      m.anisotropy = 8
-      return { map: m, bump: new THREE.CanvasTexture(height), rough: new THREE.CanvasTexture(rough) }
-    })
-    texCache.set(s.key, p)
-  }
-  return p
+async function faceTextures(s: CoinSpec, res: number, maxAniso: number) {
+  const { map, height, rough } = await faceMaps(s, res)
+  const m = new THREE.CanvasTexture(map)
+  m.colorSpace = THREE.SRGBColorSpace
+  const bump = new THREE.CanvasTexture(height)
+  const r = new THREE.CanvasTexture(rough)
+  for (const t of [m, bump, r]) { t.anisotropy = maxAniso; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter }
+  return { map: m, bump, rough: r }
 }
 
 function envFor(r: THREE.WebGLRenderer) {
@@ -35,8 +30,8 @@ function envFor(r: THREE.WebGLRenderer) {
   return env
 }
 
-async function buildCoin(s: CoinSpec) {
-  const { map, bump, rough } = await faceTextures(s)
+async function buildCoin(s: CoinSpec, res: number, maxAniso: number) {
+  const { map, bump, rough } = await faceTextures(s, res, maxAniso)
   const coin = new THREE.Group()
   // Обод: сплюснутый тор — ребро монеты и выпуклая рамка с обеих сторон
   const rimMat = new THREE.MeshPhysicalMaterial({
@@ -44,15 +39,15 @@ async function buildCoin(s: CoinSpec) {
     ...(s.iridescent ? { iridescence: 1, iridescenceIOR: 1.8, iridescenceThicknessRange: [250, 900] as [number, number] } : {}),
   })
   const tube = 0.075
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 40, 180), rimMat)
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(R - tube, tube, 48, 240), rimMat)
   rim.scale.z = (T / 2 + 0.02) / tube
   coin.add(rim)
   const core = new THREE.Mesh(new THREE.CylinderGeometry(R - tube, R - tube, T, 96, 1), new THREE.MeshStandardMaterial({ color: s.rim, metalness: 1, roughness: 0.35 }))
   core.rotation.x = Math.PI / 2
   coin.add(core)
   // Аверс/реверс: металл, зеркальное поле и матовый рельеф
-  const faceMat = new THREE.MeshPhysicalMaterial({ map, bumpMap: bump, bumpScale: 4, roughnessMap: rough, roughness: 1, metalness: 1 })
-  const faceGeo = new THREE.CircleGeometry(R - tube * 1.1, 128)
+  const faceMat = new THREE.MeshPhysicalMaterial({ map, bumpMap: bump, bumpScale: res > 1024 ? 6 : 4, roughnessMap: rough, roughness: 1, metalness: 1 })
+  const faceGeo = new THREE.CircleGeometry(R - tube * 1.1, 192)
   const front = new THREE.Mesh(faceGeo, faceMat)
   front.position.z = T / 2 + 0.002
   const back = new THREE.Mesh(faceGeo, faceMat)
@@ -60,6 +55,16 @@ async function buildCoin(s: CoinSpec) {
   back.rotation.y = Math.PI
   coin.add(front, back)
   return coin
+}
+
+function disposeCoin(coin: THREE.Object3D) {
+  coin.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return
+    o.geometry.dispose()
+    const mat = o.material as THREE.MeshPhysicalMaterial
+    for (const t of [mat.map, mat.bumpMap, mat.roughnessMap]) t?.dispose()
+    mat.dispose()
+  })
 }
 
 function makeScene(renderer: THREE.WebGLRenderer, dist = 4.7) {
@@ -96,17 +101,21 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
     p = queue.then(async () => {
       if (!shot) {
         const r = newRenderer(undefined, true)
-        const { scene, camera } = makeScene(r, 4.25)
+        const { scene, camera } = makeScene(r, 4.02)
         shot = { r, scene, camera }
       }
-      const coin = await buildCoin(s)
+      const coin = await buildCoin(s, 1024, shot.r.capabilities.getMaxAnisotropy())
       coin.rotation.set(0.16, -0.42, 0.04)
       shot.scene.add(coin)
+      // Рендер в полтора раза крупнее: при уменьшении браузер даёт чистые края
+      const big = Math.min(1536, Math.round(px * 1.5))
       shot.r.setPixelRatio(1)
-      shot.r.setSize(px, px, false)
+      shot.r.setSize(big, big, false)
       shot.r.render(shot.scene, shot.camera)
       const url = shot.r.domElement.toDataURL('image/png')
       shot.scene.remove(coin)
+      disposeCoin(coin)
+      dropFace(s.key)
       return url
     })
     queue = p.catch(() => {})
@@ -118,10 +127,11 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
 // ——— Живая медаль в карточке: вращается на ребре, пальцем можно раскрутить ———
 export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: number) {
   const r = newRenderer(canvas)
-  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5))
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3))
   r.setSize(size, size, false)
-  const { scene, camera, key } = makeScene(r)
-  const coin = await buildCoin(s)
+  const { scene, camera, key } = makeScene(r, 4.3)
+  const coin = await buildCoin(s, 2048, r.capabilities.getMaxAnisotropy())
+  dropFace(s.key)
   scene.add(coin)
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -163,7 +173,7 @@ export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: nu
     canvas.removeEventListener('pointermove', onMove)
     canvas.removeEventListener('pointerup', onUp)
     canvas.removeEventListener('pointercancel', onUp)
-    scene.traverse((o) => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
+    disposeCoin(coin)
     r.dispose()
     r.forceContextLoss()
   }
