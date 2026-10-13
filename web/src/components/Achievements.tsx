@@ -204,7 +204,7 @@ function faceSpec(a: Achievement, render: (el: ReactElement) => string) {
     emblemScale: a.code === 'founder' ? 0.5 : 0.56,
   }
 }
-const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v5:${code}:${px}`) } catch { return null } }
+const cachedShot = (code: string, px: number) => { try { return localStorage.getItem(`komeeta-medal3d:v6:${code}:${px}`) } catch { return null } }
 let webgl: boolean | null = null
 const canWebGL = () => {
   if (webgl === null) { try { const c = document.createElement('canvas'); webgl = !!(c.getContext('webgl2') || c.getContext('webgl')) } catch { webgl = false } }

@@ -82,7 +82,7 @@ function normalFromHeight(h: HTMLCanvasElement, strength: number) {
   return out
 }
 
-export interface FaceMaps { map: HTMLCanvasElement; height: HTMLCanvasElement; rough: HTMLCanvasElement; normal: HTMLCanvasElement }
+export interface FaceMaps { map: HTMLCanvasElement; height: HTMLCanvasElement; rough: HTMLCanvasElement; normal: HTMLCanvasElement; disp: HTMLCanvasElement }
 const cache = new Map<string, Promise<FaceMaps>>()
 
 /** res — сторона текстуры: 1024 для маленьких медалей, 2048 для живой монеты в карточке. */
@@ -161,7 +161,22 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
         rg.save(); rg.beginPath(); rg.arc(C, C, FIELD, 0, Math.PI * 2); rg.clip(); rg.fillStyle = 'rgb(20 20 20)'; rg.fillRect(0, 0, FACE, FACE); rg.restore()
         hg.save(); hg.beginPath(); hg.arc(C, C, FIELD, 0, Math.PI * 2); hg.clip(); hg.fillStyle = '#000'; hg.fillRect(0, 0, FACE, FACE); hg.restore()
       }
-      return { map: m, height: h, rough: r, normal: normalFromHeight(h, 7 * K) }
+      // Карта выдавливания для настоящей геометрии: только эмблема, мягкая и небольшого разрешения —
+      // сетка поверхности редкая, а мелкие надписи и бусины берёт на себя карта нормалей.
+      const [d, dg] = canvas(512)
+      dg.fillStyle = '#000'
+      dg.fillRect(0, 0, 512, 512)
+      if (emblem && !sky) {
+        const e = 512 * (s.emblemScale ?? 0.56)
+        for (const [blur, alpha] of [[7, 1], [2.5, 0.8]] as const) {
+          dg.globalAlpha = alpha
+          dg.filter = `grayscale(1) blur(${blur}px)`
+          dg.drawImage(emblem, 256 - e / 2, 256 - e / 2, e, e)
+        }
+        dg.globalAlpha = 1
+        dg.filter = 'none'
+      }
+      return { map: m, height: h, rough: r, normal: normalFromHeight(h, 7 * K), disp: d }
     })()
     cache.set(id, p)
   }

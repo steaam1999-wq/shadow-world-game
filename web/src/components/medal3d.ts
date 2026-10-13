@@ -15,13 +15,16 @@ const R = 1
 const T = 0.11
 
 async function faceTextures(s: CoinSpec, res: number, maxAniso: number) {
-  const { map, normal, rough } = await faceMaps(s, res)
+  const { map, normal, rough, disp } = await faceMaps(s, res)
   const m = new THREE.CanvasTexture(map)
+  const dsp = new THREE.CanvasTexture(disp)
+  dsp.minFilter = THREE.LinearFilter
+  dsp.generateMipmaps = false
   m.colorSpace = THREE.SRGBColorSpace
   const nrm = new THREE.CanvasTexture(normal)
   const r = new THREE.CanvasTexture(rough)
   for (const t of [m, nrm, r]) { t.anisotropy = maxAniso; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter }
-  return { map: m, nrm, rough: r }
+  return { map: m, nrm, rough: r, dsp }
 }
 
 function envFor(r: THREE.WebGLRenderer) {
@@ -31,8 +34,25 @@ function envFor(r: THREE.WebGLRenderer) {
   return env
 }
 
+const DEPTH = 0.024 // насколько эмблема поднята над полем (рельеф ниже кромки обода)
+
+/** Сетка-диск: квадратная сетка, переложенная на круг без искажения текстуры. Нужна для выдавливания по карте высот. */
+function discGrid(radius: number, seg: number) {
+  const g = new THREE.PlaneGeometry(2, 2, seg, seg)
+  const pos = g.attributes.position as THREE.BufferAttribute
+  const uv = g.attributes.uv as THREE.BufferAttribute
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i)
+    const u = x * Math.sqrt(1 - (y * y) / 2), v = y * Math.sqrt(1 - (x * x) / 2)
+    pos.setXY(i, u * radius, v * radius)
+    uv.setXY(i, u * 0.5 + 0.5, v * 0.5 + 0.5)
+  }
+  g.computeVertexNormals()
+  return g
+}
+
 async function buildCoin(s: CoinSpec, res: number, maxAniso: number) {
-  const { map, nrm, rough } = await faceTextures(s, res, maxAniso)
+  const { map, nrm, rough, dsp } = await faceTextures(s, res, maxAniso)
   const coin = new THREE.Group()
   // Обод: сплюснутый тор — ребро монеты и выпуклая рамка с обеих сторон
   // Плёнка-перелив — только у «Кометы»; остальным хватает обычного металла (дешевле для телефона)
@@ -47,8 +67,11 @@ async function buildCoin(s: CoinSpec, res: number, maxAniso: number) {
   core.rotation.x = Math.PI / 2
   coin.add(core)
   // Аверс/реверс: металл, зеркальное поле и матовый рельеф
-  const faceMat = new THREE.MeshStandardMaterial({ map, normalMap: nrm, normalScale: new THREE.Vector2(1, 1), roughnessMap: rough, roughness: 1, metalness: 1 })
-  const faceGeo = new THREE.CircleGeometry(R - tube * 1.1, 128)
+  // Эмблема выдавлена настоящей геометрией: поверхность — густая сетка, вершины поднимаются по карте высот.
+  // Монета при вращении видна с объёмом и параллаксом, а не как рисунок с подсветкой.
+  const faceMat = new THREE.MeshStandardMaterial({ map, normalMap: nrm, normalScale: new THREE.Vector2(1, 1), roughnessMap: rough, roughness: 1, metalness: 1,
+    displacementMap: dsp, displacementScale: DEPTH, displacementBias: 0 })
+  const faceGeo = discGrid(R - tube * 1.1, res >= 1536 ? 224 : 160)
   const front = new THREE.Mesh(faceGeo, faceMat)
   front.position.z = T / 2 + 0.002
   const back = new THREE.Mesh(faceGeo, faceMat)
@@ -63,7 +86,7 @@ function disposeCoin(coin: THREE.Object3D) {
     if (!(o instanceof THREE.Mesh)) return
     o.geometry.dispose()
     const mat = o.material as THREE.MeshStandardMaterial
-    for (const t of [mat.map, mat.normalMap, mat.roughnessMap]) t?.dispose()
+    for (const t of [mat.map, mat.normalMap, mat.roughnessMap, mat.displacementMap]) t?.dispose()
     mat.dispose()
   })
 }
@@ -95,7 +118,7 @@ let shot: { r: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Perspectiv
 const shots = new Map<string, Promise<string>>()
 let queue: Promise<unknown> = Promise.resolve()
 
-const STORE = 'komeeta-medal3d:v5:'
+const STORE = 'komeeta-medal3d:v6:'
 export function cachedSnapshot(key: string, px: number): string | null {
   try { return localStorage.getItem(`${STORE}${key}:${px}`) } catch { return null }
 }
@@ -113,7 +136,7 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
         shot = { r, scene, camera }
       }
       const coin = await buildCoin(s, 1024, shot.r.capabilities.getMaxAnisotropy())
-      coin.rotation.set(0.16, -0.42, 0.04)
+      coin.rotation.set(0.2, -0.5, 0.04)
       shot.scene.add(coin)
       // Рендер в полтора раза крупнее: при уменьшении браузер даёт чистые края
       const big = Math.min(2048, Math.round(px * 2))
