@@ -1,9 +1,7 @@
 // Готовые фото для планов: реалистичные кадры по категориям. Файлы лежат в public/plan-photos/:
 // <id>.jpg — полный размер (1080×1350), <id>-t.jpg — маленькая превьюшка для списка.
 // Чтобы добавить фото, положите оба файла в эту папку и впишите id в нужную категорию.
-export const PLAN_PHOTOS: Record<string, string[]> = {
-  'Кофе': ['coffee-1', 'coffee-2', 'coffee-3'],
-}
+export const PLAN_PHOTOS: Record<string, string[]> = {}
 
 const base = () => import.meta.env.BASE_URL || './'
 export const planPhotoUrl = (id: string, thumb = false) => `${base()}plan-photos/${id}${thumb ? '-t' : ''}.jpg`
