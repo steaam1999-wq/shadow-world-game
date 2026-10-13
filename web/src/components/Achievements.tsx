@@ -157,6 +157,7 @@ const METALS: Record<string, Metal> = {
   platinum: ['#ffffff', '#dcdfe5', '#787d87'],
   gunmetal: ['#c4c8d0', '#565a62', '#1b1d21'],
 }
+const METAL_NAME: Record<string, string> = { bronze: 'Бронза', copper: 'Медь', steel: 'Сталь', silver: 'Серебро', gold: 'Золото', platinum: 'Платина', gunmetal: 'Тёмный металл' }
 const MEDAL: Record<string, { metal: keyof typeof METALS; iridescent?: boolean }> = {
   first_meet: { metal: 'bronze' }, soul: { metal: 'copper' }, reliable: { metal: 'steel' }, guide: { metal: 'silver' },
   regular: { metal: 'gold' }, ambassador: { metal: 'platinum' }, founder: { metal: 'gold' }, collector: { metal: 'gunmetal', iridescent: true },
@@ -289,6 +290,17 @@ export function Medal({ a, got, size = 56, progress = 0, spin = false }: { a: Ac
     }
     return <Coin3D a={a} size={size} spin={spin} />
   }
+  // Крупная, но ещё не полученная — та же монета, приглушённая, с замком
+  if (size >= 90 && MEDAL[a.code]) {
+    return (
+      <span className="relative inline-block shrink-0" style={{ width: size, height: size }}>
+        <span className="block" style={{ filter: 'grayscale(1) contrast(.9)', opacity: 0.38 }}><Coin3D a={a} size={size} /></span>
+        <span className="absolute left-1/2 -translate-x-1/2 -bottom-1 grid place-items-center w-9 h-9 rounded-full bg-surface border border-line text-muted shadow-soft" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+        </span>
+      </span>
+    )
+  }
   return (
     <span className="relative inline-grid place-items-center shrink-0 rounded-full" style={{ width: size, height: size }}>
       <span className="absolute inset-0 rounded-full bg-surface-2" style={{ boxShadow: 'inset 0 0 0 1px var(--line)' }} />
@@ -325,7 +337,7 @@ export function AchievementsPanel({ personId }: { personId: string }) {
   const at = open ? earned[open.code] : 0
   const g = open && progress && open.goal ? open.goal(progress) : null
   const holders = open && stats ? stats.by[open.code] ?? 0 : null
-  const rare = holders !== null && stats ? (holders <= Math.max(1, stats.total * 0.1) ? 'редкое' : holders <= stats.total * 0.3 ? 'необычное' : 'обычное') : ''
+  const rare = holders !== null && stats ? (holders <= Math.max(1, stats.total * 0.1) ? 'редкая' : holders <= stats.total * 0.3 ? 'необычная' : 'обычная') : ''
   return (
     <section className="flex flex-col gap-2.5" aria-label="Достижения">
       <div className="flex items-baseline justify-between">
@@ -382,37 +394,66 @@ export function AchievementsPanel({ personId }: { personId: string }) {
         </div>
       </Sheet>
       <Sheet open={!!open} onClose={() => setOpen(null)} title="Достижение">
-        {open && (
-          <div className="flex flex-col items-center text-center gap-3 pb-2">
-            <div className="relative grid place-items-center py-3">
-              {!!at && <span className="absolute w-44 h-44 rounded-full blur-3xl opacity-30" style={{ background: MEDAL[open.code] ? METALS[MEDAL[open.code].metal][1] : open.colors[1] }} />}
-              <Medal a={open} got={!!at} size={150} progress={g ? g[0] / g[1] : 0} spin={!!at} />
+        {open && (() => {
+          const metal = MEDAL[open.code] ? METALS[MEDAL[open.code].metal] : open.colors
+          const pct = holders !== null && stats?.total ? Math.max(1, Math.round((holders / stats.total) * 100)) : null
+          return (
+            <div className="flex flex-col items-center text-center pb-1">
+              {/* Сцена: мягкий свет сверху и тень «на столе» под монетой */}
+              <div className="relative grid place-items-center w-full pt-2 pb-5">
+                <span className="absolute top-0 w-56 h-56 rounded-full blur-3xl opacity-[.18]" style={{ background: `radial-gradient(closest-side, ${metal[0]}, transparent)` }} />
+                <Medal a={open} got={!!at} size={150} progress={g ? g[0] / g[1] : 0} spin={!!at} />
+                {!!at && <span className="absolute bottom-1 w-28 h-3 rounded-[50%] bg-black/50 blur-md" />}
+              </div>
+              <span className="text-[11px] font-semibold uppercase tracking-[.2em] text-muted">
+                {MEDAL[open.code] ? METAL_NAME[MEDAL[open.code].metal] : 'Медаль'}{rare ? ` · ${rare}` : ''}
+              </span>
+              <h3 className="mt-1.5 font-display font-bold text-[26px] leading-tight tracking-[-.01em] text-balance">{open.title}</h3>
+              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-line text-[12.5px] text-muted">
+                  <span className={`w-1.5 h-1.5 rounded-full ${at ? 'bg-ok' : 'bg-line'}`} />
+                  {at ? new Date(at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Ещё не получена'}
+                </span>
+                {holders !== null && stats && (
+                  <span className="inline-flex items-center h-7 px-3 rounded-full border border-line text-[12.5px] text-muted tnum">
+                    {holders} из {stats.total}{pct !== null ? ` · ${pct}%` : ''}
+                  </span>
+                )}
+              </div>
+              {!at && g && (
+                <div className="w-full mt-4 flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[12px] text-muted tnum"><span>Прогресс</span><span>{g[0]} / {g[1]}</span></div>
+                  <div className="h-1 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(g[0] / g[1]) * 100}%`, background: `linear-gradient(90deg, ${metal[1]}, ${metal[0]})` }} /></div>
+                </div>
+              )}
+              <div className="w-full mt-5 rounded-[20px] border border-line overflow-hidden text-left">
+                <div className="flex gap-3 p-4">
+                  <span className="grid place-items-center w-8 h-8 shrink-0 rounded-full border border-line text-muted" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.5" /></svg>
+                  </span>
+                  <div className="min-w-0">
+                    <span className="block text-[11px] font-semibold uppercase tracking-[.14em] text-muted">{at ? 'За что' : 'Условие'}</span>
+                    <p className="mt-1 text-[15px] leading-snug">{open.how}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 p-4 border-t border-line">
+                  <span className="grid place-items-center w-8 h-8 shrink-0 rounded-full border border-line text-muted" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z" /><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" opacity=".6" /></svg>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-[.14em] text-muted">Привилегия</span>
+                      <span className={`inline-flex items-center gap-1 text-[11.5px] ${open.live ? 'text-ok' : 'text-muted'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${open.live ? 'bg-ok' : 'bg-muted/60'}`} />{open.live ? 'Действует' : 'Скоро'}
+                      </span>
+                    </span>
+                    <p className="mt-1 text-[15px] leading-snug">{open.perk}</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h3 className="font-display font-bold text-[24px] leading-tight">{open.title}</h3>
-            <p className="text-[13px] text-muted -mt-1">
-              {at ? `Получено ${new Date(at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Ещё не получено'}
-              {holders !== null && stats ? ` · есть у ${holders} из ${stats.total} · ${rare}` : ''}
-            </p>
-            {!at && g && (
-              <div className="w-full flex flex-col gap-1.5 px-1">
-                <div className="h-2 rounded-full bg-surface-2 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(g[0] / g[1]) * 100}%`, background: `linear-gradient(90deg, ${open.colors[0]}, ${open.colors[1]})` }} /></div>
-                <span className="text-[12.5px] text-muted tnum self-end">{g[0]} из {g[1]}</span>
-              </div>
-            )}
-            <div className="w-full flex flex-col gap-2 text-left mt-1">
-              <div className="rounded-2xl bg-surface-2 p-3.5">
-                <span className="block text-[12px] font-semibold text-muted mb-1">{at ? 'За что получено' : 'Как получить'}</span>
-                <span className="text-[14.5px]">{open.how}</span>
-              </div>
-              <div className="rounded-2xl p-3.5" style={{ background: `color-mix(in srgb, ${open.colors[1]} 12%, var(--surface-2))` }}>
-                <span className="flex items-center gap-2 text-[12px] font-semibold text-muted mb-1">Что даёт {open.live
-                  ? <span className="px-1.5 py-0.5 rounded-full text-[10.5px] bg-ok text-white">уже действует</span>
-                  : <span className="px-1.5 py-0.5 rounded-full text-[10.5px] text-white" style={{ background: open.colors[1] }}>скоро</span>}</span>
-                <span className="text-[14.5px]">{open.perk}</span>
-              </div>
-            </div>
-          </div>
-        )}
+          )
+        })()}
       </Sheet>
     </section>
   )
