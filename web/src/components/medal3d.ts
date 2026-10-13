@@ -12,6 +12,8 @@ export interface CoinSpec extends FaceSpec {
 }
 
 const R = 1
+/** Отдать управление браузеру, чтобы тяжёлая сборка монеты не замораживала прокрутку и касания. */
+const idle = () => new Promise<void>((ok) => setTimeout(ok, 16))
 const T = 0.11
 
 async function faceTextures(s: CoinSpec, res: number, maxAniso: number) {
@@ -72,7 +74,7 @@ async function buildCoin(s: CoinSpec, res: number, maxAniso: number) {
   // Монета при вращении видна с объёмом и параллаксом, а не как рисунок с подсветкой.
   const faceMat = new THREE.MeshStandardMaterial({ map, normalMap: nrm, normalScale: new THREE.Vector2(1, 1), roughnessMap: rough, roughness: 1, metalness: 1,
     displacementMap: dsp, displacementScale: DEPTH, displacementBias: 0 })
-  const faceGeo = discGrid(R - tube * 1.1, res >= 1536 ? 224 : 160)
+  const faceGeo = discGrid(R - tube * 1.1, 128)
   const front = new THREE.Mesh(faceGeo, faceMat)
   front.position.z = T / 2 - SINK
   const back = new THREE.Mesh(faceGeo, faceMat)
@@ -134,6 +136,7 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
   let p = shots.get(k)
   if (!p) {
     p = queue.then(async () => {
+      await idle()
       if (!shot) {
         const r = newRenderer(undefined, true)
         const { scene, camera } = makeScene(r, 4.6)
@@ -163,10 +166,11 @@ export function snapshotCoin(s: CoinSpec, px: number): Promise<string> {
 // ——— Живая медаль в карточке: вращается на ребре, пальцем можно раскрутить ———
 export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: number) {
   const r = newRenderer(canvas)
-  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3))
+  r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   r.setSize(Math.round(size * PAD), Math.round(size * PAD), false)
   const { scene, camera, key } = makeScene(r, 4.6)
-  const coin = await buildCoin(s, 2048, Math.min(8, r.capabilities.getMaxAnisotropy()))
+  await idle()
+  const coin = await buildCoin(s, 1024, Math.min(8, r.capabilities.getMaxAnisotropy()))
   dropFace(s.key)
   scene.add(coin)
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -188,6 +192,7 @@ export async function mountCoin(canvas: HTMLCanvasElement, s: CoinSpec, size: nu
   const tick = (now: number) => {
     const dt = Math.min(50, now - prev)
     prev = now
+    if (document.hidden) { raf = requestAnimationFrame(tick); return }
     if (drag === null) {
       if (Math.abs(vel) > 0.0005) { angle += vel; vel *= 0.95 }
       else if (!reduce && now - idleAt > 1200) {

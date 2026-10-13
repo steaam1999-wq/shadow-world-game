@@ -91,6 +91,7 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
   let p = cache.get(id)
   if (!p) {
     p = (async () => {
+      await new Promise((ok) => setTimeout(ok, 0))
       const FACE = res, C = res / 2, K = res / 1024
       const [emblem, sky] = await Promise.all([s.emblem ? loadSvg(s.emblem) : null, s.sky ? loadSvg(s.sky) : null])
       const FIELD = C * 0.64, TEXT = C * 0.79, BEADS = C * 0.93
@@ -177,6 +178,7 @@ export function faceMaps(s: FaceSpec, res = 1024): Promise<FaceMaps> {
         rg.save(); rg.beginPath(); rg.arc(C, C, FIELD, 0, Math.PI * 2); rg.clip(); rg.fillStyle = 'rgb(20 20 20)'; rg.fillRect(0, 0, FACE, FACE); rg.restore()
         hg.save(); hg.beginPath(); hg.arc(C, C, FIELD, 0, Math.PI * 2); hg.clip(); hg.fillStyle = '#000'; hg.fillRect(0, 0, FACE, FACE); hg.restore()
       }
+      await new Promise((ok) => setTimeout(ok, 0))
       // Карта выдавливания для настоящей геометрии: только эмблема, мягкая и небольшого разрешения —
       // сетка поверхности редкая, а мелкие надписи и бусины берёт на себя карта нормалей.
       const [d, dg] = canvas(512)
