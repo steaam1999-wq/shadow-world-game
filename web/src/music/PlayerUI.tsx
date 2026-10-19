@@ -175,7 +175,7 @@ export function FullPlayer() {
             ) : (
               <>
             <div className="flex-1 min-h-[16px]" />
-              <div className="py-4 grid place-items-center"
+              <div data-noswipe className="py-4 grid place-items-center"
                 onTouchStart={(e) => { swipe.current = e.touches[0].clientX }}
                 onTouchEnd={(e) => {
                   if (swipe.current === null) return

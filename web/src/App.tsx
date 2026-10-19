@@ -253,6 +253,45 @@ function AppShell({ onSignOut, onAdmin }: { onSignOut: () => void; onAdmin: () =
   const closeChat = useCallback(() => setChat(null), [])
   const openChatById = useCallback((id: string) => { setPerson(null); setTab('capsules'); setChat(id) }, [])
 
+  // Жесты: свайп слева направо — назад, справа налево — вперёд по тому, где человек уже был.
+  const trail = useRef<{ loc: { tab: Tab; chat: string | null; person: string | null }[]; at: number }>({ loc: [{ tab: 'home', chat: null, person: null }], at: 0 })
+  useEffect(() => {
+    const t = trail.current, cur = t.loc[t.at]
+    if (cur.tab === tab && cur.chat === chat && cur.person === person) return
+    t.loc = [...t.loc.slice(0, t.at + 1), { tab, chat, person }].slice(-40)
+    t.at = t.loc.length - 1
+  }, [tab, chat, person])
+  const go = useCallback((dir: -1 | 1) => {
+    const t = trail.current, next = t.at + dir
+    if (next < 0 || next >= t.loc.length) return
+    t.at = next
+    const l = t.loc[next]
+    setTab(l.tab); setChat(l.chat); setPerson(l.person)
+  }, [])
+  useEffect(() => {
+    let s: { x: number; y: number; t: number } | null = null
+    // Не мешаем тому, что само умеет листаться или двигаться пальцем: поля, ползунки, горизонтальные ленты, фото, окна
+    const blocked = (el: EventTarget | null) => {
+      for (let n = el instanceof Element ? el : null; n && n !== document.body; n = n.parentElement) {
+        const tag = n.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'CANVAS' || tag === 'VIDEO' || tag === 'AUDIO' || n.getAttribute('role') === 'dialog' || n.hasAttribute('data-noswipe')) return true
+        if (n.scrollWidth > n.clientWidth + 4 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) return true
+      }
+      return false
+    }
+    const down = (e: TouchEvent) => { s = e.touches.length === 1 && !blocked(e.target) && !document.querySelector('[role="dialog"]') ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null }
+    const up = (e: TouchEvent) => {
+      if (!s) return
+      const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y, dt = Date.now() - s.t
+      s = null
+      if (dt > 700 || Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.45) return
+      go(dx > 0 ? -1 : 1)
+    }
+    document.addEventListener('touchstart', down, { passive: true })
+    document.addEventListener('touchend', up, { passive: true })
+    return () => { document.removeEventListener('touchstart', down); document.removeEventListener('touchend', up) }
+  }, [go])
+
   const respond = (a: Activity, text?: string) => {
     dispatch({ type: 'respond', activityId: a.id, text })
     setToast(a)
