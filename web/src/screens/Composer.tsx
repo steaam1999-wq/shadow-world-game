@@ -15,7 +15,7 @@ import type { Track } from '../music/engine'
 
 const MAX_SEC = 60
 const MAX_MB = 50
-const CAPTION_MAX = 200
+const CAPTION_MAX = 2000
 
 type Aspect = 'orig' | '4:5' | '1:1' | '9:16'
 // По умолчанию — фото целиком, как в исходнике; обрезать можно по желанию.

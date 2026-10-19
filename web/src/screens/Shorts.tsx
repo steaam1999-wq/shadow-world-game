@@ -221,7 +221,7 @@ function ShortItem({ s, muted, onToggleMute, onAutoMute, hearted, likes, onHeart
             <span className="text-[12px] text-white/70">{relative(s.at, Date.now())}</span>
           </button>
         )}
-        {s.caption && <p className="text-[15px] leading-snug whitespace-pre-wrap break-words drop-shadow">{s.caption}</p>}
+        {s.caption && <p className="text-[15px] leading-snug whitespace-pre-wrap break-words drop-shadow max-h-[28vh] overflow-y-auto">{s.caption}</p>}
       </div>
 
       <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Удалить шортс?" text="Видео исчезнет у всех. Вернуть его будет нельзя." action="Удалить" onConfirm={() => { setConfirm(false); void remove() }} />
@@ -508,7 +508,7 @@ export function FeedPublication({ s, onMessage }: { s: Short; onMessage: (person
           onSend={(p) => dispatch({ type: 'directMessage', personId: p.id, capsuleId: crypto.randomUUID(), text: pubMessage(s, author?.name) })} />
         <SaveButton id={s.id} size={25} className="ml-auto" />
       </div>
-      {s.caption && <p className="px-4 text-[14px] whitespace-pre-wrap break-words"><span className="font-semibold">{author?.name}</span> {s.caption}</p>}
+      {s.caption && <FeedCaption name={author?.name} text={s.caption} />}
       <ConfirmSheet open={confirm} onClose={() => setConfirm(false)} title="Удалить публикацию?" text="Публикация исчезнет у всех. Вернуть её будет нельзя." action="Удалить" onConfirm={() => { setConfirm(false); void remove() }} />
       <ReportSheet person={reporting} shortId={s.id} onClose={() => setReporting(null)} />
       <ShortCommentsSheet short={s} open={comments} onClose={() => setComments(false)} />
@@ -695,5 +695,17 @@ export function SavedPublications({ onMessage }: { onMessage: (personId: string)
         </div>
       )}
     </>
+  )
+}
+
+/** Подпись в ленте: длинный текст (до 2000 знаков) сворачивается до нескольких строк, «ещё» раскрывает целиком. */
+function FeedCaption({ name, text }: { name?: string; text: string }) {
+  const [more, setMore] = useState(false)
+  const long = text.length > 220 || text.split('\n').length > 4
+  return (
+    <p className="px-4 text-[14px] whitespace-pre-wrap break-words">
+      <span className="font-semibold">{name}</span>{' '}
+      {long && !more ? <>{text.slice(0, 220).trimEnd()}… <button type="button" onClick={() => setMore(true)} className="text-muted font-medium cursor-pointer">ещё</button></> : text}
+    </p>
   )
 }

@@ -2063,3 +2063,7 @@ begin
 end $$;
 revoke all on function public.admin_recent_visitors() from public, anon;
 grant execute on function public.admin_recent_visitors() to authenticated;
+
+-- Подпись к публикации — до 2000 знаков.
+alter table public.shorts drop constraint if exists shorts_caption_check;
+alter table public.shorts add constraint shorts_caption_check check (char_length(caption) <= 2000);
