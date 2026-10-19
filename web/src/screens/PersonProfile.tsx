@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { MetTogether } from '../components/Met'
 import { compatibility, planWhen, plural, sharedAnswers, nameAge } from '../lib'
@@ -6,6 +6,7 @@ import { Avatar, Icon, StoryRing } from '../components/ui'
 import { PhotoViewer } from '../components/PhotoViewer'
 import { AmbassadorBadge, AvatarRing, MedalFrame, ProfileCover, Stats, StatusLine, TagChips, accentOf, statusOf } from '../components/ProfileLook'
 import { usePresence } from '../cloud/presence'
+import { noteProfileView } from '../cloud/api'
 import { AchievementsPanel } from '../components/Achievements'
 import { frameOf } from '../components/medalMetals'
 import { FounderBadge, GoldFrame, profileUrl, shareLink } from '../components/Invite'
@@ -43,6 +44,8 @@ export function PersonProfile({ personId, now, onBack, onRespond, onOpenCapsule,
   const tasteOf = useTaste() // до раннего выхода: хуки вызываются всегда в одном порядке
   const [copied, setCopied] = useState(false)
   const presence = usePresence(state.cloud ? personId : undefined)
+  const cloudOn = !!state.cloud
+  useEffect(() => { if (cloudOn && personId !== 'me') noteProfileView(personId) }, [cloudOn, personId])
   if (!p) return null
   const me = state.me!
   const following = (state.following ?? []).includes(p.id)

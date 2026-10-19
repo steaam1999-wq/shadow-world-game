@@ -2021,3 +2021,45 @@ begin
 end $$;
 revoke all on function public.support_tick() from public, anon;
 grant execute on function public.support_tick() to authenticated;
+
+-- Админ: последние заходы и какую страницу человек смотрел последней.
+-- Хранится только последний просмотр на человека; таблица закрыта от всех, читает её лишь админская функция.
+create table if not exists public.profile_visits (
+  viewer uuid primary key references public.profiles (id) on delete cascade,
+  viewed uuid not null references public.profiles (id) on delete cascade,
+  at timestamptz not null default now()
+);
+alter table public.profile_visits enable row level security;
+revoke all on public.profile_visits from anon, authenticated;
+
+create or replace function public.note_profile_view(target uuid) returns void
+language sql security definer set search_path = '' as $$
+  insert into public.profile_visits (viewer, viewed, at)
+  select (select auth.uid()), target, now()
+  where (select auth.uid()) is not null and target <> (select auth.uid())
+    and exists (select 1 from public.profiles where id = target)
+    and exists (select 1 from public.profiles where id = (select auth.uid()))
+  on conflict (viewer) do update set viewed = excluded.viewed, at = excluded.at
+$$;
+revoke all on function public.note_profile_view(uuid) from public, anon;
+grant execute on function public.note_profile_view(uuid) to authenticated;
+
+create or replace function public.admin_recent_visitors() returns table (
+  id uuid, name text, photo_path text, seen_at timestamptz, online boolean,
+  viewed_id uuid, viewed_name text, viewed_at timestamptz
+)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not private.is_admin() then raise exception 'forbidden' using errcode = '42501'; end if;
+  return query
+  select p.id, p.name, p.photo_path, s.seen_at, coalesce(s.online_until > now(), false),
+         v.viewed, vp.name, v.at
+  from presence s
+  join profiles p on p.id = s.user_id
+  left join profile_visits v on v.viewer = s.user_id
+  left join profiles vp on vp.id = v.viewed
+  order by s.seen_at desc
+  limit 100;
+end $$;
+revoke all on function public.admin_recent_visitors() from public, anon;
+grant execute on function public.admin_recent_visitors() to authenticated;

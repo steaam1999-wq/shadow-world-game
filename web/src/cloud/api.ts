@@ -648,6 +648,25 @@ export async function adminUsers(q: string): Promise<AdminUser[]> {
     banned: r.banned, banReason: r.ban_reason, plans: Number(r.plans), posts: Number(r.posts), followers: Number(r.followers), reports: Number(r.reports),
   }))
 }
+/** Запомнить, чью страницу открыл человек (видно только администратору). Ошибки молча игнорируем. */
+export function noteProfileView(target: string) {
+  void sb().rpc('note_profile_view', { target }).then(() => {}, () => {})
+}
+
+export interface AdminVisitor {
+  id: string; name: string; photo: string | null; seenAt: number; online: boolean
+  viewedId: string | null; viewedName: string | null; viewedAt: number | null
+}
+export async function adminRecentVisitors(): Promise<AdminVisitor[]> {
+  const { data, error } = await sb().rpc('admin_recent_visitors')
+  if (error) throw error
+  const rows = (data ?? []) as { id: string; name: string; photo_path: string | null; seen_at: string; online: boolean; viewed_id: string | null; viewed_name: string | null; viewed_at: string | null }[]
+  const urls = await photoUrls(rows.flatMap((r) => (r.photo_path ? [r.photo_path] : [])))
+  return rows.map((r) => ({
+    id: r.id, name: r.name, photo: r.photo_path ? urls.get(r.photo_path) ?? null : null, seenAt: ms(r.seen_at), online: r.online,
+    viewedId: r.viewed_id, viewedName: r.viewed_name, viewedAt: r.viewed_at ? ms(r.viewed_at) : null,
+  }))
+}
 export async function adminSetVerified(userId: string, v: boolean) {
   const { error } = await sb().rpc('admin_set_verified', { u: userId, v })
   if (error) throw error

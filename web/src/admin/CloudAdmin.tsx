@@ -6,18 +6,19 @@ import { PostArt } from '../components/PostArt'
 import { DEFAULT_CATEGORIES, DEFAULT_TAGS } from '../data'
 import { requestReload } from '../cloud/sync'
 import { openProfileLater } from '../components/Invite'
-import { adminBugReports, adminSources, setBugStatus, type BugReport, type SourceStats } from '../cloud/api'
+import { type AdminVisitor, adminBugReports, adminSources, setBugStatus, type BugReport, type SourceStats } from '../cloud/api'
 import { cleanSource } from '../components/Invite'
 import {
-  adminBanUntil, adminDeleteUser, adminSetAmbassador, ambassadorOf, adminPush, adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUpdateProfile, adminUsers, adminVerifications, adminWipeContent,
+  adminBanUntil, adminDeleteUser, adminSetAmbassador, ambassadorOf, adminPush, adminReports, adminSaveSetting, adminSetAdmin, adminSetVerified, adminStats, adminUpdateProfile, adminRecentVisitors, adminUsers, adminVerifications, adminWipeContent,
   decideVerification, deletePlan, deleteShort, humanError, setBan, setReportStatus,
   type AdminReport, type AdminStats, type AdminUser, type AdminVerification,
 } from '../cloud/api'
 
-type Tab = 'overview' | 'users' | 'moderation' | 'bugs' | 'content' | 'settings'
+type Tab = 'overview' | 'users' | 'visits' | 'moderation' | 'bugs' | 'content' | 'settings'
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Обзор', icon: 'grid' },
   { id: 'users', label: 'Люди', icon: 'user' },
+  { id: 'visits', label: 'Заходы', icon: 'eye' },
   { id: 'moderation', label: 'Модерация', icon: 'flag' },
   { id: 'bugs', label: 'Ошибки', icon: 'bell' },
   { id: 'content', label: 'Контент', icon: 'reels' },
@@ -60,6 +61,7 @@ export function CloudAdmin({ onExit }: { onExit: () => void }) {
           {error && <p className="text-[13px] text-danger" role="alert">{error}</p>}
           {tab === 'overview' && <Overview onError={setError} onPending={setPending} go={setTab} />}
           {tab === 'users' && <Users onError={setError} onOpenProfile={(id) => { openProfileLater(id); onExit() }} />}
+          {tab === 'visits' && <Visits onError={setError} onOpenProfile={(id) => { openProfileLater(id); onExit() }} />}
           {tab === 'moderation' && <Moderation onError={setError} />}
           {tab === 'bugs' && <Bugs onError={setError} />}
           {tab === 'content' && <Content onError={setError} />}
@@ -328,6 +330,38 @@ function Users({ onError, onOpenProfile }: { onError: (e: string) => void; onOpe
         </>
       )}
       <UserSheet user={open} onClose={() => setOpen(null)} onChanged={() => { load(); requestReload() }} onError={onError} self={open?.id === me} onOpenProfile={onOpenProfile} />
+    </div>
+  )
+}
+
+/** Кто последним заходил в приложение и чью страницу смотрел. Виден только администратору. */
+function Visits({ onError, onOpenProfile }: { onError: (e: string) => void; onOpenProfile: (id: string) => void }) {
+  const [rows, setRows] = useState<AdminVisitor[] | null>(null)
+  const load = useCallback(() => { adminRecentVisitors().then(setRows, (e) => onError(humanError(e))) }, [onError])
+  useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t) }, [load])
+  if (rows === null) return <p className="text-muted">Загружаем…</p>
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] text-muted">Последние заходы. Обновляется само.</p>
+        <button onClick={load} className="h-8 px-3 rounded-full bg-surface-2 text-[13px] font-semibold cursor-pointer">Обновить</button>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {rows.map((r) => (
+          <li key={r.id} className={`${card} !p-3 flex items-center gap-3`}>
+            <button onClick={() => onOpenProfile(r.id)} className="shrink-0 cursor-pointer" aria-label={`Открыть профиль: ${r.name}`}>
+              <Avatar name={r.name} hue={r.name.length * 37} src={r.photo ?? undefined} size={44} />
+            </button>
+            <span className="flex-1 min-w-0">
+              <span className="flex items-center gap-1.5 font-semibold truncate">{r.name}{r.online && <Pill tone="ok">в сети</Pill>}</span>
+              <span className="block text-[12px] text-muted">{r.online ? 'сейчас в приложении' : `был(а) ${relative(r.seenAt, Date.now())}`}</span>
+              {r.viewedId && r.viewedAt
+                ? <button onClick={() => onOpenProfile(r.viewedId!)} className="block text-left text-[12px] text-cobalt cursor-pointer truncate max-w-full">смотрел(а) страницу: {r.viewedName ?? 'без имени'} · {relative(r.viewedAt, Date.now())}</button>
+                : <span className="block text-[12px] text-muted">чужие страницы пока не открывал(а)</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
