@@ -337,11 +337,36 @@ function Users({ onError, onOpenProfile }: { onError: (e: string) => void; onOpe
 /** Кто последним заходил в приложение и чью страницу смотрел. Виден только администратору. */
 function Visits({ onError, onOpenProfile }: { onError: (e: string) => void; onOpenProfile: (id: string) => void }) {
   const [rows, setRows] = useState<AdminVisitor[] | null>(null)
-  const load = useCallback(() => { adminRecentVisitors().then(setRows, (e) => onError(humanError(e))) }, [onError])
+  const [fresh, setFresh] = useState<AdminUser[]>([])
+  const load = useCallback(() => {
+    adminRecentVisitors().then(setRows, (e) => onError(humanError(e)))
+    // Новые: пришли за последние 7 дней — даже если ещё не успели ничего открыть
+    adminUsers('').then((u) => setFresh(u.filter((x) => Date.now() - x.createdAt < 7 * 86400_000).sort((a, b) => b.createdAt - a.createdAt)), () => {})
+  }, [onError])
   useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t) }, [load])
   if (rows === null) return <p className="text-muted">Загружаем…</p>
   return (
     <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-2">
+        <h3 className="text-[13px] font-semibold text-muted">Новые за неделю · {fresh.length}</h3>
+        {fresh.length === 0 ? <p className="text-[13px] text-muted">За неделю никто не пришёл.</p> : (
+          <ul className="flex flex-col gap-2">
+            {fresh.map((u) => (
+              <li key={u.id}>
+                <button onClick={() => onOpenProfile(u.id)} className={`${card} !p-3 w-full flex items-center gap-3 text-left cursor-pointer`}>
+                  <Avatar name={u.name} hue={u.name.length * 37} src={u.photo ?? undefined} size={44} verified={u.verified} />
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-1.5 font-semibold truncate">{nameAge(u.name, u.age)}<Pill tone="spark">новый</Pill></span>
+                    <span className="block text-[12px] text-muted truncate">{u.email}{u.district ? ` · ${u.district}` : ''}</span>
+                    <span className="block text-[12px] text-muted">зарегистрировался(ась) {relative(u.createdAt, Date.now())}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <h3 className="text-[13px] font-semibold text-muted mt-1">Последние заходы</h3>
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted">Последние заходы. Обновляется само.</p>
         <button onClick={load} className="h-8 px-3 rounded-full bg-surface-2 text-[13px] font-semibold cursor-pointer">Обновить</button>
