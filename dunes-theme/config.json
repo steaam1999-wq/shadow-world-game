@@ -1,0 +1,40 @@
+{
+  "dock_apps": [
+    "com.google.android.youtube.tv",
+    "ru.kinopoisk.tv",
+    "com.spbtv.velcom",
+    "com.yandex.browser.tv"
+  ],
+  "fill_dock": true,
+  "hidden_apps": ["com.tcl.tv"],
+  "live_tv_package": "com.tcl.tv",
+  "settings_key_keycodes": [83, 4020, 4077],
+  "app_keys": ["4065:com.google.android.youtube.tv"],
+
+  "background_color": "#0B0B12",
+  "wallpaper": true,
+  "wallpaper_rotation_minutes": 60,
+  "wallpaper_order": "sequential",
+  "wallpaper_moods": {
+    "morning": ["morning-1-dawn.jpg", "morning-2-day.jpg"],
+    "evening": ["evening-1-sunset.jpg", "evening-2-dusk.jpg"],
+    "night": ["night-1-moon.jpg", "night-2-deep.jpg"]
+  },
+  "wallpaper_true_color": true,
+  "wallpaper_dim": 0,
+  "wallpaper_captions": false,
+
+  "dock_glass": true,
+  "dock_opacity": 40,
+  "glass_style": "rim",
+  "icon_only_buttons": true,
+  "ambient_glow": false,
+  "app_glow": false,
+  "focus_overshoot": false,
+  "advanced_effects": true,
+
+  "home_idle_clock_minutes": 3,
+  "clock_wallpaper": true,
+  "clock_wallpaper_dim": 25,
+  "clock_glow": false
+}
