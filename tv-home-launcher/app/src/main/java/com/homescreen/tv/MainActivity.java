@@ -224,6 +224,8 @@ public class MainActivity extends Activity {
     private App heroApp;
     private ValueAnimator scrollAnim;
     private AlertDialog openDialog;
+    private LinearLayout editChip;
+    private TextView editLabel;
     private boolean editMode;           // «Изменить порядок»: OK picks a tile up instead of opening it
     private String movingKey;          // the tile being moved on «Главная» (null when not moving)
     private View movingTile;
@@ -255,6 +257,12 @@ public class MainActivity extends Activity {
         TILE_H = Math.round(TILE_W * 9f / 16f);
         buildUi();
         setContentView(root);
+        // the glass lens shows the open tab: bright on the tabs, faint over the tiles, gone up in the corner
+        root.getViewTreeObserver().addOnGlobalFocusChangeListener((oldFocus, newFocus) -> {
+            float a = tabViews.contains(newFocus) ? 1f : (newFocus != null && newFocus.getTag() instanceof App) ? 0.55f : 0f;
+            lens.animate().alpha(a).setDuration(220).setInterpolator(EASE).start();
+            if (a < 1f) lensRim.animate().alpha(0f).setDuration(220).setInterpolator(EASE).start();
+        });
         applyBrightness();
         updateWallpaper(true);
         loadApps(true);
@@ -439,7 +447,6 @@ public class MainActivity extends Activity {
         top.addView(iconButton(R.drawable.ic_input, "Источники", v -> openInputs()));
         top.addView(iconButton(R.drawable.ic_wifi, "Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
         top.addView(iconButton(R.drawable.ic_brightness, "Яркость", v -> showBrightness()));
-        top.addView(iconButton(R.drawable.ic_edit, "Изменить порядок", v -> startEdit()));
         content.addView(top);
 
         content.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
@@ -519,9 +526,39 @@ public class MainActivity extends Activity {
             tabs.addView(t);
         }
         tabsFrame.addView(tabs, new FrameLayout.LayoutParams(-2, -2));
+        // tabs and, beside them, the «Изменить» glass pill: next to the tiles it changes, one step away
+        LinearLayout tabsRow = new LinearLayout(this);
+        tabsRow.setOrientation(LinearLayout.HORIZONTAL);
+        tabsRow.setGravity(Gravity.CENTER_VERTICAL);
+        tabsRow.setClipChildren(false);
+        tabsRow.addView(tabsFrame);
+        editChip = new LinearLayout(this);
+        editChip.setOrientation(LinearLayout.HORIZONTAL);
+        editChip.setGravity(Gravity.CENTER_VERTICAL);
+        editChip.setPadding(dp(18), dp(12), dp(20), dp(12));
+        editChip.setBackground(glassStates(24, true));
+        editChip.setFocusable(true);
+        editChip.setContentDescription("Изменить порядок приложений");
+        ImageView pen = new ImageView(this);
+        pen.setImageResource(R.drawable.ic_edit);
+        editChip.addView(pen, new LinearLayout.LayoutParams(dp(18), dp(18)));
+        editLabel = text(15, 0xE6F4F6FB, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        editLabel.setText("Изменить");
+        LinearLayout.LayoutParams el = new LinearLayout.LayoutParams(-2, -2);
+        el.leftMargin = dp(10);
+        editChip.addView(editLabel, el);
+        editChip.setOnClickListener(v -> {
+            if (editMode) stopEdit();
+            else startEdit();
+        });
+        editChip.setOnFocusChangeListener((v, has) -> v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f)
+                .setDuration(240).setInterpolator(EASE).start());
+        LinearLayout.LayoutParams ecl = new LinearLayout.LayoutParams(-2, -2);
+        ecl.leftMargin = dp(14);
+        tabsRow.addView(editChip, ecl);
         LinearLayout.LayoutParams tabsLp = new LinearLayout.LayoutParams(-2, -2);
         tabsLp.topMargin = dp(24);
-        content.addView(tabsFrame, tabsLp);
+        content.addView(tabsRow, tabsLp);
         tabs.post(() -> moveLens(tab, false));
 
         // one ready row per tab, stacked: switching tabs is a cross-fade, never a rebuild or re-layout
@@ -1642,6 +1679,8 @@ public class MainActivity extends Activity {
 
     private void startEdit() {
         editMode = true;
+        editLabel.setText("Готово");
+        editChip.setSelected(true);
         if (tab != 0) switchTab(0);
         row = rows[0];
         rowScroll = rowScrolls[0];
@@ -1652,7 +1691,10 @@ public class MainActivity extends Activity {
     }
 
     private void stopEdit() {
+        if (movingKey != null) finishMove();
         editMode = false;
+        editLabel.setText("Изменить");
+        editChip.setSelected(false);
         View f = getCurrentFocus();
         heroApp = null;
         if (f != null && f.getTag() instanceof App) showHero((App) f.getTag());
