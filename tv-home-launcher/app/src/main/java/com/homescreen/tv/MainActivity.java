@@ -196,6 +196,7 @@ public class MainActivity extends Activity {
 
     private FrameLayout root;
     private ImageView wallA, wallB, glow;
+    private View scrim;
     private int wallIndex = -1;
     private View dim;
     private TextView greeting, clock, date, heroCategory, heroTitle, heroDesc;
@@ -356,7 +357,7 @@ public class MainActivity extends Activity {
         glow = glowView();
         root.addView(glow, match());
 
-        View scrim = new View(this);
+        scrim = new View(this);
         GradientDrawable left = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[]{0xC806070C, 0x5506070C, 0x0006070C});
         GradientDrawable bottom = new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
@@ -371,31 +372,27 @@ public class MainActivity extends Activity {
         content.setClipToPadding(false);
         root.addView(content, match());
 
-        // top bar: greeting over the clock, date, glass buttons
+        // top bar, one line: clock | greeting over date | … | round glass icon buttons
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.TOP);
+        top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(0, 0, dp(52), 0);
         top.setClipChildren(false);
-        LinearLayout clockBox = new LinearLayout(this);
-        clockBox.setOrientation(LinearLayout.VERTICAL);
-        greeting = text(12, 0xCCF4F6FB, Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        greeting.setLetterSpacing(0.22f);
-        LinearLayout clockLine = new LinearLayout(this);
-        clockLine.setOrientation(LinearLayout.HORIZONTAL);
-        clockLine.setGravity(Gravity.BOTTOM);
-        clock = text(44, Color.WHITE, Typeface.create("sans-serif-thin", Typeface.NORMAL));
-        date = text(15, 0xB3F4F6FB, Typeface.create("sans-serif", Typeface.NORMAL));
-        clockLine.addView(clock, new LinearLayout.LayoutParams(dp(124), -2));
-        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(dp(260), -2);
-        dlp.leftMargin = dp(8);
-        dlp.bottomMargin = dp(6);
-        clockLine.addView(date, dlp);
-        clockBox.addView(greeting);
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-2, -2);
-        clp.topMargin = dp(6);
-        clockBox.addView(clockLine, clp);
-        top.addView(clockBox);
+        top.setClipToPadding(false);
+        clock = text(42, Color.WHITE, Typeface.create("sans-serif-thin", Typeface.NORMAL));
+        top.addView(clock, new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout dateBox = new LinearLayout(this);
+        dateBox.setOrientation(LinearLayout.VERTICAL);
+        greeting = text(11, 0xCCF4F6FB, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        greeting.setLetterSpacing(0.2f);
+        date = text(15, 0xD9F4F6FB, Typeface.create("sans-serif", Typeface.NORMAL));
+        dateBox.addView(greeting);
+        LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-2, -2);
+        dl.topMargin = dp(4);
+        dateBox.addView(date, dl);
+        LinearLayout.LayoutParams dbl = new LinearLayout.LayoutParams(-2, -2);
+        dbl.leftMargin = dp(18);
+        top.addView(dateBox, dbl);
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         top.addView(iconButton(R.drawable.ic_input, "Источники", v -> openInputs()));
         top.addView(iconButton(R.drawable.ic_wifi, "Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
@@ -472,7 +469,7 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setClipChildren(false);
         row.setClipToPadding(false);
-        row.setPadding(dp(4), dp(22), dp(400), dp(6));
+        row.setPadding(dp(14), dp(30), dp(400), dp(8));
         rowScroll.addView(row);
         LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
         rowLp.topMargin = dp(4);
@@ -499,43 +496,22 @@ public class MainActivity extends Activity {
         return v;
     }
 
-    /** Round glass icon button; its name fades in underneath only while it is focused. */
+    /** Round glass icon button (the name is read out by accessibility, not printed). */
     private View iconButton(int iconRes, String name, View.OnClickListener click) {
-        LinearLayout wrap = new LinearLayout(this);
-        wrap.setOrientation(LinearLayout.VERTICAL);
-        wrap.setGravity(Gravity.CENTER_HORIZONTAL);
-        wrap.setClipChildren(false);
-
         ImageView b = new ImageView(this);
         b.setImageResource(iconRes);
         b.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        b.setPadding(dp(14), dp(14), dp(14), dp(14));
-        b.setBackground(glassStates(27, true));
+        b.setPadding(dp(13), dp(13), dp(13), dp(13));
+        b.setBackground(glassStates(25, true));
         b.setContentDescription(name);
         b.setFocusable(true);
         b.setOnClickListener(click);
-        wrap.addView(b, new LinearLayout.LayoutParams(dp(54), dp(54)));
-
-        final TextView caption = text(12, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        caption.setText(name);
-        caption.setAlpha(0f);
-        caption.setShadowLayer(dp(6), 0, dp(1), 0x99000000);
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-2, -2);
-        cp.topMargin = dp(8);
-        wrap.addView(caption, cp);
-
-        b.setOnFocusChangeListener((v, has) -> {
-            v.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).setDuration(240)
-                    .setInterpolator(has ? new OvershootInterpolator(1.6f) : EASE).start();
-            caption.animate().alpha(has ? 1f : 0f).translationY(has ? dp(2) : 0f).setDuration(200)
-                    .setInterpolator(EASE).start();
-        });
-
-        wrap.setPadding(0, dp(12), 0, dp(4));   // lines the circles up with the clock, room for the focus scale
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(84), -2);
-        lp.leftMargin = dp(2);
-        wrap.setLayoutParams(lp);
-        return wrap;
+        b.setOnFocusChangeListener((v, has) -> v.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f)
+                .setDuration(300).setInterpolator(EASE).start());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(50), dp(50));
+        lp.leftMargin = dp(14);
+        b.setLayoutParams(lp);
+        return b;
     }
 
     private void markSelectedTab() {
@@ -620,6 +596,7 @@ public class MainActivity extends Activity {
             b.getPixels(px, 0, w, 0, 0, w, h);
             for (int pass = 0; pass < 3; pass++) boxBlur(px, w, h, 3);
             for (int i = 0; i < px.length; i++) px[i] = moodColor(px[i], brightness);
+            if (brightness < 0.9f) bakeScrim(px, w, h);
             b.setPixels(px, 0, w, 0, 0, w, h);
             return b;
         } catch (RuntimeException e) {
@@ -633,6 +610,10 @@ public class MainActivity extends Activity {
      */
     private static Bitmap sharpBanner(Drawable banner, int w, int h) {
         if (banner == null || banner.getConstantState() == null || w <= 0 || h <= 0) return null;
+        if (banner instanceof BitmapDrawable && ((BitmapDrawable) banner).getBitmap() != null) {
+            Bitmap hq = bicubicCover(((BitmapDrawable) banner).getBitmap(), w, h);
+            if (hq != null) return hq;
+        }
         try {
             Drawable d = banner.getConstantState().newDrawable().mutate();
             if (d instanceof BitmapDrawable) {
@@ -670,6 +651,92 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Centre-crops the source to the target's aspect and resamples it with a Catmull-Rom bicubic filter
+     * (much sharper than the GPU's bilinear stretch), halving first when the source is far larger; then a
+     * light unsharp mask, stronger when the picture had to be enlarged.
+     */
+    static Bitmap bicubicCover(Bitmap src, int W, int H) {
+        try {
+            if (Build.VERSION.SDK_INT >= 26 && src.getConfig() == Bitmap.Config.HARDWARE) {
+                src = src.copy(Bitmap.Config.ARGB_8888, false);
+            }
+            int sw0 = src.getWidth(), sh0 = src.getHeight();
+            float target = W / (float) H;
+            int cw = sw0, ch = sh0;
+            if (sw0 / (float) sh0 > target) cw = Math.round(sh0 * target); else ch = Math.round(sw0 / target);
+            Bitmap crop = Bitmap.createBitmap(src, (sw0 - cw) / 2, (sh0 - ch) / 2, cw, ch);
+            while (crop.getWidth() >= W * 2 && crop.getHeight() >= H * 2) {
+                crop = Bitmap.createScaledBitmap(crop, crop.getWidth() / 2, crop.getHeight() / 2, true);
+            }
+            int sw = crop.getWidth(), sh = crop.getHeight();
+            float upscale = W / (float) sw;
+            int[] in = new int[sw * sh];
+            crop.getPixels(in, 0, sw, 0, 0, sw, sh);
+            float sx = sw / (float) W, sy = sh / (float) H;
+            float[] tmp = new float[W * sh * 4];
+            for (int x = 0; x < W; x++) {
+                float fx = (x + 0.5f) * sx - 0.5f;
+                int ix = (int) Math.floor(fx);
+                float t = fx - ix;
+                float w0 = cubic(t + 1), w1 = cubic(t), w2 = cubic(1 - t), w3 = cubic(2 - t);
+                int x0 = cl(ix - 1, sw), x1 = cl(ix, sw), x2 = cl(ix + 1, sw), x3 = cl(ix + 2, sw);
+                for (int y = 0; y < sh; y++) {
+                    int row = y * sw, o = (y * W + x) * 4;
+                    int p0 = in[row + x0], p1 = in[row + x1], p2 = in[row + x2], p3 = in[row + x3];
+                    for (int c = 0; c < 4; c++) {
+                        int sh8 = 24 - c * 8;
+                        tmp[o + c] = ((p0 >>> sh8) & 0xFF) * w0 + ((p1 >>> sh8) & 0xFF) * w1
+                                + ((p2 >>> sh8) & 0xFF) * w2 + ((p3 >>> sh8) & 0xFF) * w3;
+                    }
+                }
+            }
+            int[] out = new int[W * H];
+            for (int y = 0; y < H; y++) {
+                float fy = (y + 0.5f) * sy - 0.5f;
+                int iy = (int) Math.floor(fy);
+                float t = fy - iy;
+                float w0 = cubic(t + 1), w1 = cubic(t), w2 = cubic(1 - t), w3 = cubic(2 - t);
+                int y0 = cl(iy - 1, sh), y1 = cl(iy, sh), y2 = cl(iy + 1, sh), y3 = cl(iy + 2, sh);
+                for (int x = 0; x < W; x++) {
+                    int pix = 0;
+                    for (int c = 0; c < 4; c++) {
+                        float v = tmp[(y0 * W + x) * 4 + c] * w0 + tmp[(y1 * W + x) * 4 + c] * w1
+                                + tmp[(y2 * W + x) * 4 + c] * w2 + tmp[(y3 * W + x) * 4 + c] * w3;
+                        pix |= clamp(Math.round(v)) << (24 - c * 8);
+                    }
+                    out[y * W + x] = pix;
+                }
+            }
+            float amount = upscale > 1.15f ? 0.45f : 0.2f;
+            int[] soft = out.clone();
+            boxBlur(soft, W, H, 1);
+            for (int i = 0; i < out.length; i++) {
+                int p = out[i], q = soft[i];
+                int r = clamp(((p >> 16) & 0xFF) + Math.round(amount * (((p >> 16) & 0xFF) - ((q >> 16) & 0xFF))));
+                int g = clamp(((p >> 8) & 0xFF) + Math.round(amount * (((p >> 8) & 0xFF) - ((q >> 8) & 0xFF))));
+                int b = clamp((p & 0xFF) + Math.round(amount * ((p & 0xFF) - (q & 0xFF))));
+                out[i] = (p & 0xFF000000) | (r << 16) | (g << 8) | b;
+            }
+            Bitmap result = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+            result.setPixels(out, 0, W, 0, 0, W, H);
+            return result;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return null;
+        }
+    }
+
+    private static float cubic(float x) {
+        x = Math.abs(x);
+        if (x < 1f) return (1.5f * x - 2.5f) * x * x + 1f;
+        if (x < 2f) return ((-0.5f * x + 2.5f) * x - 4f) * x + 2f;
+        return 0f;
+    }
+
+    private static int cl(int i, int n) {
+        return i < 0 ? 0 : (i >= n ? n - 1 : i);
+    }
+
     private static int clamp(int v) {
         return v < 0 ? 0 : (v > 255 ? 255 : v);
     }
@@ -694,6 +761,26 @@ public class MainActivity extends Activity {
                     rs += (p >> 16) & 0xFF; gs += (p >> 8) & 0xFF; bs += p & 0xFF; n++;
                 }
                 px[y * w + x] = 0xFF000000 | ((rs / n) << 16) | ((gs / n) << 8) | (bs / n);
+            }
+        }
+    }
+
+    /**
+     * The left and bottom darkening that keeps the text readable, painted into the backdrop itself, so the
+     * screen needs no separate full-screen scrim layer (one less full-screen fill every frame).
+     */
+    private static void bakeScrim(int[] px, int w, int h) {
+        for (int y = 0; y < h; y++) {
+            float fromBottom = (h - 1 - y) / (float) (h - 1);
+            float bottom = 0.92f * Math.max(0f, 1f - fromBottom / 0.62f);
+            for (int x = 0; x < w; x++) {
+                float left = 0.72f * Math.max(0f, 1f - (x / (float) (w - 1)) / 0.7f);
+                float keep = (1f - left) * (1f - bottom);
+                int p = px[y * w + x];
+                int r = (int) (((p >> 16) & 0xFF) * keep + 6 * (1 - keep));
+                int g = (int) (((p >> 8) & 0xFF) * keep + 7 * (1 - keep));
+                int b = (int) ((p & 0xFF) * keep + 12 * (1 - keep));
+                px[y * w + x] = 0xFF000000 | (r << 16) | (g << 8) | b;
             }
         }
     }
@@ -732,6 +819,19 @@ public class MainActivity extends Activity {
         fade.setCrossFadeEnabled(false);
         glow.setImageDrawable(fade);
         fade.startTransition(650);
+        final boolean opaque = a.backdrop != null;
+        if (!opaque) {
+            scrim.setVisibility(View.VISIBLE);
+            wallA.setVisibility(View.VISIBLE);
+            wallB.setVisibility(View.VISIBLE);
+        } else {
+            ui.postDelayed(() -> {
+                if (!backdropKey.equals(a.key)) return;
+                scrim.setVisibility(View.GONE);      // baked into the picture
+                wallA.setVisibility(View.INVISIBLE); // fully covered: stop drawing it
+                wallB.setVisibility(View.INVISIBLE);
+            }, 700);
+        }
     }
 
     // ---- apps ------------------------------------------------------------------------------------------
@@ -991,8 +1091,9 @@ public class MainActivity extends Activity {
      * On screen each tile is then a single bitmap, which the TV's GPU moves and scales without effort.
      */
     private Bitmap tileBitmap(App a) {
-        final int W = Math.round(dp(TILE_W) * FOCUS_SCALE), H = Math.round(dp(TILE_H) * FOCUS_SCALE);
-        final float r = dp(18) * FOCUS_SCALE, line = Math.max(1f, dp(1) * FOCUS_SCALE);
+        // exactly the tile's size on screen: at rest every picture pixel lands on one screen pixel
+        final int W = dp(TILE_W), H = dp(TILE_H);
+        final float r = dp(18), line = Math.max(1f, dp(1));
         try {
             Bitmap content = a.banner != null ? sharpBanner(a.banner, W, H) : null;
             if (content == null) {
@@ -1083,15 +1184,30 @@ public class MainActivity extends Activity {
         final FrameLayout card = new FrameLayout(this);
         card.setClipChildren(false);
 
-        // colour glow behind the card: alpha only, so it costs nothing to animate
-        final ImageView glowV = new ImageView(this);
-        glowV.setImageBitmap(glowSpot(a.color));
-        glowV.setScaleType(ImageView.ScaleType.FIT_XY);
-        glowV.setAlpha(0f);
-        int g = dp(30);
+        // focus highlight (alpha only, so it costs nothing to animate): soft light, then a wider frosted
+        // glass frame around the card, then the white ring on the card itself
+        final View focusFx = new FrameLayout(this);
+        ((FrameLayout) focusFx).setClipChildren(false);
+        focusFx.setAlpha(0f);
+        ImageView light = new ImageView(this);
+        light.setImageBitmap(glowSpot(lighten(a.color, 0.55f)));
+        light.setScaleType(ImageView.ScaleType.FIT_XY);
+        light.setAlpha(0.55f);
+        int g = dp(34);
         FrameLayout.LayoutParams glp = new FrameLayout.LayoutParams(w + 2 * g, h + 2 * g);
-        glp.setMargins(-g, -g + dp(8), -g, -g);
-        card.addView(glowV, glp);
+        glp.setMargins(-g, -g, -g, -g);
+        ((FrameLayout) focusFx).addView(light, glp);
+        View halo = new View(this);
+        GradientDrawable haloD = new GradientDrawable();
+        haloD.setCornerRadius(dp(18) + dp(10));
+        haloD.setColor(0x1FFFFFFF);
+        haloD.setStroke(Math.max(1, dp(1.5f)), 0x80FFFFFF);
+        halo.setBackground(haloD);
+        int hg = dp(10);
+        FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(w + 2 * hg, h + 2 * hg);
+        hlp.setMargins(-hg, -hg, -hg, -hg);
+        ((FrameLayout) focusFx).addView(halo, hlp);
+        card.addView(focusFx, new FrameLayout.LayoutParams(w, h));
 
         final ImageView image = new ImageView(this);
         image.setScaleType(ImageView.ScaleType.FIT_XY);
@@ -1133,7 +1249,7 @@ public class MainActivity extends Activity {
                     .translationY(has ? -lift : 0f).setDuration(360).setInterpolator(EASE).start();
             image.animate().alpha(has ? 1f : 0.86f).setDuration(360).setInterpolator(EASE).start();
             ring.animate().alpha(has ? 1f : 0f).setDuration(300).setInterpolator(EASE).start();
-            glowV.animate().alpha(has ? 0.9f : 0f).setDuration(420).setInterpolator(EASE).start();
+            focusFx.animate().alpha(has ? 1f : 0f).setDuration(320).setInterpolator(EASE).start();
             label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(360)
                     .setInterpolator(EASE).start();
             if (has) {
