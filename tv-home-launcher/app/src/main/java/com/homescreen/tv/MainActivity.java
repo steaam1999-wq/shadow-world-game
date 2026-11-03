@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
     /** One drawable per view that switches by state: no allocation while the remote moves. */
     private StateListDrawable glassStates(float radiusDp, boolean showIdle) {
         StateListDrawable s = new StateListDrawable();
-        s.addState(new int[]{android.R.attr.state_focused}, glass(radiusDp, 95, 38, 255, 2));
+        s.addState(new int[]{android.R.attr.state_focused}, glass(radiusDp, 95, 38, 0x8C, 1));
         s.addState(new int[]{android.R.attr.state_selected}, glass(radiusDp, 70, 22, 90, 1));
         if (showIdle) s.addState(new int[]{}, glass(radiusDp, 40, 12, 70, 1));
         s.setEnterFadeDuration(220);
@@ -1137,7 +1137,7 @@ public class MainActivity extends Activity {
             Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
             rim.setStyle(Paint.Style.STROKE);
             rim.setStrokeWidth(line);
-            rim.setColor(0x80FFFFFF);
+            rim.setColor(0x4DFFFFFF);
             c.drawRoundRect(new android.graphics.RectF(line / 2, line / 2, W - line / 2, H - line / 2), r, r, rim);
             rim.setColor(0x2E000000);
             c.drawRoundRect(new android.graphics.RectF(line * 1.5f, line * 1.5f, W - line * 1.5f, H - line * 1.5f),
@@ -1200,7 +1200,7 @@ public class MainActivity extends Activity {
         GradientDrawable haloD = new GradientDrawable();
         haloD.setCornerRadius(dp(18) + dp(10));
         haloD.setColor(0x1FFFFFFF);
-        haloD.setStroke(Math.max(1, dp(1.5f)), 0x80FFFFFF);
+        haloD.setStroke(Math.max(1, dp(1)), 0x4DFFFFFF);
         halo.setBackground(haloD);
         int hg = dp(10);
         FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(w + 2 * hg, h + 2 * hg);
@@ -1221,13 +1221,6 @@ public class MainActivity extends Activity {
         image.setAlpha(0.86f);
         card.addView(image, new FrameLayout.LayoutParams(w, h));
 
-        final View ring = new View(this);
-        GradientDrawable ringD = new GradientDrawable();
-        ringD.setCornerRadius(dp(18));
-        ringD.setStroke(dp(3), Color.WHITE);
-        ring.setBackground(ringD);
-        ring.setAlpha(0f);
-        card.addView(ring, new FrameLayout.LayoutParams(w, h));
 
         box.addView(card, new LinearLayout.LayoutParams(w, h));
 
@@ -1247,7 +1240,6 @@ public class MainActivity extends Activity {
             card.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
                     .translationY(has ? -lift : 0f).setDuration(360).setInterpolator(EASE).start();
             image.animate().alpha(has ? 1f : 0.86f).setDuration(360).setInterpolator(EASE).start();
-            ring.animate().alpha(has ? 1f : 0f).setDuration(300).setInterpolator(EASE).start();
             focusFx.animate().alpha(has ? 1f : 0f).setDuration(320).setInterpolator(EASE).start();
             label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(360)
                     .setInterpolator(EASE).start();
