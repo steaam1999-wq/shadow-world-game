@@ -17,5 +17,11 @@ trap shutdown SIGTERM SIGINT
 
 wg-quick up "$WG_IFACE"
 log "Сервер запущен на UDP $WG_PORT, подсеть $WG_SUBNET.0/24"
+
+if [[ -n "${WEB_PASSWORD:-}" ]]; then
+  python3 /app/web/webui.py &
+else
+  log "WEB_PASSWORD не задан — веб-панель выключена"
+fi
 sleep infinity &
 wait $!

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShadowVPN</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v8c0 7.5 5 13.5 12 15 7-1.5 12-7.5 12-15V7z' fill='%237c5cff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f5f5f8; --surface: #ffffff; --surface-2: #f0f0f5; --text: #17171c; --muted: #6b6b78;
+    --border: #e2e2ea; --accent: #6d4aff; --accent-text: #ffffff; --accent-soft: #ece7ff;
+    --ok: #13a35a; --ok-soft: #e3f6ec; --danger: #d6334a; --danger-soft: #fdebee; --off: #9b9ba8;
+    --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f14; --surface: #181820; --surface-2: #20202a; --text: #ececf2; --muted: #9a9aab;
+      --border: #2a2a36; --accent: #8b70ff; --accent-text: #ffffff; --accent-soft: #241e40;
+      --ok: #34c77b; --ok-soft: #12291d; --danger: #ff5c72; --danger-soft: #331820; --off: #5f5f6e;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .logo { width: 34px; height: 34px; flex: none; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; }
+  header .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 10px;
+    padding: 8px 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap; transition: background .15s, border-color .15s; text-decoration: none;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.danger { color: var(--danger); }
+  .btn.danger:hover { background: var(--danger-soft); border-color: var(--danger-soft); }
+  .btn.icon { padding: 7px; width: 36px; height: 36px; justify-content: center; }
+  .btn svg { width: 18px; height: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+
+  .server { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .stat .v { font-weight: 600; margin-top: 2px; overflow-wrap: anywhere; }
+  .stat .v.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 500; }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .toolbar h2 { font-size: 16px; margin: 0; flex: 1; }
+  .add { display: flex; gap: 8px; flex: 1 1 320px; justify-content: flex-end; }
+  .input {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 12px; min-width: 0; flex: 1; max-width: 260px; outline: none;
+  }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .peers { display: grid; gap: 10px; }
+  .peer { padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; align-items: center; }
+  .peer.disabled { opacity: .6; }
+  .peer .top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--off); flex: none; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+  .peer .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .badge.on { background: var(--ok-soft); color: var(--ok); }
+  .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-size: 13px; }
+  .meta b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .actions { display: flex; gap: 6px; grid-row: 1; grid-column: 2; }
+  .empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+  .login { max-width: 360px; margin: 12vh auto 0; padding: 28px; text-align: center; }
+  .login .logo { width: 48px; height: 48px; margin-bottom: 8px; }
+  .login h1 { margin-bottom: 4px; }
+  .login p { color: var(--muted); margin: 0 0 20px; }
+  .login form { display: grid; gap: 10px; }
+  .login .input { max-width: none; }
+  .err { color: var(--danger); font-size: 14px; min-height: 20px; }
+
+  dialog {
+    border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text);
+    padding: 22px; width: min(380px, calc(100vw - 32px)); box-shadow: var(--shadow);
+  }
+  dialog::backdrop { background: rgba(10,10,20,.55); }
+  dialog h3 { margin: 0 0 4px; }
+  dialog p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .qr { background: #fff; border-radius: 12px; padding: 10px; }
+  .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px;
+    opacity: 0; transition: .2s; pointer-events: none; max-width: calc(100vw - 32px); font-size: 14px;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+  .toast.error { background: var(--danger); color: #fff; }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 560px) {
+    .peer { grid-template-columns: 1fr; }
+    .actions { grid-row: auto; grid-column: 1; }
+    .toolbar h2 { flex-basis: 100%; }
+    .add { flex: 1 1 100%; min-width: 0; justify-content: stretch; }
+    .server { grid-template-columns: 1fr 1fr; }
+    .server .stat.wide { grid-column: 1 / -1; order: 1; }
+    .input { max-width: none; }
+    header .who { display: none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 32 32"><path d="M16 2 4 7v8c0 7.5 5 13.5 12 15 7-1.5 12-7.5 12-15V7z" fill="var(--accent)"/><path d="m11 16 3.5 3.5L21 13" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></g></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+</svg>
+
+<section id="login" class="card login" hidden>
+  <svg class="logo"><use href="#i-logo"/></svg>
+  <h1>ShadowVPN</h1>
+  <p>Панель управления сервером</p>
+  <form id="login-form">
+    <input class="input" id="password" type="password" placeholder="Пароль" autocomplete="current-password" required>
+    <button class="btn primary" type="submit" style="justify-content:center">Войти</button>
+    <div class="err" id="login-err"></div>
+  </form>
+</section>
+
+<main id="app" class="wrap" hidden>
+  <header>
+    <svg class="logo"><use href="#i-logo"/></svg>
+    <h1>ShadowVPN</h1>
+    <span class="spacer"></span>
+    <button class="btn" id="logout">Выйти</button>
+  </header>
+
+  <section class="card server" id="server">
+    <div class="stat"><div class="k">Статус</div><div class="v" id="s-status">—</div></div>
+    <div class="stat wide"><div class="k">Адрес</div><div class="v mono" id="s-endpoint">—</div></div>
+    <div class="stat"><div class="k">Подсеть</div><div class="v mono" id="s-subnet">—</div></div>
+    <div class="stat"><div class="k">Клиенты</div><div class="v" id="s-count">—</div></div>
+  </section>
+
+  <div class="toolbar">
+    <h2>Клиенты</h2>
+    <form class="add" id="add-form">
+      <input class="input" id="new-name" placeholder="Имя, например phone" pattern="[A-Za-z0-9_\-]{1,32}"
+             title="Латиница, цифры, _ и -, до 32 символов" required maxlength="32" autocomplete="off">
+      <button class="btn primary" type="submit"><svg><use href="#i-plus"/></svg>Добавить</button>
+    </form>
+  </div>
+
+  <div class="peers" id="peers"></div>
+</main>
+
+<dialog id="qr-dialog">
+  <h3 id="qr-title"></h3>
+  <p>Отсканируйте в приложении WireGuard: «+» → «Сканировать QR-код».</p>
+  <div class="qr"><img id="qr-img" alt="QR-код конфигурации"></div>
+  <div class="dlg-actions">
+    <a class="btn" id="qr-dl" download><svg><use href="#i-dl"/></svg>Скачать .conf</a>
+    <button class="btn primary" id="qr-close">Готово</button>
+  </div>
+</dialog>
+
+<dialog id="confirm-dialog">
+  <h3>Удалить клиента?</h3>
+  <p id="confirm-text"></p>
+  <div class="dlg-actions">
+    <button class="btn" id="confirm-no">Отмена</button>
+    <button class="btn primary" id="confirm-yes" style="background:var(--danger);border-color:var(--danger)">Удалить</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let timer = null;
+
+async function api(method, path, body) {
+  const opts = { method, headers: { "X-ShadowVPN": "1" }, credentials: "same-origin" };
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const res = await fetch(path, opts);
+  if (res.status === 401 && path !== "/api/login") { showLogin(); throw new Error("Требуется вход"); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+  return data;
+}
+
+function toast(msg, isError = false) {
+  const t = $("toast");
+  t.textContent = msg; t.className = "toast show" + (isError ? " error" : "");
+  clearTimeout(t._h); t._h = setTimeout(() => (t.className = "toast"), 2600);
+}
+
+function bytes(n) {
+  const u = ["Б", "КБ", "МБ", "ГБ", "ТБ"]; let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return (i ? n.toFixed(1) : n) + " " + u[i];
+}
+
+function ago(ts) {
+  if (!ts) return "никогда";
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  if (s < 60) return `${s} с назад`;
+  if (s < 3600) return `${Math.floor(s / 60)} мин назад`;
+  if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
+  return new Date(ts * 1000).toLocaleString("ru-RU");
+}
+
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) e.append(c);
+  return e;
+}
+
+function icon(id) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const u = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  u.setAttribute("href", "#" + id); s.append(u); return s;
+}
+
+function iconBtn(id, title, onclick, cls = "") {
+  return el("button", { class: "btn icon " + cls, title, "aria-label": title, onclick }, icon(id));
+}
+
+function meta(label, value) {
+  return el("span", {}, label + " ", el("b", {}, value));
+}
+
+function renderPeers(peers) {
+  const box = $("peers");
+  box.replaceChildren();
+  if (!peers.length) {
+    box.append(el("div", { class: "card empty" }, "Клиентов пока нет — добавьте первого."));
+    return;
+  }
+  for (const p of peers) {
+    const status = !p.enabled ? "отключён" : p.online ? "онлайн" : "офлайн";
+    const card = el("div", { class: "card peer" + (p.enabled ? "" : " disabled") },
+      el("div", { class: "top" },
+        el("span", { class: "dot" + (p.online && p.enabled ? " on" : "") }),
+        el("span", { class: "name" }, p.name),
+        el("span", { class: "badge" + (p.online && p.enabled ? " on" : "") }, status)),
+      el("div", { class: "actions" },
+        iconBtn("i-qr", "QR-код", () => showQr(p.name)),
+        iconBtn("i-dl", "Скачать конфиг", () => (location.href = `/api/peers/${p.name}/config`)),
+        iconBtn(p.enabled ? "i-pause" : "i-play", p.enabled ? "Отключить" : "Включить",
+                () => toggle(p)),
+        iconBtn("i-trash", "Удалить", () => remove(p.name), "danger")),
+      el("div", { class: "meta" },
+        meta("IP", p.ip),
+        meta("Рукопожатие", ago(p.handshake)),
+        meta("↓", bytes(p.rx)),
+        meta("↑", bytes(p.tx)),
+        ...(p.endpoint ? [meta("Откуда", p.endpoint)] : [])));
+    box.append(card);
+  }
+}
+
+async function refresh() {
+  try {
+    const [srv, peers] = await Promise.all([api("GET", "/api/server"), api("GET", "/api/peers")]);
+    $("s-status").textContent = srv.up ? "● работает" : "○ остановлен";
+    $("s-status").style.color = srv.up ? "var(--ok)" : "var(--danger)";
+    $("s-endpoint").textContent = `${srv.host}:${srv.port}`;
+    $("s-subnet").textContent = srv.subnet;
+    const online = peers.filter((p) => p.online && p.enabled).length;
+    $("s-count").textContent = `${peers.length} · онлайн ${online}`;
+    renderPeers(peers);
+  } catch (e) {
+    if (e.message !== "Требуется вход") toast(e.message, true);
+  }
+}
+
+function showQr(name) {
+  $("qr-title").textContent = name;
+  $("qr-img").src = `/api/peers/${name}/qr.svg?t=${Date.now()}`;
+  $("qr-dl").href = `/api/peers/${name}/config`;
+  $("qr-dialog").showModal();
+}
+
+async function toggle(p) {
+  try {
+    await api("POST", `/api/peers/${p.name}/${p.enabled ? "disable" : "enable"}`);
+    toast(p.enabled ? `«${p.name}» отключён` : `«${p.name}» включён`);
+    refresh();
+  } catch (e) { toast(e.message, true); }
+}
+
+function remove(name) {
+  $("confirm-text").textContent = `Клиент «${name}» потеряет доступ, его ключи будут удалены. Это нельзя отменить.`;
+  const dlg = $("confirm-dialog");
+  dlg.showModal();
+  $("confirm-yes").onclick = async () => {
+    dlg.close();
+    try { await api("DELETE", `/api/peers/${name}`); toast(`«${name}» удалён`); refresh(); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
+$("confirm-no").onclick = () => $("confirm-dialog").close();
+$("qr-close").onclick = () => $("qr-dialog").close();
+
+$("add-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const input = $("new-name"), name = input.value.trim();
+  const btn = ev.submitter; btn.disabled = true;
+  try {
+    await api("POST", "/api/peers", { name });
+    input.value = "";
+    await refresh();
+    showQr(name);
+  } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; }
+});
+
+$("login-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  $("login-err").textContent = "";
+  const btn = ev.submitter; btn.disabled = true;
+  try {
+    await api("POST", "/api/login", { password: $("password").value });
+    $("password").value = "";
+    showApp();
+  } catch (e) { $("login-err").textContent = e.message; }
+  finally { btn.disabled = false; }
+});
+
+$("logout").onclick = async () => { await api("POST", "/api/logout").catch(() => {}); showLogin(); };
+
+function showLogin() {
+  clearInterval(timer); timer = null;
+  $("app").hidden = true; $("login").hidden = false; $("password").focus();
+}
+
+function showApp() {
+  $("login").hidden = true; $("app").hidden = false;
+  refresh();
+  clearInterval(timer); timer = setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+}
+
+fetch("/api/session").then((r) => r.json()).then((s) => (s.authenticated ? showApp() : showLogin()))
+  .catch(() => showLogin());
+</script>
+</body>
+</html>
