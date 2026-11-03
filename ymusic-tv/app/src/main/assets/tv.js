@@ -782,6 +782,22 @@
       else if (cmd === 'previous') episode(-1);
     },
     refresh: function () { applyViewport(); applyCss(); },
+    // Opens a section by pressing the site's own link/button with that name; the address only as a fallback.
+    go: function (nameRe, fallbackPath) {
+      var rx = new RegExp(nameRe, 'i'), tries = 0;
+      (function attempt() {
+        var hit = null;
+        document.querySelectorAll('a[href], button, [role="button"], [role="link"], [role="tab"], [role="menuitem"]')
+          .forEach(function (el) {
+            if (hit) return;
+            var t = (el.getAttribute('aria-label') || el.textContent || '').trim();
+            if (t.length > 0 && t.length < 60 && rx.test(t) && visible(el, el.getBoundingClientRect())) hit = el;
+          });
+        if (hit) { activate(hit); setTimeout(function () { pageDirty = true; moveFocus('down'); }, 700); return; }
+        if (++tries < 12) { setTimeout(attempt, 300); return; }
+        if (fallbackPath !== null && fallbackPath !== undefined) location.href = location.origin + '/' + fallbackPath;
+      })();
+    },
     search: function () {
       var box = document.querySelector('input[type="search"], input[placeholder*="оиск" i], input[aria-label*="оиск" i]');
       if (!box) {

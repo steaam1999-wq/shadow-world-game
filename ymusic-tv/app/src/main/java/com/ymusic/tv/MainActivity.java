@@ -20,6 +20,7 @@ import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -55,6 +56,8 @@ public class MainActivity extends Activity {
             "oauth.telegram.org", "passport.yandex.ru", "oauth.yandex.ru", "id.yandex.ru", "accounts.google.com"};
 
     private SharedPreferences prefs;
+    private HomeMenu home;
+    private boolean homeShown;
 
     private FrameLayout root;
     private WebView web;
@@ -107,6 +110,11 @@ public class MainActivity extends Activity {
         root.addView(errorView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
+        // the app's own tile menu on top; the site loads (and later plays) behind it
+        home = new HomeMenu(this);
+        root.addView(home, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
         setContentView(root);
 
         CookieManager cookies = CookieManager.getInstance();
@@ -116,7 +124,64 @@ public class MainActivity extends Activity {
         if (savedInstanceState == null || web.restoreState(savedInstanceState) == null) {
             web.loadUrl(startUrl(getIntent()));
         }
+        showHome(false);
+    }
+
+    // ---------------------------------------------------------------- the tile menu
+
+    void showHome(boolean animate) {
+        homeShown = true;
+        home.setVisibility(View.VISIBLE);
+        if (animate) {
+            home.setAlpha(0f);
+            home.animate().alpha(1f).setDuration(240).setInterpolator(HomeMenu.EASE)
+                    .withEndAction(() -> { if (homeShown) web.setVisibility(View.INVISIBLE); }).start();
+        } else {
+            home.setAlpha(1f);
+            web.setVisibility(View.INVISIBLE);   // not drawn while covered: the TV only draws the menu
+        }
+        home.onShown();
+    }
+
+    void hideHome() {
+        homeShown = false;
+        home.onHidden();
+        web.setVisibility(View.VISIBLE);
+        home.animate().alpha(0f).setDuration(200).setInterpolator(HomeMenu.EASE)
+                .withEndAction(() -> { if (!homeShown) home.setVisibility(View.GONE); }).start();
         web.requestFocus();
+    }
+
+    /** Opens a section by pressing the site's own menu item with that name (URLs change, names rarely). */
+    void openSection(String nameRegex, String fallbackPath) {
+        hideHome();
+        runWhenReady("__tv.go(" + js(nameRegex) + "," + js(fallbackPath) + ")", 0);
+    }
+
+    void openSearch() {
+        hideHome();
+        runWhenReady("__tv.search()", 0);
+    }
+
+    void media(String cmd) {
+        web.evaluateJavascript("window.__tv&&__tv.media('" + cmd + "')", null);
+    }
+
+    /** Title, artist, cover and state of what plays, from the page's Media Session. */
+    void nowPlaying(ValueCallback<String> cb) {
+        web.evaluateJavascript("(function(){var s=navigator.mediaSession,m=s&&s.metadata;"
+                + "var art=m&&m.artwork&&m.artwork.length?m.artwork[m.artwork.length-1].src:'';"
+                + "return JSON.stringify({t:m?m.title:'',a:m?m.artist:'',art:art,p:s?s.playbackState:''});})()", cb);
+    }
+
+    private void runWhenReady(String call, int attempt) {
+        web.evaluateJavascript("window.__tv?(" + call + ",1):0", v -> {
+            if (!"1".equals(v) && attempt < 20) root.postDelayed(() -> runWhenReady(call, attempt + 1), 300);
+        });
+    }
+
+    private static String js(String s) {
+        return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'";
     }
 
     @Override
@@ -230,14 +295,33 @@ public class MainActivity extends Activity {
         int code = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
 
-        if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
-            if (!down && event.getRepeatCount() == 0) onBackKey();
-            return true;
-        }
-
-        if (code == KeyEvent.KEYCODE_MENU || code == KeyEvent.KEYCODE_SETTINGS) {
-            if (!down && event.getRepeatCount() == 0 && popup == null) showMenu();
-            return true;
+        if (homeShown) {
+            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
+                if (!down && event.getRepeatCount() == 0) {
+                    long now = System.currentTimeMillis();
+                    if (now - lastBackAt < 2500) {
+                        moveTaskToBack(true);   // music keeps playing
+                    } else {
+                        lastBackAt = now;
+                        Toast.makeText(this, "Нажмите «Назад» ещё раз, чтобы свернуть (музыка продолжит играть)",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_MENU || code == KeyEvent.KEYCODE_SETTINGS) {
+                if (!down && event.getRepeatCount() == 0) hideHome();
+                return true;
+            }
+        } else {
+            if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) {
+                if (!down && event.getRepeatCount() == 0) onBackKey();
+                return true;
+            }
+            if (code == KeyEvent.KEYCODE_MENU || code == KeyEvent.KEYCODE_SETTINGS) {
+                if (!down && event.getRepeatCount() == 0 && popup == null) showHome(true);
+                return true;
+            }
         }
 
         String media = mediaCommand(code);
@@ -250,24 +334,16 @@ public class MainActivity extends Activity {
         return super.dispatchKeyEvent(event);
     }
 
-    /** Menu key: the player's buttons (most TV remotes have no ⏯ ⏭), quick places, reload, site address. */
-    private void showMenu() {
-        // plain words: the TV's system font has no media symbols or emoji
-        final String[] items = {"Пауза / воспроизведение", "Следующий трек", "Предыдущий трек",
-                "Моя волна (главная)", "Поиск", "Обновить страницу",
-                "Адрес сайта: " + Uri.parse(site()).getHost()};
+    /** «Настройки» tile: reload, site address, minimise. */
+    void showSettingsDialog() {
+        final String[] items = {"Обновить страницу", "Адрес сайта: " + Uri.parse(site()).getHost(),
+                "Свернуть (музыка продолжит играть)"};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle("Яндекс Музыка TV")
+                .setTitle("Настройки")
                 .setItems(items, (d, which) -> {
-                    switch (which) {
-                        case 0: web.evaluateJavascript("window.__tv&&__tv.media('playpause')", null); break;
-                        case 1: web.evaluateJavascript("window.__tv&&__tv.media('next')", null); break;
-                        case 2: web.evaluateJavascript("window.__tv&&__tv.media('previous')", null); break;
-                        case 3: web.loadUrl(site()); break;
-                        case 4: web.evaluateJavascript("window.__tv&&__tv.search()", null); break;
-                        case 5: web.reload(); break;
-                        default: askSite();
-                    }
+                    if (which == 0) web.reload();
+                    else if (which == 1) askSite();
+                    else moveTaskToBack(true);
                 }).show();
     }
 
@@ -327,17 +403,7 @@ public class MainActivity extends Activity {
         // The page decides first: leave the player's menu, close a dialog, leave the player.
         web.evaluateJavascript("window.__tv?__tv.back():false", value -> {
             if ("true".equals(value)) return;
-            if (web.canGoBack()) {
-                web.goBack();
-                return;
-            }
-            long now = System.currentTimeMillis();
-            if (now - lastBackAt < 2500) {
-                finish();
-            } else {
-                lastBackAt = now;
-                Toast.makeText(this, R.string.press_back_again, Toast.LENGTH_SHORT).show();
-            }
+            showHome(true);   // Back from a section returns to the tile menu
         });
     }
 
