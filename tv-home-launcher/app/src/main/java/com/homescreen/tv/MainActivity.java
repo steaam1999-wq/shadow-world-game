@@ -190,7 +190,6 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Map<String, App> apps = new LinkedHashMap<>();
-    private final Map<String, View> tileCache = new HashMap<>();
     private SharedPreferences prefs;
     private String appsSignature = "";
 
@@ -200,8 +199,13 @@ public class MainActivity extends Activity {
     private int wallIndex = -1;
     private View dim;
     private TextView greeting, clock, date, heroCategory, heroTitle, heroDesc;
-    private GlideRow rowScroll;
+    private GlideRow rowScroll;                 // the visible tab's row (one of rowScrolls)
     private LinearLayout row;
+    private final GlideRow[] rowScrolls = new GlideRow[TAB_KEYS.length];
+    private final LinearLayout[] rows = new LinearLayout[TAB_KEYS.length];
+    private final View[] firstTiles = new View[TAB_KEYS.length];
+    private View lens, lensRim;                 // the glass drop that slides between tabs
+    private ValueAnimator lensAnim;
     private final List<TextView> tabViews = new ArrayList<>();
     private int tab = 0;
     private int pendingTab = -1;
@@ -424,26 +428,45 @@ public class MainActivity extends Activity {
         dsp.topMargin = dp(6);
         content.addView(heroDesc, dsp);
 
-        // glass category tabs
+        // glass category tabs with one glass "lens" that slides to the active tab
+        FrameLayout tabsFrame = new FrameLayout(this);
+        tabsFrame.setBackground(glass(26, 34, 10, 60, 1));
+        tabsFrame.setPadding(dp(5), dp(5), dp(5), dp(5));
+        tabsFrame.setClipChildren(false);
+        tabsFrame.setClipToPadding(false);
+        lens = new View(this);
+        lens.setBackground(glass(20, 70, 22, 90, 1));
+        lensRim = new View(this);
+        lensRim.setBackground(glass(20, 40, 10, 0xB0, 1));
+        lensRim.setAlpha(0f);
+        tabsFrame.addView(lens, new FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
+        tabsFrame.addView(lensRim, new FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
-        tabs.setPadding(dp(5), dp(5), dp(5), dp(5));
-        tabs.setBackground(glass(26, 34, 10, 60, 1));
-        tabs.setClipChildren(false);
-        tabs.setClipToPadding(false);
         for (int i = 0; i < TAB_NAMES.length; i++) {
             final int index = i;
             TextView t = text(15, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
             t.setText(TAB_NAMES[i]);
             t.setTextColor(textStates());
             t.setPadding(dp(18), dp(9), dp(18), dp(9));
-            t.setBackground(glassStates(20, false));
             t.setFocusable(true);
             t.setOnFocusChangeListener((v, has) -> {
-                if (has && index != tab) {
-                    pendingTab = index;
-                    ui.removeCallbacks(applyPendingTab);
-                    ui.postDelayed(applyPendingTab, 220);   // skip tabs the remote only passes over
+                if (has) {
+                    moveLens(index, true);
+                    lensRim.animate().alpha(1f).setDuration(220).setInterpolator(EASE).start();
+                    if (index != tab) {
+                        pendingTab = index;
+                        ui.removeCallbacks(applyPendingTab);
+                        ui.postDelayed(applyPendingTab, 120);   // skip tabs the remote only passes over
+                    }
+                } else {
+                    ui.post(() -> {
+                        View f = getCurrentFocus();
+                        if (f == null || !tabViews.contains(f)) {
+                            lensRim.animate().alpha(0f).setDuration(260).setInterpolator(EASE).start();
+                            moveLens(tab, true);   // the lens rests on the tab that is shown
+                        }
+                    });
                 }
             });
             t.setOnClickListener(v -> {
@@ -454,27 +477,41 @@ public class MainActivity extends Activity {
             tabViews.add(t);
             tabs.addView(t);
         }
+        tabsFrame.addView(tabs, new FrameLayout.LayoutParams(-2, -2));
         LinearLayout.LayoutParams tabsLp = new LinearLayout.LayoutParams(-2, -2);
         tabsLp.topMargin = dp(24);
-        content.addView(tabs, tabsLp);
+        content.addView(tabsFrame, tabsLp);
+        tabs.post(() -> moveLens(tab, false));
 
-        // the row of tiles
-        rowScroll = new GlideRow(this);
-        rowScroll.setHorizontalScrollBarEnabled(false);
-        rowScroll.setClipChildren(false);
-        rowScroll.setClipToPadding(false);
-        rowScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        rowScroll.setHorizontalFadingEdgeEnabled(false);
-        row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setClipChildren(false);
-        row.setClipToPadding(false);
-        row.forceHasOverlappingRendering(false);   // tab fades must not clip tiles to the row's rectangle
-        row.setPadding(dp(14), dp(30), dp(400), dp(8));
-        rowScroll.addView(row);
+        // one ready row per tab, stacked: switching tabs is a cross-fade, never a rebuild or re-layout
+        FrameLayout rowStack = new FrameLayout(this);
+        rowStack.setClipChildren(false);
+        rowStack.setClipToPadding(false);
+        for (int t = 0; t < TAB_KEYS.length; t++) {
+            GlideRow sv = new GlideRow(this);
+            sv.setHorizontalScrollBarEnabled(false);
+            sv.setClipChildren(false);
+            sv.setClipToPadding(false);
+            sv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            sv.setHorizontalFadingEdgeEnabled(false);
+            sv.forceHasOverlappingRendering(false);   // fades must not clip tiles to the row's rectangle
+            LinearLayout r = new LinearLayout(this);
+            r.setOrientation(LinearLayout.HORIZONTAL);
+            r.setClipChildren(false);
+            r.setClipToPadding(false);
+            r.forceHasOverlappingRendering(false);
+            r.setPadding(dp(14), dp(30), dp(400), dp(8));
+            sv.addView(r);
+            sv.setVisibility(t == tab ? View.VISIBLE : View.INVISIBLE);
+            rowStack.addView(sv, new FrameLayout.LayoutParams(-1, -2));
+            rowScrolls[t] = sv;
+            rows[t] = r;
+        }
+        rowScroll = rowScrolls[tab];
+        row = rows[tab];
         LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
         rowLp.topMargin = dp(4);
-        content.addView(rowScroll, rowLp);
+        content.addView(rowStack, rowLp);
 
         dim = new View(this);
         dim.setBackgroundColor(Color.BLACK);
@@ -519,19 +556,87 @@ public class MainActivity extends Activity {
         for (int i = 0; i < tabViews.size(); i++) tabViews.get(i).setSelected(i == tab);
     }
 
-    /** Old tiles slide out to the left and fade, the new set slides in from the right. */
+    /** Places the glass lens under a tab: one smooth slide that only moves the lens's own edges. */
+    private void moveLens(int index, boolean animate) {
+        if (index < 0 || index >= tabViews.size()) return;
+        TextView t = tabViews.get(index);
+        if (t.getWidth() == 0) {           // not laid out yet: place it right after the first layout
+            t.post(() -> moveLens(index, false));
+            return;
+        }
+        final int toL = t.getLeft() + ((View) t.getParent()).getLeft(), toR = toL + t.getWidth();
+        if (lensAnim != null) lensAnim.cancel();
+        if (!animate || lens.getWidth() == 0) {
+            setLensEdges(toL, toR);
+            fixLens(toL, toR);
+            return;
+        }
+        final int fromL = lens.getLeft(), fromR = lens.getRight();
+        lensAnim = ValueAnimator.ofFloat(0f, 1f);
+        lensAnim.setDuration(300);
+        lensAnim.setInterpolator(EASE);
+        lensAnim.addUpdateListener(an -> {
+            float f = (Float) an.getAnimatedValue();
+            setLensEdges(Math.round(fromL + (toL - fromL) * f), Math.round(fromR + (toR - fromR) * f));
+        });
+        lensAnim.addListener(new android.animation.AnimatorListenerAdapter() {
+            boolean cancelled;
+            @Override public void onAnimationCancel(android.animation.Animator an) { cancelled = true; }
+            @Override public void onAnimationEnd(android.animation.Animator an) { if (!cancelled) fixLens(toL, toR); }
+        });
+        lensAnim.start();
+    }
+
+    private void setLensEdges(int l, int r) {
+        lens.setLeft(l);
+        lens.setRight(r);
+        lensRim.setLeft(l);
+        lensRim.setRight(r);
+    }
+
+    /** After the slide, pins the lens there in its layout params (one layout, not one per frame). */
+    private void fixLens(int l, int r) {
+        for (View v : new View[]{lens, lensRim}) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) v.getLayoutParams();
+            if (lp.leftMargin != l - dp(5) || lp.width != r - l) {
+                lp.leftMargin = l - dp(5);
+                lp.width = r - l;
+                v.setLayoutParams(lp);
+            }
+        }
+    }
+
+    /** The shown row fades and drifts left, the next (already built) row drifts in from the right. */
     private void switchTab(int index) {
+        if (index == tab) return;
+        View focused = getCurrentFocus();
+        boolean tileFocus = focused != null && focused.getTag() instanceof App;
+        final int old = tab;
         tab = index;
         markSelectedTab();
-        row.animate().cancel();
-        row.animate().alpha(0f).translationX(-dp(24)).setDuration(120).setInterpolator(EASE)
-                .withEndAction(() -> {
-                    if (scrollAnim != null) scrollAnim.cancel();
-                    rowScroll.scrollTo(0, 0);
-                    renderRow(true);
-                    row.setTranslationX(dp(40));
-                    row.animate().alpha(1f).translationX(0f).setDuration(320).setInterpolator(EASE).start();
-                }).start();
+        if (lensRim.getAlpha() < 0.5f) moveLens(tab, true);
+        final GlideRow o = rowScrolls[old], n = rowScrolls[index];
+        rowScroll = n;
+        row = rows[index];
+        firstTile = firstTiles[index];
+        if (scrollAnim != null) scrollAnim.cancel();
+        n.scrollTo(0, 0);
+        n.animate().cancel();
+        o.animate().cancel();
+        n.setVisibility(View.VISIBLE);
+        n.setAlpha(0f);
+        n.setTranslationX(dp(40));
+        n.animate().alpha(1f).translationX(0f).setDuration(320).setInterpolator(EASE).start();
+        o.animate().alpha(0f).translationX(-dp(24)).setDuration(180).setInterpolator(EASE).withEndAction(() -> {
+            if (tab != old) {
+                o.setVisibility(View.INVISIBLE);
+                o.setTranslationX(0f);
+            }
+        }).start();
+        if (firstTile != null) {
+            if (tileFocus) firstTile.requestFocus();
+            else showHero((App) firstTile.getTag());
+        }
     }
 
     // ---- background ------------------------------------------------------------------------------------
@@ -848,7 +953,6 @@ public class MainActivity extends Activity {
                 appsSignature = signature;
                 apps.clear();
                 apps.putAll(found);
-                tileCache.clear();
                 renderRow(true);
                 if (first && firstTile != null) firstTile.requestFocus();
             });
@@ -1023,9 +1127,9 @@ public class MainActivity extends Activity {
         prefs.edit().putString("pins", TextUtils.join("\n", list)).apply();
     }
 
-    private List<App> appsForTab() {
+    private List<App> appsForTab(int t) {
         List<App> out = new ArrayList<>();
-        String key = TAB_KEYS[tab];
+        String key = TAB_KEYS[t];
         if (key.equals("home")) {
             for (String p : pins()) {
                 App a = apps.get(p);
@@ -1042,32 +1146,36 @@ public class MainActivity extends Activity {
 
     // ---- tiles -----------------------------------------------------------------------------------------
 
+    /** Builds every tab's row (after apps load or the pins change); switching tabs then builds nothing. */
     private void renderRow(boolean keepTileFocus) {
         View focused = getCurrentFocus();
         boolean tileHadFocus = focused != null && focused.getTag() instanceof App;
-        row.removeAllViews();
-        firstTile = null;
-        List<App> list = appsForTab();
-        for (App a : list) {
-            View tile = tileCache.get(a.key);
-            if (tile == null) {
-                tile = tile(a);
-                tileCache.put(a.key, tile);
+        for (int t = 0; t < TAB_KEYS.length; t++) {
+            LinearLayout r = rows[t];
+            r.removeAllViews();
+            firstTiles[t] = null;
+            List<App> list = appsForTab(t);
+            for (App a : list) {
+                View tile = tile(a);
+                if (firstTiles[t] == null) firstTiles[t] = tile;
+                r.addView(tile);
             }
-            if (tile.getParent() instanceof ViewGroup) ((ViewGroup) tile.getParent()).removeView(tile);
-            if (firstTile == null) firstTile = tile;
-            row.addView(tile);
+            if (list.isEmpty()) {
+                TextView empty = text(16, 0xB3F4F6FB, Typeface.DEFAULT);
+                empty.setText(TAB_KEYS[t].equals("home")
+                        ? "Здесь пусто. Откройте «Все приложения» и удерживайте OK на приложении, чтобы добавить его."
+                        : "В этом разделе пока нет приложений.");
+                empty.setPadding(0, dp(40), 0, dp(40));
+                r.addView(empty);
+            }
         }
-        if (list.isEmpty()) {
-            TextView empty = text(16, 0xB3F4F6FB, Typeface.DEFAULT);
-            empty.setText(TAB_KEYS[tab].equals("home")
-                    ? "Здесь пусто. Откройте «Все приложения» и удерживайте OK на приложении, чтобы добавить его."
-                    : "В этом разделе пока нет приложений.");
-            empty.setPadding(0, dp(40), 0, dp(40));
-            row.addView(empty);
-        } else if ((keepTileFocus && tileHadFocus) || getCurrentFocus() == null) {
+        row = rows[tab];
+        rowScroll = rowScrolls[tab];
+        firstTile = firstTiles[tab];
+        if (firstTile == null) return;
+        if ((keepTileFocus && tileHadFocus) || getCurrentFocus() == null) {
             firstTile.requestFocus();
-        } else if (firstTile != null && heroApp == null) {
+        } else if (heroApp == null) {
             showHero((App) firstTile.getTag());
         }
     }
@@ -1250,7 +1358,7 @@ public class MainActivity extends Activity {
                     .setInterpolator(EASE).start();
             if (has) {
                 showHero(a);
-                int index = row.indexOfChild(v);
+                int index = ((ViewGroup) v.getParent()).indexOfChild(v);
                 glideTo(index <= 0 ? 0 : v.getLeft() - (w + gap) + dp(4) - row.getPaddingLeft());
             }
         });
