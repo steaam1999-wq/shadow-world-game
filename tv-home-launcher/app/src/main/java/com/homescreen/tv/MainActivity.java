@@ -49,7 +49,6 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -225,6 +224,7 @@ public class MainActivity extends Activity {
     private App heroApp;
     private ValueAnimator scrollAnim;
     private AlertDialog openDialog;
+    private boolean editMode;           // «Изменить порядок»: OK picks a tile up instead of opening it
     private String movingKey;          // the tile being moved on «Главная» (null when not moving)
     private View movingTile;
     private List<String> movePins;
@@ -289,6 +289,12 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (brightPanel != null && brightPanel.getVisibility() == View.VISIBLE) return brightKey(event);
+        if (editMode && movingKey == null && (event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                || event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE)) {
+            if (event.getAction() == KeyEvent.ACTION_UP) stopEdit();
+            return true;
+        }
         if (movingKey != null) {
             int k = event.getKeyCode();
             boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
@@ -433,6 +439,7 @@ public class MainActivity extends Activity {
         top.addView(iconButton(R.drawable.ic_input, "Источники", v -> openInputs()));
         top.addView(iconButton(R.drawable.ic_wifi, "Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
         top.addView(iconButton(R.drawable.ic_brightness, "Яркость", v -> showBrightness()));
+        top.addView(iconButton(R.drawable.ic_edit, "Изменить порядок", v -> startEdit()));
         content.addView(top);
 
         content.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
@@ -552,6 +559,7 @@ public class MainActivity extends Activity {
         dim.setAlpha(0f);
         dim.setFocusable(false);
         root.addView(dim, match());
+        buildBrightPanel();
 
         markSelectedTab();
     }
@@ -1499,7 +1507,19 @@ public class MainActivity extends Activity {
                 glideTo(index <= 0 ? 0 : v.getLeft() - (w + gap) + dp(4) - row.getPaddingLeft());
             }
         });
-        box.setOnClickListener(v -> open(a));
+        box.setOnClickListener(v -> {
+            if (editMode) {
+                if (!pins().contains(a.key)) {
+                    List<String> list = pins();
+                    list.add(a.key);
+                    savePins(list);
+                    renderRow(true);
+                }
+                startMove(a);
+            } else {
+                open(a);
+            }
+        });
         box.setOnLongClickListener(v -> {
             showAppMenu(a);
             return true;
@@ -1520,6 +1540,11 @@ public class MainActivity extends Activity {
     /** New title and text slide up into place; the colour glow follows once the remote settles. */
     private void showHero(App a) {
         if (a == heroApp) return;
+        if (editMode) {          // the edit instructions stay; only the background follows the tile
+            heroApp = a;
+            tintFor(a);
+            return;
+        }
         heroApp = a;
         String cat = CATEGORY_TITLE.get(a.category);
         heroCategory.setText(cat == null ? "" : cat);
@@ -1613,6 +1638,27 @@ public class MainActivity extends Activity {
         openDialog.show();
     }
 
+    // ---- «Изменить порядок» -----------------------------------------------------------------------------
+
+    private void startEdit() {
+        editMode = true;
+        if (tab != 0) switchTab(0);
+        row = rows[0];
+        rowScroll = rowScrolls[0];
+        if (firstTiles[0] != null) firstTiles[0].requestFocus();
+        heroCategory.setText("ИЗМЕНИТЬ ПОРЯДОК");
+        heroTitle.setText("Главная");
+        heroDesc.setText("OK — взять приложение · ◀ ▶ — перенести · OK — поставить · Назад — готово");
+    }
+
+    private void stopEdit() {
+        editMode = false;
+        View f = getCurrentFocus();
+        heroApp = null;
+        if (f != null && f.getTag() instanceof App) showHero((App) f.getTag());
+        Toast.makeText(this, "Порядок сохранён", Toast.LENGTH_SHORT).show();
+    }
+
     // ---- moving tiles on «Главная» -----------------------------------------------------------------------
 
     /** Lifts the tile on «Главная»; ← → carry it along the row, OK (or Back) puts it down. */
@@ -1664,7 +1710,8 @@ public class MainActivity extends Activity {
         movingKey = null;
         movingTile = null;
         movePins = null;
-        if (tag instanceof App) heroDesc.setText(describe((App) tag));
+        if (editMode) heroDesc.setText("OK — взять приложение · ◀ ▶ — перенести · OK — поставить · Назад — готово");
+        else if (tag instanceof App) heroDesc.setText(describe((App) tag));
     }
 
     private void focusTileFor(String key) {
@@ -1689,22 +1736,197 @@ public class MainActivity extends Activity {
         openDialog.show();
     }
 
+    // ---- brightness: a liquid glass panel ----------------------------------------------------------------
+
+    static final int[] PRESET_VALUES = {35, 65, 100};
+    static final String[] PRESET_NAMES = {"Ночь", "Вечер", "День"};
+    private FrameLayout brightPanel;
+    private View brightCard, brightFill, brightThumb, brightTrack;
+    private TextView brightValue;
+    private final List<TextView> presetViews = new ArrayList<>();
+    private int brightRow = 0, presetIndex = 0;
+    private View focusBeforePanel;
+
+    private void buildBrightPanel() {
+        brightPanel = new FrameLayout(this);
+        brightPanel.setBackgroundColor(0x99000000);
+        brightPanel.setVisibility(View.GONE);
+        brightPanel.setClickable(true);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(36), dp(30), dp(36), dp(30));
+        GradientDrawable cg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xF22A2D3C, 0xF2161822});
+        cg.setCornerRadius(dp(30));
+        cg.setStroke(Math.max(1, dp(1)), 0x40FFFFFF);
+        card.setBackground(cg);
+        card.setElevation(dp(16));
+        brightCard = card;
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView sun = new ImageView(this);
+        sun.setImageResource(R.drawable.ic_brightness);
+        sun.setAlpha(0.9f);
+        head.addView(sun, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        LinearLayout titles = new LinearLayout(this);
+        titles.setOrientation(LinearLayout.VERTICAL);
+        TextView title = text(20, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setText("Яркость");
+        TextView sub = text(13, 0x99F4F6FB, Typeface.create("sans-serif", Typeface.NORMAL));
+        sub.setText("главного экрана");
+        titles.addView(title);
+        LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2);
+        sl.topMargin = dp(4);
+        titles.addView(sub, sl);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1f);
+        tl.leftMargin = dp(14);
+        head.addView(titles, tl);
+        brightValue = text(46, Color.WHITE, Typeface.create("sans-serif-thin", Typeface.NORMAL));
+        head.addView(brightValue);
+        card.addView(head);
+
+        // the track: a glass groove, a warm glowing fill and a round thumb
+        FrameLayout track = new FrameLayout(this);
+        track.setClipChildren(false);
+        brightTrack = track;
+        View groove = new View(this);
+        GradientDrawable gr = new GradientDrawable();
+        gr.setCornerRadius(dp(8));
+        gr.setColor(0x26FFFFFF);
+        gr.setStroke(Math.max(1, dp(1)), 0x1FFFFFFF);
+        groove.setBackground(gr);
+        FrameLayout.LayoutParams gp = new FrameLayout.LayoutParams(-1, dp(14), Gravity.CENTER_VERTICAL);
+        track.addView(groove, gp);
+        brightFill = new View(this);
+        GradientDrawable fg = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xFFFFB25B, 0xFFFFE7A8});
+        fg.setCornerRadius(dp(8));
+        brightFill.setBackground(fg);
+        track.addView(brightFill, new FrameLayout.LayoutParams(0, dp(14), Gravity.CENTER_VERTICAL));
+        brightThumb = new View(this);
+        GradientDrawable tg = new GradientDrawable();
+        tg.setShape(GradientDrawable.OVAL);
+        tg.setColor(Color.WHITE);
+        tg.setStroke(dp(3), 0x66FFD08A);
+        brightThumb.setBackground(tg);
+        brightThumb.setElevation(dp(4));
+        track.addView(brightThumb, new FrameLayout.LayoutParams(dp(30), dp(30), Gravity.CENTER_VERTICAL));
+        LinearLayout.LayoutParams trp = new LinearLayout.LayoutParams(dp(448), dp(40));
+        trp.topMargin = dp(26);
+        card.addView(track, trp);
+
+        LinearLayout presets = new LinearLayout(this);
+        presets.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < PRESET_NAMES.length; i++) {
+            TextView chip = text(15, 0xCCF4F6FB, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            chip.setText(PRESET_NAMES[i]);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(10), dp(11), dp(10), dp(11));
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -2, 1f);
+            if (i > 0) cp.leftMargin = dp(12);
+            presets.addView(chip, cp);
+            presetViews.add(chip);
+        }
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(dp(448), -2);
+        pp.topMargin = dp(24);
+        card.addView(presets, pp);
+
+        TextView hint = text(12, 0x80F4F6FB, Typeface.create("sans-serif", Typeface.NORMAL));
+        hint.setText("◀ ▶ — изменить   ·   ▼ — быстрый выбор   ·   OK / Назад — готово");
+        LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-2, -2);
+        hp.topMargin = dp(20);
+        hp.gravity = Gravity.CENTER_HORIZONTAL;
+        card.addView(hint, hp);
+
+        brightPanel.addView(card, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+        root.addView(brightPanel, match());
+    }
+
     private void showBrightness() {
-        SeekBar bar = new SeekBar(this);
-        bar.setMax(80);
-        bar.setProgress(prefs.getInt("brightness", 100) - 20);
-        bar.setPadding(dp(32), dp(24), dp(32), dp(24));
-        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                prefs.edit().putInt("brightness", progress + 20).apply();
-                applyBrightness();
+        focusBeforePanel = getCurrentFocus();
+        brightRow = 0;
+        brightPanel.setVisibility(View.VISIBLE);
+        brightPanel.setAlpha(0f);
+        brightCard.setScaleX(0.94f);
+        brightCard.setScaleY(0.94f);
+        brightPanel.animate().alpha(1f).setDuration(220).setInterpolator(EASE).start();
+        brightCard.animate().scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(EASE).start();
+        brightPanel.post(this::refreshBright);
+    }
+
+    private void hideBrightness() {
+        brightPanel.animate().alpha(0f).setDuration(180).setInterpolator(EASE)
+                .withEndAction(() -> brightPanel.setVisibility(View.GONE)).start();
+        if (focusBeforePanel != null) focusBeforePanel.requestFocus();
+    }
+
+    private void setBrightness(int value) {
+        value = Math.max(20, Math.min(100, value));
+        prefs.edit().putInt("brightness", value).apply();
+        applyBrightness();
+        refreshBright();
+    }
+
+    private void refreshBright() {
+        int b = prefs.getInt("brightness", 100);
+        brightValue.setText(b + "%");
+        int w = brightTrack.getWidth();
+        if (w > 0) {
+            float f = (b - 20) / 80f;
+            int fill = Math.max(dp(14), Math.round(w * f));
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) brightFill.getLayoutParams();
+            if (lp.width != fill) {
+                lp.width = fill;
+                brightFill.setLayoutParams(lp);
             }
-            @Override public void onStartTrackingTouch(SeekBar s) { }
-            @Override public void onStopTrackingTouch(SeekBar s) { }
-        });
-        openDialog = dialog("Яркость главного экрана").setView(bar).setPositiveButton("Готово", null).create();
-        openDialog.show();
-        bar.requestFocus();
+            brightThumb.animate().translationX(Math.max(0, fill - dp(30))).setDuration(120).setInterpolator(EASE).start();
+        }
+        brightThumb.setScaleX(brightRow == 0 ? 1.15f : 1f);
+        brightThumb.setScaleY(brightRow == 0 ? 1.15f : 1f);
+        for (int i = 0; i < presetViews.size(); i++) {
+            TextView c = presetViews.get(i);
+            boolean active = brightRow == 1 && i == presetIndex;
+            boolean current = PRESET_VALUES[i] == b;
+            c.setBackground(active ? glass(16, 95, 38, 0xB0, 1) : current ? glass(16, 60, 20, 80, 1) : glass(16, 26, 8, 50, 1));
+            c.setTextColor(active || current ? Color.WHITE : 0xB3F4F6FB);
+        }
+    }
+
+    /** Remote keys while the brightness panel is open. */
+    private boolean brightKey(KeyEvent e) {
+        int k = e.getKeyCode();
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        if (k == KeyEvent.KEYCODE_BACK || k == KeyEvent.KEYCODE_ESCAPE) {
+            if (!down) hideBrightness();
+            return true;
+        }
+        if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (!down) {
+                if (brightRow == 1) setBrightness(PRESET_VALUES[presetIndex]);
+                else hideBrightness();
+            }
+            return true;
+        }
+        if (!down) return true;
+        int b = prefs.getInt("brightness", 100);
+        if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            int step = k == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1;
+            if (brightRow == 0) setBrightness(b + step * 5);
+            else {
+                presetIndex = Math.max(0, Math.min(PRESET_VALUES.length - 1, presetIndex + step));
+                refreshBright();
+            }
+        } else if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
+            brightRow = 1;
+            refreshBright();
+        } else if (k == KeyEvent.KEYCODE_DPAD_UP) {
+            brightRow = 0;
+            refreshBright();
+        }
+        return true;
     }
 
     private void applyBrightness() {
