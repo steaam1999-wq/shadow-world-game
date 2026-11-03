@@ -83,6 +83,10 @@ public class MainActivity extends Activity {
 
     static final String YANDEX_BROWSER = "com.yandex.browser.tv";
     static final String WEB_PREFIX = "url:";
+    /** Яндекс Музыка in the TV's browser, shown only while no Яндекс Музыка app is installed. */
+    static final String YANDEX_MUSIC_WEB = "url:https://music.yandex.ru/";
+    /** Shortcuts added to «Главная» for users whose pins were saved before the shortcut existed. */
+    static final String[] ADDED_PINS = {YANDEX_MUSIC_WEB};
 
     /** Default «Главная» row, in order; only installed apps (and the website shortcuts) appear. */
     static final String[] DEFAULT_PINS = {
@@ -90,7 +94,8 @@ public class MainActivity extends Activity {
             "ru.rt.video.app.tv", "ru.ivi.client", "ru.start.androidmobile", "ru.start.tv", "gpm.tnt_premier",
             "com.netflix.ninja", "url:https://jut-su.net/", "com.vk.tv", "com.vk.vkvideo", "ru.rutube.app.tv",
             "ru.rutube.app", "tv.twitch.android.viewer", "tv.twitch.android.app", "com.msx.msx",
-            "ru.yandex.music", "com.spotify.tv.android", YANDEX_BROWSER, "com.android.vending", "org.amnezia.vpn"
+            "ru.yandex.music", "com.yandex.tv.music", "ru.yandex.music.tv", YANDEX_MUSIC_WEB,
+            "com.spotify.tv.android", YANDEX_BROWSER, "com.android.vending", "org.amnezia.vpn"
     };
 
     static final String[][] CATEGORY_PREFIXES = {
@@ -98,7 +103,7 @@ public class MainActivity extends Activity {
                     "gpm.", "com.netflix", "ru.kion", "ru.mts.", "com.amediateka", "url:https://jut-su"},
             {"video", "com.google.android.youtube", "com.vk.", "ru.rutube", "tv.twitch", "com.msx", "ru.vk.",
                     "com.liskovsoft", "org.xbmc", "com.plexapp", "ru.ntv", "ru.smotreshka"},
-            {"music", "ru.yandex.music", "com.spotify", "ru.zvuk", "com.apple.android.music", "deezer",
+            {"music", "ru.yandex.music", "com.yandex.tv.music", "url:https://music.yandex", "com.spotify", "ru.zvuk", "com.apple.android.music", "deezer",
                     "com.soundcloud"},
     };
 
@@ -130,6 +135,8 @@ public class MainActivity extends Activity {
         DESCRIPTIONS.put("tv.twitch", "Игровые стримы и прямые эфиры.");
         DESCRIPTIONS.put("com.msx", "Медиатека и плейлисты для телевизора.");
         DESCRIPTIONS.put("ru.yandex.music", "Моя волна, плейлисты и подкасты.");
+        DESCRIPTIONS.put("com.yandex.tv.music", "Моя волна, плейлисты и подкасты.");
+        DESCRIPTIONS.put("url:https://music.yandex", "Моя волна, плейлисты и подкасты — в браузере.");
         DESCRIPTIONS.put("com.spotify", "Музыка и подкасты.");
         DESCRIPTIONS.put(YANDEX_BROWSER, "Поиск и любые сайты.");
         DESCRIPTIONS.put("com.android.vending", "Приложения и игры для телевизора.");
@@ -1062,6 +1069,7 @@ public class MainActivity extends Activity {
         String host = Uri.parse(url).getHost();
         if (host == null) return url;
         if (host.contains("jut-su") || host.contains("jut.su")) return "Jut.su";
+        if (host.startsWith("music.yandex")) return "Яндекс Музыка";
         return host.replaceFirst("^www\\.", "");
     }
 
@@ -1127,7 +1135,24 @@ public class MainActivity extends Activity {
         if (saved == null) return new ArrayList<>(Arrays.asList(DEFAULT_PINS));
         List<String> out = new ArrayList<>();
         for (String s : saved.split("\n")) if (!s.isEmpty()) out.add(s);
+        // one-time: new built-in shortcuts join a saved «Главная» (removing them later is respected)
+        String done = prefs.getString("added_pins", "");
+        boolean changed = false;
+        for (String k : ADDED_PINS) {
+            if (done.contains(k)) continue;
+            done = done + k + "\n";
+            if (!out.contains(k)) { out.add(k); changed = true; }
+        }
+        if (changed || !done.equals(prefs.getString("added_pins", ""))) {
+            prefs.edit().putString("added_pins", done).putString("pins", TextUtils.join("\n", out)).apply();
+        }
         return out;
+    }
+
+    /** True when a real Яндекс Музыка app is installed (then its web shortcut is not shown). */
+    private boolean hasYandexMusicApp() {
+        for (String k : apps.keySet()) if (k.contains("yandex") && k.contains("music") && !k.startsWith(WEB_PREFIX)) return true;
+        return false;
     }
 
     private void savePins(List<String> list) {
@@ -1138,13 +1163,17 @@ public class MainActivity extends Activity {
         List<App> out = new ArrayList<>();
         String key = TAB_KEYS[t];
         if (key.equals("home")) {
+            boolean ymApp = hasYandexMusicApp();
             for (String p : pins()) {
+                if (p.equals(YANDEX_MUSIC_WEB) && ymApp) continue;
                 App a = apps.get(p);
                 if (a != null) out.add(a);
             }
             return out;
         }
+        boolean ymApp = hasYandexMusicApp();
         for (App a : apps.values()) {
+            if (a.key.equals(YANDEX_MUSIC_WEB) && ymApp) continue;
             if (key.equals("all") || a.category.equals(key)) out.add(a);
         }
         if (key.equals("all")) Collections.sort(out, (x, y) -> x.label.compareToIgnoreCase(y.label));
