@@ -244,6 +244,33 @@ dialog[open]::backdrop{animation:fade .35s var(--soft)}
 .dim{transition:opacity .35s var(--soft)}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important;transition-delay:0ms!important}}
+
+/* ===== Liquid glass surfaces: top buttons, info pill, tab bar, Open button ===== */
+.chip,.meta,nav{position:relative;border:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.04) 55%,rgba(255,255,255,.09)),linear-gradient(rgba(12,14,22,.38),rgba(12,14,22,.38));
+  backdrop-filter:blur(16px) saturate(130%) brightness(1.02);-webkit-backdrop-filter:blur(16px) saturate(130%) brightness(1.02);
+  box-shadow:inset 0 1.5px 1px rgba(255,255,255,.6),inset 0 -1px 1px rgba(255,255,255,.22),inset 0 0 0 1px rgba(255,255,255,.1),
+    inset 0 10px 16px -12px rgba(255,255,255,.75),inset 0 -8px 14px -10px color-mix(in srgb,var(--c1) 55%,transparent),0 8px 22px -6px rgba(0,0,0,.45)}
+.chip::after,.meta::after,nav::after,.open::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(125deg,rgba(255,255,255,.9),rgba(255,255,255,.06) 35%,transparent 62%,color-mix(in srgb,var(--c2) 70%,#fff));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:.6;transition:opacity .35s var(--soft)}
+nav::after{z-index:0}
+.chip{color:rgba(244,246,251,.82)}
+button.chip:hover,button.chip:focus-visible{color:#fff;border:0;
+  background:linear-gradient(180deg,rgba(255,255,255,.3),color-mix(in srgb,var(--c1) 22%,transparent) 60%,rgba(255,255,255,.14)),linear-gradient(rgba(12,14,22,.3),rgba(12,14,22,.3));
+  box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9),inset 0 -1px 1px rgba(255,255,255,.35),inset 0 0 0 1px rgba(255,255,255,.28),
+    inset 0 10px 16px -10px #fff,inset 0 -8px 14px -8px var(--c1),0 0 0 2px rgba(255,255,255,.55),0 10px 28px -4px color-mix(in srgb,var(--c1) 60%,transparent)}
+button.chip:hover::after,button.chip:focus-visible::after{opacity:1}
+button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255,255,.78))}
+.avatar{box-shadow:0 0 0 1px rgba(255,255,255,.25),0 8px 22px -6px rgba(0,0,0,.45),0 0 18px -4px color-mix(in srgb,var(--c1) 60%,transparent)}
+.avatar span{background:linear-gradient(180deg,rgba(30,32,44,.75),rgba(12,13,20,.9));box-shadow:inset 0 1.5px 1px rgba(255,255,255,.45),inset 0 8px 12px -10px #fff}
+.open{position:relative;color:#0a0b10;
+  background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,255,255,.78) 60%,rgba(255,255,255,.9));
+  backdrop-filter:blur(10px) saturate(160%);-webkit-backdrop-filter:blur(10px) saturate(160%);
+  box-shadow:inset 0 1.5px 1px #fff,inset 0 -6px 12px -6px color-mix(in srgb,var(--c1) 45%,transparent),0 10px 26px -6px rgba(0,0,0,.5)}
+.open:hover,.open:focus-visible{outline:none;
+  box-shadow:inset 0 1.5px 1px #fff,inset 0 -8px 14px -6px color-mix(in srgb,var(--c1) 65%,transparent),0 0 0 3px rgba(255,255,255,.4),0 14px 34px -6px color-mix(in srgb,var(--c1) 70%,transparent)}
+.open::after{opacity:.9}
 </style>
 
 <canvas id="fx" aria-hidden="true"></canvas>
