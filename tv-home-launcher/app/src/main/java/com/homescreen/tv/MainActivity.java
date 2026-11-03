@@ -15,6 +15,8 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Base64;
 import android.view.KeyEvent;
+import android.view.View;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -54,7 +56,11 @@ public class MainActivity extends Activity {
         // Lets laptop Chrome inspect the page over ADB (chrome://inspect).
         WebView.setWebContentsDebuggingEnabled(true);
 
+        // Smoothness on a weak TV: GPU-composited window and WebView, whole screen rasterised ahead of movement.
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
         web = new WebView(this);
+        web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         configure(web);
         web.setWebViewClient(new HomeClient());
         web.addJavascriptInterface(new Bridge(), "Android");
@@ -77,6 +83,8 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
         s.setSupportMultipleWindows(false);
+        s.setOffscreenPreRaster(true);
+        s.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);   // fonts from cache, no network wait at boot
         view.setBackgroundColor(Color.BLACK);
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
@@ -245,7 +253,7 @@ public class MainActivity extends Activity {
             if (pkg.isEmpty()) continue;
             try {
                 Drawable d = pm.getApplicationIcon(pkg);
-                int size = 192;
+                int size = 128;
                 Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bmp);
                 d.setBounds(0, 0, size, size);

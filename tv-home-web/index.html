@@ -302,6 +302,26 @@ button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255
 .lite #fx{display:none}
 .lite .app .icon{animation:none}
 .lite .app:focus-visible .icon,.lite .app:hover .icon{animation:jelly var(--t) var(--soft)}
+
+/* ===== Fast mode, tuned for a weak TV GPU: only transform and opacity move, nothing re-blurs ===== */
+.lite *,.lite *::before,.lite *::after{animation:none!important;transition-property:transform,opacity!important;
+  transition-duration:.22s!important;transition-delay:0s!important;transition-timing-function:cubic-bezier(.2,.8,.3,1)!important}
+.lite .lens{transition-property:transform,width!important;transition-duration:.28s!important}
+.lite .bgl{transition-duration:.6s!important;will-change:auto}
+.lite .icon svg{filter:none!important}
+.lite .app .icon,.lite .app:hover .icon,.lite .app:focus-visible .icon{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 6px 14px -6px rgba(0,0,0,.6)!important}
+.lite .app:hover .icon,.lite .app:focus-visible .icon{transform:translateY(-8px) scale(1.1)}
+.lite .icon::after{opacity:.55}
+.lite .app:hover .icon::after,.lite .app:focus-visible .icon::after{opacity:1;padding:3px;background:#fff}
+.lite .lbl{transition-property:opacity!important}
+.lite .app:hover .lbl,.lite .app:focus-visible .lbl{transform:none}
+.lite .title{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:#fff;-webkit-text-fill-color:#fff}
+.lite .chip,.lite .meta,.lite nav,.lite .open,.lite .lens,.lite .avatar{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 4px 12px -4px rgba(0,0,0,.5)!important}
+.lite button.chip:hover,.lite button.chip:focus-visible{box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 0 0 2px #fff!important;transform:scale(1.08)}
+.lite .open:hover,.lite .open:focus-visible{box-shadow:0 0 0 3px rgba(255,255,255,.55)!important;transform:scale(1.05)}
+.lite .lens.focus{box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 0 0 2px rgba(255,255,255,.6)!important}
+.lite .seg button.on{animation:none!important}
+.lite .hero .swap{transition-duration:.18s!important}
 </style>
 
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -479,22 +499,23 @@ function openApp(a){
   if(a[1])window.open(a[1],"_blank","noopener");
 }
 /* Real app icons: from the TV itself inside the launcher, otherwise the service's own site icon. */
-const ICONS={};let iconQ=[],iconBusy=false;
+let ICONS={};try{ICONS=JSON.parse(localStorage.getItem("tv-home-icons"))||{}}catch(e){}
+let iconQ=[],iconBusy=false,iconDirty=false;
 function iconFor(a){
-  if(TV&&typeof TV.icon==="function"){const p=pkgFor(a);if(!p)return "";if(!(p in ICONS)){try{ICONS[p]=TV.icon(p)||""}catch(e){ICONS[p]=""}}return ICONS[p]}
+  if(TV&&typeof TV.icon==="function"){const p=pkgFor(a);if(!p)return "";if(!(p in ICONS)){try{ICONS[p]=TV.icon(p)||""}catch(e){ICONS[p]=""}iconDirty=true}return ICONS[p]}
   if(!a[1])return "";
   try{return "https://www.google.com/s2/favicons?sz=256&domain="+new URL(a[1]).hostname}catch(e){return ""}
 }
 function queueIcon(box,a){iconQ.push([box,a]);if(!iconBusy){iconBusy=true;setTimeout(drainIcons,0)}}
 function drainIcons(){
-  const job=iconQ.shift();if(!job){iconBusy=false;return}
+  const job=iconQ.shift();if(!job){iconBusy=false;if(iconDirty){iconDirty=false;try{localStorage.setItem("tv-home-icons",JSON.stringify(ICONS))}catch(e){}}return}
   const[box,a]=job,src=iconFor(a);
   if(src&&box.isConnected){
     const img=new Image();img.alt="";img.decoding="async";
     img.onload=()=>{if(img.naturalWidth>=48){box.classList.add("real");box.prepend(img)}};
     img.src=src;
   }
-  setTimeout(drainIcons,TV?16:0);
+  setTimeout(drainIcons,TV?40:0);
 }
 const KEY="tv-home-v3";
 let apps;
