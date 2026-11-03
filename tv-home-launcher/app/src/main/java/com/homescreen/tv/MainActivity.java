@@ -6,10 +6,14 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Base64;
 import android.view.KeyEvent;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
@@ -233,6 +237,32 @@ public class MainActivity extends Activity {
         return out.toString();
     }
 
+    /** The app's own launcher icon as a PNG data URL, for the page's tiles. Empty if none is installed. */
+    private String iconDataUrl(String packages) {
+        PackageManager pm = getPackageManager();
+        for (String p : packages.split(",")) {
+            String pkg = p.trim();
+            if (pkg.isEmpty()) continue;
+            try {
+                Drawable d = pm.getApplicationIcon(pkg);
+                int size = 192;
+                Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bmp);
+                d.setBounds(0, 0, size, size);
+                d.draw(canvas);
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, out);
+                bmp.recycle();
+                return "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
+            } catch (PackageManager.NameNotFoundException e) {
+                // try the next candidate package
+            } catch (RuntimeException e) {
+                return "";
+            }
+        }
+        return "";
+    }
+
     // ---- the page's bridge -----------------------------------------------------------------------------
 
     /** Called from the page as window.Android.*; runs on a WebView thread, so UI work goes through start(). */
@@ -268,6 +298,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void openInputs() {
             MainActivity.this.openInputs();
+        }
+
+        @JavascriptInterface
+        public String icon(String packages) {
+            return packages == null ? "" : iconDataUrl(packages);
         }
 
         @JavascriptInterface
