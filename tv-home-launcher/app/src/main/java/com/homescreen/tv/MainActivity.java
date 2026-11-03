@@ -164,6 +164,7 @@ public class MainActivity extends Activity {
         Drawable banner;     // the app's own TV banner, if it has one
         Drawable icon;       // otherwise its icon, shown on a colour card
         int color = 0xFF3A3F55;
+        Bitmap backdrop;     // the app's picture, heavily blurred: the screen background while it is focused
         Intent launch;
         String url;
     }
@@ -193,7 +194,7 @@ public class MainActivity extends Activity {
     private int tab = 0;
     private int pendingTab = -1;
     private View firstTile;
-    private int glowColor = 0;
+    private String backdropKey = "";
     private App heroApp;
     private ValueAnimator scrollAnim;
 
@@ -208,8 +209,8 @@ public class MainActivity extends Activity {
         if (pendingTab >= 0 && pendingTab != tab) switchTab(pendingTab);
         pendingTab = -1;
     };
-    private int pendingGlow;
-    private final Runnable applyGlow = () -> fadeGlow(pendingGlow);
+    private App pendingBackdrop;
+    private final Runnable applyGlow = () -> fadeBackdrop(pendingBackdrop);
 
     // ---- lifecycle -------------------------------------------------------------------------------------
 
@@ -257,12 +258,17 @@ public class MainActivity extends Activity {
             if (event.getAction() == KeyEvent.ACTION_UP) goHome();
             return true;   // a launcher never closes on Back
         }
-        if (event.getKeyCode() == KeyEvent.KEYCODE_MENU && event.getAction() == KeyEvent.ACTION_UP) {
-            View f = getCurrentFocus();
-            if (f != null && f.getTag() instanceof App) {
-                showAppMenu((App) f.getTag());
-                return true;
+        int code = event.getKeyCode();
+        if (code == KeyEvent.KEYCODE_MENU || code == KeyEvent.KEYCODE_SETTINGS) {
+            if (event.getAction() == KeyEvent.ACTION_UP) {
+                View f = getCurrentFocus();
+                if (code == KeyEvent.KEYCODE_MENU && f != null && f.getTag() instanceof App) {
+                    showAppMenu((App) f.getTag());
+                } else {
+                    showSettings();   // the settings list now lives on the remote's Menu / Settings key
+                }
             }
+            return true;
         }
         return super.dispatchKeyEvent(event);
     }
@@ -381,7 +387,6 @@ public class MainActivity extends Activity {
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         top.addView(iconButton(R.drawable.ic_input, "Источники", v -> openInputs()));
         top.addView(iconButton(R.drawable.ic_wifi, "Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
-        top.addView(iconButton(R.drawable.ic_settings, "Настройки", v -> showSettings()));
         content.addView(top);
 
         content.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
@@ -478,7 +483,7 @@ public class MainActivity extends Activity {
 
     private ImageView glowView() {
         ImageView v = new ImageView(this);
-        v.setScaleType(ImageView.ScaleType.FIT_XY);
+        v.setScaleType(ImageView.ScaleType.CENTER_CROP);
         return v;
     }
 
@@ -578,19 +583,90 @@ public class MainActivity extends Activity {
         return b;
     }
 
-    private void tintFor(int color) {
-        if (color == glowColor) return;
-        pendingGlow = color;
-        ui.removeCallbacks(applyGlow);
-        ui.postDelayed(applyGlow, 140);   // only the tile the remote stops on recolours the screen
+    /**
+     * The app's banner (or its icon on a colour card) drawn into a 48×27 bitmap and box-blurred three times.
+     * Scaled to the full screen by the GPU it reads as a heavy blur, and it is computed once per app.
+     */
+    private static Bitmap backdropFor(App a) {
+        final int w = 48, h = 27;
+        try {
+            Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(b);
+            c.drawColor(darken(a.color, 0.35f));
+            Drawable src = a.banner != null ? a.banner : a.icon;
+            if (src != null && src.getConstantState() != null) {
+                Drawable d = src.getConstantState().newDrawable().mutate();
+                if (a.banner != null) {
+                    d.setBounds(0, 0, w, h);
+                } else {
+                    int s = (int) (h * 1.5f);
+                    d.setBounds(w / 2 - s / 2, h / 2 - s / 2, w / 2 + s / 2, h / 2 + s / 2);
+                }
+                d.draw(c);
+            }
+            int[] px = new int[w * h];
+            b.getPixels(px, 0, w, 0, 0, w, h);
+            for (int pass = 0; pass < 3; pass++) boxBlur(px, w, h, 3);
+            for (int i = 0; i < px.length; i++) px[i] = moodColor(px[i]);
+            b.setPixels(px, 0, w, 0, 0, w, h);
+            return b;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
-    private void fadeGlow(int color) {
-        if (color == glowColor) return;
-        glowColor = color;
+    private static void boxBlur(int[] px, int w, int h, int r) {
+        int[] tmp = new int[px.length];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rs = 0, gs = 0, bs = 0, n = 0;
+                for (int k = -r; k <= r; k++) {
+                    int p = px[y * w + Math.max(0, Math.min(w - 1, x + k))];
+                    rs += (p >> 16) & 0xFF; gs += (p >> 8) & 0xFF; bs += p & 0xFF; n++;
+                }
+                tmp[y * w + x] = 0xFF000000 | ((rs / n) << 16) | ((gs / n) << 8) | (bs / n);
+            }
+        }
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rs = 0, gs = 0, bs = 0, n = 0;
+                for (int k = -r; k <= r; k++) {
+                    int p = tmp[Math.max(0, Math.min(h - 1, y + k)) * w + x];
+                    rs += (p >> 16) & 0xFF; gs += (p >> 8) & 0xFF; bs += p & 0xFF; n++;
+                }
+                px[y * w + x] = 0xFF000000 | ((rs / n) << 16) | ((gs / n) << 8) | (bs / n);
+            }
+        }
+    }
+
+    /** A little richer and darker, so white text stays readable over any picture. */
+    private static int moodColor(int p) {
+        float r = ((p >> 16) & 0xFF), g = ((p >> 8) & 0xFF), b = (p & 0xFF);
+        float grey = (r + g + b) / 3f;
+        r = grey + (r - grey) * 1.3f;
+        g = grey + (g - grey) * 1.3f;
+        b = grey + (b - grey) * 1.3f;
+        float k = 0.62f;
+        int ri = Math.max(0, Math.min(255, (int) (r * k)));
+        int gi = Math.max(0, Math.min(255, (int) (g * k)));
+        int bi = Math.max(0, Math.min(255, (int) (b * k)));
+        return 0xFF000000 | (ri << 16) | (gi << 8) | bi;
+    }
+
+    private void tintFor(App a) {
+        if (a.key.equals(backdropKey)) return;
+        pendingBackdrop = a;
+        ui.removeCallbacks(applyGlow);
+        ui.postDelayed(applyGlow, 140);   // only the tile the remote stops on repaints the screen
+    }
+
+    /** Cross-fades the screen to the focused app's blurred picture (or its colour glow if it has none). */
+    private void fadeBackdrop(App a) {
+        if (a == null || a.key.equals(backdropKey)) return;
+        backdropKey = a.key;
         ImageView front = glowA.getAlpha() > 0.5f ? glowA : glowB;
         ImageView back = front == glowA ? glowB : glowA;
-        back.setImageBitmap(glowBitmap(color));
+        back.setImageBitmap(a.backdrop != null ? a.backdrop : glowBitmap(a.color));
         back.animate().cancel();
         front.animate().cancel();
         back.animate().alpha(1f).setDuration(600).setInterpolator(EASE).start();
@@ -642,6 +718,7 @@ public class MainActivity extends Activity {
                     a.icon = null;
                 }
                 a.color = dominantColor(a.banner != null ? a.banner : a.icon);
+                a.backdrop = backdropFor(a);
                 a.launch = pm.getLeanbackLaunchIntentForPackage(pkg);
                 if (a.launch == null) a.launch = pm.getLaunchIntentForPackage(pkg);
                 out.put(pkg, a);
@@ -657,6 +734,7 @@ public class MainActivity extends Activity {
                 Bitmap fav = siteIcon(a.url);
                 if (fav != null) a.icon = new BitmapDrawable(getResources(), fav);
                 a.color = a.icon != null ? dominantColor(a.icon) : 0xFF2E7D4F;
+                a.backdrop = backdropFor(a);
                 out.put(key, a);
             }
         }
@@ -953,7 +1031,7 @@ public class MainActivity extends Activity {
         heroDesc.setTranslationY(dp(8));
         heroTitle.animate().alpha(1f).translationY(0f).setDuration(280).setInterpolator(EASE).start();
         heroDesc.animate().alpha(1f).translationY(0f).setStartDelay(50).setDuration(280).setInterpolator(EASE).start();
-        tintFor(a.color);
+        tintFor(a);
     }
 
     // ---- actions ---------------------------------------------------------------------------------------
