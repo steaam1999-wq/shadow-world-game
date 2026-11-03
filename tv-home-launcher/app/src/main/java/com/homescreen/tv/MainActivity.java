@@ -25,6 +25,8 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.graphics.drawable.TransitionDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -184,7 +186,7 @@ public class MainActivity extends Activity {
     private String appsSignature = "";
 
     private FrameLayout root;
-    private ImageView wallA, wallB, glowA, glowB;
+    private ImageView wallA, wallB, glow;
     private int wallIndex = -1;
     private View dim;
     private TextView greeting, clock, date, heroCategory, heroTitle, heroDesc;
@@ -338,11 +340,8 @@ public class MainActivity extends Activity {
         wallB.setAlpha(0f);
         root.addView(wallA, match());
         root.addView(wallB, match());
-        glowA = glowView();
-        glowB = glowView();
-        glowB.setAlpha(0f);
-        root.addView(glowA, match());
-        root.addView(glowB, match());
+        glow = glowView();
+        root.addView(glow, match());
 
         View scrim = new View(this);
         GradientDrawable left = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
@@ -362,7 +361,7 @@ public class MainActivity extends Activity {
         // top bar: greeting over the clock, date, glass buttons
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setGravity(Gravity.TOP);
         top.setPadding(0, 0, dp(52), 0);
         top.setClipChildren(false);
         LinearLayout clockBox = new LinearLayout(this);
@@ -483,7 +482,7 @@ public class MainActivity extends Activity {
 
     private ImageView glowView() {
         ImageView v = new ImageView(this);
-        v.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        v.setScaleType(ImageView.ScaleType.FIT_XY);
         return v;
     }
 
@@ -519,9 +518,9 @@ public class MainActivity extends Activity {
                     .setInterpolator(EASE).start();
         });
 
+        wrap.setPadding(0, dp(12), 0, dp(4));   // lines the circles up with the clock, room for the focus scale
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(84), -2);
         lp.leftMargin = dp(2);
-        lp.bottomMargin = -dp(22);   // the caption hangs below the round button without moving it
         wrap.setLayoutParams(lp);
         return wrap;
     }
@@ -664,13 +663,16 @@ public class MainActivity extends Activity {
     private void fadeBackdrop(App a) {
         if (a == null || a.key.equals(backdropKey)) return;
         backdropKey = a.key;
-        ImageView front = glowA.getAlpha() > 0.5f ? glowA : glowB;
-        ImageView back = front == glowA ? glowB : glowA;
-        back.setImageBitmap(a.backdrop != null ? a.backdrop : glowBitmap(a.color));
-        back.animate().cancel();
-        front.animate().cancel();
-        back.animate().alpha(1f).setDuration(600).setInterpolator(EASE).start();
-        front.animate().alpha(0f).setDuration(600).setInterpolator(EASE).start();
+        // The new picture fades in OVER the old one, which stays fully opaque underneath: nothing behind
+        // (the wallpaper) can show through halfway.
+        Drawable next = new BitmapDrawable(getResources(), a.backdrop != null ? a.backdrop : glowBitmap(a.color));
+        Drawable prev = glow.getDrawable();
+        if (prev instanceof TransitionDrawable) prev = ((TransitionDrawable) prev).getDrawable(1);
+        if (prev == null) prev = new ColorDrawable(Color.TRANSPARENT);
+        TransitionDrawable fade = new TransitionDrawable(new Drawable[]{prev, next});
+        fade.setCrossFadeEnabled(false);
+        glow.setImageDrawable(fade);
+        fade.startTransition(450);
     }
 
     // ---- apps ------------------------------------------------------------------------------------------
