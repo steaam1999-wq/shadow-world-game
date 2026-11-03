@@ -7,9 +7,11 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -34,6 +36,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -167,6 +170,7 @@ public class MainActivity extends Activity {
         Drawable icon;       // otherwise its icon, shown on a colour card
         int color = 0xFF3A3F55;
         Bitmap backdrop;     // the app's picture, heavily blurred: the screen background while it is focused
+        Bitmap cardBg;       // the same, brighter: the card behind an icon when the app has no banner
         Intent launch;
         String url;
     }
@@ -586,7 +590,7 @@ public class MainActivity extends Activity {
      * The app's banner (or its icon on a colour card) drawn into a 48×27 bitmap and box-blurred three times.
      * Scaled to the full screen by the GPU it reads as a heavy blur, and it is computed once per app.
      */
-    private static Bitmap backdropFor(App a) {
+    private static Bitmap backdropFor(App a, float brightness) {
         final int w = 48, h = 27;
         try {
             Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
@@ -606,7 +610,7 @@ public class MainActivity extends Activity {
             int[] px = new int[w * h];
             b.getPixels(px, 0, w, 0, 0, w, h);
             for (int pass = 0; pass < 3; pass++) boxBlur(px, w, h, 3);
-            for (int i = 0; i < px.length; i++) px[i] = moodColor(px[i]);
+            for (int i = 0; i < px.length; i++) px[i] = moodColor(px[i], brightness);
             b.setPixels(px, 0, w, 0, 0, w, h);
             return b;
         } catch (RuntimeException e) {
@@ -639,13 +643,12 @@ public class MainActivity extends Activity {
     }
 
     /** A little richer and darker, so white text stays readable over any picture. */
-    private static int moodColor(int p) {
+    private static int moodColor(int p, float k) {
         float r = ((p >> 16) & 0xFF), g = ((p >> 8) & 0xFF), b = (p & 0xFF);
         float grey = (r + g + b) / 3f;
         r = grey + (r - grey) * 1.3f;
         g = grey + (g - grey) * 1.3f;
         b = grey + (b - grey) * 1.3f;
-        float k = 0.62f;
         int ri = Math.max(0, Math.min(255, (int) (r * k)));
         int gi = Math.max(0, Math.min(255, (int) (g * k)));
         int bi = Math.max(0, Math.min(255, (int) (b * k)));
@@ -708,19 +711,26 @@ public class MainActivity extends Activity {
                 a.key = pkg;
                 a.label = String.valueOf(ri.loadLabel(pm));
                 a.category = categoryOf(pkg);
-                try {
-                    a.banner = ri.activityInfo.loadBanner(pm);
-                    if (a.banner == null) a.banner = pm.getApplicationBanner(pkg);
-                } catch (Exception ignored) {
-                    a.banner = null;
+                a.banner = hiRes(pm, ri, true);
+                if (a.banner == null) {
+                    try {
+                        a.banner = ri.activityInfo.loadBanner(pm);
+                        if (a.banner == null) a.banner = pm.getApplicationBanner(pkg);
+                    } catch (Exception ignored) {
+                        a.banner = null;
+                    }
                 }
-                try {
-                    a.icon = ri.loadIcon(pm);
-                } catch (Exception ignored) {
-                    a.icon = null;
+                a.icon = hiRes(pm, ri, false);
+                if (a.icon == null) {
+                    try {
+                        a.icon = ri.loadIcon(pm);
+                    } catch (Exception ignored) {
+                        a.icon = null;
+                    }
                 }
                 a.color = dominantColor(a.banner != null ? a.banner : a.icon);
-                a.backdrop = backdropFor(a);
+                a.backdrop = backdropFor(a, 0.62f);
+                if (a.banner == null) a.cardBg = backdropFor(a, 1.05f);
                 a.launch = pm.getLeanbackLaunchIntentForPackage(pkg);
                 if (a.launch == null) a.launch = pm.getLaunchIntentForPackage(pkg);
                 out.put(pkg, a);
@@ -736,11 +746,28 @@ public class MainActivity extends Activity {
                 Bitmap fav = siteIcon(a.url);
                 if (fav != null) a.icon = new BitmapDrawable(getResources(), fav);
                 a.color = a.icon != null ? dominantColor(a.icon) : 0xFF2E7D4F;
-                a.backdrop = backdropFor(a);
+                a.backdrop = backdropFor(a, 0.62f);
+                a.cardBg = backdropFor(a, 1.05f);
                 out.put(key, a);
             }
         }
         return out;
+    }
+
+    /**
+     * The banner or icon from the app's highest-density resources (xxxhdpi when it has one). The default
+     * loaders pick the TV's own density bucket, which is often a small picture stretched up and soft.
+     */
+    private static Drawable hiRes(PackageManager pm, ResolveInfo ri, boolean banner) {
+        try {
+            ActivityInfo ai = ri.activityInfo;
+            int res = banner ? (ai.banner != 0 ? ai.banner : ai.applicationInfo.banner) : ai.getIconResource();
+            if (res == 0) return null;
+            Resources r = pm.getResourcesForApplication(ai.applicationInfo);
+            return r.getDrawableForDensity(res, DisplayMetrics.DENSITY_XXXHIGH, null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static String categoryOf(String key) {
@@ -901,7 +928,7 @@ public class MainActivity extends Activity {
     }
 
     private View tile(final App a) {
-        final int w = dp(240), h = dp(135);
+        final int w = dp(256), h = dp(144);
         final LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -909,11 +936,11 @@ public class MainActivity extends Activity {
         box.setFocusable(true);
         box.setTag(a);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(w, -2);
-        blp.rightMargin = dp(24);
+        blp.rightMargin = dp(26);
         box.setLayoutParams(blp);
 
         final FrameLayout card = new FrameLayout(this);
-        final float radius = dp(18);
+        final float radius = dp(20);
         card.setOutlineProvider(new ViewOutlineProvider() {
             @Override public void getOutline(View view, Outline outline) {
                 outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
@@ -932,13 +959,25 @@ public class MainActivity extends Activity {
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
             card.addView(image, new FrameLayout.LayoutParams(-1, -1));
         } else {
-            int c = a.color;
-            card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{lighten(c, 0.18f), darken(c, 0.5f)}));
+            // no banner: the app's own icon, sharp, over a blurred and glowing copy of itself
+            if (a.cardBg != null) {
+                card.setBackground(new BitmapDrawable(getResources(), a.cardBg));
+            } else {
+                int c = a.color;
+                card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                        new int[]{lighten(c, 0.18f), darken(c, 0.5f)}));
+            }
+            View halo = new View(this);
+            GradientDrawable hd = new GradientDrawable();
+            hd.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+            hd.setColors(new int[]{0x59000000, 0x00000000});
+            hd.setGradientRadius(dp(70));
+            halo.setBackground(hd);
+            card.addView(halo, new FrameLayout.LayoutParams(dp(150), dp(150), Gravity.CENTER));
             if (a.icon != null) {
                 image.setImageDrawable(a.icon);
                 image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                card.addView(image, new FrameLayout.LayoutParams(dp(88), dp(88), Gravity.CENTER));
+                card.addView(image, new FrameLayout.LayoutParams(dp(84), dp(84), Gravity.CENTER));
             } else {
                 TextView letter = text(40, Color.WHITE, Typeface.create("sans-serif-black", Typeface.NORMAL));
                 letter.setText(a.label.substring(0, Math.min(2, a.label.length())));
@@ -946,23 +985,32 @@ public class MainActivity extends Activity {
             }
         }
 
-        // liquid glass over the picture: a curved sheen at the top, a light rim, and the focus ring
+        // liquid glass over the picture: diagonal sheen, bright outer rim with a dark inner line,
+        // a soft shade on tiles that are not focused, and the white focus ring
         View sheen = new View(this);
-        GradientDrawable sh = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x4DFFFFFF, 0x0FFFFFFF, 0x00FFFFFF});
-        sh.setCornerRadii(new float[]{radius, radius, radius, radius, radius * 3, radius, radius * 3, radius});
+        GradientDrawable sh = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x40FFFFFF, 0x10FFFFFF, 0x00FFFFFF, 0x00FFFFFF});
+        sh.setCornerRadius(radius);
         sheen.setBackground(sh);
-        FrameLayout.LayoutParams shp = new FrameLayout.LayoutParams(-1, (int) (h * 0.48f), Gravity.TOP);
-        shp.leftMargin = dp(3);
-        shp.rightMargin = dp(3);
-        shp.topMargin = dp(2);
-        card.addView(sheen, shp);
+        card.addView(sheen, new FrameLayout.LayoutParams(-1, -1));
         View rim = new View(this);
         GradientDrawable rimD = new GradientDrawable();
         rimD.setCornerRadius(radius);
-        rimD.setStroke(dp(1), 0x66FFFFFF);
+        rimD.setStroke(dp(1), 0x8CFFFFFF);
         rim.setBackground(rimD);
         card.addView(rim, new FrameLayout.LayoutParams(-1, -1));
+        View inner = new View(this);
+        GradientDrawable innerD = new GradientDrawable();
+        innerD.setCornerRadius(radius - dp(1));
+        innerD.setStroke(dp(1), 0x33000000);
+        inner.setBackground(innerD);
+        FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(-1, -1);
+        ilp.setMargins(dp(1), dp(1), dp(1), dp(1));
+        card.addView(inner, ilp);
+        final View shade = new View(this);
+        shade.setBackgroundColor(Color.BLACK);
+        shade.setAlpha(0.22f);
+        card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         final View ring = new View(this);
         GradientDrawable ringD = new GradientDrawable();
         ringD.setCornerRadius(radius);
@@ -991,12 +1039,13 @@ public class MainActivity extends Activity {
                     .translationY(has ? -lift : 0f).translationZ(has ? depth : 0f)
                     .setDuration(has ? 300 : 220).setInterpolator(has ? spring : EASE).start();
             ring.animate().alpha(has ? 1f : 0f).setDuration(180).setInterpolator(EASE).start();
+            shade.animate().alpha(has ? 0f : 0.22f).setDuration(220).setInterpolator(EASE).start();
             label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(240)
                     .setInterpolator(EASE).start();
             if (has) {
                 showHero(a);
                 int index = row.indexOfChild(v);
-                glideTo(index <= 0 ? 0 : v.getLeft() - (w + dp(24)) + dp(4) - row.getPaddingLeft());
+                glideTo(index <= 0 ? 0 : v.getLeft() - (w + dp(26)) + dp(4) - row.getPaddingLeft());
             }
         });
         box.setOnClickListener(v -> open(a));
