@@ -1,17 +1,22 @@
-/* TV layer for 2sub.movie: a focus ring you can see from the sofa, no scrollbars, no tap flashes. */
+/* TV layer for Jut.su: a gliding focus ring you can see from the sofa, no scrollbars, no tap flashes. */
 * { -webkit-tap-highlight-color: transparent !important; }
 html { scrollbar-width: none; }
 ::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none; }
 
 :focus { outline: none; }
-.tv-focus {
-  outline: 4px solid #ff6a30 !important;
-  outline-offset: 3px !important;
-  box-shadow: 0 0 0 7px rgba(255, 106, 48, 0.28), 0 10px 30px rgba(0, 0, 0, 0.55) !important;
-  border-radius: 10px;
-  transition: outline-color .12s ease, box-shadow .12s ease;
-  position: relative;
-  z-index: 2;
+/* The focused element itself is only marked; the visible ring is #tv-ring, which glides between targets. */
+.tv-focus { outline: none !important; }
+#tv-ring {
+  position: fixed; left: 0; top: 0; width: 0; height: 0;
+  z-index: 2147483646; pointer-events: none; opacity: 0;
+  border: 4px solid #ff8a3d; border-radius: 12px; box-sizing: border-box;
+  box-shadow: 0 0 0 6px rgba(255, 138, 61, 0.25), 0 12px 32px rgba(0, 0, 0, 0.5);
+  transition: opacity .15s ease;
+  will-change: left, top, width, height;
+}
+#tv-ring.glide {
+  transition: left .17s cubic-bezier(.2,.8,.2,1), top .17s cubic-bezier(.2,.8,.2,1),
+              width .17s cubic-bezier(.2,.8,.2,1), height .17s cubic-bezier(.2,.8,.2,1), opacity .15s ease;
 }
 /* Cards grow a little when focused, like on every TV home screen. */
 a.tv-focus img, .tv-focus > img, .tv-focus picture img {

@@ -169,6 +169,7 @@ public class MainActivity extends Activity {
         s.setJavaScriptCanOpenWindowsAutomatically(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         s.setUserAgentString(desktopUserAgent(s.getUserAgentString()));
+        s.setOffscreenPreRaster(true);   // the whole page is drawn ahead, so scrolling and the ring do not stutter
         view.setBackgroundColor(Color.BLACK);
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);

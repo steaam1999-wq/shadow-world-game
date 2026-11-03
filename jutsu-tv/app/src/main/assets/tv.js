@@ -133,6 +133,31 @@
     return null;
   }
 
+  // Finding what is clickable (incl. cursor:pointer cards) walks the whole page and reads styles: costly on
+  // a long episode list. It is done once per page change (the MutationObserver marks it dirty); each key
+  // press then only measures the cached elements near the screen.
+  var discovered = null, discoveredFor = null, pageDirty = true;
+
+  function discover(root) {
+    if (!pageDirty && discovered && discoveredFor === root) return discovered;
+    var list = [];
+    var seen = new Set();
+    root.querySelectorAll(NATURAL).forEach(function (el) {
+      if (!seen.has(el)) { seen.add(el); list.push({ el: el, viaPointer: false }); }
+    });
+    root.querySelectorAll(POINTER_SCAN).forEach(function (el) {
+      if (seen.has(el) || cursorOf(el) !== 'pointer') return;
+      var p = el.parentElement;
+      if (p && cursorOf(p) === 'pointer') return;  // inherited from a clickable ancestor
+      seen.add(el);
+      list.push({ el: el, viaPointer: true });
+    });
+    discovered = list;
+    discoveredFor = root;
+    pageDirty = false;
+    return list;
+  }
+
   function collect(scope) {
     var root = scope || document;
     var vw = innerWidth, vh = innerHeight;
@@ -141,8 +166,11 @@
     var fromPointer = new Set();
 
     function add(el, viaPointer) {
-      if (set.has(el) || el.tagName === 'VIDEO' || el.id === 'tv-toast') return;
+      if (set.has(el) || el.tagName === 'VIDEO' || el.id === 'tv-toast' || el.id === 'tv-ring') return;
+      if (!el.isConnected) return;
       var r = el.getBoundingClientRect();
+      // only what is on or near the screen: the next move never needs the far end of a long page
+      if (r.bottom < -vh * 1.5 || r.top > vh * 2.5) return;
       if (!visible(el, r)) return;
       // A clickable wrapper as big as the screen (the player surface, a page backdrop) is not a target.
       if (viaPointer && r.width * r.height > vw * vh * 0.4) return;
@@ -151,13 +179,7 @@
       out.push({ el: el, r: r });
     }
 
-    root.querySelectorAll(NATURAL).forEach(function (el) { add(el, false); });
-    root.querySelectorAll(POINTER_SCAN).forEach(function (el) {
-      if (set.has(el) || cursorOf(el) !== 'pointer') return;
-      var p = el.parentElement;
-      if (p && cursorOf(p) === 'pointer') return;  // inherited from a clickable ancestor
-      add(el, true);
-    });
+    discover(root).forEach(function (d) { add(d.el, d.viaPointer); });
 
     // Inside a link everything belongs to the link; a pointer-only element inside another target is
     // part of that target (the title on a card), while real buttons inside a clickable panel stay.
@@ -172,10 +194,48 @@
 
   // ------------------------------------------------------------------ focus
 
+  // One ring on top of the page that glides from element to element (only its box moves: cheap and smooth).
+  var ring = null, ringRaf = 0, lastMoveAt = 0;
+
+  function ringEl() {
+    if (ring && ring.isConnected) return ring;
+    ring = document.createElement('div');
+    ring.id = 'tv-ring';
+    (document.body || document.documentElement).appendChild(ring);
+    return ring;
+  }
+
+  function placeRing(glide) {
+    var rg = ringEl();
+    if (!focused || !focused.isConnected) { rg.style.opacity = '0'; return; }
+    var r = focused.getBoundingClientRect();
+    var pad = 4;
+    if (glide) {
+      rg.classList.add('glide');
+      clearTimeout(placeRing.t);
+      placeRing.t = setTimeout(function () { rg.classList.remove('glide'); }, 200);
+    }
+    var br = 10;
+    try { br = Math.max(8, parseFloat(getComputedStyle(focused).borderTopLeftRadius) || 0) + pad; } catch (err) { /* keep */ }
+    rg.style.left = (r.left - pad) + 'px';
+    rg.style.top = (r.top - pad) + 'px';
+    rg.style.width = (r.width + pad * 2) + 'px';
+    rg.style.height = (r.height + pad * 2) + 'px';
+    rg.style.borderRadius = br + 'px';
+    rg.style.opacity = '1';
+  }
+
+  function followRing() {
+    if (ringRaf) return;
+    ringRaf = requestAnimationFrame(function () { ringRaf = 0; placeRing(false); });
+  }
+  window.addEventListener('scroll', followRing, true);   // also inner scrolling lists (capture)
+  window.addEventListener('resize', followRing);
+
   function setFocus(el, scroll) {
     if (focused && focused !== el && focused.classList) focused.classList.remove('tv-focus');
     focused = el;
-    if (!el) return;
+    if (!el) { placeRing(false); return; }
     if (!isTextInput(el)) {
       var natural = el.matches && el.matches('a[href], button, input, select, textarea, summary');
       if (!natural && !el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
@@ -183,14 +243,18 @@
     }
     el.classList.add('tv-focus');
     if (scroll !== false) reveal(el);
+    placeRing(true);
   }
 
   function reveal(el) {
     var r = el.getBoundingClientRect();
     var m = 60;
     if (r.top >= m && r.bottom <= innerHeight - m && r.left >= 0 && r.right <= innerWidth) return;
+    // holding an arrow: jump straight there, so repeated smooth scrolls do not pile up and stutter
+    var fast = Date.now() - lastMoveAt < 220;
+    lastMoveAt = Date.now();
     try {
-      el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+      el.scrollIntoView({ block: 'center', inline: 'center', behavior: fast ? 'auto' : 'smooth' });
     } catch (err) {
       el.scrollIntoView();
     }
@@ -199,6 +263,7 @@
   function clearFocus() {
     if (focused && focused.classList) focused.classList.remove('tv-focus');
     focused = null;
+    placeRing(false);
   }
 
   function startCandidate(cands) {
@@ -275,7 +340,31 @@
     window.scrollBy({ top: (dir === 'down' ? 1 : -1) * innerHeight * 0.6, behavior: 'smooth' });
   }
 
+  function rememberSpot(el) {
+    try {
+      var a = el.closest ? el.closest('a[href]') : null;
+      if (a) sessionStorage.setItem('tvspot:' + location.pathname + location.search, a.getAttribute('href'));
+    } catch (err) { /* storage off: nothing to remember */ }
+  }
+
+  function restoreSpot() {
+    var href = null;
+    try { href = sessionStorage.getItem('tvspot:' + location.pathname + location.search); } catch (err) { return; }
+    if (!href || focused) return;
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      if (links[i].getAttribute('href') === href) {
+        var r = links[i].getBoundingClientRect();
+        if (!visible(links[i], r)) continue;
+        lastMoveAt = Date.now();   // no smooth scroll: just be there
+        setFocus(links[i]);
+        return;
+      }
+    }
+  }
+
   function activate(el) {
+    rememberSpot(el);
     if (isTextInput(el)) {
       el.focus();
       el.click();
@@ -319,7 +408,7 @@
     var tell = function (on) { if (window.TvBridge) window.TvBridge.setPlaying(on); };
     v.addEventListener('playing', function () { tell(true); });
     v.addEventListener('pause', function () { tell(false); });
-    v.addEventListener('ended', function () { tell(false); });
+    v.addEventListener('ended', function () { tell(false); autoNext(); });
     if (!v.paused) tell(true);
   }
 
@@ -418,6 +507,28 @@
     location.href = location.pathname.replace(/episode-\d+/, 'episode-' + n);
   }
 
+  var autoTimer = 0;
+
+  function autoNext() {
+    if (!/episode-\d+/.test(location.pathname)) return;
+    var left = 8;
+    var tickDown = function () {
+      if (left <= 0) { autoTimer = 0; episode(1); return; }
+      showToast('Следующая серия через <b>' + left + '</b> с · любая кнопка — остаться', 1200);
+      left--;
+      autoTimer = setTimeout(tickDown, 1000);
+    };
+    tickDown();
+  }
+
+  function cancelAutoNext() {
+    if (!autoTimer) return false;
+    clearTimeout(autoTimer);
+    autoTimer = 0;
+    showToast('Остаёмся на этой серии', 1500);
+    return true;
+  }
+
   function togglePlay(v) {
     wake(v);
     if (v.paused) {
@@ -489,6 +600,7 @@
     var dir = DIRS[e.key];
     var isEnter = e.key === 'Enter' || e.keyCode === 13 || e.keyCode === 23;
     if (!dir && !isEnter) return;
+    if (cancelAutoNext()) { handled[e.key] = true; stop(e); return; }
 
     var ae = document.activeElement;
     if (isTextInput(ae)) {
@@ -530,6 +642,7 @@
   // A dialog that opens (sign-in) takes the focus, so the remote does not stay on the page behind it.
   var lastScope = null, scopeCheck = 0;
   new MutationObserver(function () {
+    pageDirty = true;
     if (scopeCheck) return;
     scopeCheck = setTimeout(function () {
       scopeCheck = 0;
@@ -545,6 +658,21 @@
                                            attributeFilter: ['class', 'style', 'open', 'hidden', 'aria-hidden'] });
 
   // ------------------------------------------------------------------ called from MainActivity
+
+  function onPageReady() {
+    restoreSpot();
+    if (!/episode-\d+/.test(location.pathname)) return;
+    var best = null, area = 0;
+    document.querySelectorAll('video, iframe').forEach(function (m) {
+      var r = m.getBoundingClientRect();
+      if (r.width * r.height > area) { area = r.width * r.height; best = m; }
+    });
+    if (best && area > innerWidth * innerHeight * 0.15) {
+      try { best.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (err) { best.scrollIntoView(); }
+    }
+  }
+  if (document.readyState === 'complete') setTimeout(onPageReady, 300);
+  else window.addEventListener('load', function () { setTimeout(onPageReady, 300); });
 
   window.__tv = {
     back: function () {
