@@ -225,7 +225,7 @@ public class MainActivity extends Activity {
     private App heroApp;
     private ValueAnimator scrollAnim;
     private AlertDialog openDialog;
-    private LinearLayout editChip;
+    private ImageView editBtn;
     private TextView editLabel;
     private boolean editMode;           // «Изменить порядок»: OK picks a tile up instead of opening it
     private String movingKey;          // the tile being moved on «Главная» (null when not moving)
@@ -527,36 +527,7 @@ public class MainActivity extends Activity {
             tabs.addView(t);
         }
         tabsFrame.addView(tabs, new FrameLayout.LayoutParams(-2, -2));
-        // tabs and, beside them, the «Изменить» glass pill: next to the tiles it changes, one step away
-        LinearLayout tabsRow = new LinearLayout(this);
-        tabsRow.setOrientation(LinearLayout.HORIZONTAL);
-        tabsRow.setGravity(Gravity.CENTER_VERTICAL);
-        tabsRow.setClipChildren(false);
-        tabsRow.addView(tabsFrame);
-        editChip = new LinearLayout(this);
-        editChip.setOrientation(LinearLayout.HORIZONTAL);
-        editChip.setGravity(Gravity.CENTER_VERTICAL);
-        editChip.setPadding(dp(18), dp(12), dp(20), dp(12));
-        editChip.setBackground(glassStates(24, true));
-        editChip.setFocusable(true);
-        editChip.setContentDescription("Изменить порядок приложений");
-        ImageView pen = new ImageView(this);
-        pen.setImageResource(R.drawable.ic_edit);
-        editChip.addView(pen, new LinearLayout.LayoutParams(dp(18), dp(18)));
-        editLabel = text(15, 0xE6F4F6FB, Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        editLabel.setText("Изменить");
-        LinearLayout.LayoutParams el = new LinearLayout.LayoutParams(-2, -2);
-        el.leftMargin = dp(10);
-        editChip.addView(editLabel, el);
-        editChip.setOnClickListener(v -> {
-            if (editMode) stopEdit();
-            else startEdit();
-        });
-        editChip.setOnFocusChangeListener((v, has) -> v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f)
-                .setDuration(240).setInterpolator(EASE).start());
-        LinearLayout.LayoutParams ecl = new LinearLayout.LayoutParams(-2, -2);
-        ecl.leftMargin = dp(14);
-        tabsRow.addView(editChip, ecl);
+        View tabsRow = tabsFrame;
         LinearLayout.LayoutParams tabsLp = new LinearLayout.LayoutParams(-2, -2);
         tabsLp.topMargin = dp(24);
         content.addView(tabsRow, tabsLp);
@@ -591,6 +562,38 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
         rowLp.topMargin = dp(4);
         content.addView(rowStack, rowLp);
+
+        // under the tiles: one round glass button to change their order; its name shows when focused
+        LinearLayout editRow = new LinearLayout(this);
+        editRow.setOrientation(LinearLayout.HORIZONTAL);
+        editRow.setGravity(Gravity.CENTER_VERTICAL);
+        editRow.setClipChildren(false);
+        editBtn = new ImageView(this);
+        editBtn.setImageResource(R.drawable.ic_edit);
+        editBtn.setPadding(dp(13), dp(13), dp(13), dp(13));
+        editBtn.setBackground(glassStates(23, true));
+        editBtn.setFocusable(true);
+        editBtn.setContentDescription("Изменить порядок приложений");
+        editRow.addView(editBtn, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        editLabel = text(14, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        editLabel.setText("Изменить порядок");
+        editLabel.setAlpha(0f);
+        LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(-2, -2);
+        elp.leftMargin = dp(12);
+        editRow.addView(editLabel, elp);
+        editBtn.setOnClickListener(v -> {
+            if (editMode) stopEdit();
+            else startEdit();
+        });
+        editBtn.setOnFocusChangeListener((v, has) -> {
+            v.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f).setDuration(240).setInterpolator(EASE).start();
+            if (!editMode) editLabel.animate().alpha(has ? 1f : 0f).translationX(has ? 0f : -dp(6))
+                    .setDuration(220).setInterpolator(EASE).start();
+        });
+        LinearLayout.LayoutParams erl = new LinearLayout.LayoutParams(-2, -2);
+        erl.topMargin = dp(4);
+        erl.leftMargin = dp(14);
+        content.addView(editRow, erl);
 
         dim = new View(this);
         dim.setBackgroundColor(Color.BLACK);
@@ -1683,8 +1686,10 @@ public class MainActivity extends Activity {
 
     private void startEdit() {
         editMode = true;
-        editLabel.setText("Готово");
-        editChip.setSelected(true);
+        editLabel.setText("Готово — сохранить порядок");
+        editLabel.animate().alpha(1f).translationX(0f).setDuration(200).start();
+        editBtn.setImageResource(R.drawable.ic_check);
+        editBtn.setSelected(true);
         if (tab != 0) switchTab(0);
         row = rows[0];
         rowScroll = rowScrolls[0];
@@ -1697,8 +1702,10 @@ public class MainActivity extends Activity {
     private void stopEdit() {
         if (movingKey != null) finishMove();
         editMode = false;
-        editLabel.setText("Изменить");
-        editChip.setSelected(false);
+        editLabel.setText("Изменить порядок");
+        editLabel.animate().alpha(editBtn.hasFocus() ? 1f : 0f).setDuration(200).start();
+        editBtn.setImageResource(R.drawable.ic_edit);
+        editBtn.setSelected(false);
         View f = getCurrentFocus();
         heroApp = null;
         if (f != null && f.getTag() instanceof App) showHero((App) f.getTag());

@@ -21,6 +21,9 @@ import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
+import android.webkit.WebResourceResponse;
+import android.os.Build;
+import java.io.ByteArrayInputStream;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -81,6 +84,10 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.BLACK);
 
         web = new WebView(this);
+        if (Build.VERSION.SDK_INT >= 26) {
+            // the page that plays the music stays important to the system even while the menu covers it
+            web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);
+        }
         configure(web);
         web.setWebViewClient(new MainClient());
         web.setWebChromeClient(new MainChrome());
@@ -235,7 +242,7 @@ public class MainActivity extends Activity {
         s.setJavaScriptCanOpenWindowsAutomatically(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         s.setUserAgentString(desktopUserAgent(s.getUserAgentString()));
-        s.setOffscreenPreRaster(true);   // the whole page is drawn ahead, so scrolling and the ring do not stutter
+        // no offscreen pre-raster here: on a heavy music app it costs memory the TV does not have
         view.setBackgroundColor(Color.BLACK);
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
@@ -466,7 +473,31 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- clients
 
+    /**
+     * Counters, analytics and ads load and run all the time next to the player and slow a weak TV down.
+     * They are answered with an empty response; music, covers and the site itself are untouched.
+     */
+    static final String[] BLOCKED = {"mc.yandex.", "an.yandex.", "adfox.", "ads.adfox.", "awaps.yandex.",
+            "yandex.ru/ads", "yandex.ru/clck", "yastatic.net/pcode", "sentry", "google-analytics.com",
+            "googletagmanager.com", "doubleclick.net", "top-fwz1.mail.ru", "ad.mail.ru", "counter.yadro.ru",
+            "mc.webvisor.", "yandex.ru/an/", "yandexadexchange.net"};
+
+    static boolean blocked(String url) {
+        if (url == null) return false;
+        String u = url.toLowerCase(java.util.Locale.ROOT);
+        for (String b : BLOCKED) if (u.contains(b)) return true;
+        return false;
+    }
+
     private class MainClient extends WebViewClient {
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (blocked(request.getUrl().toString())) {
+                return new WebResourceResponse("text/plain", "utf-8", new ByteArrayInputStream(new byte[0]));
+            }
+            return super.shouldInterceptRequest(view, request);
+        }
+
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             String scheme = request.getUrl().getScheme();

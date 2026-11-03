@@ -54,6 +54,7 @@
       '[role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="option"], ' +
       '[role="checkbox"], [role="switch"], [onclick], [tabindex]:not([tabindex="-1"])';
   var POINTER_SCAN = 'div, span, li, img, svg, label, p, h1, h2, h3, h4, article, section, figure';
+  var SKIP_POINTER_SCAN = true;
   var SCOPES = '[role="dialog"], [aria-modal="true"], dialog[open], [class*="modal" i], [class*="popup" i]';
 
   // ------------------------------------------------------------------ helpers
@@ -145,6 +146,9 @@
     root.querySelectorAll(NATURAL).forEach(function (el) {
       if (!seen.has(el)) { seen.add(el); list.push({ el: el, viaPointer: false }); }
     });
+    // Яндекс Музыка marks its controls as real links and buttons, so the costly scan for cursor:pointer
+    // elements (style reads over thousands of track rows) is skipped here.
+    if (SKIP_POINTER_SCAN) { discovered = list; discoveredFor = root; pageDirty = false; return list; }
     root.querySelectorAll(POINTER_SCAN).forEach(function (el) {
       if (seen.has(el)) return;
       if (el.offsetWidth < 6 && el.offsetHeight < 6 && el.tagName !== 'svg') return;   // tiny: skip the style read
