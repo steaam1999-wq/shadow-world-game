@@ -275,6 +275,18 @@ button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255
 .open:hover,.open:focus-visible{outline:none;
   box-shadow:inset 0 1.5px 1px #fff,inset 0 -8px 14px -6px color-mix(in srgb,var(--c1) 65%,transparent),0 0 0 3px rgba(255,255,255,.4),0 14px 34px -6px color-mix(in srgb,var(--c1) 70%,transparent)}
 .open::after{opacity:.9}
+
+/* ===== Fast mode for weak TVs: same look, no live blur ===== */
+.lite *,.lite *::before,.lite *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.lite .grain{display:none}
+.lite .chip,.lite .meta,.lite nav{background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 55%,rgba(255,255,255,.09)),linear-gradient(rgba(14,16,24,.62),rgba(14,16,24,.62))}
+.lite .lens{background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,.1) 60%,rgba(255,255,255,.18))}
+.lite .icon{background:radial-gradient(90% 70% at 50% 110%,var(--a),transparent 70%),linear-gradient(150deg,color-mix(in srgb,var(--a) 82%,#000),color-mix(in srgb,var(--b) 70%,#000))}
+.lite .icon svg{filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.lite .app:not(:focus-visible):not(:hover) .icon{box-shadow:inset 0 2px 1px rgba(255,255,255,.5),inset 0 0 0 1px rgba(255,255,255,.14),inset 0 14px 20px -14px rgba(255,255,255,.8),0 8px 18px -8px rgba(0,0,0,.6)}
+.lite dialog{background:#151925}
+.lite dialog::backdrop{background:rgba(0,0,0,.7)}
+.lite .saver{background:rgba(4,5,9,.72)}
 </style>
 
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -343,6 +355,7 @@ button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255
     <section class="set-row">
       <div class="set-title">Экран</div>
       <div class="set-line srow"><span>Размер интерфейса</span><div class="seg" data-k="scale"><button type="button" data-v="0.85">Мелкий</button><button type="button" data-v="1">Обычный</button><button type="button" data-v="1.15">Крупный</button></div></div>
+      <div class="set-line srow"><span>Режим работы<small>«Быстро» убирает размытие стекла и облегчает фон. «Авто» включает его на телевизоре.</small></span><div class="seg" data-k="perf"><button type="button" data-v="auto">Авто</button><button type="button" data-v="lite">Быстро</button><button type="button" data-v="full">Красиво</button></div></div>
       <div class="set-line srow"><span>Живой фон<small>Выключите, если телевизор подтормаживает</small></span><div class="seg" data-k="anim"><button type="button" data-v="1">Вкл</button><button type="button" data-v="0">Выкл</button></div></div>
       <div class="set-line srow"><span>Цвет фона</span><div class="seg" data-k="theme"><button type="button" data-v="auto">Как у приложения</button><button type="button" data-v="night">Ночь</button><button type="button" data-v="sunset">Закат</button><button type="button" data-v="ocean">Океан</button><button type="button" data-v="graphite">Графит</button></div></div>
     </section>
@@ -591,7 +604,10 @@ $("addForm").addEventListener("submit",e=>{
 /* settings */
 const setDlg=$("setDlg"),br=$("bright");
 const THEMES={night:["#4a5cff","#1a1250"],sunset:["#ff7a45","#7a1f5c"],ocean:["#00b4d8","#03396c"],graphite:["#8a93a6","#1c1f27"]};
-const DEF_S={bright:100,night:0,scale:1,anim:1,theme:"auto",clock:24,idle:5};
+const DEF_S={bright:100,night:0,scale:1,anim:1,theme:"auto",clock:24,idle:5,perf:"auto"};
+/* weak TV hardware: Android without "Mobile" in the UA (Android TV), or inside the launcher app */
+const IS_TV=!!window.Android||(/Android/i.test(navigator.userAgent)&&!/Mobile/i.test(navigator.userAgent))||/TV|BRAVIA|SMART-TV|Tizen|WebOS/i.test(navigator.userAgent);
+let liteOn=false;
 let S=Object.assign({},DEF_S),animOn=true,sleepEnd=0,idleT;
 try{const o=JSON.parse(localStorage.getItem("tv-home-settings"));if(o)Object.assign(S,o);else{const b=localStorage.getItem("tv-home-bright");if(b)S.bright=+b}}catch(e){}
 const saveS=()=>{try{localStorage.setItem("tv-home-settings",JSON.stringify(S))}catch(e){}};
@@ -606,6 +622,8 @@ function applyS(){
   applyBright();
   document.documentElement.style.setProperty("--ui",S.scale);
   animOn=!!S.anim;
+  const lite=S.perf==="lite"||(S.perf==="auto"&&IS_TV);
+  if(lite!==liteOn){liteOn=lite;document.documentElement.classList.toggle("lite",lite);dispatchEvent(new Event("resize"))}
   if(S.theme!=="auto"&&THEMES[S.theme]){const[a,b]=THEMES[S.theme];setTarget(a,b)}else if(current)setTarget(current[3],current[4]);
   resetIdle();
 }
@@ -694,13 +712,13 @@ function setTarget(a,b){tgtA=hex(a);tgtB=hex(b)}
   const loc=gl.getAttribLocation(pr,"p");gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
   const U=k=>gl.getUniformLocation(pr,k),ur=U("r"),ut=U("t"),ua=U("a"),ub=U("b");
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
-  function size(){const s=.5;cv.width=Math.max(2,innerWidth*s|0);cv.height=Math.max(2,innerHeight*s|0);gl.viewport(0,0,cv.width,cv.height)}
+  function size(){const s=liteOn?.28:.5;cv.width=Math.max(2,innerWidth*s|0);cv.height=Math.max(2,innerHeight*s|0);gl.viewport(0,0,cv.width,cv.height)}
   let dirty=true,frozenT=20,last=0;
   size();addEventListener("resize",()=>{size();dirty=true});
   const t0=performance.now();
   (function f(now){
     requestAnimationFrame(f);
-    if(now-last<33)return;last=now;
+    if(now-last<(liteOn?66:33))return;last=now;
     let moving=false;
     for(let i=0;i<3;i++){const da=tgtA[i]-curA[i],db=tgtB[i]-curB[i];if(Math.abs(da)+Math.abs(db)>.003)moving=true;curA[i]+=da*.06;curB[i]+=db*.06}
     const live=animOn&&!reduce;if(live)frozenT=(performance.now()-t0)/1000;
