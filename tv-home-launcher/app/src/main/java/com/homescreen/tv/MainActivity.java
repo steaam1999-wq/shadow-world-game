@@ -379,9 +379,9 @@ public class MainActivity extends Activity {
         clockBox.addView(clockLine, clp);
         top.addView(clockBox);
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
-        top.addView(topButton("⇥  Источники", v -> openInputs()));
-        top.addView(topButton("Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
-        top.addView(topButton("⚙  Настройки", v -> showSettings()));
+        top.addView(iconButton(R.drawable.ic_input, "Источники", v -> openInputs()));
+        top.addView(iconButton(R.drawable.ic_wifi, "Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
+        top.addView(iconButton(R.drawable.ic_settings, "Настройки", v -> showSettings()));
         content.addView(top);
 
         content.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
@@ -482,20 +482,43 @@ public class MainActivity extends Activity {
         return v;
     }
 
-    private TextView topButton(String label, View.OnClickListener click) {
-        TextView b = text(14, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        b.setText(label);
-        b.setTextColor(0xEEF4F6FB);
-        b.setPadding(dp(18), dp(10), dp(18), dp(10));
-        b.setBackground(glassStates(22, true));
+    /** Round glass icon button; its name fades in underneath only while it is focused. */
+    private View iconButton(int iconRes, String name, View.OnClickListener click) {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.setGravity(Gravity.CENTER_HORIZONTAL);
+        wrap.setClipChildren(false);
+
+        ImageView b = new ImageView(this);
+        b.setImageResource(iconRes);
+        b.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        b.setPadding(dp(14), dp(14), dp(14), dp(14));
+        b.setBackground(glassStates(27, true));
+        b.setContentDescription(name);
         b.setFocusable(true);
         b.setOnClickListener(click);
-        b.setOnFocusChangeListener((v, has) -> v.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f)
-                .setDuration(220).setInterpolator(has ? new OvershootInterpolator(1.6f) : EASE).start());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-        lp.leftMargin = dp(10);
-        b.setLayoutParams(lp);
-        return b;
+        wrap.addView(b, new LinearLayout.LayoutParams(dp(54), dp(54)));
+
+        final TextView caption = text(12, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        caption.setText(name);
+        caption.setAlpha(0f);
+        caption.setShadowLayer(dp(6), 0, dp(1), 0x99000000);
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-2, -2);
+        cp.topMargin = dp(8);
+        wrap.addView(caption, cp);
+
+        b.setOnFocusChangeListener((v, has) -> {
+            v.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).setDuration(240)
+                    .setInterpolator(has ? new OvershootInterpolator(1.6f) : EASE).start();
+            caption.animate().alpha(has ? 1f : 0f).translationY(has ? dp(2) : 0f).setDuration(200)
+                    .setInterpolator(EASE).start();
+        });
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(84), -2);
+        lp.leftMargin = dp(2);
+        lp.bottomMargin = -dp(22);   // the caption hangs below the round button without moving it
+        wrap.setLayoutParams(lp);
+        return wrap;
     }
 
     private void markSelectedTab() {
