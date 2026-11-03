@@ -464,10 +464,12 @@ public class MainActivity extends Activity {
         rowScroll.setClipChildren(false);
         rowScroll.setClipToPadding(false);
         rowScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        rowScroll.setHorizontalFadingEdgeEnabled(false);
         row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setClipChildren(false);
         row.setClipToPadding(false);
+        row.forceHasOverlappingRendering(false);   // tab fades must not clip tiles to the row's rectangle
         row.setPadding(dp(14), dp(30), dp(400), dp(8));
         rowScroll.addView(row);
         LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(-1, -2);
@@ -522,13 +524,13 @@ public class MainActivity extends Activity {
         tab = index;
         markSelectedTab();
         row.animate().cancel();
-        row.animate().alpha(0f).translationX(-dp(24)).setDuration(120).setInterpolator(EASE).withLayer()
+        row.animate().alpha(0f).translationX(-dp(24)).setDuration(120).setInterpolator(EASE)
                 .withEndAction(() -> {
                     if (scrollAnim != null) scrollAnim.cancel();
                     rowScroll.scrollTo(0, 0);
                     renderRow(true);
                     row.setTranslationX(dp(40));
-                    row.animate().alpha(1f).translationX(0f).setDuration(320).setInterpolator(EASE).withLayer().start();
+                    row.animate().alpha(1f).translationX(0f).setDuration(320).setInterpolator(EASE).start();
                 }).start();
     }
 
@@ -1186,6 +1188,9 @@ public class MainActivity extends Activity {
         // focus highlight (alpha only, so it costs nothing to animate): soft light, then a wider frosted
         // glass frame around the card, then the white ring on the card itself
         final View focusFx = new FrameLayout(this);
+        // Fading this group must not go through an offscreen buffer the size of the card: that buffer would
+        // cut the glow and the glass frame (which reach outside the card) into a sharp-cornered rectangle.
+        focusFx.forceHasOverlappingRendering(false);
         ((FrameLayout) focusFx).setClipChildren(false);
         focusFx.setAlpha(0f);
         ImageView light = new ImageView(this);
