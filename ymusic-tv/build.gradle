@@ -1,0 +1,4 @@
+// Same Android Gradle Plugin as the CleanYourTV launcher, so the laptop reuses what Gradle already downloaded.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

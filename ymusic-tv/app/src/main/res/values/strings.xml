@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Яндекс Музыка TV</string>
+    <string name="offline">Яндекс Музыка не открылась.\nПроверьте интернет и VPN и нажмите OK, чтобы повторить.\nЕсли сайт переехал: кнопка меню на пульте → «Адрес сайта».</string>
+    <string name="press_back_again">Нажмите «Назад» ещё раз, чтобы выйти</string>
+</resources>

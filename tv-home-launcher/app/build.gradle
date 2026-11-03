@@ -10,8 +10,8 @@ android {
         applicationId 'com.homescreen.tv'
         minSdk 24
         targetSdk 34
-        versionCode 21
-        versionName '3.18'
+        versionCode 22
+        versionName '3.19'
     }
 
     buildTypes {
