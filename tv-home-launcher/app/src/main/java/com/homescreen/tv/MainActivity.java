@@ -159,6 +159,8 @@ public class MainActivity extends Activity {
     static final int[] WALLPAPERS = {R.drawable.wp_ultraviolet, R.drawable.wp_lagoon, R.drawable.wp_sunset,
             R.drawable.wp_aurora};
 
+    static final float TILE_W = 256, TILE_H = 144, FOCUS_SCALE = 1.08f;
+
     /** Material "emphasized" easing: quick start, long soft landing. */
     static final PathInterpolator EASE = new PathInterpolator(0.2f, 0f, 0f, 1f);
 
@@ -171,6 +173,7 @@ public class MainActivity extends Activity {
         int color = 0xFF3A3F55;
         Bitmap backdrop;     // the app's picture, heavily blurred: the screen background while it is focused
         Bitmap cardBg;       // the same, brighter: the card behind an icon when the app has no banner
+        Bitmap sharp;        // the banner resampled to the tile's exact pixel size and sharpened
         Intent launch;
         String url;
     }
@@ -377,9 +380,9 @@ public class MainActivity extends Activity {
         clockLine.setGravity(Gravity.BOTTOM);
         clock = text(44, Color.WHITE, Typeface.create("sans-serif-thin", Typeface.NORMAL));
         date = text(15, 0xB3F4F6FB, Typeface.create("sans-serif", Typeface.NORMAL));
-        clockLine.addView(clock);
-        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(-2, -2);
-        dlp.leftMargin = dp(16);
+        clockLine.addView(clock, new LinearLayout.LayoutParams(dp(124), -2));
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(dp(260), -2);
+        dlp.leftMargin = dp(8);
         dlp.bottomMargin = dp(6);
         clockLine.addView(date, dlp);
         clockBox.addView(greeting);
@@ -397,8 +400,7 @@ public class MainActivity extends Activity {
         // hero: the focused app
         heroCategory = text(12, 0xD9F4F6FB, Typeface.create("sans-serif-medium", Typeface.NORMAL));
         heroCategory.setLetterSpacing(0.22f);
-        heroCategory.setPadding(dp(12), dp(6), dp(12), dp(6));
-        heroCategory.setBackground(glass(14, 46, 16, 80, 1));
+        heroCategory.setSingleLine(true);
         heroTitle = text(58, Color.WHITE, Typeface.create("sans-serif-black", Typeface.NORMAL));
         heroTitle.setLetterSpacing(-0.02f);
         heroTitle.setSingleLine(true);
@@ -406,16 +408,17 @@ public class MainActivity extends Activity {
         heroTitle.setShadowLayer(dp(18), 0, dp(4), 0x66000000);
         heroDesc = text(17, 0xD0F4F6FB, Typeface.create("sans-serif-light", Typeface.NORMAL));
         heroDesc.setMaxLines(2);
-        heroDesc.setMaxWidth(dp(560));
+        heroDesc.setEllipsize(TextUtils.TruncateAt.END);
         heroDesc.setLineSpacing(dp(3), 1f);
-        LinearLayout.LayoutParams cat = new LinearLayout.LayoutParams(-2, -2);
+        // Fixed sizes: a new title or description never asks the whole screen to re-measure mid-animation.
+        LinearLayout.LayoutParams cat = new LinearLayout.LayoutParams(dp(520), dp(16));
         content.addView(heroCategory, cat);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(-2, -2);
-        tlp.topMargin = dp(12);
-        tlp.rightMargin = dp(52);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(dp(800), dp(80));
+        tlp.topMargin = dp(10);
         content.addView(heroTitle, tlp);
-        LinearLayout.LayoutParams dsp = new LinearLayout.LayoutParams(-2, -2);
-        dsp.topMargin = dp(10);
+        heroTitle.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams dsp = new LinearLayout.LayoutParams(dp(560), dp(50));
+        dsp.topMargin = dp(6);
         content.addView(heroDesc, dsp);
 
         // glass category tabs
@@ -618,6 +621,53 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Draws the banner once at exactly the pixel size it is shown at when focused (centre-cropped, filtered),
+     * then applies an unsharp mask. The GPU then only ever shrinks it a little, so edges and text stay crisp.
+     */
+    private static Bitmap sharpBanner(Drawable banner, int w, int h) {
+        if (banner == null || banner.getConstantState() == null || w <= 0 || h <= 0) return null;
+        try {
+            Drawable d = banner.getConstantState().newDrawable().mutate();
+            if (d instanceof BitmapDrawable) {
+                ((BitmapDrawable) d).setFilterBitmap(true);
+                ((BitmapDrawable) d).setAntiAlias(true);
+            }
+            Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(out);
+            int iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
+            if (iw <= 0 || ih <= 0) {
+                d.setBounds(0, 0, w, h);
+            } else {
+                float scale = Math.max(w / (float) iw, h / (float) ih);
+                int dw = Math.round(iw * scale), dh = Math.round(ih * scale);
+                int l = (w - dw) / 2, t = (h - dh) / 2;
+                d.setBounds(l, t, l + dw, t + dh);
+            }
+            d.draw(c);
+            int[] px = new int[w * h];
+            out.getPixels(px, 0, w, 0, 0, w, h);
+            int[] soft = px.clone();
+            boxBlur(soft, w, h, 1);
+            float amount = 0.7f;
+            for (int i = 0; i < px.length; i++) {
+                int p = px[i], q = soft[i];
+                int r = clamp(((p >> 16) & 0xFF) + Math.round(amount * (((p >> 16) & 0xFF) - ((q >> 16) & 0xFF))));
+                int g = clamp(((p >> 8) & 0xFF) + Math.round(amount * (((p >> 8) & 0xFF) - ((q >> 8) & 0xFF))));
+                int b = clamp((p & 0xFF) + Math.round(amount * ((p & 0xFF) - (q & 0xFF))));
+                px[i] = (p & 0xFF000000) | (r << 16) | (g << 8) | b;
+            }
+            out.setPixels(px, 0, w, 0, 0, w, h);
+            return out;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return null;
+        }
+    }
+
+    private static int clamp(int v) {
+        return v < 0 ? 0 : (v > 255 ? 255 : v);
+    }
+
     private static void boxBlur(int[] px, int w, int h, int r) {
         int[] tmp = new int[px.length];
         for (int y = 0; y < h; y++) {
@@ -675,7 +725,7 @@ public class MainActivity extends Activity {
         TransitionDrawable fade = new TransitionDrawable(new Drawable[]{prev, next});
         fade.setCrossFadeEnabled(false);
         glow.setImageDrawable(fade);
-        fade.startTransition(450);
+        fade.startTransition(650);
     }
 
     // ---- apps ------------------------------------------------------------------------------------------
@@ -731,6 +781,7 @@ public class MainActivity extends Activity {
                 a.color = dominantColor(a.banner != null ? a.banner : a.icon);
                 a.backdrop = backdropFor(a, 0.62f);
                 if (a.banner == null) a.cardBg = backdropFor(a, 1.05f);
+                else a.sharp = sharpBanner(a.banner, Math.round(dp(TILE_W) * FOCUS_SCALE), Math.round(dp(TILE_H) * FOCUS_SCALE));
                 a.launch = pm.getLeanbackLaunchIntentForPackage(pkg);
                 if (a.launch == null) a.launch = pm.getLaunchIntentForPackage(pkg);
                 out.put(pkg, a);
@@ -921,14 +972,14 @@ public class MainActivity extends Activity {
         int from = rowScroll.getScrollX();
         if (from == target) return;
         scrollAnim = ValueAnimator.ofInt(from, target);
-        scrollAnim.setDuration(340);
+        scrollAnim.setDuration(420);
         scrollAnim.setInterpolator(EASE);
         scrollAnim.addUpdateListener(an -> rowScroll.scrollTo((Integer) an.getAnimatedValue(), 0));
         scrollAnim.start();
     }
 
     private View tile(final App a) {
-        final int w = dp(256), h = dp(144);
+        final int w = dp(TILE_W), h = dp(TILE_H);
         final LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -955,8 +1006,13 @@ public class MainActivity extends Activity {
 
         ImageView image = new ImageView(this);
         if (a.banner != null) {
-            image.setImageDrawable(a.banner);
-            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            if (a.sharp != null) {
+                image.setImageBitmap(a.sharp);
+                image.setScaleType(ImageView.ScaleType.FIT_XY);
+            } else {
+                image.setImageDrawable(a.banner);
+                image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            }
             card.addView(image, new FrameLayout.LayoutParams(-1, -1));
         } else {
             // no banner: the app's own icon, sharp, over a blurred and glowing copy of itself
@@ -989,7 +1045,7 @@ public class MainActivity extends Activity {
         // a soft shade on tiles that are not focused, and the white focus ring
         View sheen = new View(this);
         GradientDrawable sh = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x40FFFFFF, 0x10FFFFFF, 0x00FFFFFF, 0x00FFFFFF});
+                new int[]{0x22FFFFFF, 0x00FFFFFF, 0x00FFFFFF, 0x00FFFFFF});
         sh.setCornerRadius(radius);
         sheen.setBackground(sh);
         card.addView(sheen, new FrameLayout.LayoutParams(-1, -1));
@@ -1009,7 +1065,7 @@ public class MainActivity extends Activity {
         card.addView(inner, ilp);
         final View shade = new View(this);
         shade.setBackgroundColor(Color.BLACK);
-        shade.setAlpha(0.22f);
+        shade.setAlpha(0.14f);
         card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         final View ring = new View(this);
         GradientDrawable ringD = new GradientDrawable();
@@ -1031,16 +1087,15 @@ public class MainActivity extends Activity {
         llp.topMargin = dp(14);
         box.addView(label, llp);
 
-        final OvershootInterpolator spring = new OvershootInterpolator(1.15f);
         final float lift = dp(6), depth = dp(14);
         box.setOnFocusChangeListener((v, has) -> {
             card.animate().cancel();
-            card.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f)
+            card.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
                     .translationY(has ? -lift : 0f).translationZ(has ? depth : 0f)
-                    .setDuration(has ? 300 : 220).setInterpolator(has ? spring : EASE).start();
-            ring.animate().alpha(has ? 1f : 0f).setDuration(180).setInterpolator(EASE).start();
-            shade.animate().alpha(has ? 0f : 0.22f).setDuration(220).setInterpolator(EASE).start();
-            label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(240)
+                    .setDuration(340).setInterpolator(EASE).start();
+            ring.animate().alpha(has ? 1f : 0f).setDuration(260).setInterpolator(EASE).start();
+            shade.animate().alpha(has ? 0f : 0.14f).setDuration(320).setInterpolator(EASE).start();
+            label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(340)
                     .setInterpolator(EASE).start();
             if (has) {
                 showHero(a);
@@ -1076,12 +1131,11 @@ public class MainActivity extends Activity {
         heroDesc.setText(describe(a));
         heroTitle.animate().cancel();
         heroDesc.animate().cancel();
-        heroTitle.setAlpha(0f);
-        heroTitle.setTranslationY(dp(10));
+        heroTitle.setAlpha(0.15f);
+        heroTitle.setTranslationX(dp(14));
         heroDesc.setAlpha(0f);
-        heroDesc.setTranslationY(dp(8));
-        heroTitle.animate().alpha(1f).translationY(0f).setDuration(280).setInterpolator(EASE).start();
-        heroDesc.animate().alpha(1f).translationY(0f).setStartDelay(50).setDuration(280).setInterpolator(EASE).start();
+        heroTitle.animate().alpha(1f).translationX(0f).setDuration(380).setInterpolator(EASE).start();
+        heroDesc.animate().alpha(1f).setStartDelay(60).setDuration(380).setInterpolator(EASE).start();
         tintFor(a);
     }
 
