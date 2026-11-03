@@ -185,6 +185,7 @@ public class MainActivity extends Activity {
         Bitmap tile;         // the finished card: picture, rounded corners, glass sheen and rim, at focused size
         Intent launch;
         String url;
+        long stamp;          // the package's lastUpdateTime when the pictures were made
     }
 
     /** A row that never jumps to the focused tile by itself: the activity glides it there. */
@@ -197,6 +198,8 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Map<String, App> apps = new LinkedHashMap<>();
+    /** Worker-thread cache: an app's pictures are made once and reused until the app is updated. */
+    private final Map<String, App> made = new HashMap<>();
     private SharedPreferences prefs;
     private String appsSignature = "";
 
@@ -220,6 +223,7 @@ public class MainActivity extends Activity {
     private String backdropKey = "";
     private App heroApp;
     private ValueAnimator scrollAnim;
+    private AlertDialog openDialog;
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -301,6 +305,7 @@ public class MainActivity extends Activity {
     }
 
     private void goHome() {
+        if (openDialog != null && openDialog.isShowing()) openDialog.dismiss();
         ui.removeCallbacks(applyPendingTab);
         pendingTab = -1;
         if (firstTile != null) firstTile.requestFocus();   // a focused tile carries focus into the new row
@@ -960,7 +965,7 @@ public class MainActivity extends Activity {
         worker.execute(() -> {
             final Map<String, App> found = queryApps();
             StringBuilder sig = new StringBuilder();
-            for (String k : found.keySet()) sig.append(k).append(';');
+            for (App a : found.values()) sig.append(a.key).append('@').append(a.stamp).append(';');
             final String signature = sig.toString();
             ui.post(() -> {
                 if (!first && signature.equals(appsSignature)) return;
@@ -982,10 +987,29 @@ public class MainActivity extends Activity {
             for (ResolveInfo ri : list) {
                 String pkg = ri.activityInfo.packageName;
                 if (pkg.equals(getPackageName()) || out.containsKey(pkg)) continue;
+                long stamp;
+                try {
+                    stamp = pm.getPackageInfo(pkg, 0).lastUpdateTime;
+                } catch (PackageManager.NameNotFoundException e) {
+                    continue;
+                }
+                App cached = made.get(pkg);
+                if (cached != null && cached.stamp == stamp) {   // unchanged: no decoding, blurring or sharpening
+                    out.put(pkg, cached);
+                    continue;
+                }
                 App a = new App();
+                a.stamp = stamp;
                 a.key = pkg;
                 a.label = String.valueOf(ri.loadLabel(pm));
                 a.category = categoryOf(pkg);
+                a.launch = pm.getLeanbackLaunchIntentForPackage(pkg);
+                if (a.launch == null) a.launch = pm.getLaunchIntentForPackage(pkg);
+                if (loadFromDisk(a)) {          // cold start: finished cards come from disk, not recomputed
+                    made.put(pkg, a);
+                    out.put(pkg, a);
+                    continue;
+                }
                 a.banner = hiRes(pm, ri, true);
                 if (a.banner == null) {
                     try {
@@ -1007,13 +1031,21 @@ public class MainActivity extends Activity {
                 a.backdrop = backdropFor(a, 0.62f);
                 if (a.banner == null) a.cardBg = backdropFor(a, 1.05f);
                 a.tile = tileBitmap(a);
-                a.launch = pm.getLeanbackLaunchIntentForPackage(pkg);
-                if (a.launch == null) a.launch = pm.getLaunchIntentForPackage(pkg);
+                saveToDisk(a);
+                a.banner = null;                // only the finished bitmaps are kept in memory
+                a.icon = null;
+                a.cardBg = null;
+                made.put(pkg, a);
                 out.put(pkg, a);
             }
         }
         for (String key : pins()) {
             if (key.startsWith(WEB_PREFIX) && !out.containsKey(key)) {
+                App cached = made.get(key);
+                if (cached != null) {           // made once per run: no repeated network lookups
+                    out.put(key, cached);
+                    continue;
+                }
                 App a = new App();
                 a.key = key;
                 a.url = key.substring(WEB_PREFIX.length());
@@ -1025,9 +1057,11 @@ public class MainActivity extends Activity {
                 a.backdrop = backdropFor(a, 0.62f);
                 a.cardBg = backdropFor(a, 1.05f);
                 a.tile = tileBitmap(a);
+                made.put(key, a);
                 out.put(key, a);
             }
         }
+        made.keySet().retainAll(out.keySet());   // forget removed apps (and their bitmaps)
         return out;
     }
 
@@ -1044,6 +1078,44 @@ public class MainActivity extends Activity {
             return r.getDrawableForDensity(res, DisplayMetrics.DENSITY_XXXHIGH, null);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    // ---- disk cache of finished cards -------------------------------------------------------------------
+
+    private File cacheFile(App a, String suffix) {
+        File dir = new File(getCacheDir(), "tiles");
+        if (!dir.exists()) dir.mkdirs();
+        return new File(dir, a.key + "_" + a.stamp + "_" + dp(TILE_W) + "x" + dp(TILE_H) + suffix + ".png");
+    }
+
+    private boolean loadFromDisk(App a) {
+        File tf = cacheFile(a, ""), bf = cacheFile(a, "_bg");
+        if (!tf.exists() || !bf.exists()) return false;
+        try {
+            Bitmap tile = BitmapFactory.decodeFile(tf.getPath());
+            Bitmap bg = BitmapFactory.decodeFile(bf.getPath());
+            if (tile == null || bg == null) return false;
+            a.tile = tile;
+            a.backdrop = bg;
+            a.color = dominantColor(new BitmapDrawable(getResources(), tile));
+            return true;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return false;
+        }
+    }
+
+    private void saveToDisk(App a) {
+        if (a.tile == null || a.backdrop == null) return;
+        File dir = new File(getCacheDir(), "tiles");
+        File[] old = dir.listFiles();
+        if (old != null) for (File f : old) if (f.getName().startsWith(a.key + "_")) f.delete();   // older versions
+        try (FileOutputStream t = new FileOutputStream(cacheFile(a, ""));
+             FileOutputStream b = new FileOutputStream(cacheFile(a, "_bg"))) {
+            a.tile.compress(Bitmap.CompressFormat.PNG, 100, t);
+            a.backdrop.compress(Bitmap.CompressFormat.PNG, 100, b);
+        } catch (Exception ignored) {
+            // the cache is only a speed-up
         }
     }
 
@@ -1156,7 +1228,11 @@ public class MainActivity extends Activity {
     }
 
     private void savePins(List<String> list) {
-        prefs.edit().putString("pins", TextUtils.join("\n", list)).apply();
+        StringBuilder done = new StringBuilder();
+        for (String k : ADDED_PINS) done.append(k).append('\n');
+        // every built-in shortcut counts as offered once the user has edited «Главная», so a removed one
+        // is not added back
+        prefs.edit().putString("pins", TextUtils.join("\n", list)).putString("added_pins", done.toString()).apply();
     }
 
     private List<App> appsForTab(int t) {
@@ -1491,7 +1567,7 @@ public class MainActivity extends Activity {
             items.add("Сдвинуть вправо");
         }
         if (a.url == null) items.add("О приложении");
-        dialog(a.label).setItems(items.toArray(new String[0]), (d, which) -> {
+        openDialog = dialog(a.label).setItems(items.toArray(new String[0]), (d, which) -> {
             String item = items.get(which);
             if (item.equals("О приложении")) {
                 start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.key)));
@@ -1511,7 +1587,8 @@ public class MainActivity extends Activity {
             savePins(list);
             renderRow(true);
             focusTileFor(a.key);
-        }).show();
+        }).create();
+        openDialog.show();
     }
 
     private void focusTileFor(String key) {
@@ -1527,12 +1604,13 @@ public class MainActivity extends Activity {
     private void showSettings() {
         String[] labels = new String[TV_SETTINGS.length];
         for (int i = 0; i < labels.length; i++) labels[i] = TV_SETTINGS[i][0];
-        dialog("Настройки").setItems(labels, (d, which) -> {
+        openDialog = dialog("Настройки").setItems(labels, (d, which) -> {
             String action = TV_SETTINGS[which][1];
             if (action.equals("inputs")) openInputs();
             else if (action.equals("brightness")) showBrightness();
             else openSettings(action);
-        }).show();
+        }).create();
+        openDialog.show();
     }
 
     private void showBrightness() {
@@ -1548,7 +1626,8 @@ public class MainActivity extends Activity {
             @Override public void onStartTrackingTouch(SeekBar s) { }
             @Override public void onStopTrackingTouch(SeekBar s) { }
         });
-        dialog("Яркость главного экрана").setView(bar).setPositiveButton("Готово", null).show();
+        openDialog = dialog("Яркость главного экрана").setView(bar).setPositiveButton("Готово", null).create();
+        openDialog.show();
         bar.requestFocus();
     }
 
