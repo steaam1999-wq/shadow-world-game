@@ -1,0 +1,4 @@
+// Same Android Gradle Plugin as CleanYourTV and 2SUB TV, so the laptop reuses what Gradle already downloaded.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

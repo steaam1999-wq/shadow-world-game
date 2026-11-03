@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.homescreen.tv'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.homescreen.tv'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Sideloaded: the debug key keeps release and debug builds installable over each other.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // The screen itself lives in ../../tv-home-web/index.html (one source for the browser and the launcher).
+    sourceSets {
+        main {
+            assets.srcDirs += ["$buildDir/page"]
+        }
+    }
+}
+
+def syncPage = tasks.register('syncPage', Copy) {
+    from(rootProject.file('../tv-home-web/index.html'))
+    into("$buildDir/page")
+}
+tasks.named('preBuild') { dependsOn syncPage }
+
+// No dependencies: plain Android framework only, so the build needs nothing new from the network.

@@ -170,6 +170,10 @@ dialog input:focus-visible,dialog select:focus-visible{outline:2px solid var(--i
 #bright:focus-visible{outline:none}
 #bright:focus-visible::-webkit-slider-thumb{transform:scale(1.2);box-shadow:0 0 0 4px rgba(255,255,255,.3)}
 .set-note{font:400 12px/1.5 var(--body);color:var(--muted);margin:0}
+.tvgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tvgrid button{min-height:44px;padding:8px 10px;border-radius:12px;border:1px solid var(--faint);background:rgba(255,255,255,.05);color:var(--ink);font:500 13px var(--body);cursor:pointer;
+  transition:background .35s var(--soft),transform var(--t,.55s) var(--spring,ease)}
+.tvgrid button:hover,.tvgrid button:focus-visible{outline:3px solid #fff;outline-offset:1px;background:rgba(255,255,255,.14);transform:scale(1.04)}
 .presets{display:flex;gap:8px;flex-wrap:wrap}
 .presets button{flex:1;height:38px;border-radius:12px;border:1px solid var(--faint);background:transparent;color:var(--muted);font:500 13px var(--body);cursor:pointer}
 .presets button:hover,.presets button:focus-visible{color:var(--ink);border-color:var(--ink);outline:none}
@@ -281,7 +285,8 @@ button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255
   <header>
     <div class="clock"><div class="time" id="time">--:--</div><div class="date" id="date"></div></div>
     <div class="status">
-      <span class="chip" title="Сеть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg></span>
+      <button class="chip" id="srcBtn" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 7H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h5M14 12H8M11 9l3 3-3 3"/><path d="M14 5h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/></svg><span class="t">Источники</span></button>
+      <button class="chip" id="wifiBtn" type="button" title="Сеть" aria-label="Сеть и Интернет"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg></button>
       <span class="chip" id="sleepChip" hidden title="Таймер сна"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span class="t"></span></span>
       <button class="chip" id="setBtn" type="button" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       <button class="chip" id="editBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg><span class="t">Изменить</span></button>
@@ -326,6 +331,15 @@ button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255
       <div class="presets srow"><button type="button" data-v="40">Ночь</button><button type="button" data-v="70">Вечер</button><button type="button" data-v="100">День</button></div>
       <div class="set-line srow"><span>Ночной режим<small>С 22:00 до 07:00 яркость не выше 40%</small></span><div class="seg" data-k="night"><button type="button" data-v="0">Выкл</button><button type="button" data-v="1">Вкл</button></div></div>
     </section>
+    <section class="set-row" id="tvSet" hidden>
+      <div class="set-title">Настройки телевизора</div>
+      <div class="tvgrid srow"><button type="button" data-act="android.settings.WIFI_SETTINGS">Сеть и Интернет</button><button type="button" data-act="android.settings.SYNC_SETTINGS">Аккаунты и вход</button><button type="button" data-act="android.settings.APPLICATION_SETTINGS">Приложения</button></div>
+      <div class="tvgrid srow"><button type="button" data-act="android.settings.BLUETOOTH_SETTINGS">Пульты и Bluetooth</button><button type="button" data-act="inputs">Входы (HDMI)</button><button type="button" data-act="android.settings.DATE_SETTINGS">Дата и время</button></div>
+      <div class="tvgrid srow"><button type="button" data-act="android.settings.LOCALE_SETTINGS">Язык</button><button type="button" data-act="android.settings.INPUT_METHOD_SETTINGS">Клавиатура</button><button type="button" data-act="android.settings.INTERNAL_STORAGE_SETTINGS">Хранилище</button></div>
+      <div class="tvgrid srow"><button type="button" data-act="android.settings.DREAM_SETTINGS">Заставка ТВ</button><button type="button" data-act="android.settings.DEVICE_INFO_SETTINGS">Об устройстве</button><button type="button" data-act="android.settings.LOCATION_SOURCE_SETTINGS">Местоположение</button></div>
+      <div class="tvgrid srow"><button type="button" data-act="android.settings.ACCESSIBILITY_SETTINGS">Спец. возможности</button><button type="button" data-act="android.settings.APPLICATION_DEVELOPMENT_SETTINGS">Для разработчиков</button><button type="button" data-act="android.settings.SETTINGS">Все настройки</button></div>
+      <p class="set-note">«Все настройки» — там же быстрый старт, индикатор, Google Cast, Ассистент и сброс.</p>
+    </section>
     <section class="set-row">
       <div class="set-title">Экран</div>
       <div class="set-line srow"><span>Размер интерфейса</span><div class="seg" data-k="scale"><button type="button" data-v="0.85">Мелкий</button><button type="button" data-v="1">Обычный</button><button type="button" data-v="1.15">Крупный</button></div></div>
@@ -356,8 +370,9 @@ button.chip.on{color:#0a0b10;background:linear-gradient(180deg,#fff,rgba(255,255
 <dialog id="dlg">
   <h3>Новое приложение</h3>
   <form id="addForm">
+    <label id="fAppRow" hidden>Приложение на телевизоре<select id="fApp"><option value="">— сайт, а не приложение —</option></select></label>
     <label>Название<input id="fName" required maxlength="22" placeholder="Например, Кион"></label>
-    <label>Адрес сайта<input id="fUrl" required placeholder="kion.ru"></label>
+    <label>Адрес сайта<input id="fUrl" placeholder="kion.ru"></label>
     <label>Раздел<select id="fCat"></select></label>
     <label>Цвет<div class="swatches" id="sw"></div></label>
     <div class="dlg-actions"><button type="button" id="cancel">Отмена</button><button type="submit">Добавить</button></div>
@@ -408,6 +423,32 @@ const DEFAULT=[
  GPLAY,
  VPN
 ];
+/* Inside the launcher app (window.Android) tiles start real TV apps; in a browser they open the sites. */
+const TV=(window.Android&&typeof Android.launch==="function")?Android:null;
+const PKG={
+ "https://hd.kinopoisk.ru":"ru.kinopoisk.tv,ru.kinopoisk",
+ "https://okko.tv":"ru.more.play,ru.okko.tv,tv.okko.androidtv",
+ "https://wink.ru":"ru.rt.video.app.tv,ru.rt.video.app.mobile",
+ "https://www.ivi.ru":"ru.ivi.client",
+ "https://start.ru":"ru.start.androidmobile,ru.start.tv,ru.start.androidtv",
+ "https://premier.one":"gpm.tnt_premier,gpm.premier.tv",
+ "https://www.netflix.com":"com.netflix.ninja,com.netflix.mediaclient",
+ "https://www.youtube.com/tv":"com.google.android.youtube.tv,com.google.android.youtube",
+ "https://vkvideo.ru":"com.vk.tv,com.vk.vkvideo",
+ "https://rutube.ru":"ru.rutube.app.tv,ru.rutube.app",
+ "https://www.twitch.tv":"tv.twitch.android.viewer,tv.twitch.android.app",
+ "https://music.yandex.ru":"ru.yandex.music",
+ "https://open.spotify.com":"com.spotify.tv.android,com.spotify.music",
+ "https://ya.ru":"com.yandex.browser.tv,com.tcl.browser",
+ "https://play.google.com/store":"com.android.vending",
+ "https://amnezia.org":"org.amnezia.vpn"
+};
+const pkgFor=a=>a[7]||PKG[a[1]]||"";
+function openApp(a){
+  if(!a)return;
+  if(TV){const p=pkgFor(a);if(p&&TV.launch(p))return;if(a[1])TV.openUrl(a[1]);return}
+  if(a[1])window.open(a[1],"_blank","noopener");
+}
 const KEY="tv-home-v3";
 let apps;
 try{apps=JSON.parse(localStorage.getItem(KEY))}catch(e){}
@@ -462,7 +503,7 @@ function renderDock(focusIdx=0,anim=true){
     el.querySelector(".lbl").textContent=a[0];
     el.addEventListener("focus",()=>{zone="dock";show(a)});
     el.addEventListener("mouseenter",()=>el.focus({preventScroll:true}));
-    el.addEventListener("click",e=>{if(editing)e.preventDefault()});
+    el.addEventListener("click",e=>{if(editing){e.preventDefault();return}if(TV){e.preventDefault();openApp(a)}});
     el.querySelector(".del").onclick=e=>{e.preventDefault();e.stopPropagation();apps.splice(i,1);save();renderDock(Math.max(0,k-1),false)};
     dock.append(el);
   });
@@ -485,8 +526,8 @@ function show(a){
   hero.classList.add("out");clearTimeout(swapT);
   swapT=setTimeout(()=>{
     if(a){
-      $("hCat").textContent=CATNAME[a[2]]||"";$("hTitle").textContent=a[0];$("hDesc").textContent=a[6]||a[1].replace(/^https?:\/\//,"");
-      $("hOpen").href=a[1];const n=apps.filter(x=>x[2]===a[2]).length;$("hMeta").textContent=`${n} ${plural(n)} в разделе`;
+      $("hCat").textContent=CATNAME[a[2]]||"";$("hTitle").textContent=a[0];$("hDesc").textContent=a[6]||(a[1]||"Приложение на телевизоре").replace(/^https?:\/\//,"");
+      $("hOpen").href=a[1]||"#";const n=apps.filter(x=>x[2]===a[2]).length;$("hMeta").textContent=`${n} ${plural(n)} в разделе`;
       document.documentElement.style.setProperty("--c1",a[3]);document.documentElement.style.setProperty("--c2",a[4]);
       if(S.theme==="auto")setTarget(a[3],a[4]);
     }else{$("hCat").textContent="";$("hTitle").textContent="Пусто";$("hDesc").textContent="Нажмите «Изменить», чтобы добавить приложения.";}
@@ -504,7 +545,7 @@ document.addEventListener("keydown",e=>{
   const ae=document.activeElement;
   if(!["arrowleft","arrowright","arrowup","arrowdown"].includes(k))return;
   e.preventDefault();
-  const TOP=[...document.querySelectorAll("header button.chip")];
+  const TOP=[...document.querySelectorAll("header button.chip")].filter(b=>!b.hidden);
   if(TOP.includes(ae)){
     if(k==="arrowleft"||k==="arrowright"){const t=TOP[TOP.indexOf(ae)+(k==="arrowright"?1:-1)];if(t)t.focus()}
     else if(k==="arrowdown")focusNav();
@@ -532,13 +573,18 @@ $("fsBtn").onclick=fs;
 const dlg=$("dlg"),sw=$("sw");
 PALETTE.forEach(([a,b],i)=>{const x=document.createElement("input");x.type="radio";x.name="col";x.id="col"+i;x.value=i;x.style.cssText=`--a:${a};--b:${b}`;x.setAttribute("aria-label","Цвет "+(i+1));sw.append(x)});
 $("fCat").innerHTML=CATS.slice(1).map(([k,n])=>`<option value="${k}">${n}</option>`).join("");
-function openAdd(){$("addForm").reset();sw.children[apps.length%PALETTE.length].checked=true;$("fCat").value=cat==="all"?"kino":cat;dlg.showModal()}
+function openAdd(){
+  if(TV){$("fAppRow").hidden=false;const sel=$("fApp");
+    if(sel.options.length<2){try{JSON.parse(TV.apps()).forEach(x=>{const o=document.createElement("option");o.value=x.pkg;o.textContent=x.label;o.dataset.label=x.label;sel.append(o)})}catch(e){}}}
+  $("addForm").reset();sw.children[apps.length%PALETTE.length].checked=true;$("fCat").value=cat==="all"?"kino":cat;dlg.showModal()}
 $("cancel").onclick=()=>dlg.close();
 $("addForm").addEventListener("submit",e=>{
-  e.preventDefault();let u=$("fUrl").value.trim();if(!/^https?:\/\//i.test(u))u="https://"+u;
+  e.preventDefault();const pk=TV?$("fApp").value:"";let u=$("fUrl").value.trim();
+  if(!u&&!pk){$("fUrl").focus();$("fUrl").placeholder="Укажите адрес сайта или выберите приложение";return}
+  if(u&&!/^https?:\/\//i.test(u))u="https://"+u;
   const c=$("fCat").value,[a,b]=PALETTE[+sw.querySelector(":checked").value];
   const glyph={kino:"film",video:"play",music:"music",tools:"globe"}[c];
-  apps.push([$("fName").value.trim(),u,c,a,b,glyph,""]);save();dlg.close();
+  apps.push([$("fName").value.trim(),u,c,a,b,glyph,"",pk]);save();dlg.close();
   if(cat!=="all"&&cat!==c)cat=c;renderNav();renderDock(visible().length-1,false);
 });
 
@@ -666,5 +712,31 @@ function setTarget(a,b){tgtA=hex(a);tgtB=hex(b)}
 
 applyS();
 renderNav();renderDock(0);
-try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}
+/* launcher mode: real settings, inputs, remote Back/Home */
+$("wifiBtn").onclick=()=>{if(TV)TV.openSettings("android.settings.WIFI_SETTINGS")};
+if(TV){
+  $("srcBtn").hidden=false;$("tvSet").hidden=false;$("fsBtn").hidden=true;
+  document.querySelector(".foot .keys").hidden=true;
+  $("srcBtn").onclick=()=>TV.openInputs();
+  document.querySelectorAll("#tvSet [data-act]").forEach(b=>b.onclick=()=>{const a=b.dataset.act;if(a==="inputs")TV.openInputs();else TV.openSettings(a)});
+  $("fApp").addEventListener("change",()=>{const o=$("fApp").selectedOptions[0];if(o&&o.value&&!$("fName").value)$("fName").value=(o.dataset.label||"").slice(0,22)});
+}else{
+  try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{})}catch(e){}
+}
+function toHome(){
+  document.querySelectorAll("dialog[open]").forEach(d=>d.close());
+  $("saver").hidden=true;$("sleepOv").hidden=true;
+  if(editing)toggleEdit();
+  if(cat!=="all")setCat("all");else focusTile(0);
+  resetIdle();
+}
+window.tvBack=function(){
+  const d=document.querySelector("dialog[open]");if(d){d.close();return}
+  if(!$("saver").hidden||!$("sleepOv").hidden){$("saver").hidden=true;$("sleepOv").hidden=true;resetIdle();return}
+  if(editing){toggleEdit();return}
+  if(cat!=="all"){setCat("all");return}
+  focusTile(0);
+};
+window.tvHome=toHome;
+window.tvResume=function(){tick();resetIdle();const a=document.activeElement;if(!a||a===document.body)focusTile(0)};
 </script>
