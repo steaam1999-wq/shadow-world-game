@@ -159,7 +159,9 @@ public class MainActivity extends Activity {
     static final int[] WALLPAPERS = {R.drawable.wp_ultraviolet, R.drawable.wp_lagoon, R.drawable.wp_sunset,
             R.drawable.wp_aurora};
 
-    static final float TILE_W = 256, TILE_H = 144, FOCUS_SCALE = 1.08f;
+    static final float FOCUS_SCALE = 1.08f;
+    /** Tile size in dp, set from the screen: about a fifth of its width, 16:9. */
+    private float TILE_W = 216, TILE_H = 122;
 
     /** Material "emphasized" easing: quick start, long soft landing. */
     static final PathInterpolator EASE = new PathInterpolator(0.2f, 0f, 0f, 1f);
@@ -173,7 +175,7 @@ public class MainActivity extends Activity {
         int color = 0xFF3A3F55;
         Bitmap backdrop;     // the app's picture, heavily blurred: the screen background while it is focused
         Bitmap cardBg;       // the same, brighter: the card behind an icon when the app has no banner
-        Bitmap sharp;        // the banner resampled to the tile's exact pixel size and sharpened
+        Bitmap tile;         // the finished card: picture, rounded corners, glass sheen and rim, at focused size
         Intent launch;
         String url;
     }
@@ -227,6 +229,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("home", MODE_PRIVATE);
+        DisplayMetrics m = getResources().getDisplayMetrics();
+        float screenDp = Math.max(m.widthPixels, m.heightPixels) / m.density;
+        TILE_W = Math.round(screenDp * 0.215f);
+        TILE_H = Math.round(TILE_W * 9f / 16f);
         buildUi();
         setContentView(root);
         applyBrightness();
@@ -781,7 +787,7 @@ public class MainActivity extends Activity {
                 a.color = dominantColor(a.banner != null ? a.banner : a.icon);
                 a.backdrop = backdropFor(a, 0.62f);
                 if (a.banner == null) a.cardBg = backdropFor(a, 1.05f);
-                else a.sharp = sharpBanner(a.banner, Math.round(dp(TILE_W) * FOCUS_SCALE), Math.round(dp(TILE_H) * FOCUS_SCALE));
+                a.tile = tileBitmap(a);
                 a.launch = pm.getLeanbackLaunchIntentForPackage(pkg);
                 if (a.launch == null) a.launch = pm.getLaunchIntentForPackage(pkg);
                 out.put(pkg, a);
@@ -799,6 +805,7 @@ public class MainActivity extends Activity {
                 a.color = a.icon != null ? dominantColor(a.icon) : 0xFF2E7D4F;
                 a.backdrop = backdropFor(a, 0.62f);
                 a.cardBg = backdropFor(a, 1.05f);
+                a.tile = tileBitmap(a);
                 out.put(key, a);
             }
         }
@@ -978,8 +985,91 @@ public class MainActivity extends Activity {
         scrollAnim.start();
     }
 
+    /**
+     * Renders the whole card once: the picture (sharpened banner, or the icon over its blurred self),
+     * rounded corners, a faint glass sheen, a bright rim and a dark inner line — at the focused pixel size.
+     * On screen each tile is then a single bitmap, which the TV's GPU moves and scales without effort.
+     */
+    private Bitmap tileBitmap(App a) {
+        final int W = Math.round(dp(TILE_W) * FOCUS_SCALE), H = Math.round(dp(TILE_H) * FOCUS_SCALE);
+        final float r = dp(18) * FOCUS_SCALE, line = Math.max(1f, dp(1) * FOCUS_SCALE);
+        try {
+            Bitmap content = a.banner != null ? sharpBanner(a.banner, W, H) : null;
+            if (content == null) {
+                content = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+                Canvas cc = new Canvas(content);
+                Paint f = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                if (a.cardBg != null) {
+                    cc.drawBitmap(a.cardBg, null, new Rect(0, 0, W, H), f);
+                } else {
+                    f.setShader(new android.graphics.LinearGradient(0, 0, W, H, lighten(a.color, 0.18f),
+                            darken(a.color, 0.5f), Shader.TileMode.CLAMP));
+                    cc.drawRect(0, 0, W, H, f);
+                    f.setShader(null);
+                }
+                Paint halo = new Paint(Paint.ANTI_ALIAS_FLAG);
+                halo.setShader(new RadialGradient(W / 2f, H / 2f, H * 0.62f, 0x59000000, 0x00000000, Shader.TileMode.CLAMP));
+                cc.drawRect(0, 0, W, H, halo);
+                int s = Math.round(H * 0.56f);
+                if (a.icon != null && a.icon.getConstantState() != null) {
+                    Drawable d = a.icon.getConstantState().newDrawable().mutate();
+                    if (d instanceof BitmapDrawable) ((BitmapDrawable) d).setFilterBitmap(true);
+                    d.setBounds(W / 2 - s / 2, H / 2 - s / 2, W / 2 + s / 2, H / 2 + s / 2);
+                    d.draw(cc);
+                } else {
+                    Paint t = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    t.setColor(Color.WHITE);
+                    t.setTextSize(H * 0.34f);
+                    t.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
+                    t.setTextAlign(Paint.Align.CENTER);
+                    cc.drawText(a.label.substring(0, Math.min(2, a.label.length())), W / 2f, H / 2f + H * 0.12f, t);
+                }
+            }
+            Bitmap out = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(out);
+            android.graphics.RectF box = new android.graphics.RectF(0, 0, W, H);
+            Paint pic = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+            pic.setShader(new android.graphics.BitmapShader(content, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
+            c.drawRoundRect(box, r, r, pic);
+            Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
+            sheen.setShader(new android.graphics.LinearGradient(0, 0, W * 0.55f, H, 0x24FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+            c.drawRoundRect(box, r, r, sheen);
+            Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
+            rim.setStyle(Paint.Style.STROKE);
+            rim.setStrokeWidth(line);
+            rim.setColor(0x80FFFFFF);
+            c.drawRoundRect(new android.graphics.RectF(line / 2, line / 2, W - line / 2, H - line / 2), r, r, rim);
+            rim.setColor(0x2E000000);
+            c.drawRoundRect(new android.graphics.RectF(line * 1.5f, line * 1.5f, W - line * 1.5f, H - line * 1.5f),
+                    r - line, r - line, rim);
+            if (content != a.cardBg) content.recycle();
+            return out;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return null;
+        }
+    }
+
+    private final Map<Integer, Bitmap> glowCache = new HashMap<>();
+
+    /** A small soft spot in the app's colour; stretched behind the focused card it reads as a glow. */
+    private Bitmap glowSpot(int color) {
+        Bitmap b = glowCache.get(color);
+        if (b != null) return b;
+        int n = 48;
+        b = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b);
+        int r = Color.red(color), g = Color.green(color), bl = Color.blue(color);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setShader(new RadialGradient(n / 2f, n / 2f, n / 2f,
+                new int[]{Color.argb(200, r, g, bl), Color.argb(90, r, g, bl), Color.argb(0, r, g, bl)},
+                new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, n, n, p);
+        glowCache.put(color, b);
+        return b;
+    }
+
     private View tile(final App a) {
-        final int w = dp(TILE_W), h = dp(TILE_H);
+        final int w = dp(TILE_W), h = dp(TILE_H), gap = dp(24);
         final LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -987,120 +1077,69 @@ public class MainActivity extends Activity {
         box.setFocusable(true);
         box.setTag(a);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(w, -2);
-        blp.rightMargin = dp(26);
+        blp.rightMargin = gap;
         box.setLayoutParams(blp);
 
         final FrameLayout card = new FrameLayout(this);
-        final float radius = dp(20);
-        card.setOutlineProvider(new ViewOutlineProvider() {
-            @Override public void getOutline(View view, Outline outline) {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-            }
-        });
-        card.setClipToOutline(true);
-        card.setElevation(dp(3));
-        if (Build.VERSION.SDK_INT >= 28) {
-            card.setOutlineSpotShadowColor(a.color);      // the focused tile glows in its own colour
-            card.setOutlineAmbientShadowColor(a.color);
-        }
+        card.setClipChildren(false);
 
-        ImageView image = new ImageView(this);
-        if (a.banner != null) {
-            if (a.sharp != null) {
-                image.setImageBitmap(a.sharp);
-                image.setScaleType(ImageView.ScaleType.FIT_XY);
-            } else {
-                image.setImageDrawable(a.banner);
-                image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            }
-            card.addView(image, new FrameLayout.LayoutParams(-1, -1));
+        // colour glow behind the card: alpha only, so it costs nothing to animate
+        final ImageView glowV = new ImageView(this);
+        glowV.setImageBitmap(glowSpot(a.color));
+        glowV.setScaleType(ImageView.ScaleType.FIT_XY);
+        glowV.setAlpha(0f);
+        int g = dp(30);
+        FrameLayout.LayoutParams glp = new FrameLayout.LayoutParams(w + 2 * g, h + 2 * g);
+        glp.setMargins(-g, -g + dp(8), -g, -g);
+        card.addView(glowV, glp);
+
+        final ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.FIT_XY);
+        if (a.tile != null) {
+            image.setImageBitmap(a.tile);
         } else {
-            // no banner: the app's own icon, sharp, over a blurred and glowing copy of itself
-            if (a.cardBg != null) {
-                card.setBackground(new BitmapDrawable(getResources(), a.cardBg));
-            } else {
-                int c = a.color;
-                card.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                        new int[]{lighten(c, 0.18f), darken(c, 0.5f)}));
-            }
-            View halo = new View(this);
-            GradientDrawable hd = new GradientDrawable();
-            hd.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-            hd.setColors(new int[]{0x59000000, 0x00000000});
-            hd.setGradientRadius(dp(70));
-            halo.setBackground(hd);
-            card.addView(halo, new FrameLayout.LayoutParams(dp(150), dp(150), Gravity.CENTER));
-            if (a.icon != null) {
-                image.setImageDrawable(a.icon);
-                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                card.addView(image, new FrameLayout.LayoutParams(dp(84), dp(84), Gravity.CENTER));
-            } else {
-                TextView letter = text(40, Color.WHITE, Typeface.create("sans-serif-black", Typeface.NORMAL));
-                letter.setText(a.label.substring(0, Math.min(2, a.label.length())));
-                card.addView(letter, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-            }
+            GradientDrawable fallback = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{lighten(a.color, 0.18f), darken(a.color, 0.5f)});
+            fallback.setCornerRadius(dp(18));
+            image.setImageDrawable(fallback);
         }
+        image.setAlpha(0.86f);
+        card.addView(image, new FrameLayout.LayoutParams(w, h));
 
-        // liquid glass over the picture: diagonal sheen, bright outer rim with a dark inner line,
-        // a soft shade on tiles that are not focused, and the white focus ring
-        View sheen = new View(this);
-        GradientDrawable sh = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x22FFFFFF, 0x00FFFFFF, 0x00FFFFFF, 0x00FFFFFF});
-        sh.setCornerRadius(radius);
-        sheen.setBackground(sh);
-        card.addView(sheen, new FrameLayout.LayoutParams(-1, -1));
-        View rim = new View(this);
-        GradientDrawable rimD = new GradientDrawable();
-        rimD.setCornerRadius(radius);
-        rimD.setStroke(dp(1), 0x8CFFFFFF);
-        rim.setBackground(rimD);
-        card.addView(rim, new FrameLayout.LayoutParams(-1, -1));
-        View inner = new View(this);
-        GradientDrawable innerD = new GradientDrawable();
-        innerD.setCornerRadius(radius - dp(1));
-        innerD.setStroke(dp(1), 0x33000000);
-        inner.setBackground(innerD);
-        FrameLayout.LayoutParams ilp = new FrameLayout.LayoutParams(-1, -1);
-        ilp.setMargins(dp(1), dp(1), dp(1), dp(1));
-        card.addView(inner, ilp);
-        final View shade = new View(this);
-        shade.setBackgroundColor(Color.BLACK);
-        shade.setAlpha(0.14f);
-        card.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         final View ring = new View(this);
         GradientDrawable ringD = new GradientDrawable();
-        ringD.setCornerRadius(radius);
+        ringD.setCornerRadius(dp(18));
         ringD.setStroke(dp(3), Color.WHITE);
         ring.setBackground(ringD);
         ring.setAlpha(0f);
-        card.addView(ring, new FrameLayout.LayoutParams(-1, -1));
+        card.addView(ring, new FrameLayout.LayoutParams(w, h));
 
         box.addView(card, new LinearLayout.LayoutParams(w, h));
 
-        final TextView label = text(15, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        final TextView label = text(14, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
         label.setText(a.label);
         label.setSingleLine(true);
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setGravity(Gravity.CENTER);
         label.setAlpha(0.55f);
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(-1, -2);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(-1, dp(20));
         llp.topMargin = dp(14);
         box.addView(label, llp);
 
-        final float lift = dp(6), depth = dp(14);
+        final float lift = dp(5);
         box.setOnFocusChangeListener((v, has) -> {
             card.animate().cancel();
             card.animate().scaleX(has ? FOCUS_SCALE : 1f).scaleY(has ? FOCUS_SCALE : 1f)
-                    .translationY(has ? -lift : 0f).translationZ(has ? depth : 0f)
-                    .setDuration(340).setInterpolator(EASE).start();
-            ring.animate().alpha(has ? 1f : 0f).setDuration(260).setInterpolator(EASE).start();
-            shade.animate().alpha(has ? 0f : 0.14f).setDuration(320).setInterpolator(EASE).start();
-            label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(340)
+                    .translationY(has ? -lift : 0f).setDuration(360).setInterpolator(EASE).start();
+            image.animate().alpha(has ? 1f : 0.86f).setDuration(360).setInterpolator(EASE).start();
+            ring.animate().alpha(has ? 1f : 0f).setDuration(300).setInterpolator(EASE).start();
+            glowV.animate().alpha(has ? 0.9f : 0f).setDuration(420).setInterpolator(EASE).start();
+            label.animate().alpha(has ? 1f : 0.55f).translationY(has ? lift : 0f).setDuration(360)
                     .setInterpolator(EASE).start();
             if (has) {
                 showHero(a);
                 int index = row.indexOfChild(v);
-                glideTo(index <= 0 ? 0 : v.getLeft() - (w + dp(26)) + dp(4) - row.getPaddingLeft());
+                glideTo(index <= 0 ? 0 : v.getLeft() - (w + gap) + dp(4) - row.getPaddingLeft());
             }
         });
         box.setOnClickListener(v -> open(a));
