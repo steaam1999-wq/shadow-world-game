@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Список клиентов с адресами и последним рукопожатием
+source /usr/local/bin/common.sh
+declare -A hs=()
+if ip link show "$WG_IFACE" >/dev/null 2>&1; then
+  while read -r key ts; do hs[$key]=$ts; done < <(wg show "$WG_IFACE" latest-handshakes)
+fi
+printf '%-20s %-16s %s\n' NAME IP LAST_HANDSHAKE
+for dir in "$PEERS_DIR"/*/; do
+  [[ -f "$dir/public.key" ]] || continue
+  pub=$(cat "$dir/public.key"); ts=${hs[$pub]:-0}
+  if [[ "$ts" == 0 ]]; then when="never"; else when=$(date -d "@$ts" '+%Y-%m-%d %H:%M:%S'); fi
+  printf '%-20s %-16s %s\n' "$(basename "$dir")" "$(cat "$dir/ip")" "$when"
+done

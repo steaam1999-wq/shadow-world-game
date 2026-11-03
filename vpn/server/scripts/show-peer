@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Использование: show-peer <имя> [--qr]  — вывести конфиг клиента
+source /usr/local/bin/common.sh
+valid_name "${1:-}" || { echo "Использование: show-peer <имя> [--qr]" >&2; exit 1; }
+f="$PEERS_DIR/$1/$1.conf"
+[[ -f "$f" ]] || { log "Клиент '$1' не найден"; exit 1; }
+if [[ "${2:-}" == "--qr" ]]; then qrencode -t ansiutf8 < "$f"; else cat "$f"; fi

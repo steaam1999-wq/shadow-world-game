@@ -1,0 +1,15 @@
+services:
+  vpn:
+    build: .
+    container_name: shadowvpn-server
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    env_file: .env
+    ports:
+      - "${WG_PORT:-51820}:51820/udp"
+    volumes:
+      - ./data:/config

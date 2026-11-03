@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Использование: remove-peer <имя>  — удалить клиента и отозвать доступ
+source /usr/local/bin/common.sh
+[[ $# -eq 1 ]] || { echo "Использование: remove-peer <имя>" >&2; exit 1; }
+valid_name "$1" || { log "Недопустимое имя"; exit 1; }
+[[ -d "$PEERS_DIR/$1" ]] || { log "Клиент '$1' не найден"; exit 1; }
+rm -rf "${PEERS_DIR:?}/$1"
+reload_wg
+log "Клиент '$1' удалён"

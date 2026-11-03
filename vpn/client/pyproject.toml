@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shadowvpn"
+version = "0.1.0"
+description = "Консольный клиент для WireGuard-сервера ShadowVPN"
+requires-python = ">=3.9"
+
+[project.scripts]
+shadowvpn = "shadowvpn.cli:main"
+
+[tool.setuptools]
+packages = ["shadowvpn"]

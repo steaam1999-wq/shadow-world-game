@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Использование: add-peer <имя>  — создать клиента и вывести его конфиг/QR
+source /usr/local/bin/common.sh
+[[ $# -eq 1 ]] || { echo "Использование: add-peer <имя>" >&2; exit 1; }
+create_peer "$1"
+reload_wg
+cat "$PEERS_DIR/$1/$1.conf"
+echo
+qrencode -t ansiutf8 < "$PEERS_DIR/$1/$1.conf"
