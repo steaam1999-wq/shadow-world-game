@@ -331,8 +331,8 @@ public class MainActivity extends Activity {
         s.addState(new int[]{android.R.attr.state_focused}, glass(radiusDp, 95, 38, 255, 2));
         s.addState(new int[]{android.R.attr.state_selected}, glass(radiusDp, 70, 22, 90, 1));
         if (showIdle) s.addState(new int[]{}, glass(radiusDp, 40, 12, 70, 1));
-        s.setEnterFadeDuration(140);
-        s.setExitFadeDuration(140);
+        s.setEnterFadeDuration(220);
+        s.setExitFadeDuration(220);
         return s;
     }
 
@@ -430,6 +430,7 @@ public class MainActivity extends Activity {
         tabs.setPadding(dp(5), dp(5), dp(5), dp(5));
         tabs.setBackground(glass(26, 34, 10, 60, 1));
         tabs.setClipChildren(false);
+        tabs.setClipToPadding(false);
         for (int i = 0; i < TAB_NAMES.length; i++) {
             final int index = i;
             TextView t = text(15, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
@@ -439,8 +440,6 @@ public class MainActivity extends Activity {
             t.setBackground(glassStates(20, false));
             t.setFocusable(true);
             t.setOnFocusChangeListener((v, has) -> {
-                v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(200)
-                        .setInterpolator(EASE).start();
                 if (has && index != tab) {
                     pendingTab = index;
                     ui.removeCallbacks(applyPendingTab);
