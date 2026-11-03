@@ -225,6 +225,9 @@ public class MainActivity extends Activity {
     private App heroApp;
     private ValueAnimator scrollAnim;
     private AlertDialog openDialog;
+    private String movingKey;          // the tile being moved on «Главная» (null when not moving)
+    private View movingTile;
+    private List<String> movePins;
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -286,6 +289,22 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (movingKey != null) {
+            int k = event.getKeyCode();
+            boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+            if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (down) moveBy(k == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+                return true;
+            }
+            if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_BACK
+                    || k == KeyEvent.KEYCODE_ESCAPE || k == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                if (!down) finishMove();
+                return true;
+            }
+            if (k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN || k == KeyEvent.KEYCODE_MENU) {
+                return true;   // stay on the tile until it is dropped
+            }
+        }
         if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             if (event.getAction() == KeyEvent.ACTION_UP) goHome();
             return true;   // a launcher never closes on Back
@@ -413,6 +432,7 @@ public class MainActivity extends Activity {
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         top.addView(iconButton(R.drawable.ic_input, "Источники", v -> openInputs()));
         top.addView(iconButton(R.drawable.ic_wifi, "Wi‑Fi", v -> openSettings(Settings.ACTION_WIFI_SETTINGS)));
+        top.addView(iconButton(R.drawable.ic_brightness, "Яркость", v -> showBrightness()));
         content.addView(top);
 
         content.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1f));
@@ -1567,15 +1587,16 @@ public class MainActivity extends Activity {
         boolean pinned = pins().contains(a.key);
         final List<String> items = new ArrayList<>();
         items.add(pinned ? "Убрать с «Главной»" : "Добавить на «Главную»");
-        if (pinned) {
-            items.add("Сдвинуть влево");
-            items.add("Сдвинуть вправо");
-        }
+        if (pinned) items.add(0, "Переместить");
         if (a.url == null) items.add("О приложении");
         openDialog = dialog(a.label).setItems(items.toArray(new String[0]), (d, which) -> {
             String item = items.get(which);
             if (item.equals("О приложении")) {
                 start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.key)));
+                return;
+            }
+            if (item.equals("Переместить")) {
+                startMove(a);
                 return;
             }
             List<String> list = pins();
@@ -1584,16 +1605,66 @@ public class MainActivity extends Activity {
                 list.remove(a.key);
             } else if (item.startsWith("Добавить")) {
                 list.add(a.key);
-            } else if (item.equals("Сдвинуть влево") && i > 0) {
-                Collections.swap(list, i, i - 1);
-            } else if (item.equals("Сдвинуть вправо") && i >= 0 && i < list.size() - 1) {
-                Collections.swap(list, i, i + 1);
             }
             savePins(list);
             renderRow(true);
             focusTileFor(a.key);
         }).create();
         openDialog.show();
+    }
+
+    // ---- moving tiles on «Главная» -----------------------------------------------------------------------
+
+    /** Lifts the tile on «Главная»; ← → carry it along the row, OK (or Back) puts it down. */
+    private void startMove(App a) {
+        if (tab != 0) switchTab(0);
+        row = rows[0];
+        rowScroll = rowScrolls[0];
+        View tile = null;
+        for (int i = 0; i < rows[0].getChildCount(); i++) {
+            View v = rows[0].getChildAt(i);
+            if (v.getTag() instanceof App && ((App) v.getTag()).key.equals(a.key)) tile = v;
+        }
+        if (tile == null) return;
+        tile.requestFocus();
+        movingKey = a.key;
+        movingTile = tile;
+        movePins = pins();
+        tile.animate().translationY(-dp(16)).setDuration(220).setInterpolator(EASE).start();
+        heroDesc.setText("◀ ▶ — переместить   ·   OK — готово");
+    }
+
+    private void moveBy(int step) {
+        LinearLayout r = rows[0];
+        int idx = r.indexOfChild(movingTile);
+        int to = idx + step;
+        if (idx < 0 || to < 0 || to >= r.getChildCount()) return;
+        View neighbour = r.getChildAt(to);
+        if (!(neighbour.getTag() instanceof App)) return;
+        // the neighbour changes places; the lifted tile is never removed, so it keeps the focus
+        r.removeView(neighbour);
+        r.addView(neighbour, idx);
+        String other = ((App) neighbour.getTag()).key;
+        int a = movePins.indexOf(movingKey), b = movePins.indexOf(other);
+        if (a >= 0 && b >= 0) Collections.swap(movePins, a, b);
+        firstTiles[0] = r.getChildAt(0);
+        if (tab == 0) firstTile = firstTiles[0];
+        final View t = movingTile;
+        t.post(() -> {
+            int i = r.indexOfChild(t);
+            glideTo(i <= 0 ? 0 : t.getLeft() - (dp(TILE_W) + dp(24)) + dp(4) - r.getPaddingLeft());
+        });
+    }
+
+    private void finishMove() {
+        if (movingKey == null) return;
+        savePins(movePins);
+        movingTile.animate().translationY(0f).setDuration(260).setInterpolator(EASE).start();
+        Object tag = movingTile.getTag();
+        movingKey = null;
+        movingTile = null;
+        movePins = null;
+        if (tag instanceof App) heroDesc.setText(describe((App) tag));
     }
 
     private void focusTileFor(String key) {
