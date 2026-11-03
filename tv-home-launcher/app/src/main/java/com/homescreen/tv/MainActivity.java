@@ -439,8 +439,9 @@ public class MainActivity extends Activity {
         lensRim = new View(this);
         lensRim.setBackground(glass(20, 40, 10, 0xB0, 1));
         lensRim.setAlpha(0f);
-        tabsFrame.addView(lens, new FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
-        tabsFrame.addView(lensRim, new FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT));
+        // fixed sizes (set from the tab once laid out): a match_parent child would stretch the frame to the screen
+        tabsFrame.addView(lens, new FrameLayout.LayoutParams(0, 0));
+        tabsFrame.addView(lensRim, new FrameLayout.LayoutParams(0, 0));
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < TAB_NAMES.length; i++) {
@@ -565,10 +566,11 @@ public class MainActivity extends Activity {
             return;
         }
         final int toL = t.getLeft() + ((View) t.getParent()).getLeft(), toR = toL + t.getWidth();
+        final int top = t.getTop() + ((View) t.getParent()).getTop(), bottom = top + t.getHeight();
         if (lensAnim != null) lensAnim.cancel();
         if (!animate || lens.getWidth() == 0) {
-            setLensEdges(toL, toR);
-            fixLens(toL, toR);
+            setLensEdges(toL, toR, top, bottom);
+            fixLens(toL, toR, top, bottom);
             return;
         }
         final int fromL = lens.getLeft(), fromR = lens.getRight();
@@ -577,30 +579,35 @@ public class MainActivity extends Activity {
         lensAnim.setInterpolator(EASE);
         lensAnim.addUpdateListener(an -> {
             float f = (Float) an.getAnimatedValue();
-            setLensEdges(Math.round(fromL + (toL - fromL) * f), Math.round(fromR + (toR - fromR) * f));
+            setLensEdges(Math.round(fromL + (toL - fromL) * f), Math.round(fromR + (toR - fromR) * f), top, bottom);
         });
         lensAnim.addListener(new android.animation.AnimatorListenerAdapter() {
             boolean cancelled;
             @Override public void onAnimationCancel(android.animation.Animator an) { cancelled = true; }
-            @Override public void onAnimationEnd(android.animation.Animator an) { if (!cancelled) fixLens(toL, toR); }
+            @Override public void onAnimationEnd(android.animation.Animator an) { if (!cancelled) fixLens(toL, toR, top, bottom); }
         });
         lensAnim.start();
     }
 
-    private void setLensEdges(int l, int r) {
-        lens.setLeft(l);
-        lens.setRight(r);
-        lensRim.setLeft(l);
-        lensRim.setRight(r);
+    private void setLensEdges(int l, int r, int t, int b) {
+        for (View v : new View[]{lens, lensRim}) {
+            v.setLeft(l);
+            v.setRight(r);
+            v.setTop(t);
+            v.setBottom(b);
+        }
     }
 
     /** After the slide, pins the lens there in its layout params (one layout, not one per frame). */
-    private void fixLens(int l, int r) {
+    private void fixLens(int l, int r, int t, int b) {
         for (View v : new View[]{lens, lensRim}) {
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) v.getLayoutParams();
-            if (lp.leftMargin != l - dp(5) || lp.width != r - l) {
-                lp.leftMargin = l - dp(5);
+            int ml = l - dp(5), mt = t - dp(5);   // the frame's padding is added by the layout itself
+            if (lp.leftMargin != ml || lp.width != r - l || lp.topMargin != mt || lp.height != b - t) {
+                lp.leftMargin = ml;
+                lp.topMargin = mt;
                 lp.width = r - l;
+                lp.height = b - t;
                 v.setLayoutParams(lp);
             }
         }
