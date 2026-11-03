@@ -86,13 +86,13 @@ public class MainActivity extends Activity {
     /** Яндекс Музыка in the TV's browser, shown only while no Яндекс Музыка app is installed. */
     static final String YANDEX_MUSIC_WEB = "url:https://music.yandex.ru/";
     /** Shortcuts added to «Главная» for users whose pins were saved before the shortcut existed. */
-    static final String[] ADDED_PINS = {YANDEX_MUSIC_WEB};
+    static final String[] ADDED_PINS = {YANDEX_MUSIC_WEB, "com.jutsu.tv"};
 
     /** Default «Главная» row, in order; only installed apps (and the website shortcuts) appear. */
     static final String[] DEFAULT_PINS = {
             "ru.kinopoisk.tv", "ru.kinopoisk", "com.google.android.youtube.tv", "ru.more.play", "ru.okko.tv",
             "ru.rt.video.app.tv", "ru.ivi.client", "ru.start.androidmobile", "ru.start.tv", "gpm.tnt_premier",
-            "com.netflix.ninja", "url:https://jut-su.net/", "com.vk.tv", "com.vk.vkvideo", "ru.rutube.app.tv",
+            "com.netflix.ninja", "com.jutsu.tv", "url:https://jut-su.net/", "com.vk.tv", "com.vk.vkvideo", "ru.rutube.app.tv",
             "ru.rutube.app", "tv.twitch.android.viewer", "tv.twitch.android.app", "com.msx.msx",
             "ru.yandex.music", "com.yandex.tv.music", "ru.yandex.music.tv", YANDEX_MUSIC_WEB,
             "com.spotify.tv.android", YANDEX_BROWSER, "com.android.vending", "org.amnezia.vpn"
@@ -100,7 +100,7 @@ public class MainActivity extends Activity {
 
     static final String[][] CATEGORY_PREFIXES = {
             {"kino", "ru.kinopoisk", "ru.more.play", "ru.okko", "tv.okko", "ru.rt.video.app", "ru.ivi.", "ru.start.",
-                    "gpm.", "com.netflix", "ru.kion", "ru.mts.", "com.amediateka", "url:https://jut-su"},
+                    "gpm.", "com.netflix", "com.jutsu", "ru.kion", "ru.mts.", "com.amediateka", "url:https://jut-su"},
             {"video", "com.google.android.youtube", "com.vk.", "ru.rutube", "tv.twitch", "com.msx", "ru.vk.",
                     "com.liskovsoft", "org.xbmc", "com.plexapp", "ru.ntv", "ru.smotreshka"},
             {"music", "ru.yandex.music", "com.yandex.tv.music", "url:https://music.yandex", "com.spotify", "ru.zvuk", "com.apple.android.music", "deezer",
@@ -130,6 +130,7 @@ public class MainActivity extends Activity {
         DESCRIPTIONS.put("gpm.", "Шоу, сериалы и премьеры телеканалов.");
         DESCRIPTIONS.put("com.netflix", "Сериалы и фильмы со всего мира.");
         DESCRIPTIONS.put("url:https://jut-su", "Аниме-сериалы и фильмы с озвучкой.");
+        DESCRIPTIONS.put("com.jutsu.tv", "Аниме-сериалы и фильмы с озвучкой.");
         DESCRIPTIONS.put("com.vk.", "Шоу, клипы, сериалы и трансляции.");
         DESCRIPTIONS.put("ru.rutube", "Видео, ТВ-эфиры и передачи.");
         DESCRIPTIONS.put("tv.twitch", "Игровые стримы и прямые эфиры.");
@@ -1240,16 +1241,20 @@ public class MainActivity extends Activity {
         String key = TAB_KEYS[t];
         if (key.equals("home")) {
             boolean ymApp = hasYandexMusicApp();
+            boolean jutsuApp = apps.containsKey("com.jutsu.tv");
             for (String p : pins()) {
                 if (p.equals(YANDEX_MUSIC_WEB) && ymApp) continue;
+                if (p.startsWith("url:https://jut-su") && jutsuApp) continue;   // the app replaces the website
                 App a = apps.get(p);
                 if (a != null) out.add(a);
             }
             return out;
         }
         boolean ymApp = hasYandexMusicApp();
+        boolean jutsuApp = apps.containsKey("com.jutsu.tv");
         for (App a : apps.values()) {
             if (a.key.equals(YANDEX_MUSIC_WEB) && ymApp) continue;
+            if (a.key.startsWith("url:https://jut-su") && jutsuApp) continue;
             if (key.equals("all") || a.category.equals(key)) out.add(a);
         }
         if (key.equals("all")) Collections.sort(out, (x, y) -> x.label.compareToIgnoreCase(y.label));
