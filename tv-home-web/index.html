@@ -196,6 +196,54 @@ dialog input:focus-visible,dialog select:focus-visible{outline:2px solid var(--i
   .chip{padding:0 11px}
   .shade{background:linear-gradient(0deg,rgba(4,5,9,.92) 0%,rgba(4,5,9,.35) 60%,rgba(4,5,9,.2))}
 }
+
+/* ===== One motion language: liquid glass =====
+   --spring: settles with a soft overshoot (position, size, scale)
+   --soft:   calm ease-out (colour, light, opacity)
+   jelly:    the single squash-and-stretch every focused element plays */
+:root{--spring:cubic-bezier(.34,1.45,.5,1);--soft:cubic-bezier(.22,.8,.24,1);--t:.55s}
+@keyframes jelly{0%{scale:1 1}25%{scale:1.1 .88}55%{scale:.97 1.05}80%{scale:1.01 .99}100%{scale:1 1}}
+@keyframes gpop{0%{scale:1 1}25%{scale:1.1 .88}55%{scale:.97 1.05}80%{scale:1.01 .99}100%{scale:1 1}}
+@keyframes rise{from{opacity:0;transform:translateY(18px) scale(.92)}}
+@keyframes fade{from{opacity:0}}
+@keyframes glassIn{from{opacity:0;transform:translateY(18px) scale(.92)}}
+
+.icon{transition:transform var(--t) var(--spring),box-shadow .35s var(--soft),background .35s var(--soft)}
+.app:hover .icon,.app:focus-visible .icon{animation:jelly var(--t) var(--soft)}
+.lbl{transition:color .35s var(--soft),transform var(--t) var(--spring)}
+.appear{animation:rise var(--t) var(--spring) both}
+
+.lens{transition:left var(--t) var(--spring),width var(--t) var(--spring),box-shadow .35s var(--soft),opacity .35s var(--soft)}
+.lens.jelly{animation:jelly var(--t) var(--soft)}
+nav button{transition:color .35s var(--soft)}
+
+.chip,.avatar{transition:transform var(--t) var(--spring),background .35s var(--soft),color .35s var(--soft),border-color .35s var(--soft)}
+button.chip:hover,button.chip:focus-visible{transform:scale(1.1);animation:jelly var(--t) var(--soft)}
+.open{transition:transform var(--t) var(--spring),box-shadow .35s var(--soft)}
+.open:hover,.open:focus-visible{transform:scale(1.06);animation:jelly var(--t) var(--soft)}
+
+.hero .swap{transition:opacity .35s var(--soft),transform var(--t) var(--spring)}
+.hero.out .swap{opacity:0;transform:translateY(12px) scale(.98)}
+.hero .swap:nth-child(2){transition-delay:40ms}.hero .swap:nth-child(3){transition-delay:80ms}.hero .swap:nth-child(4){transition-delay:120ms}
+.hero.out .swap{transition-delay:0ms}
+
+dialog[open]{animation:glassIn var(--t) var(--spring)}
+dialog[open]::backdrop{animation:fade .35s var(--soft)}
+.seg button,.presets button,.dlg-actions button{transition:background .35s var(--soft),color .35s var(--soft),transform var(--t) var(--spring)}
+.seg button:focus-visible,.presets button:focus-visible,.dlg-actions button:focus-visible{transform:scale(1.06)}
+.seg button.on{animation:jelly var(--t) var(--soft)}
+#bright::-webkit-slider-thumb{transition:transform var(--t) var(--spring)}
+.del{transition:transform var(--t) var(--spring)}
+.del:hover,.del:focus-visible{transform:scale(1.15)}
+.edit .app .icon{animation:wob .6s var(--soft) infinite alternate}
+
+.saver{animation:fade .6s var(--soft) both}
+.saver .st,.saver .sd{animation:rise .8s var(--spring) both}
+.saver .sd{animation-delay:80ms}
+.sleepov{animation:fade .6s var(--soft) both}
+.dim{transition:opacity .35s var(--soft)}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important;transition-delay:0ms!important}}
 </style>
 
 <canvas id="fx" aria-hidden="true"></canvas>
