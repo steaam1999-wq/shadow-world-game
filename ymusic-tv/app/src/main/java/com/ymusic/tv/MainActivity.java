@@ -250,23 +250,24 @@ public class MainActivity extends Activity {
         return super.dispatchKeyEvent(event);
     }
 
-    /** Menu key: continue watching, home, reload, site address. */
+    /** Menu key: the player's buttons (most TV remotes have no ⏯ ⏭), quick places, reload, site address. */
     private void showMenu() {
-        final String last = prefs.getString("last", null);
-        final String lastTitle = prefs.getString("lastTitle", "");
-        final java.util.List<String> items = new java.util.ArrayList<>();
-        if (last != null) items.add("▶ Продолжить: " + (lastTitle == null || lastTitle.isEmpty() ? last : lastTitle));
-        items.add("Главная сайта");
-        items.add("Обновить страницу");
-        items.add("Адрес сайта: " + Uri.parse(site()).getHost());
+        // plain words: the TV's system font has no media symbols or emoji
+        final String[] items = {"Пауза / воспроизведение", "Следующий трек", "Предыдущий трек",
+                "Моя волна (главная)", "Поиск", "Обновить страницу",
+                "Адрес сайта: " + Uri.parse(site()).getHost()};
         new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle("Яндекс Музыка TV")
-                .setItems(items.toArray(new String[0]), (d, which) -> {
-                    String item = items.get(which);
-                    if (item.startsWith("▶")) web.loadUrl(last);
-                    else if (item.startsWith("Главная")) web.loadUrl(site());
-                    else if (item.startsWith("Обновить")) web.reload();
-                    else askSite();
+                .setItems(items, (d, which) -> {
+                    switch (which) {
+                        case 0: web.evaluateJavascript("window.__tv&&__tv.media('playpause')", null); break;
+                        case 1: web.evaluateJavascript("window.__tv&&__tv.media('next')", null); break;
+                        case 2: web.evaluateJavascript("window.__tv&&__tv.media('previous')", null); break;
+                        case 3: web.loadUrl(site()); break;
+                        case 4: web.evaluateJavascript("window.__tv&&__tv.search()", null); break;
+                        case 5: web.reload(); break;
+                        default: askSite();
+                    }
                 }).show();
     }
 

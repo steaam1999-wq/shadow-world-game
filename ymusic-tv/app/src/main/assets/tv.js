@@ -146,7 +146,9 @@
       if (!seen.has(el)) { seen.add(el); list.push({ el: el, viaPointer: false }); }
     });
     root.querySelectorAll(POINTER_SCAN).forEach(function (el) {
-      if (seen.has(el) || cursorOf(el) !== 'pointer') return;
+      if (seen.has(el)) return;
+      if (el.offsetWidth < 6 && el.offsetHeight < 6 && el.tagName !== 'svg') return;   // tiny: skip the style read
+      if (cursorOf(el) !== 'pointer') return;
       var p = el.parentElement;
       if (p && cursorOf(p) === 'pointer') return;  // inherited from a clickable ancestor
       seen.add(el);
@@ -683,8 +685,25 @@
 
   // A dialog that opens (sign-in) takes the focus, so the remote does not stay on the page behind it.
   var lastScope = null, scopeCheck = 0;
-  new MutationObserver(function () {
+  // A music player changes the page all the time (progress bar, timers, equalizer). Only nodes coming and
+  // going, or dialogs opening, count as a page change; everything else is ignored, so the remote stays light.
+  var calmAt = 0;
+  new MutationObserver(function (records) {
+    var structural = false;
+    for (var i = 0; i < records.length && !structural; i++) {
+      var rec = records[i];
+      if (rec.type === 'attributes') { structural = true; break; }
+      var nodes = [rec.addedNodes, rec.removedNodes];
+      for (var n = 0; n < 2 && !structural; n++) {
+        for (var j = 0; j < nodes[n].length; j++) {
+          var nd = nodes[n][j];
+          if (nd.nodeType === 1 && nd.id !== 'tv-toast' && nd.id !== 'tv-ring') { structural = true; break; }
+        }
+      }
+    }
+    if (!structural) return;
     pageDirty = true;
+    if (Date.now() - calmAt > 2000) { calmAt = Date.now(); setTimeout(calmPage, 300); }
     if (scopeCheck) return;
     scopeCheck = setTimeout(function () {
       scopeCheck = 0;
@@ -697,11 +716,19 @@
       if (focused && !focused.isConnected) focused = null;
     }, 250);
   }).observe(document.documentElement, { childList: true, subtree: true, attributes: true,
-                                           attributeFilter: ['class', 'style', 'open', 'hidden', 'aria-hidden'] });
+                                           attributeFilter: ['open', 'hidden', 'aria-hidden', 'aria-modal'] });
 
   // ------------------------------------------------------------------ called from MainActivity
 
+  function calmPage() {
+    document.querySelectorAll('canvas').forEach(function (c) {
+      var r = c.getBoundingClientRect();
+      if (r.width * r.height > innerWidth * innerHeight * 0.15) c.style.visibility = 'hidden';
+    });
+  }
+
   function onPageReady() {
+    calmPage();
     restoreSpot();
     if (!/episode-\d+/.test(location.pathname)) return;
     var best = null, area = 0;
@@ -754,6 +781,17 @@
       else if (cmd === 'next') episode(1);
       else if (cmd === 'previous') episode(-1);
     },
-    refresh: function () { applyViewport(); applyCss(); }
+    refresh: function () { applyViewport(); applyCss(); },
+    search: function () {
+      var box = document.querySelector('input[type="search"], input[placeholder*="оиск" i], input[aria-label*="оиск" i]');
+      if (!box) {
+        var b = playerButton(/поиск|search/i);
+        if (b) { activate(b); setTimeout(function () { window.__tv.search(); }, 400); }
+        return;
+      }
+      setFocus(box);
+      box.focus();
+      box.click();
+    }
   };
 })();
