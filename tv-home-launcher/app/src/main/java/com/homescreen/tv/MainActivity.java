@@ -160,7 +160,7 @@ public class MainActivity extends Activity {
             {"Специальные возможности", Settings.ACTION_ACCESSIBILITY_SETTINGS},
             {"Для разработчиков", Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS},
             {"Все настройки (сброс, индикатор, Cast…)", Settings.ACTION_SETTINGS},
-            {"Яркость главного экрана", "brightness"},
+            {"Яркость экрана", "brightness"},
     };
 
     /** Liquid glass wallpapers, one per half hour. */
@@ -1795,7 +1795,7 @@ public class MainActivity extends Activity {
     static final String[] PRESET_NAMES = {"Ночь", "Вечер", "День"};
     private FrameLayout brightPanel;
     private View brightCard, brightFill, brightThumb, brightTrack;
-    private TextView brightValue;
+    private TextView brightValue, brightSub;
     private final List<TextView> presetViews = new ArrayList<>();
     private int brightRow = 0, presetIndex = 0;
     private View focusBeforePanel;
@@ -1829,7 +1829,8 @@ public class MainActivity extends Activity {
         TextView title = text(20, Color.WHITE, Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setText("Яркость");
         TextView sub = text(13, 0x99F4F6FB, Typeface.create("sans-serif", Typeface.NORMAL));
-        sub.setText("главного экрана");
+        sub.setText("всего экрана — во всех приложениях");
+        brightSub = sub;
         titles.addView(title);
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-2, -2);
         sl.topMargin = dp(4);
@@ -1982,9 +1983,22 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    /**
+     * The whole TV screen is dimmed (all apps) through DimService's overlay; only if the TV has not granted
+     * «поверх других приложений» does the home screen fall back to dimming itself.
+     */
     private void applyBrightness() {
         int b = prefs.getInt("brightness", 100);
-        dim.setAlpha(1f - b / 100f);
+        if (DimService.canDimEverywhere(this)) {
+            dim.setAlpha(0f);
+            DimService.apply(this, b);
+        } else {
+            dim.setAlpha(1f - b / 100f);
+        }
+        if (brightSub != null) {
+            brightSub.setText(DimService.canDimEverywhere(this) ? "всего экрана — во всех приложениях"
+                    : "только главного экрана: нет разрешения «поверх других приложений»");
+        }
     }
 
     private void updateClock() {

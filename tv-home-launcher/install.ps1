@@ -73,6 +73,9 @@ if ($before -and $before -notmatch '^com\.homescreen\.tv/' -and -not (Test-Path 
     Write-Host "Previous home screen saved: $before"
 }
 
+# Brightness for the whole screen: allow the dimming layer over other apps (TVs often have no settings page for it).
+Adb shell appops set com.homescreen.tv SYSTEM_ALERT_WINDOW allow | Out-Null
+
 Adb shell cmd package set-home-activity $Home_ | Write-Host
 Adb shell input keyevent KEYCODE_HOME | Out-Null
 
