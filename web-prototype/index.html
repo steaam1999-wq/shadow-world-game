@@ -511,7 +511,7 @@ const ZONE_STORY = [
   {
     intro: [
       { who: "moon", text: "Это Сумеречный лес. Когда-то здесь танцевали светлячки…" },
-      { who: "moon", text: "Теперь лес сторожит Терновый Страж. Продержись 3 минуты — и он явится сам." },
+      { who: "moon", text: "Теперь лес сторожит Терновый Страж." },
     ],
     appear: "Мой лес не отдам! Убирайся, огонёк!",
     defeat: [
@@ -569,6 +569,15 @@ const ZONE_STORY = [
     lore: "Владыка был первой тенью, что испугалась света — и решила погасить его навсегда.",
   },
 ];
+// Обязательный квест каждой зоны: без него Хранитель не выйдет, а путь дальше закрыт
+const SEAL_QUEST_LINES = [
+  { who: "moon", text: "Хранитель прячется за тремя Печатями Света. Они где-то во тьме — следуй за стрелкой-компасом." },
+  { who: "moon", text: "Встань на печать и держись, пока она не загорится. Ритуал привлечёт тени — будь готов!" },
+  { who: "moon", text: "Пока не горят все три печати, Хранитель не выйдет — и путь в следующую землю останется закрыт." },
+];
+ZONE_STORY.forEach(z => z.intro.push(...SEAL_QUEST_LINES));
+const SEAL = { count: 3, radius: 70, holdTime: 3, distMin: 520, distMax: 820, ambushEvery: 1.4 };
+
 const ENDING = [
   { who: "moon", text: "Осколки сливаются с Фонарём… Смотри!" },
   { who: "moon", text: "Свет разливается по всем землям. Лес, болота, руины, склеп — всё сияет!" },
@@ -621,6 +630,7 @@ const OBJECTIVES = [
   { text: "Пробеги охотником по арене",     cur: () => Math.min(5, Math.floor(heroDistance / 100)), goal: 5, ess: 20 },
   { text: "Улучши «Силу фонаря» до 3",      cur: () => S.up.power, goal: 3, gems: 2 },
   { text: "Продержись 1:30 в Сумеречном лесу", cur: () => S.shards.includes(1) ? 90 : Math.min(90, Math.floor(S.best[1] || 0)), goal: 90, ess: 100 },
+  { text: "Зажги 3 Печати Света в лесу",      cur: () => (S.quest[1] || S.shards.includes(1)) ? 1 : 0, goal: 1, gems: 5 },
   { text: "Победи Тернового Стража",        cur: () => S.shards.includes(1) ? 1 : 0, goal: 1, gems: 5 },
   { text: "Открой первое яйцо питомца",     cur: () => S.stats.eggs, goal: 1, ess: 150 },
   { text: "Купи «Протонный бластер»",       cur: () => S.hero.weapons.includes("blaster") ? 1 : 0, goal: 1, gems: 5 },
@@ -666,7 +676,7 @@ function fresh() {
     pets: [], eq: [], zk: {}, q: {},
     stats: { kills: 0, golden: 0, bosses: 0, eggs: 0, crits: 0, taps: 0, time: 0 },
     lastDaily: 0, streak: 0, boostEnds: 0, passes: {}, lastSeen: 0,
-    story: { prologue: false, seen: {}, ending: false }, shards: [], obj: 0, lastSpin: 0, best: {}, runs: 0,
+    story: { prologue: false, seen: {}, ending: false }, shards: [], obj: 0, lastSpin: 0, best: {}, runs: 0, quest: {},
     hero: { weapon: "lantern", weapons: ["lantern"], gear: { helmet: 0, armor: 0, boots: 0 }, owned: { helmet: [0], armor: [0], boots: [0] }, skin: "classic", skins: ["classic"] },
   };
 }
@@ -1946,7 +1956,7 @@ function draw() {
   drawWorld(t);
 
   ctx.save(); ctx.translate(-cam.x, -cam.y);
-  if (run) drawPickups(t);
+  if (run) { drawSeals(t); drawPickups(t); }
   if (run && vacuumFx > 0 && run.weapons.vacuum) {
     const c = heroCenter(), R = wStats("vacuum").range, a = vacuumFx / 0.3;
     ctx.globalCompositeOperation = "lighter";
@@ -1998,6 +2008,16 @@ function draw() {
 
   drawAmbient();
   drawDarkness(t, run ? run.light : 230);
+  if (run) { // зажжённые печати светят сквозь тьму
+    ctx.globalCompositeOperation = "lighter";
+    for (const q of run.seals) if (q.lit) {
+      const x = q.x - cam.x, y = q.y - cam.y;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 150);
+      g.addColorStop(0, "rgba(255,210,130,0.28)"); g.addColorStop(1, "rgba(255,210,130,0)");
+      ctx.fillStyle = g; ctx.fillRect(x - 150, y - 150, 300, 300);
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
 
   ctx.save(); ctx.translate(-cam.x, -cam.y);
   ctx.textAlign = "center";
@@ -2021,7 +2041,7 @@ function draw() {
     ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.beginPath(); ctx.arc(joy.ox + dx * k, joy.oy + dy * k, 18, 0, 6.283); ctx.fill();
   }
   drawOverlays(t);
-  if (run) drawRunHud(t);
+  if (run) { drawRunHud(t); if (!run.sealsDone && !run.over) drawSealCompass(t); }
   ctx.restore();
 }
 
@@ -2445,12 +2465,19 @@ function startRun() {
     nextElite: RUN.eliteEvery, bossSpawned: false, nextEvent: rnd(60, 90), pending: 0, won: false, over: false, revived: false,
   };
   run.maxHp = heroMaxHp(); run.hp = run.maxHp; run.lightMax = lightMaxCalc(); run.light = run.lightMax;
+  const base = rnd(0, 6.283);
+  run.seals = Array.from({ length: SEAL.count }, (_, i) => {
+    const a = base + i * 6.283 / SEAL.count + rnd(-0.4, 0.4), d = rnd(SEAL.distMin, SEAL.distMax);
+    return { x: Math.cos(a) * d, y: Math.sin(a) * d, progress: 0, lit: false, ambushT: 0 };
+  });
+  run.sealsDone = false; run.bossCountdown = -1;
   shadows = []; pickups = []; shots = []; lightning = []; beams = []; bolts = []; floats = []; souls = []; rings = [];
   boss = null; ev = null; rain = []; chest = null; joy = null;
   hero.x = 0; hero.y = 0; hero.iframe = 1.5; hero.hurt = 0;
   for (let i = 0; i < 3; i++) spawnEnemy("normal");
   S.runs = (S.runs || 0) + 1; save();
   hintShown = false; $("hint").style.opacity = "0";
+  zoneTitleT = 9; transition = 0;
   $("arenaWrap").classList.add("running");
   updateZoneBar();
   showBanner(`🔦 ОХОТА: ${zone().name.toUpperCase()}`, rgba(mix(zone().glow, 1.2)));
@@ -2477,6 +2504,97 @@ function pickKind() {
   if (t > 60 && roll < goldP + 0.15) return "tank";
   if (t > 25 && roll < goldP + 0.4) return "fast";
   return "normal";
+}
+function sealsLit() { return run.seals.filter(q => q.lit).length; }
+function updateSeals(dt) {
+  const r = run, c = heroCenter();
+  for (const q of r.seals) {
+    if (q.lit) continue;
+    const near = Math.hypot(q.x - c.x, q.y - (c.y + 20)) < SEAL.radius;
+    if (near) {
+      q.progress = Math.min(1, q.progress + dt / SEAL.holdTime);
+      q.ambushT -= dt;
+      if (q.ambushT <= 0) { q.ambushT = SEAL.ambushEvery; for (let k = 0; k < 2; k++) spawnEnemy(Math.random() < 0.3 ? "fast" : "normal"); }
+      if (Math.random() < 0.4) particles.push({ x: q.x + rnd(-30, 30), y: q.y + rnd(-10, 10), vx: 0, vy: -60, t: 0, life: 0.6, color: [255, 220, 140], r: 2 });
+    } else q.progress = Math.max(0, q.progress - dt / 8);
+    if (q.progress >= 1) {
+      q.lit = true;
+      const n = sealsLit();
+      run.light = run.lightMax;
+      rings.push({ x: q.x, y: q.y, r: 10, max: 260, t: 0, color: [255, 220, 140] });
+      burst(q.x, q.y, 40, [255, 220, 140], 1.6); shake(6, 0.3);
+      for (const o of shadows.slice()) if (o.kind !== "boss" && Math.hypot(o.x - q.x, o.y - q.y) < 200) runKill(o);
+      if (n < SEAL.count) {
+        showBanner(`🔆 ПЕЧАТЬ ${n}/${SEAL.count} ЗАЖЖЕНА!`, "#ffd98a");
+        for (let k = 0; k < 4 + n * 2; k++) spawnEnemy(n === 2 && k === 0 ? "elite" : "normal");
+      } else {
+        r.sealsDone = true; r.bossCountdown = 6;
+        S.quest[view] = true; save();
+        showBanner("🔆 ВСЕ ПЕЧАТИ ГОРЯТ! ЛОГОВО ОТКРЫТО", "#ffd98a");
+        floats.push({ x: hero.x, y: hero.y - 90, text: "Хранитель идёт!", kind: "hurt", t: 0 });
+      }
+    }
+  }
+}
+function drawSeals(t) {
+  for (const q of run.seals) {
+    const z = zone();
+    // площадка с рунами
+    ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(q.x, q.y + 6, 58, 18, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = q.lit ? "#5a4a3a" : "#2c2638"; ctx.beginPath(); ctx.ellipse(q.x, q.y, 54, 16, 0, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = q.lit ? "rgba(255,220,140,0.9)" : rgba(z.glow, 0.35 + 0.25 * Math.sin(t * 3)); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(q.x, q.y, 46, 13, 0, 0, 6.283); ctx.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * 6.283 + t * (q.lit ? 0.6 : 0.2);
+      ctx.fillStyle = q.lit ? "#ffe2a0" : rgba(z.glow, 0.6);
+      ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+      ctx.fillText("ᚱᛟᛞᚨᛉᛊ"[i], q.x + Math.cos(a) * 38, q.y + Math.sin(a) * 11 + 3);
+    }
+    // камень-обелиск
+    ctx.fillStyle = q.lit ? "#8a7a62" : "#3d3550"; ctx.beginPath();
+    ctx.moveTo(q.x - 9, q.y); ctx.lineTo(q.x - 6, q.y - 42); ctx.lineTo(q.x, q.y - 50); ctx.lineTo(q.x + 6, q.y - 42); ctx.lineTo(q.x + 9, q.y); ctx.fill();
+    ctx.fillStyle = q.lit ? "#fff2c4" : rgba(z.glow, 0.5 + 0.3 * Math.sin(t * 4)); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(q.x, q.y - 30, 5, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
+    if (q.lit) { // столб света
+      ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createLinearGradient(q.x, q.y - 400, q.x, q.y);
+      g.addColorStop(0, "rgba(255,220,140,0)"); g.addColorStop(1, `rgba(255,220,140,${0.35 + 0.08 * Math.sin(t * 3)})`);
+      ctx.fillStyle = g; ctx.fillRect(q.x - 16, q.y - 400, 32, 400);
+      ctx.globalCompositeOperation = "source-over";
+    } else if (q.progress > 0) { // кольцо прогресса
+      ctx.strokeStyle = "#ffd98a"; ctx.lineWidth = 5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.ellipse(q.x, q.y, 54, 16, 0, -Math.PI / 2, -Math.PI / 2 + 6.283 * q.progress); ctx.stroke(); ctx.lineCap = "butt";
+      ctx.font = "900 13px system-ui"; ctx.textAlign = "center"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      const txt = `Ритуал ${Math.round(q.progress * 100)}%`; ctx.strokeText(txt, q.x, q.y - 60); ctx.fillStyle = "#ffe2a0"; ctx.fillText(txt, q.x, q.y - 60);
+    }
+  }
+}
+// стрелка-компас к ближайшей незажжённой печати
+function drawSealCompass(t) {
+  const c = heroCenter();
+  let target = null, bd = Infinity;
+  for (const q of run.seals) { if (q.lit) continue; const d = Math.hypot(q.x - c.x, q.y - c.y); if (d < bd) { bd = d; target = q; } }
+  if (!target) return;
+  const sx = target.x - cam.x, sy = target.y - cam.y;
+  const onScreen = sx > 20 && sx < W - 20 && sy > 90 && sy < H - 50;
+  const glowT = 0.6 + 0.4 * Math.sin(t * 5);
+  if (onScreen) {
+    ctx.font = "900 12px system-ui"; ctx.textAlign = "center"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)";
+    if (target.progress === 0) { ctx.strokeText("▼ Встань сюда", sx, sy - 66); ctx.fillStyle = `rgba(255,226,160,${glowT})`; ctx.fillText("▼ Встань сюда", sx, sy - 66); }
+    return;
+  }
+  // стрелка кружит вокруг охотника и смотрит на печать
+  const hx = c.x - cam.x, hy = c.y - cam.y, ang = Math.atan2(sy - hy, sx - hx);
+  const ax = hx + Math.cos(ang) * 78, ay = hy + Math.sin(ang) * 62;
+  ctx.save(); ctx.translate(ax, ay);
+  ctx.fillStyle = "rgba(20,14,34,0.8)"; ctx.beginPath(); ctx.arc(0, 0, 17, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = `rgba(255,217,138,${glowT})`; ctx.lineWidth = 2; ctx.stroke();
+  ctx.rotate(ang); ctx.fillStyle = "#ffd98a"; ctx.shadowColor = "#ffd98a"; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(0, -8); ctx.lineTo(3, 0); ctx.lineTo(0, 8); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.restore();
+  ctx.font = "900 10px system-ui"; ctx.textAlign = "center"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,0.7)";
+  const lbl = `🔆 ${Math.round(bd / 10)} м`;
+  ctx.strokeText(lbl, ax, ay + 29); ctx.fillStyle = "#ffe2a0"; ctx.fillText(lbl, ax, ay + 29);
 }
 function spawnRunBoss() {
   run.bossSpawned = true;
@@ -2666,7 +2784,8 @@ function runUpdate(dt) {
   r.spawnAcc += dt * (RUN.spawnBase + r.t / 60 * RUN.spawnGrowth) * surge * (boss ? 0.5 : 1);
   while (r.spawnAcc >= 1) { r.spawnAcc--; if (shadows.length < RUN.maxEnemies) spawnEnemy(pickKind()); }
   if (r.t >= r.nextElite && !boss) { r.nextElite += RUN.eliteEvery; spawnEnemy("elite"); showBanner("💀 ЭЛИТНАЯ ТЕНЬ!", "#ff8a5a"); }
-  if (!r.bossSpawned && r.t >= RUN.bossAt) spawnRunBoss();
+  updateSeals(dt);
+  if (!r.bossSpawned && r.sealsDone && r.bossCountdown >= 0) { r.bossCountdown -= dt; if (r.bossCountdown <= 0) spawnRunBoss(); }
   if (!ev) { r.nextEvent -= dt; if (r.nextEvent <= 0 && !boss) { runStartEvent(Math.random() < 0.55 ? "rain" : "gold"); r.nextEvent = rnd(70, 110); } }
   else { ev.t -= dt; if (ev.t <= 0) { ev = null; rain = []; } }
   for (const d of rain) { d.y += d.sp * dt; d.x -= d.sp * 0.15 * dt; if (d.y > H) { d.y = rnd(-40, 0); d.x = rnd(0, W + 60); } }
@@ -2977,7 +3096,11 @@ function drawRunHud(t) {
   // таймер
   ctx.textAlign = "center"; ctx.font = "900 24px system-ui, sans-serif"; ctx.lineWidth = 4;
   out(fmtTime(r.t), W / 2, 36);
-  if (!r.bossSpawned) { ctx.font = "800 11px system-ui, sans-serif"; ctx.lineWidth = 3; out(`⚔ Хранитель через ${fmtTime(RUN.bossAt - r.t)}`, W / 2, 52, "#ffb3bd"); }
+  if (!r.bossSpawned) {
+    ctx.font = "800 11px system-ui, sans-serif"; ctx.lineWidth = 3;
+    if (!r.sealsDone) out(`📜 Квест: зажги Печати Света ${sealsLit()}/${SEAL.count}`, W / 2, 52, "#ffd98a");
+    else out(`⚔ Хранитель выходит через ${Math.ceil(Math.max(0, r.bossCountdown))}…`, W / 2, 52, "#ffb3bd");
+  }
   // оружие
   ctx.textAlign = "left"; ctx.font = "18px system-ui"; let wx = 62;
   for (const [id, l] of Object.entries(r.weapons)) {
@@ -3397,7 +3520,12 @@ function updateZoneBar() {
   $("nextZone").disabled = view >= Math.min(S.zone + 1, ZONES.length) || !!run;
   const locked = view > S.zone;
   $("lock").style.display = locked ? "flex" : "none";
-  if (locked) $("lockText").innerHTML = `<b>${z.name}</b><br><span class="muted">Призраки здесь дают в ${z.value / ZONES[view - 2].value} раз больше эссенции</span>`;
+  if (locked) {
+    const prevDone = S.shards.includes(view - 1);
+    $("lockText").innerHTML = `<b>${z.name}</b><br><span class="muted">${prevDone
+      ? `Призраки здесь дают в ${z.value / ZONES[view - 2].value} раз больше эссенции`
+      : `Путь закрыт. Зажгите 3 Печати Света в зоне «${ZONES[view - 2].name}» и победите: ${GUARDIANS[view - 2].name}`}</span>`;
+  }
 }
 $("prevZone").onclick = () => { if (!run && view > 1) { view--; fillZone(); } };
 $("nextZone").onclick = () => { if (!run && view < Math.min(S.zone + 1, ZONES.length)) { view++; fillZone(); } };
@@ -3423,6 +3551,7 @@ function buyUpgrade(id) {
 function buyZone() {
   const next = ZONES[S.zone];
   if (!next) return toast("Все зоны уже открыты!");
+  if (!S.shards.includes(S.zone)) return toast(`🔒 Сначала зажгите Печати и победите: ${GUARDIANS[S.zone - 1].name}`, "bad");
   if (S.essence < next.price) return toast("Не хватает эссенции", "bad");
   S.essence -= next.price; S.zone++; S.maxZone = Math.max(S.maxZone, S.zone); view = S.zone; save();
   fillZone();
@@ -3922,14 +4051,17 @@ function refreshHud() {
     const g = GUARDIANS[view - 1], done = S.shards.includes(view);
     $("lbTitle").innerHTML = `${view}. ${zone().name}${done ? " ✦" : ""}`;
     $("lbTitle").style.color = rgba(mix(zone().glow, 1.15));
-    $("lbInfo").innerHTML = `Хранитель: <b style="color:var(--text)">${g.emoji} ${g.name}</b>${done ? " — побеждён" : ""} • Рекорд: <b style="color:var(--text)">${fmtTime(S.best[view] || 0)}</b><br>Продержись ${fmtTime(RUN.bossAt)} — и явится Хранитель. Фонарь гаснет: лови тени, чтобы свет не погас!`;
+    $("lbInfo").innerHTML = `Хранитель: <b style="color:var(--text)">${g.emoji} ${g.name}</b>${done ? " — побеждён" : ""} • Рекорд: <b style="color:var(--text)">${fmtTime(S.best[view] || 0)}</b><br>📜 <b style="color:#ffd98a">Квест:</b> найди и зажги 3 Печати Света — только тогда выйдет Хранитель. Без победы над ним путь дальше закрыт.`;
   }
   $("menuBtn").textContent = run ? "⏸" : "☰";
   refreshObjective();
   updateWheelUI();
   $("questDot").style.display = QUESTS.some(questReady) ? "block" : "none";
   const next = ZONES[S.zone];
-  if (view > S.zone && next) setBtn($("lockBtn"), "🔓 Открыть за " + fmt(next.price), S.essence >= next.price);
+  if (view > S.zone && next) {
+    if (S.shards.includes(S.zone)) setBtn($("lockBtn"), "🔓 Открыть за " + fmt(next.price), S.essence >= next.price);
+    else setBtn($("lockBtn"), "🔒 Нужна победа над Хранителем", false);
+  }
   if (openName) {
     const p = PANELS[openName];
     if (p.sig && p.sig() !== panelSig) renderPanel();
