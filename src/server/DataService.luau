@@ -15,16 +15,37 @@ local DataService = {}
 local TEMPLATE = {
 	essence = 0,
 	totalEssence = 0,
+	gems = 0,
 	rebirths = 0,
+	level = 1,
+	xp = 0,
 	upgrades = {
 		power = 0,
+		crit = 0,
+		critDamage = 0,
 		greed = 0,
+		luck = 0,
+		spirit = 0,
 		speed = 0,
 	},
 	unlockedZone = 1,
+	maxZone = 1, -- самая дальняя зона за всё время (для заданий)
+	pets = {}, -- { { uid, rarity, kind, tier } }
+	equipped = {}, -- uid надетых питомцев
+	quests = {}, -- [questId] = сколько этапов пройдено
+	stats = {
+		kills = 0,
+		golden = 0,
+		bosses = 0,
+		eggs = 0,
+		crits = 0,
+		taps = 0,
+		time = 0,
+	},
 	lastDaily = 0,
 	dailyStreak = 0,
 	boostEndsAt = 0,
+	lastSeen = 0,
 	purchases = {}, -- [PurchaseId] = true — защита от двойной выдачи покупок
 	purchaseLog = {}, -- порядок покупок, чтобы хранить только последние
 }
@@ -86,6 +107,11 @@ local function createLeaderstats(player: Player)
 	essence.Value = "0"
 	essence.Parent = leaderstats
 
+	local level = Instance.new("IntValue")
+	level.Name = "Уровень"
+	level.Value = 1
+	level.Parent = leaderstats
+
 	local rebirths = Instance.new("IntValue")
 	rebirths.Name = "Перерождения"
 	rebirths.Parent = leaderstats
@@ -105,6 +131,10 @@ local function updateLeaderstats(player: Player, data)
 	end
 	if rebirths then
 		rebirths.Value = data.rebirths
+	end
+	local level = leaderstats:FindFirstChild("Уровень")
+	if level then
+		level.Value = data.level
 	end
 end
 
@@ -135,6 +165,7 @@ local function loadPlayer(player: Player)
 
 	reconcile(data, TEMPLATE)
 	data.unlockedZone = math.clamp(data.unlockedZone, 1, #Config.Zones)
+	data.maxZone = math.max(data.maxZone, data.unlockedZone)
 
 	if player.Parent ~= Players then
 		return -- игрок вышел, пока грузились данные
@@ -148,6 +179,8 @@ local function loadPlayer(player: Player)
 		lastClick = 0,
 		lastAction = 0,
 		lastNotice = 0,
+		combo = 0,
+		lastComboHit = 0,
 	}
 
 	createLeaderstats(player)
@@ -176,17 +209,13 @@ function DataService.Push(player: Player)
 	end
 	session.dirty = false
 	local data = session.data
-	Remotes.DataChanged:FireClient(player, {
-		essence = data.essence,
-		totalEssence = data.totalEssence,
-		rebirths = data.rebirths,
-		upgrades = data.upgrades,
-		unlockedZone = data.unlockedZone,
-		lastDaily = data.lastDaily,
-		dailyStreak = data.dailyStreak,
-		boostEndsAt = data.boostEndsAt,
-		passes = session.passes,
-	})
+	local snapshot = { passes = session.passes }
+	for key, value in data do
+		if key ~= "purchases" and key ~= "purchaseLog" then
+			snapshot[key] = value
+		end
+	end
+	Remotes.DataChanged:FireClient(player, snapshot)
 	updateLeaderstats(player, data)
 end
 
@@ -219,6 +248,7 @@ function DataService.Save(player: Player): boolean
 	if not session or not session.canSave or not store then
 		return false
 	end
+	session.data.lastSeen = os.time()
 	local snapshot = deepCopy(session.data)
 	local ok = retry(function()
 		store:SetAsync(keyFor(player), snapshot, { player.UserId })

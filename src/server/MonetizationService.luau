@@ -12,6 +12,14 @@ local GameService = require(script.Parent.GameService)
 
 local MonetizationService = {}
 
+-- Вызывается, когда меняются пропуска (например, +1 слот питомца).
+-- Задаётся из Main через MonetizationService.SetPassesChangedCallback.
+local onPassesChanged = function(_player: Player) end
+
+function MonetizationService.SetPassesChangedCallback(callback)
+	onPassesChanged = callback
+end
+
 local passKeyById = {} -- [gamePassId] = "DoubleEssence"
 local productById = {} -- [productId] = def
 
@@ -34,6 +42,7 @@ local function grantPass(player: Player, key: string)
 	session.passes[key] = true
 	GameService.ApplySpeed(player)
 	DataService.Push(player)
+	onPassesChanged(player)
 end
 
 local function checkPasses(player: Player)
@@ -53,6 +62,8 @@ local function checkPasses(player: Player)
 	end
 	GameService.ApplySpeed(player)
 	DataService.Push(player)
+	onPassesChanged(player)
+	GameService.GrantOfflineEarnings(player)
 end
 
 -- Выдача Developer Products по типу.
@@ -62,6 +73,12 @@ local productHandlers = {
 		local amount = Config.EssencePackAmount(def, data.unlockedZone, data.rebirths)
 		GameService.AddEssence(player, amount, true)
 		GameService.Notify(player, "Спасибо за покупку! +" .. Format.Number(amount) .. " эссенции", "good")
+	end,
+
+	gems = function(player: Player, def)
+		GameService.AddGems(player, def.amount)
+		DataService.Push(player)
+		GameService.Notify(player, "Спасибо за покупку! +" .. def.amount .. " 💎", "gem")
 	end,
 
 	boost = function(player: Player, def)

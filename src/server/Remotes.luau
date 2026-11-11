@@ -17,6 +17,7 @@ local Remotes = {
 	DataChanged = make("DataChanged"), -- сервер → клиент: снимок данных игрока
 	Notify = make("Notify"), -- сервер → клиент: всплывающее сообщение
 	Action = make("Action"), -- клиент → сервер: действие игрока (купить, переродиться...)
+	Fx = make("Fx"), -- сервер → клиент: эффекты (урон, награда, вылупление, Хранитель...)
 }
 
 folder.Parent = ReplicatedStorage
