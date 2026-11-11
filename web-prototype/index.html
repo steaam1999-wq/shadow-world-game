@@ -266,6 +266,10 @@
   #menu { position: fixed; inset: 0; z-index: 45; display: none; flex-direction: column; align-items: center; overflow: hidden; }
   #menu.show { display: flex; animation: fadeIn .35s ease; }
   #menuCv { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #menu3d { position: absolute; left: 0; right: 0; top: 21%; height: 48%; width: 100%; display: none; touch-action: none; cursor: grab; }
+  #menu.has3d #menu3d { display: block; }
+  #rotHint { position: absolute; top: 63%; left: 0; right: 0; text-align: center; font-size: 11.5px; color: rgba(230, 220, 255, .55); font-weight: 700; display: none; pointer-events: none; }
+  #menu.has3d #rotHint { display: block; }
   .mTop { position: relative; margin-top: max(6vh, 26px); text-align: center; pointer-events: none; }
   .mTitle {
     font-size: clamp(36px, 11vw, 58px); font-weight: 900; letter-spacing: 3px; line-height: 1;
@@ -348,6 +352,8 @@
 
 <div id="menu">
   <canvas id="menuCv"></canvas>
+  <canvas id="menu3d"></canvas>
+  <div id="rotHint">↔ вращайте героя пальцем</div>
   <div class="mTop"><div class="mTitle">SHADOW WORLD</div><div class="mSub">Охотник за тенями</div></div>
   <div class="mSkin"><button id="skinPrev" aria-label="Предыдущий скин">◀</button><div id="skinName"></div><button id="skinNext" aria-label="Следующий скин">▶</button></div>
   <div class="mBtns">
@@ -370,6 +376,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 "use strict";
 // =====================================================================
@@ -2365,6 +2372,252 @@ $("wheelBtn").onclick = openWheel;
 $("lvl").onclick = () => openSheet("profile");
 
 // =====================================================================
+// 3D-МОДЕЛЬ ОХОТНИКА (Three.js). Тот же код используется для выгрузки в .glb
+// =====================================================================
+// <hunter3d>
+function buildHunter3D(T, o) {
+  // o: { look, gear: {helmet, armor, boots}, weapon: {type, color:[r,g,b]}, textures: bool }
+  const look = o.look, gear = o.gear;
+  const g = new T.Group(); g.name = "GhostHunter";
+  const mats = {};
+  const lin = c => new T.Color(c).convertSRGBToLinear(); // цвета из sRGB в линейное пространство
+  const mat = (c, extra) => {
+    const key = c + JSON.stringify(extra || {});
+    if (!mats[key]) mats[key] = new T.MeshStandardMaterial(Object.assign({ color: lin(c), roughness: 0.82, metalness: 0.02, flatShading: true }, extra || {}));
+    return mats[key];
+  };
+  const shade = (hex, k) => {
+    const c = new T.Color(hex);
+    if (k > 0) c.lerp(new T.Color("#ffffff"), k); else c.multiplyScalar(1 + k);
+    return "#" + c.getHexString();
+  };
+  const add = (geo, color, x, y, z, parent, extra, name) => {
+    const m = new T.Mesh(geo, typeof color === "string" ? mat(color, extra) : color);
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+    if (name) m.name = name;
+    (parent || g).add(m);
+    return m;
+  };
+  const box = (w, h, d, color, x, y, z, parent, extra, name) => add(new T.BoxGeometry(w, h, d), color, x, y, z, parent, extra, name);
+  const taper = (geo, topX, topZ, botX, botZ) => {
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const up = p.getY(i) > 0;
+      p.setX(i, p.getX(i) * (up ? topX : botX)); p.setZ(i, p.getZ(i) * (up ? topZ : botZ));
+    }
+    p.needsUpdate = true; geo.computeVertexNormals(); return geo;
+  };
+  const glowColor = "#" + new T.Color(o.weapon.color[0] / 255, o.weapon.color[1] / 255, o.weapon.color[2] / 255).getHexString();
+  const glow = (c, k) => ({ emissive: lin(c), emissiveIntensity: k || 1.4 });
+
+  // --- ботинки и ноги ---
+  const bootCol = gear.boots === 1 ? "#6b3f1d" : gear.boots === 2 ? "#e9e4ff" : look.boots;
+  for (const sx of [-1, 1]) {
+    box(0.34, 0.24, 0.5, bootCol, sx * 0.2, 0.17, 0.05, g, null, "Boot");
+    box(0.36, 0.07, 0.53, "#efefe9", sx * 0.2, 0.035, 0.05, g, null, "Sole");
+    for (const r of [0.55, -0.55]) box(0.2, 0.025, 0.03, "#ffffff", sx * 0.2, 0.28, 0.2, g).rotation.y = r;
+    if (gear.boots === 2) { const wing = box(0.04, 0.16, 0.26, "#ffffff", sx * 0.39, 0.25, -0.1, g, glow("#ffffff", 0.4)); wing.rotation.x = 0.6; }
+    box(0.32, 0.5, 0.32, look.pants, sx * 0.19, 0.52, 0, g, null, "Leg");
+  }
+  box(0.74, 0.22, 0.42, look.pants, 0, 0.82, 0, g, null, "Hips");
+  box(0.76, 0.07, 0.44, "#3a2a18", 0, 0.94, 0, g, null, "Belt");
+  box(0.11, 0.08, 0.02, "#c9b27a", 0, 0.94, 0.225, g, { metalness: 0.6, roughness: 0.4 });
+
+  // --- туловище: рубашка, воротник, карманы, лямки ---
+  const torso = add(taper(new T.BoxGeometry(0.82, 0.62, 0.5), 1.06, 1.0, 0.95, 0.95), look.shirt, 0, 1.28, 0, g, null, "Torso");
+  const collar = add(new T.ConeGeometry(0.13, 0.2, 3), "#eeeeee", 0, 1.5, 0.245, g);
+  collar.rotation.z = Math.PI; collar.scale.z = 0.25;
+  const dark = shade(look.shirt, -0.28);
+  for (const sx of [-1, 1]) {
+    box(0.17, 0.14, 0.02, dark, sx * 0.16, 1.36, 0.255);
+    box(0.18, 0.045, 0.03, shade(look.shirt, -0.38), sx * 0.16, 1.44, 0.26);
+    box(0.09, 0.64, 0.04, "#3a3c44", sx * 0.29, 1.3, 0.255, g, null, "Strap");
+    box(0.045, 0.13, 0.05, look.accent, sx * 0.29, 1.2, 0.262, g, glow(look.accent, 0.5));
+    box(0.09, 0.04, 0.52, "#3a3c44", sx * 0.29, 1.6, 0);
+  }
+  box(0.03, 0.5, 0.02, dark, 0, 1.22, 0.255);
+  if (gear.armor === 2) for (const sx of [-1, 1]) box(0.3, 0.12, 0.38, "#ffcf5a", sx * 0.47, 1.58, 0, g, { metalness: 0.7, roughness: 0.3 }, "Pauldron");
+
+  // --- руки ---
+  const makeArm = (sx) => {
+    const arm = new T.Group(); arm.position.set(sx * 0.53, 1.5, 0); g.add(arm);
+    box(0.25, 0.36, 0.27, look.shirt, 0, -0.16, 0, arm, null, "Sleeve");
+    box(0.26, 0.05, 0.28, dark, 0, -0.33, 0, arm);
+    box(0.19, 0.26, 0.21, look.skin, 0, -0.47, 0, arm, null, "Forearm");
+    box(0.23, 0.18, 0.25, "#26262b", 0, -0.66, 0, arm, null, "Glove");
+    box(0.12, 0.08, 0.26, look.skin, 0, -0.77, 0.02, arm);
+    return arm;
+  };
+  const armL = makeArm(1); armL.rotation.z = 0.12;
+  const armR = makeArm(-1); armR.rotation.x = -1.15; armR.rotation.z = -0.12;
+
+  // --- оружие в правой руке (смотрит вперёд) ---
+  const wpn = new T.Group(); wpn.position.set(0, -0.74, 0.02); wpn.rotation.x = 1.15; armR.add(wpn);
+  const t = o.weapon.type;
+  if (t === "beam") {
+    box(0.2, 0.26, 0.2, "#5a3e22", 0, -0.02, 0.16, wpn);
+    box(0.15, 0.2, 0.15, "#ffe2a0", 0, -0.02, 0.16, wpn, glow("#ffc870", 2.2), "LanternGlass");
+    const ring = add(new T.TorusGeometry(0.07, 0.015, 4, 8, Math.PI), "#3a2a18", 0, 0.12, 0.16, wpn); ring.rotation.y = Math.PI / 2;
+    if (o.lights) { const l = new T.PointLight(0xffb060, 1.4, 3); l.position.set(0, 0, 0.3); wpn.add(l); }
+  } else if (t === "bolt") {
+    box(0.13, 0.15, 0.55, "#3a3f4d", 0, 0, 0.22, wpn); box(0.08, 0.18, 0.09, "#2a2e38", 0, -0.13, 0.06, wpn);
+    box(0.09, 0.09, 0.06, glowColor, 0, 0, 0.52, wpn, glow(glowColor, 2.4)); box(0.02, 0.03, 0.3, glowColor, 0.07, 0.02, 0.24, wpn, glow(glowColor, 1.6));
+  } else if (t === "vacuum") {
+    const tube = add(new T.CylinderGeometry(0.065, 0.065, 0.45, 8), "#4e4a3a", 0, 0, 0.22, wpn); tube.rotation.x = Math.PI / 2;
+    const nz = add(new T.ConeGeometry(0.17, 0.22, 8, 1, true), "#6c6650", 0, 0, 0.52, wpn, { side: T.DoubleSide }); nz.rotation.x = -Math.PI / 2;
+    const ringV = add(new T.TorusGeometry(0.16, 0.015, 4, 12), glowColor, 0, 0, 0.62, wpn, glow(glowColor, 2));
+  } else if (t === "arrow") {
+    box(0.08, 0.08, 0.6, "#6b4426", 0, 0, 0.22, wpn);
+    const bow = add(new T.TorusGeometry(0.32, 0.025, 4, 12, Math.PI), "#8a5a30", 0, 0, 0.36, wpn); bow.rotation.x = Math.PI / 2; bow.rotation.z = Math.PI;
+    box(0.64, 0.01, 0.01, "#fff2cc", 0, 0, 0.36, wpn);
+    box(0.06, 0.06, 0.1, glowColor, 0, 0, 0.55, wpn, glow(glowColor, 2));
+  } else {
+    const staff = add(new T.CylinderGeometry(0.035, 0.035, 1.2, 6), "#5a3e22", 0, 0, 0.3, wpn); staff.rotation.x = Math.PI / 2;
+    add(new T.IcosahedronGeometry(0.1, 0), glowColor, 0, 0, 0.92, wpn, glow(glowColor, 2.6), "StaffOrb");
+    if (o.lights) { const l = new T.PointLight(0x96cdff, 1.2, 3); l.position.set(0, 0, 0.95); wpn.add(l); }
+  }
+
+  // --- голова ---
+  const head = new T.Group(); head.position.set(0, 1.62, 0); g.add(head);
+  box(0.26, 0.14, 0.24, shade(look.skin, -0.25), 0, 0.02, 0, head, null, "Neck");
+  if (look.head === "pumpkin") {
+    const pk = add(new T.SphereGeometry(0.5, 10, 7), "#e8781a", 0, 0.45, 0, head, null, "Pumpkin"); pk.scale.set(1.05, 0.85, 1);
+    add(new T.CylinderGeometry(0.05, 0.07, 0.16, 5), "#3d6b1e", 0, 0.9, 0, head);
+    for (const sx of [-1, 1]) { const e = add(new T.ConeGeometry(0.09, 0.13, 3), "#ffd040", sx * 0.16, 0.52, 0.44, head, glow("#ffb000", 2.5)); e.scale.z = 0.3; }
+    box(0.34, 0.07, 0.04, "#ffd040", 0, 0.3, 0.45, head, glow("#ffb000", 2.5));
+  } else {
+    add(taper(new T.BoxGeometry(0.74, 0.8, 0.7), 1.0, 1.0, 0.92, 0.95), look.skin, 0, 0.45, 0, head, null, "Head");
+    for (const sx of [-1, 1]) {
+      box(0.08, 0.17, 0.13, shade(look.skin, -0.12), sx * 0.39, 0.45, 0, head, null, "Ear");
+      box(0.09, 0.13, 0.02, "#3a2214", sx * 0.15, 0.5, 0.352, head, null, "Eye");
+      const brow = box(0.2, 0.06, 0.03, shade(look.hair || "#5a2a1a", -0.15), sx * 0.15, 0.63, 0.355, head, null, "Brow");
+      brow.rotation.z = sx * 0.14;
+    }
+    box(0.11, 0.17, 0.09, shade(look.skin, -0.06), 0, 0.42, 0.38, head, null, "Nose");
+    if (look.hair) {
+      box(0.78, 0.24, 0.75, look.hair, 0, 0.88, -0.01, head, null, "Hair");
+      box(0.78, 0.56, 0.2, look.hair, 0, 0.62, -0.29, head);
+      for (const sx of [-1, 1]) box(0.06, 0.34, 0.2, look.hair, sx * 0.375, 0.5, 0.08, head);
+      const f1 = box(0.32, 0.14, 0.08, look.hair, -0.18, 0.77, 0.33, head); f1.rotation.z = 0.32;
+      const f2 = box(0.24, 0.12, 0.08, look.hair, 0.19, 0.79, 0.33, head); f2.rotation.z = -0.25;
+    }
+    if (look.mask) {
+      box(0.77, 0.33, 0.2, "#150f1e", 0, 0.22, 0.27, head, null, "Mask");
+      box(0.79, 0.05, 0.73, look.accent, 0, 0.73, 0, head, glow(look.accent, 0.6));
+    } else if (look.beard) {
+      box(0.75, 0.34, 0.22, look.beard, 0, 0.2, 0.27, head, null, "Beard");
+      box(0.52, 0.17, 0.24, look.beard, 0, 0.0, 0.24, head);
+      for (const sx of [-1, 1]) box(0.08, 0.32, 0.42, look.beard, sx * 0.37, 0.25, 0.06, head);
+      box(0.32, 0.07, 0.06, look.beard, 0, 0.33, 0.39, head, null, "Mustache");
+      box(0.14, 0.03, 0.02, "#5a3020", 0, 0.27, 0.385, head);
+    } else {
+      box(0.16, 0.03, 0.02, "#a0583a", 0, 0.27, 0.352, head);
+    }
+  }
+  if (gear.helmet === 1) {
+    const dome = add(new T.SphereGeometry(0.53, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), "#717888", 0, 0.8, -0.01, head, { metalness: 0.4, roughness: 0.5 }, "Helmet");
+    dome.scale.set(1, 0.68, 1);
+    box(0.84, 0.07, 0.8, "#565c6a", 0, 0.8, -0.01, head, { metalness: 0.4, roughness: 0.5 });
+    const lamp = add(new T.CylinderGeometry(0.09, 0.09, 0.07, 8), "#fff4c2", 0, 0.95, 0.43, head, glow("#ffe08a", 3)); lamp.rotation.x = Math.PI / 2;
+  } else if (gear.helmet === 2) {
+    add(new T.CylinderGeometry(0.3, 0.3, 0.13, 6, 1, true), "#ffcf4d", 0, 0.97, 0, head, { metalness: 0.8, roughness: 0.25, side: T.DoubleSide }, "Crown");
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; add(new T.ConeGeometry(0.05, 0.14, 4), "#ffcf4d", Math.sin(a) * 0.3, 1.1, Math.cos(a) * 0.3, head, { metalness: 0.8, roughness: 0.25 }); }
+    add(new T.OctahedronGeometry(0.05), "#ff4a8a", 0, 0.98, 0.31, head, glow("#ff4a8a", 1.5));
+  }
+  if (look.head === "astro") add(new T.SphereGeometry(0.64, 14, 10), "#aad2ff", 0, 0.45, 0, head, { transparent: true, opacity: 0.25, roughness: 0.05, metalness: 0.1, flatShading: false }, "SpaceHelmet");
+
+  // --- рюкзак и скатка ---
+  box(0.62, 0.72, 0.3, "#44464e", 0, 1.25, -0.42, g, null, "Backpack");
+  for (const sx of [-1, 1]) box(0.08, 0.4, 0.22, "#3a3c44", sx * 0.35, 1.15, -0.42);
+  for (const y of [1.38, 1.08]) for (const sx of [-1, 1]) box(0.14, 0.035, 0.02, "#9a9aa2", sx * 0.13, y, -0.575, g, { metalness: 0.5 });
+  let capMat = mat(shade(look.roll, 0.12));
+  if (o.textures && typeof document !== "undefined") {
+    const cc = document.createElement("canvas"); cc.width = cc.height = 64;
+    const x = cc.getContext("2d"); x.fillStyle = shade(look.roll, 0.12); x.fillRect(0, 0, 64, 64);
+    x.strokeStyle = shade(look.roll, -0.4); x.lineWidth = 3; x.beginPath();
+    for (let a = 0; a < 16; a += 0.2) x.lineTo(32 + Math.cos(a) * a * 1.8, 32 + Math.sin(a) * a * 1.8);
+    x.stroke();
+    const tex = new T.CanvasTexture(cc); if (T.sRGBEncoding) tex.encoding = T.sRGBEncoding;
+    capMat = new T.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+  }
+  const roll = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, 0.86, 10), [mat(look.roll), capMat, capMat]);
+  roll.name = "Bedroll"; roll.rotation.z = Math.PI / 2; roll.position.set(0, 1.72, -0.42); roll.castShadow = true; g.add(roll);
+  for (const sx of [-1, 1]) box(0.05, 0.37, 0.37, "#2b2b2b", sx * 0.25, 1.72, -0.42);
+  if (gear.armor === 1) {
+    for (const y of [1.48, 1.02]) for (const sx of [-1, 1]) box(0.08, 0.08, 0.02, glowColor, sx * 0.21, y, -0.575, g, glow(glowColor, 2.6));
+    const hose = new T.CatmullRomCurve3([new T.Vector3(-0.3, 1.0, -0.45), new T.Vector3(-0.55, 0.85, -0.05), new T.Vector3(-0.6, 1.05, 0.35)]);
+    add(new T.TubeGeometry(hose, 12, 0.03, 5), "#2b2f38", 0, 0, 0, g, null, "Hose");
+  } else if (gear.armor === 2) {
+    const cape = add(new T.PlaneGeometry(0.85, 1.05, 1, 3), "#ffd77a", 0, 1.05, -0.6, g, { transparent: true, opacity: 0.55, side: T.DoubleSide, emissive: lin("#ffb040"), emissiveIntensity: 0.5 }, "Cape");
+    cape.rotation.x = 0.12;
+  }
+
+  g.userData = { torso, head, armL, armR };
+  return g;
+}
+// </hunter3d>
+
+const Hero3D = (() => {
+  if (!window.THREE) return null;
+  const T = THREE, canvas = $("menu3d");
+  let renderer;
+  try { renderer = new T.WebGLRenderer({ canvas, alpha: true, antialias: true }); } catch (e) { return null; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+  const scene = new T.Scene();
+  const camera = new T.PerspectiveCamera(30, 1, 0.1, 50);
+  camera.position.set(0, 1.5, 7.6); camera.lookAt(0, 1.18, 0);
+  scene.add(new T.HemisphereLight(0xa494ff, 0x2a1810, 0.6));
+  const key = new T.DirectionalLight(0xffae60, 2.1); key.position.set(2.6, 4.2, 3.2); key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -2, right: 2, top: 3, bottom: -1, near: 0.5, far: 12 }); key.shadow.bias = -0.002;
+  scene.add(key);
+  const rim = new T.DirectionalLight(0x9a6bff, 1.4); rim.position.set(-3, 2.5, -3); scene.add(rim);
+  const fill = new T.DirectionalLight(0xffd9b0, 0.35); fill.position.set(-2, 1.5, 3); scene.add(fill);
+  const ped = new T.Mesh(new T.CylinderGeometry(1.25, 1.38, 0.22, 12), new T.MeshStandardMaterial({ color: new T.Color(0x6a4428).convertSRGBToLinear(), roughness: 0.7, flatShading: true }));
+  ped.position.y = -0.11; ped.receiveShadow = true; scene.add(ped);
+  const rimRing = new T.Mesh(new T.TorusGeometry(1.27, 0.03, 4, 36), new T.MeshStandardMaterial({ color: new T.Color(0xffb060).convertSRGBToLinear(), emissive: new T.Color(0xff9a40).convertSRGBToLinear(), emissiveIntensity: 1.6 }));
+  rimRing.rotation.x = Math.PI / 2; rimRing.position.y = 0.005; scene.add(rimRing);
+  const root = new T.Group(); scene.add(root);
+  let model = null, modelKey = "", rotY = 0.5, dragging = false, lastX = 0, spin = 0;
+  canvas.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; spin = 0; try { canvas.setPointerCapture(e.pointerId); } catch (err) {} });
+  canvas.addEventListener("pointermove", e => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; rotY += dx * 0.012; spin = dx * 0.012; });
+  const stop = () => { dragging = false; };
+  canvas.addEventListener("pointerup", stop); canvas.addEventListener("pointercancel", stop);
+  function setModel(opts) {
+    const k = JSON.stringify(opts);
+    if (k === modelKey) return;
+    modelKey = k;
+    if (model) { root.remove(model); model.traverse(m => { if (m.geometry) m.geometry.dispose(); }); }
+    model = buildHunter3D(T, opts); root.add(model);
+  }
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    renderer.setSize(r.width, r.height, false);
+    camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+  }
+  function render(t, opts) {
+    setModel(opts);
+    if (!dragging) { spin *= 0.95; rotY += 0.005 + spin; }
+    root.rotation.y = rotY;
+    const u = model.userData;
+    u.torso.scale.y = 1 + Math.sin(t * 2) * 0.012;
+    u.head.position.y = 1.62 + Math.sin(t * 2) * 0.008;
+    u.head.rotation.y = Math.sin(t * 0.7) * 0.12;
+    u.armR.rotation.x = -1.15 + Math.sin(t * 1.3) * 0.06;
+    u.armL.rotation.x = Math.sin(t * 2) * 0.04;
+    rimRing.material.emissiveIntensity = 1.4 + Math.sin(t * 3) * 0.3;
+    renderer.render(scene, camera);
+  }
+  return { render, resize };
+})();
+const hunter3dOpts = skinId => {
+  const w = weapon();
+  return { look: HERO_LOOK[skinId] || HERO_LOOK.classic, gear: S.hero.gear, weapon: { type: w.type, color: w.color }, textures: true, lights: true };
+};
+
+// =====================================================================
 // ГЛАВНОЕ МЕНЮ
 // =====================================================================
 const menuCv = $("menuCv"), mctx = menuCv.getContext("2d");
@@ -2376,7 +2629,7 @@ function resizeMenu() {
   mW = window.innerWidth; mH = window.innerHeight;
   menuCv.width = mW * mDPR; menuCv.height = mH * mDPR;
 }
-window.addEventListener("resize", () => { if (menuOpen) resizeMenu(); });
+window.addEventListener("resize", () => { if (menuOpen) { resizeMenu(); if (Hero3D) Hero3D.resize(); } });
 function menuGhost(c, x, y, r, t) {
   c.save(); c.translate(x, y);
   c.beginPath(); c.arc(0, -r * 0.2, r, Math.PI, 0); c.lineTo(r, r * 0.9);
@@ -2409,6 +2662,21 @@ function drawMenu(t) {
   cone.addColorStop(0, "rgba(255,200,120,0.02)"); cone.addColorStop(1, "rgba(255,200,120,0.16)");
   c.fillStyle = cone; c.beginPath(); c.moveTo(cx - 30, 0); c.lineTo(cx + 30, 0); c.lineTo(cx + beamW, fy); c.lineTo(cx - beamW, fy); c.closePath(); c.fill();
   c.globalCompositeOperation = "source-over";
+  const sk = SKINS[menuSkinIdx];
+  if (Hero3D) {
+    c.globalCompositeOperation = "lighter";
+    for (const e of menuEmbers) {
+      const ex = e.x * w + Math.sin(t + e.ph) * 12, ey = ((e.y - t * e.sp) % 1 + 1) % 1 * h;
+      c.fillStyle = `rgba(255,${170 + 60 * Math.sin(t * 3 + e.ph)},90,${0.5 + 0.4 * Math.sin(t * 4 + e.ph)})`;
+      c.beginPath(); c.arc(ex, ey, e.r, 0, 6.283); c.fill();
+    }
+    c.globalCompositeOperation = "source-over";
+    const vig3 = c.createRadialGradient(cx, h / 2, Math.min(w, h) * 0.3, cx, h / 2, Math.max(w, h) * 0.75);
+    vig3.addColorStop(0, "rgba(0,0,0,0)"); vig3.addColorStop(1, "rgba(0,0,0,0.7)");
+    c.fillStyle = vig3; c.fillRect(0, 0, w, h);
+    Hero3D.render(t, hunter3dOpts(sk.id));
+    return;
+  }
   // подиум
   const floor = c.createRadialGradient(cx, fy, 4, cx, fy, beamW * 1.1);
   floor.addColorStop(0, "#f2b46a"); floor.addColorStop(0.55, "#8a5a34"); floor.addColorStop(1, "#2a1a14");
@@ -2416,7 +2684,6 @@ function drawMenu(t) {
   c.fillStyle = floor; c.beginPath(); c.ellipse(cx, fy, beamW * 1.05, 26, 0, 0, 6.283); c.fill();
   // герой
   const k = Math.max(2.2, Math.min(w / 92, h / 165, 5));
-  const sk = SKINS[menuSkinIdx];
   drawHero(c, cx, fy, k, { skin: sk.id, gear: S.hero.gear, weapon: S.hero.weapon, face: 1, walk: 0, aim: -0.35 + Math.sin(t * 0.8) * 0.12, recoil: 0, t });
   if (!S.hero.skins.includes(sk.id)) { c.fillStyle = "rgba(10,6,20,0.35)"; c.beginPath(); c.ellipse(cx, fy - 30 * k, 26 * k, 34 * k, 0, 0, 6.283); c.fill(); }
   // искры
@@ -2443,6 +2710,7 @@ function openMenu() {
   menuSkinIdx = Math.max(0, SKINS.findIndex(q => q.id === S.hero.skin));
   resizeMenu(); updateMenuUI();
   $("menu").classList.add("show");
+  if (Hero3D) { $("menu").classList.add("has3d"); Hero3D.resize(); }
 }
 function closeMenu() {
   menuOpen = false;
