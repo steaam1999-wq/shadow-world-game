@@ -175,6 +175,35 @@
   #modal h2 { margin: 6px 0 4px; font-size: 22px; }
   #modal p { margin: 4px 0 14px; color: var(--muted); }
 
+  /* --- блики, лучи, анимации появления --- */
+  .btn { position: relative; overflow: hidden; }
+  .btn.good::after, .btn.gold::after, .btn.gem::after {
+    content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent);
+    animation: shine 3s ease-in-out infinite;
+  }
+  #sheet.anim #sheetBody > * { animation: rowIn .35s ease both; }
+  #modal .box { position: relative; overflow: hidden; }
+  #modal .box > *:not(.rays) { position: relative; }
+  #modal .rays {
+    position: absolute; left: 50%; top: 66px; width: 420px; height: 420px; margin: -210px 0 0 -210px;
+    border-radius: 50%; pointer-events: none; animation: spin 8s linear infinite;
+    background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--rc) 40%, transparent) 0 9deg, transparent 9deg 18deg);
+    -webkit-mask: radial-gradient(circle, #000 15%, transparent 65%); mask: radial-gradient(circle, #000 15%, transparent 65%);
+  }
+  #arenaWrap { transition: box-shadow .6s, border-color .6s; }
+  body::before {
+    content: ""; position: fixed; inset: -20%; z-index: -1; pointer-events: none; opacity: .55;
+    background: radial-gradient(30% 25% at 20% 30%, rgba(140, 90, 255, .25), transparent 70%),
+                radial-gradient(25% 20% at 80% 70%, rgba(95, 227, 255, .15), transparent 70%);
+    animation: aurora 18s ease-in-out infinite alternate;
+  }
+  #ess { text-shadow: 0 0 18px rgba(200, 170, 255, .55); }
+  #gems { box-shadow: 0 0 12px rgba(95, 227, 255, .25); }
+  @keyframes shine { 0% { left: -60%; } 45%, 100% { left: 130%; } }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes aurora { from { transform: translate(-4%, -3%) rotate(0deg); } to { transform: translate(4%, 3%) rotate(8deg); } }
   @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
   @keyframes drop { from { opacity: 0; transform: translateY(-10px); } }
   @keyframes banner { 0% { opacity: 0; transform: scale(2); } 15% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
@@ -426,7 +455,7 @@ function toast(text, kind) {
 function showModal(html, color, onClose) {
   const box = $("modalBox");
   box.style.setProperty("--rc", color || "var(--accent)");
-  box.innerHTML = html;
+  box.innerHTML = (html.includes('class="big reveal"') ? '<div class="rays"></div>' : "") + html;
   $("modal").style.display = "flex";
   const btn = box.querySelector("[data-close]");
   if (btn) btn.onclick = () => { $("modal").style.display = "none"; if (onClose) onClose(); };
@@ -441,6 +470,9 @@ let W = 300, H = 300, DPR = 1;
 let view = Math.min(Math.max(1, S.zone), ZONES.length);
 let shadows = [], respawns = [], particles = [], floats = [], rings = [], orbs = [], ambient = [], fogs = [], lights = [], bolts = [];
 let boss = null, shakeT = 0, shakeMag = 0, essPulse = 0;
+let beams = [], souls = [], confetti = [], stars = [], mist = [];
+let transition = 0, zoneTitleT = 9, flash = 0, moon = { x: 0, y: 0, r: 0 };
+let lastTapPos = { x: 0, y: 0 }, displayEss = S.essence;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rgba = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 const mix = (c, k) => c.map(v => Math.min(255, v * k));
@@ -486,6 +518,10 @@ function fillZone() {
   buildBackground();
   makeAmbient();
   updateZoneBar();
+  transition = 1; zoneTitleT = 0;
+  const z = zone();
+  $("arenaWrap").style.borderColor = rgba(z.glow, 0.6);
+  $("arenaWrap").style.boxShadow = `0 0 28px ${rgba(z.glow, 0.28)}, inset 0 0 40px rgba(0,0,0,.5)`;
 }
 
 // =====================================================================
@@ -502,6 +538,7 @@ function buildBackground() {
 
   // луна / свечение
   const mx = W * 0.78, my = H * 0.12, mr = Math.min(W, H) * 0.09;
+  moon = { x: z.fx === "void" ? W / 2 : mx, y: z.fx === "void" ? H * 0.3 : my, r: mr };
   const halo = g.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 4);
   halo.addColorStop(0, rgba(z.glow, 0.35)); halo.addColorStop(1, rgba(z.glow, 0));
   g.fillStyle = halo; g.fillRect(0, 0, W, H);
@@ -585,6 +622,9 @@ function buildBackground() {
 
 function makeAmbient() {
   const z = zone();
+  stars = [];
+  for (let i = 0; i < 45; i++) stars.push({ x: rnd(0, W), y: rnd(0, H * 0.42), r: rnd(0.5, 1.6), ph: rnd(0, 6.28), sp: rnd(1, 3) });
+  mist = [0, 1, 2].map(i => ({ off: rnd(0, 1000), speed: (i + 1) * 9 * (i % 2 ? -1 : 1), y: H - 18 - i * 16, amp: 6 + i * 3, a: 0.10 - i * 0.025 }));
   ambient = [];
   const n = { fireflies: 22, fog: 14, embers: 34, snow: 60, void: 40 }[z.fx];
   for (let i = 0; i < n; i++) ambient.push(newAmbient(true));
@@ -605,6 +645,14 @@ function newAmbient(initial) {
 // =====================================================================
 // АРЕНА: ИГРОВАЯ ЛОГИКА
 // =====================================================================
+const CONFETTI_COLORS = ["#ffc94d", "#8c5aff", "#5fe3ff", "#ef5470", "#4fd68a", "#ffffff"];
+function confettiBurst(x, y, n) {
+  for (let i = 0; i < n; i++) {
+    const a = rnd(-Math.PI, 0), sp = rnd(120, 380);
+    confetti.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: rnd(0, 6.28), vr: rnd(-10, 10),
+      w: rnd(4, 8), h: rnd(6, 12), color: CONFETTI_COLORS[i % CONFETTI_COLORS.length], t: 0, life: rnd(1.4, 2.2) });
+  }
+}
 function shake(mag, t = 0.25) { shakeMag = Math.max(shakeMag, mag); shakeT = Math.max(shakeT, t); }
 function burst(x, y, n, color, speed = 1) {
   for (let i = 0; i < n; i++) {
@@ -619,6 +667,8 @@ function hit(s, src) {
   let dmg = src === "spirit" ? autoDps() : tapDamage(), crit = false;
   if (src !== "spirit" && Math.random() < critChance()) { dmg *= critMult(); crit = true; S.stats.crits++; shake(crit ? 3 : 0, 0.12); }
   s.hp -= dmg; s.flash = 0.1; s.sq = 0.16;
+  if (src === "tap" || src === "auto") { beams.push({ x: s.x, y: s.y, r: s.r, t: 0 }); lastTapPos = { x: s.x, y: s.y }; }
+  if (crit) flash = 0.16;
   floats.push({ x: s.x + rnd(-10, 10), y: s.y - s.r * 0.7, text: (crit ? "КРИТ " : "") + fmt(dmg), kind: crit ? "crit" : src === "spirit" ? "spirit" : "dmg", t: 0 });
   burst(s.x, s.y, crit ? 10 : 4, s.kind === "gold" ? [255, 215, 90] : zone().glow);
   if (s.hp <= 0) kill(s);
@@ -645,6 +695,7 @@ function kill(s) {
   const n = s.kind === "boss" ? 14 : s.kind === "gold" ? 8 : 4;
   for (let i = 0; i < n; i++) orbs.push({ x: s.x + rnd(-10, 10), y: s.y + rnd(-10, 10), sx: s.x, sy: s.y, t: -i * 0.04, color });
 
+  souls.push({ x: s.x, y: s.y, r: s.r * 0.55, t: 0, color, dir: s.dir });
   shadows.splice(shadows.indexOf(s), 1);
   if (s.kind !== "boss") respawns.push(RESPAWN_TIME);
 }
@@ -655,6 +706,7 @@ function addXp(xp) {
   while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; leveled = true; }
   if (leveled) {
     toast(`⭐ Уровень ${S.level}! Урон и эссенция выросли`, "gold");
+    confettiBurst(W / 2, H * 0.3, 70);
     rings.push({ x: W / 2, y: H / 2, r: 10, max: Math.max(W, H), t: 0, color: [255, 210, 90] });
   }
 }
@@ -759,6 +811,22 @@ function update(dt) {
   }
   for (const f of fogs) { f.x += f.v * dt; if (f.x < -f.r) f.x = W + f.r; if (f.x > W + f.r) f.x = -f.r; }
   shakeT = Math.max(0, shakeT - dt); if (shakeT === 0) shakeMag = 0;
+  for (let i = beams.length - 1; i >= 0; i--) { beams[i].t += dt; if (beams[i].t > 0.22) beams.splice(i, 1); }
+  for (let i = souls.length - 1; i >= 0; i--) { const so = souls[i]; so.t += dt; so.y -= 55 * dt; so.x += Math.sin(so.t * 6) * 20 * dt; if (so.t > 1.1) souls.splice(i, 1); }
+  for (let i = confetti.length - 1; i >= 0; i--) {
+    const c = confetti[i]; c.t += dt; c.vy += 420 * dt; c.vx *= 0.985; c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt;
+    if (c.t > c.life || c.y > H + 20) confetti.splice(i, 1);
+  }
+  for (const s of shadows) {
+    s.trailT = (s.trailT || 0) + dt;
+    if (s.trailT > 0.05) { s.trailT = 0; (s.trail = s.trail || []).push([s.x, s.y]); if (s.trail.length > 7) s.trail.shift(); }
+  }
+  for (const m of mist) m.off += m.speed * dt;
+  transition = Math.max(0, transition - dt * 2.4);
+  zoneTitleT += dt;
+  flash = Math.max(0, flash - dt);
+  displayEss += (S.essence - displayEss) * Math.min(1, dt * 9);
+  if (Math.abs(S.essence - displayEss) < 1) displayEss = S.essence;
   essPulse = Math.max(0, essPulse - dt);
 
   if (view <= S.zone && shadows.length) {
@@ -811,6 +879,24 @@ function drawShadow(s) {
   const spawnK = 1 - s.spawn / 0.45;
   const sx = (1 + s.sq * 1.2) * spawnK, sy = (1 - s.sq * 0.9) * spawnK;
 
+  // призрачный шлейф
+  if (s.trail) {
+    ctx.globalCompositeOperation = "lighter";
+    s.trail.forEach(([x, y], i) => {
+      const k = (i + 1) / s.trail.length;
+      ctx.fillStyle = rgba(glow, 0.07 * k);
+      ctx.beginPath(); ctx.arc(x, y + s.r * 0.5, s.r * (0.35 + k * 0.4), 0, 6.283); ctx.fill();
+    });
+    ctx.globalCompositeOperation = "source-over";
+  }
+  // портал при появлении
+  if (s.spawn > 0) {
+    const k = s.spawn / 0.45;
+    ctx.strokeStyle = rgba(glow, k); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(s.x, s.y + s.r * 1.2, s.r * (1.6 - k * 0.6), s.r * 0.4 * (1.6 - k * 0.6), 0, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = `rgba(0,0,0,${0.5 * k})`; ctx.fill();
+  }
+
   ctx.save();
   ctx.translate(s.x, s.y + bob);
 
@@ -858,6 +944,12 @@ function drawShadow(s) {
     ctx.beginPath(); ctx.ellipse(ex * s.r + s.r * 0.05, -s.r * 0.18, s.r * (isBoss ? 0.17 : 0.13), s.r * eyeH, isBoss ? ex * 1.2 : 0, 0, 6.283); ctx.fill();
   }
   ctx.shadowBlur = 0;
+  if (s.blink >= 0) {
+    const lx = lastTapPos.x - s.x, ly = lastTapPos.y - s.y, ld = Math.hypot(lx, ly) || 1;
+    const px = lx / ld * s.r * 0.05 * s.dir, py = ly / ld * s.r * 0.05;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    for (const ex of [-0.32, 0.32]) { ctx.beginPath(); ctx.arc(ex * s.r + s.r * 0.05 + px, -s.r * 0.24 + py, s.r * 0.045, 0, 6.283); ctx.fill(); }
+  }
   // рот
   ctx.strokeStyle = isGold ? "#6a3c00" : rgba(glow, 0.8); ctx.lineWidth = Math.max(1.2, s.r * 0.05);
   ctx.beginPath();
@@ -957,7 +1049,9 @@ function draw() {
   ctx.save();
   if (shakeT > 0) ctx.translate(rnd(-shakeMag, shakeMag), rnd(-shakeMag, shakeMag));
   ctx.drawImage(bgCanvas, 0, 0, W, H);
+  drawSky(t);
   drawAmbient();
+  drawMist();
 
   for (const l of lights) {
     const k = l.t / 0.35, r = 40 + k * 30;
@@ -968,6 +1062,9 @@ function draw() {
 
   const sorted = shadows.slice().sort((a, b) => a.y - b.y);
   for (const s of sorted) drawShadow(s);
+  drawSouls();
+  drawBeams();
+  ctx.globalCompositeOperation = "lighter";
 
   for (const r of rings) {
     const k = r.t / 0.5;
@@ -988,8 +1085,10 @@ function draw() {
     g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.3, rgba(b.color, 0.9)); g.addColorStop(1, rgba(b.color, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, 12, 0, 6.283); ctx.fill();
   }
+  ctx.globalCompositeOperation = "source-over";
   drawPets(t);
 
+  ctx.globalCompositeOperation = "lighter";
   for (const o of orbs) {
     if (o.t < 0) continue;
     const k = Math.min(1, o.t / 0.65), e = k * k * (3 - 2 * k);
@@ -1000,6 +1099,7 @@ function draw() {
     g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.4, rgba(o.color, 0.9)); g.addColorStop(1, rgba(o.color, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.283); ctx.fill();
   }
+  ctx.globalCompositeOperation = "source-over";
 
   ctx.textAlign = "center";
   for (const f of floats) {
@@ -1012,14 +1112,123 @@ function draw() {
     ctx.fillStyle = color; ctx.fillText(f.text, f.x, f.y);
   }
   ctx.globalAlpha = 1;
+  drawConfetti();
+  drawOverlays(t);
   drawHudOnCanvas();
   ctx.restore();
 }
 
+// Звёзды и лучи от луны
+function drawSky(t) {
+  const z = zone();
+  for (const st of stars) {
+    const a = 0.25 + 0.6 * Math.max(0, Math.sin(t * st.sp + st.ph));
+    ctx.fillStyle = `rgba(255,255,255,${a})`;
+    ctx.beginPath(); ctx.arc(st.x, st.y, st.r, 0, 6.283); ctx.fill();
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.translate(moon.x, moon.y);
+  ctx.rotate(t * 0.04);
+  const len = Math.max(W, H) * 1.1;
+  for (let i = 0; i < 7; i++) {
+    ctx.rotate(Math.PI * 2 / 7);
+    const g = ctx.createLinearGradient(0, 0, len, 0);
+    g.addColorStop(0, rgba(z.glow, 0.10 + 0.04 * Math.sin(t + i))); g.addColorStop(1, rgba(z.glow, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, -len * 0.06); ctx.lineTo(len, len * 0.06); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Стелющийся туман у земли
+function drawMist() {
+  const z = zone();
+  for (const m of mist) {
+    ctx.fillStyle = rgba(z.fxColor, m.a);
+    ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 10; x += 10) ctx.lineTo(x, m.y + Math.sin((x + m.off) * 0.025) * m.amp + Math.sin((x - m.off) * 0.011) * m.amp);
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  }
+}
+
+// Луч фонаря от игрока к тени
+function drawBeams() {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (const b of beams) {
+    const k = b.t / 0.22, a = (1 - k);
+    const fx = W / 2, fy = H + 10, ang = Math.atan2(b.y - fy, b.x - fx), len = Math.hypot(b.x - fx, b.y - fy);
+    ctx.save(); ctx.translate(fx, fy); ctx.rotate(ang);
+    const g = ctx.createLinearGradient(0, 0, len, 0);
+    g.addColorStop(0, `rgba(255,240,190,${0.05 * a})`); g.addColorStop(1, `rgba(255,240,190,${0.45 * a})`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(len, -b.r * 0.9); ctx.lineTo(len, b.r * 0.9); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    const spot = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 1.4);
+    spot.addColorStop(0, `rgba(255,245,210,${0.5 * a})`); spot.addColorStop(1, "rgba(255,245,210,0)");
+    ctx.fillStyle = spot; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 1.4, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Души пойманных теней улетают вверх
+function drawSouls() {
+  for (const so of souls) {
+    const a = Math.max(0, 1 - so.t / 1.1);
+    ctx.save();
+    ctx.globalAlpha = a * 0.6;
+    ctx.translate(so.x, so.y);
+    ctx.scale(so.dir * (1 + so.t * 0.3), 1 + so.t * 0.3);
+    ghostPath(so.r, so.t * 4);
+    ctx.fillStyle = rgba(mix(so.color, 1.2), 0.5); ctx.shadowColor = rgba(so.color); ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawConfetti() {
+  for (const c of confetti) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - Math.max(0, c.t - c.life + 0.5) / 0.5);
+    ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.scale(Math.cos(c.t * 8), 1);
+    ctx.fillStyle = c.color; ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+    ctx.restore();
+  }
+}
+
+// Виньетка Хранителя, вспышка крита, переход между зонами
+function drawOverlays(t) {
+  if (boss) {
+    const speed = boss.time < 10 ? 9 : 3;
+    const a = 0.28 + 0.14 * Math.sin(t * speed);
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+    g.addColorStop(0, "rgba(255,30,60,0)"); g.addColorStop(1, `rgba(255,30,60,${a})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  if (flash > 0) { ctx.fillStyle = `rgba(255,240,200,${flash * 1.2})`; ctx.fillRect(0, 0, W, H); }
+  if (transition > 0) { ctx.fillStyle = `rgba(5,3,12,${transition})`; ctx.fillRect(0, 0, W, H); }
+  if (zoneTitleT < 1.8) {
+    const z = zone(), k = zoneTitleT;
+    const a = k < 0.3 ? k / 0.3 : k > 1.3 ? Math.max(0, 1 - (k - 1.3) / 0.5) : 1;
+    ctx.globalAlpha = a; ctx.textAlign = "center";
+    ctx.font = "900 13px system-ui, sans-serif"; ctx.fillStyle = "rgba(243,239,255,0.8)";
+    ctx.fillText(`ЗОНА ${view}`, W / 2, H * 0.4 - 26);
+    ctx.font = `900 ${Math.min(34, W / 11)}px system-ui, sans-serif`;
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.strokeText(z.name, W / 2, H * 0.4 + 6);
+    ctx.fillStyle = rgba(mix(z.glow, 1.15)); ctx.shadowColor = rgba(z.glow); ctx.shadowBlur = 20;
+    ctx.fillText(z.name, W / 2, H * 0.4 + 6);
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+}
+
+const essEl = $("ess");
 function frame(ts) {
   const dt = Math.min(0.05, (ts - lastFrame) / 1000);
   lastFrame = ts;
   update(dt); draw();
+  const essText = `🌑 ${fmt(displayEss)}`;
+  if (essEl.textContent !== essText) essEl.textContent = essText;
   requestAnimationFrame(frame);
 }
 
@@ -1396,7 +1605,10 @@ function openSheet(name) {
   $("sheetTitle").textContent = PANELS[name].title;
   $("sheetBody").scrollTop = 0;
   renderPanel();
-  $("sheet").classList.add("open");
+  [...$("sheetBody").children].forEach((c, i) => { c.style.animationDelay = `${Math.min(i, 12) * 35}ms`; });
+  $("sheet").classList.add("open", "anim");
+  clearTimeout(openSheet.animTimer);
+  openSheet.animTimer = setTimeout(() => $("sheet").classList.remove("anim"), 800);
   $("shade").style.display = "block";
 }
 function closeSheet() {
@@ -1412,7 +1624,6 @@ $("shade").onclick = closeSheet;
 // HUD
 // =====================================================================
 function refreshHud() {
-  $("ess").textContent = `🌑 ${fmt(S.essence)}`;
   $("ess").classList.toggle("pop", essPulse > 0);
   $("gems").textContent = `💎 ${fmt(S.gems)}`;
   $("lvlNum").textContent = S.level;

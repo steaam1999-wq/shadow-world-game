@@ -2,6 +2,8 @@
 -- окна (вылупление питомца, перерождение, награды) и баннер Хранителя.
 
 local Debris = game:GetService("Debris")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -72,7 +74,148 @@ local function floatingText(position: Vector3, text: string, color: Color3, size
 	Debris:AddItem(anchor, 1.1)
 end
 
+local function invisibleAnchor(position: Vector3): Part
+	local anchor = Instance.new("Part")
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Position = position
+	anchor.Parent = effectsFolder
+	return anchor
+end
+
+-- Взрыв светящихся частиц
+local function burst(position: Vector3, color: Color3, count: number, speed: number?)
+	local anchor = invisibleAnchor(position)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Rate = 0
+	emitter.Color = ColorSequence.new(color)
+	emitter.LightEmission = 1
+	emitter.Lifetime = NumberRange.new(0.4, 0.9)
+	emitter.Speed = NumberRange.new((speed or 1) * 8, (speed or 1) * 18)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Drag = 3
+	emitter.Acceleration = Vector3.new(0, -12, 0)
+	emitter.Size = NumberSequence.new(0.6, 0)
+	emitter.Transparency = NumberSequence.new(0, 1)
+	emitter.Parent = anchor
+	emitter:Emit(count)
+	Debris:AddItem(anchor, 1.5)
+end
+
+-- Кольцо-вспышка, расходящееся от точки
+local function shockwave(position: Vector3, color: Color3, size: number)
+	local ring = Instance.new("Part")
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.Material = Enum.Material.Neon
+	ring.Color = color
+	ring.Transparency = 0.3
+	ring.Size = Vector3.new(0.2, 1, 1)
+	ring.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Parent = effectsFolder
+	TweenService:Create(ring, TweenInfo.new(0.45, Enum.EasingStyle.Quad), {
+		Size = Vector3.new(0.2, size, size),
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(ring, 0.5)
+end
+
+-- Луч фонаря от игрока к тени
+local function lanternBeam(target: Vector3)
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local start = Instance.new("Attachment")
+	start.Position = Vector3.new(0.9, 1.2, -1)
+	start.Parent = root
+
+	local anchor = invisibleAnchor(target)
+	local finish = Instance.new("Attachment")
+	finish.Parent = anchor
+
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = start
+	beam.Attachment1 = finish
+	beam.Width0 = 0.3
+	beam.Width1 = 3
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.Color = ColorSequence.new(Color3.fromRGB(255, 240, 190))
+	beam.Transparency = NumberSequence.new(0.75, 0.25)
+	beam.Segments = 1
+	beam.Parent = anchor
+
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 240, 190)
+	light.Range = 10
+	light.Brightness = 3
+	light.Parent = anchor
+
+	Debris:AddItem(anchor, 0.12)
+	Debris:AddItem(start, 0.12)
+end
+
+-- Тряска камеры
+local shakeToken = 0
+local function cameraShake(intensity: number, duration: number)
+	local character = Players.LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	shakeToken += 1
+	local token = shakeToken
+	local started = os.clock()
+	task.spawn(function()
+		while os.clock() - started < duration and token == shakeToken do
+			local k = 1 - (os.clock() - started) / duration
+			humanoid.CameraOffset = Vector3.new(
+				(math.random() - 0.5) * intensity * k,
+				(math.random() - 0.5) * intensity * k,
+				0
+			)
+			RunService.RenderStepped:Wait()
+		end
+		if token == shakeToken then
+			humanoid.CameraOffset = Vector3.zero
+		end
+	end)
+end
+
+-- Вспышка на весь экран
+local function screenFlash(color: Color3, strength: number)
+	local frame = UI.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = color,
+		BackgroundTransparency = 1 - strength,
+		BorderSizePixel = 0,
+		ZIndex = 45,
+		Parent = gui,
+	})
+	local fade = TweenService:Create(frame, TweenInfo.new(0.35), { BackgroundTransparency = 1 })
+	fade:Play()
+	fade.Completed:Once(function()
+		frame:Destroy()
+	end)
+end
+
 function Fx.damage(position: Vector3, amount: number, crit: boolean, combo: number, source: string)
+	if source == "tap" or source == "auto" then
+		lanternBeam(position)
+	end
+	if crit then
+		cameraShake(0.35, 0.15)
+		burst(position, Theme.Gold, 10, 0.8)
+	end
 	if crit then
 		floatingText(position, "КРИТ " .. Format.Number(amount), Theme.Gold, 30, 5)
 	elseif source == "spirit" then
@@ -87,6 +230,16 @@ end
 
 function Fx.reward(position: Vector3, amount: number, gems: number, lucky: boolean, kind: string)
 	local up = position + Vector3.new(0, 2, 0)
+	local color = if kind == "boss"
+		then Color3.fromRGB(255, 70, 90)
+		elseif kind == "gold" or lucky then Color3.fromRGB(255, 215, 90)
+		else Color3.fromRGB(190, 150, 255)
+	burst(position, color, if kind == "boss" then 80 else 22, if kind == "boss" then 2 else 1)
+	shockwave(position, color, if kind == "boss" then 40 else 12)
+	if kind == "boss" then
+		cameraShake(1.2, 0.6)
+		screenFlash(Color3.fromRGB(255, 220, 150), 0.35)
+	end
 	floatingText(up, "+" .. Format.Number(amount) .. " 🌑", Color3.fromRGB(255, 226, 138), if kind == "boss" then 40 else 28, 6)
 	if gems > 0 then
 		task.delay(0.15, floatingText, up + Vector3.new(0, 1.5, 0), "+" .. gems .. " 💎", Theme.Gem, 26, 7)
@@ -246,6 +399,13 @@ function Fx.hatch(pet, autoEquipped: boolean)
 end
 
 function Fx.levelUp(level: number)
+	screenFlash(Theme.Gold, 0.3)
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		burst(root.Position, Theme.Gold, 60, 1.5)
+		shockwave(root.Position - Vector3.new(0, 2.5, 0), Theme.Gold, 30)
+	end
 	floatingText(workspace.CurrentCamera.CFrame.Position + workspace.CurrentCamera.CFrame.LookVector * 12, "⭐ УРОВЕНЬ " .. level, Theme.Gold, 34, 3)
 end
 
@@ -292,6 +452,8 @@ function Fx.boss(zoneIndex: number)
 	if Fx.CurrentZone() ~= zoneIndex then
 		return
 	end
+	cameraShake(0.6, 0.4)
+	screenFlash(Color3.fromRGB(255, 40, 70), 0.25)
 	banner.Visible = true
 	banner.TextTransparency = 0
 	banner.TextStrokeTransparency = 0

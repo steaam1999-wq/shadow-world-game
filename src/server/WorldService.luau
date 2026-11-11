@@ -100,6 +100,13 @@ local function applyLighting()
 		atmosphere.Decay = Color3.fromRGB(40, 30, 70)
 		atmosphere.Parent = Lighting
 	end
+	if not Lighting:FindFirstChildOfClass("ColorCorrectionEffect") then
+		local grading = Instance.new("ColorCorrectionEffect")
+		grading.Saturation = 0.2
+		grading.Contrast = 0.12
+		grading.TintColor = Color3.fromRGB(235, 228, 255)
+		grading.Parent = Lighting
+	end
 	if not Lighting:FindFirstChildOfClass("BloomEffect") then
 		local bloom = Instance.new("BloomEffect")
 		bloom.Intensity = 0.8

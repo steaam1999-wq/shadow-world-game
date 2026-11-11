@@ -1252,5 +1252,30 @@ task.spawn(function()
 	end
 end)
 
+-- Подсветка тени под курсором (на компьютере)
+local hoverHighlight = Instance.new("Highlight")
+hoverHighlight.FillColor = Color3.fromRGB(255, 240, 190)
+hoverHighlight.FillTransparency = 0.75
+hoverHighlight.OutlineColor = Color3.fromRGB(255, 240, 190)
+hoverHighlight.OutlineTransparency = 0
+hoverHighlight.DepthMode = Enum.HighlightDepthMode.Occluded
+hoverHighlight.Enabled = false
+hoverHighlight.Parent = workspace
+
+local mouse = player:GetMouse()
+task.spawn(function()
+	while true do
+		task.wait(0.05)
+		local shadows = workspace:FindFirstChild("Shadows")
+		local target = mouse.Target
+		local body = nil
+		if shadows and target then
+			body = if target.Parent == shadows then target elseif target.Parent and target.Parent.Parent == shadows then target.Parent else nil
+		end
+		hoverHighlight.Adornee = body
+		hoverHighlight.Enabled = body ~= nil
+	end
+end)
+
 -- Запрашиваем данные, если первый снимок пришёл раньше, чем скрипт запустился
 sendAction("sync")
