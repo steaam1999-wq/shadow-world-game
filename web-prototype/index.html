@@ -81,13 +81,18 @@
   #banner.show { animation: banner 2.2s ease forwards; }
 
   /* ---------- Нижнее меню ---------- */
-  #nav { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; padding: 8px 8px 14px; }
+  #nav { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px 6px 14px; }
   #nav button {
     position: relative; background: linear-gradient(180deg, var(--panel2), var(--panel)); color: var(--text);
     border: 1.5px solid rgba(140, 90, 255, .45); border-radius: 12px; padding: 6px 0 5px; font-size: 10px; font-weight: 800;
     display: flex; flex-direction: column; align-items: center; gap: 1px;
   }
-  #nav button span { font-size: 20px; }
+  #nav button span { font-size: 19px; }
+  #nav button { font-size: 9.5px !important; letter-spacing: -.2px; }
+  .heroCard { display: flex; gap: 12px; align-items: center; }
+  .heroCard canvas { flex: none; width: 120px; height: 120px; border-radius: 14px;
+    background: radial-gradient(circle at 50% 60%, rgba(255, 200, 110, .28), rgba(18, 14, 30, .2) 70%); }
+  .heroCard .st { flex: 1; font-size: 13.5px; line-height: 1.55; }
   #nav button:active { transform: scale(.95); }
 
   /* ---------- Кнопки ---------- */
@@ -292,7 +297,7 @@
   </div>
   <div id="arenaWrap">
     <canvas id="cv"></canvas>
-    <div id="hint">👆 Нажимайте на призраков, чтобы ловить их</div>
+    <div id="hint">🕹 Ведите пальцем по пустому месту — охотник бежит.<br>👆 Нажмите на призрака — выстрел!</div>
     <div id="banner">⚔ ХРАНИТЕЛЬ ЗОНЫ!</div>
     <button id="gift" aria-label="Ежедневная награда">🎁<i class="dot"></i></button>
     <button id="wheelBtn" aria-label="Колесо фортуны">🎡<i class="dot"></i></button>
@@ -311,6 +316,7 @@
     <button data-panel="upgrades"><span>⚡</span>Прокачка</button>
     <button data-panel="pets"><span>🐾</span>Питомцы</button>
     <button data-panel="quests"><span>📜</span>Задания<i class="navdot" id="questDot"></i></button>
+    <button data-panel="hero"><span>🧥</span>Герой</button>
     <button data-panel="story"><span>📖</span>Сюжет</button>
     <button data-panel="rebirth"><span>♻️</span>Рождение</button>
     <button data-panel="shop"><span>💎</span>Магазин</button>
@@ -386,7 +392,7 @@ const SHADOWS_PER_ZONE = 8, RESPAWN_TIME = 2.5, CLICK_COOLDOWN = 0.08;
 
 const PASSES = [
   { key: "DoubleEssence", icon: "✖️2", name: "x2 Эссенция", desc: "Навсегда удваивает всю эссенцию", price: 199 },
-  { key: "AutoCatch", icon: "🤖", name: "Авто-ловля", desc: "Фонарь сам бьёт 2 раза в секунду", price: 249 },
+  { key: "AutoCatch", icon: "🤖", name: "Скорострельность", desc: "Оружие стреляет на 60% быстрее", price: 249 },
   { key: "PetSlot", icon: "🐾", name: "+1 слот питомца", desc: "4 питомца вместо 3", price: 149 },
   { key: "VIP", icon: "👑", name: "Теневой VIP", desc: "+50% эссенции и золотое имя", price: 299 },
 ];
@@ -420,6 +426,7 @@ const GUARDIANS = [
 const PROLOGUE = [
   { who: "moon", text: "Проснись, Хранитель… Тьма накрыла мир, и тени украли весь свет." },
   { who: "moon", text: "Только твой Фонарь ещё горит. Его луч — последняя надежда." },
+  { who: "moon", text: "Ты — последний Охотник за привидениями. Беги по арене и стреляй в тени — в меню «Герой» ждут оружие, снаряжение и костюмы." },
   { who: "moon", text: "Лови тени лучом: из них рождается эссенция. Ею ты сделаешь Фонарь сильнее." },
   { who: "moon", text: "В каждой земле тьму стережёт Хранитель. Победи их и собери пять Осколков Света — тогда мир снова засияет." },
 ];
@@ -493,13 +500,53 @@ const ENDING = [
 ];
 const SHARD_BONUS = 0.25;
 
+// =====================================================================
+// ОХОТНИК: ОРУЖИЕ, СНАРЯЖЕНИЕ, СКИНЫ
+// =====================================================================
+// tap — множитель урона выстрела по нажатию, auto — автоматического, rate — автовыстрелов в секунду
+const WEAPONS = [
+  { id: "lantern",  icon: "🔦", name: "Фонарь-луч",        desc: "Луч света бьёт одну тень",          type: "beam",   range: 150, rate: 1.0, tap: 1.0,  auto: 0.5,  color: [255, 236, 180], cost: 0 },
+  { id: "blaster",  icon: "🔫", name: "Протонный бластер", desc: "Очередь быстрых зарядов",           type: "bolt",   range: 175, rate: 3.0, tap: 1.15, auto: 0.35, color: [90, 225, 255],  cost: 2000 },
+  { id: "vacuum",   icon: "🌀", name: "Ловушка-пылесос",   desc: "Затягивает и бьёт всех рядом",      type: "vacuum", range: 115, rate: 10,  tap: 1.0,  auto: 0.12, color: [190, 140, 255], cost: 25000 },
+  { id: "crossbow", icon: "🏹", name: "Святой арбалет",    desc: "Болт пробивает 3 тени насквозь",    type: "arrow",  range: 240, rate: 1.1, tap: 1.7,  auto: 1.0,  color: [255, 215, 120], cost: 250000, pierce: 3 },
+  { id: "staff",    icon: "⚡", name: "Громовой посох",    desc: "Молния прыгает по 4 теням",         type: "chain",  range: 170, rate: 1.4, tap: 1.3,  auto: 0.8,  color: [150, 205, 255], gems: 60, chain: 4 },
+];
+const GEAR_SLOTS = [
+  { key: "helmet", name: "Шлем", items: [
+    { name: "Кепка охотника",    icon: "🧢", crit: 0.03, cost: 0 },
+    { name: "Шлем с фонариком",  icon: "⛑️", crit: 0.08, cost: 5000 },
+    { name: "Корона света",      icon: "👑", crit: 0.15, gems: 80 },
+  ] },
+  { key: "armor", name: "Броня", items: [
+    { name: "Старая куртка",     icon: "🧥", dmg: 0,    cost: 0 },
+    { name: "Протонный ранец",   icon: "🎒", dmg: 0.25, cost: 8000 },
+    { name: "Доспех света",      icon: "🛡️", dmg: 0.6,  cost: 400000 },
+  ] },
+  { key: "boots", name: "Ботинки", items: [
+    { name: "Кеды",              icon: "👟", speed: 0,   range: 0,   cost: 0 },
+    { name: "Сапоги-скороходы",  icon: "🥾", speed: 0.3, range: 0.1, cost: 3000 },
+    { name: "Крылатые сапоги",   icon: "🪽", speed: 0.6, range: 0.2, gems: 50 },
+  ] },
+];
+const SKINS = [
+  { id: "classic", icon: "🤠", name: "Классический охотник", suit: "#c9b48a", pants: "#8a7a5a", accent: "#d8452e", hair: "#5a3a1e", cost: 0 },
+  { id: "neon",    icon: "🌃", name: "Неоновый охотник",     suit: "#1d2b52", pants: "#141c36", accent: "#3ff0ff", hair: "#ff4ad8", gems: 30 },
+  { id: "ninja",   icon: "🥷", name: "Ниндзя тени",          suit: "#241a33", pants: "#150f1e", accent: "#b06bff", hair: "#150f1e", head: "mask", gems: 60 },
+  { id: "knight",  icon: "🛡️", name: "Рыцарь света",         suit: "#e9dcb0", pants: "#b8a878", accent: "#ffc94d", hair: "#f2e2a0", gems: 120 },
+  { id: "pumpkin", icon: "🎃", name: "Тыквоголовый",         suit: "#3a2a16", pants: "#2a1e10", accent: "#ff8a1c", head: "pumpkin", robux: 99 },
+  { id: "astro",   icon: "👨‍🚀", name: "Космо-охотник",        suit: "#e8ecf5", pants: "#b9c0d0", accent: "#5fa8ff", hair: "#3a2a1a", head: "astro", robux: 149 },
+];
+const HERO_SPEED = 120;
+
 // Цели: подсказывают, что делать дальше
 const OBJECTIVES = [
   { text: "Поймай 10 теней",                cur: () => S.stats.kills, goal: 10, ess: 30 },
+  { text: "Пробеги охотником по арене",     cur: () => Math.min(5, Math.floor(heroDistance / 100)), goal: 5, ess: 20 },
   { text: "Улучши «Силу фонаря» до 3",      cur: () => S.up.power, goal: 3, gems: 2 },
   { text: "Поймай 25 теней — призови Стража", cur: () => S.shards.includes(1) ? 25 : (S.zk[1] || 0), goal: 25, ess: 100 },
   { text: "Победи Тернового Стража",        cur: () => S.shards.includes(1) ? 1 : 0, goal: 1, gems: 5 },
   { text: "Открой первое яйцо питомца",     cur: () => S.stats.eggs, goal: 1, ess: 150 },
+  { text: "Купи «Протонный бластер»",       cur: () => S.hero.weapons.includes("blaster") ? 1 : 0, goal: 1, gems: 5 },
   { text: "Открой Туманные болота",         cur: () => S.maxZone >= 2 ? 1 : 0, goal: 1, gems: 5 },
   { text: "Победи Болотную Ведьму",         cur: () => S.shards.includes(2) ? 1 : 0, goal: 1, gems: 10 },
   { text: "Прокачай «Шанс крита» до 5",     cur: () => S.up.crit, goal: 5, ess: 2000 },
@@ -543,6 +590,7 @@ function fresh() {
     stats: { kills: 0, golden: 0, bosses: 0, eggs: 0, crits: 0, taps: 0, time: 0 },
     lastDaily: 0, streak: 0, boostEnds: 0, passes: {}, lastSeen: 0,
     story: { prologue: false, seen: {}, ending: false }, shards: [], obj: 0, lastSpin: 0,
+    hero: { weapon: "lantern", weapons: ["lantern"], gear: { helmet: 0, armor: 0, boots: 0 }, owned: { helmet: [0], armor: [0], boots: [0] }, skin: "classic", skins: ["classic"] },
   };
 }
 let S = fresh();
@@ -554,6 +602,7 @@ try {
     S.up = Object.assign(fresh().up, d.up || {});
     S.stats = Object.assign(fresh().stats, d.stats || {});
     S.story = Object.assign(fresh().story, d.story || {});
+    S.hero = Object.assign(fresh().hero, d.hero || {});
   }
 } catch (e) { /* хранилище недоступно — играем без сохранения */ }
 function save() {
@@ -591,9 +640,13 @@ function petBonus() {
   return { ess, dmg };
 }
 const dmgMultNoPower = () => (1 + petBonus().dmg) * (1 + 0.01 * (S.level - 1));
-const tapDamage = () => (1 + S.up.power) * dmgMultNoPower();
+const gearStat = key => GEAR_SLOTS.reduce((sum, slot) => sum + (slot.items[S.hero.gear[slot.key]][key] || 0), 0);
+const weapon = () => WEAPONS.find(w => w.id === S.hero.weapon) || WEAPONS[0];
+const heroSpeed = () => HERO_SPEED * (1 + gearStat("speed"));
+const heroRange = () => weapon().range * (1 + gearStat("range"));
+const tapDamage = () => (1 + S.up.power) * dmgMultNoPower() * (1 + gearStat("dmg"));
 const autoDps = () => S.up.spirit > 0 ? tapDamage() * 0.3 * S.up.spirit : 0;
-const critChance = () => critChanceAt(S.up.crit);
+const critChance = () => Math.min(0.75, critChanceAt(S.up.crit) + gearStat("crit"));
 const critMult = () => critMultAt(S.up.critDmg);
 const goldChance = () => goldChanceAt(S.up.luck);
 const boostActive = () => S.boostEnds > now();
@@ -719,6 +772,7 @@ function fillZone() {
   makeAmbient();
   updateZoneBar();
   transition = 1; zoneTitleT = 0; ev = null; rain = []; chest = null;
+  hero.x = W / 2; hero.y = H - 30; hero.chase = null; shots = []; lightning = [];
   checkStory();
   const z = zone();
   $("arenaWrap").style.borderColor = rgba(z.glow, 0.6);
@@ -878,12 +932,12 @@ function burst(x, y, n, color, speed = 1) {
 }
 
 let lastHit = 0, hintShown = true;
-function hit(s, src) {
+function hit(s, src, mult = 1) {
   if (!shadows.includes(s) || view > S.zone) return;
-  let dmg = src === "spirit" ? autoDps() : tapDamage(), crit = false;
+  let dmg = (src === "spirit" ? autoDps() : tapDamage()) * mult, crit = false;
   if (src !== "spirit" && Math.random() < critChance()) { dmg *= critMult(); crit = true; S.stats.crits++; shake(crit ? 3 : 0, 0.12); }
   s.hp -= dmg; s.flash = 0.1; s.sq = 0.16;
-  if (src === "tap" || src === "auto") { beams.push({ x: s.x, y: s.y, r: s.r, t: 0 }); lastTapPos = { x: s.x, y: s.y }; }
+  if (src === "tap" || src === "auto") lastTapPos = { x: hero.x, y: hero.y - 22 };
   if (crit) flash = 0.16;
   floats.push({ x: s.x + rnd(-10, 10), y: s.y - s.r * 0.7, text: (crit ? "КРИТ " : "") + fmt(dmg), kind: crit ? "crit" : src === "spirit" ? "spirit" : "dmg", t: 0 });
   burst(s.x, s.y, crit ? 10 : 4, s.kind === "gold" ? [255, 215, 90] : zone().glow);
@@ -937,7 +991,82 @@ function summonBoss() {
   shake(6, 0.4);
 }
 
+// =====================================================================
+// ОХОТНИК: УПРАВЛЕНИЕ И СТРЕЛЬБА
+// =====================================================================
+const hero = { x: 150, y: 300, face: 1, walk: 0, aim: -1.2, recoil: 0, fireT: 0, chase: null };
+let joy = null, heroDistance = 0, vacuumFx = 0;
+const keys = new Set();
+let shots = [], lightning = [];
+const heroCenter = () => ({ x: hero.x, y: hero.y - 30 });
+function muzzle() {
+  const c = heroCenter();
+  return { x: c.x + Math.cos(hero.aim) * 32, y: c.y - 4 + Math.sin(hero.aim) * 32 };
+}
+function findTarget(range) {
+  const c = heroCenter();
+  if (boss && Math.hypot(boss.x - c.x, boss.y - c.y) - boss.r <= range) return boss;
+  let best = null, bestD = Infinity;
+  for (const s of shadows) {
+    const d = Math.hypot(s.x - c.x, s.y - c.y) - s.r;
+    if (d <= range && d < bestD) { best = s; bestD = d; }
+  }
+  return best;
+}
+function manualShot(s) {
+  const t = performance.now() / 1000;
+  if (t - lastHit < CLICK_COOLDOWN) return;
+  lastHit = t;
+  combo = t - lastTapT < 0.8 ? combo + 1 : 1;
+  lastTapT = t;
+  S.stats.taps++;
+  fireWeapon(s, true);
+}
+function fireWeapon(target, manual) {
+  const w = weapon(), mult = manual ? w.tap : w.auto, src = manual ? "tap" : "auto";
+  const c = heroCenter();
+  hero.aim = Math.atan2(target.y - c.y, target.x - c.x);
+  hero.face = target.x >= hero.x ? 1 : -1;
+  hero.recoil = 0.12;
+  const m = muzzle();
+  if (w.type === "beam") {
+    beams.push({ x: target.x, y: target.y, r: target.r, t: 0, fx: m.x, fy: m.y, color: w.color });
+    hit(target, src, mult);
+  } else if (w.type === "bolt") {
+    const n = manual ? 3 : 1;
+    for (let i = 0; i < n; i++) shots.push({ x: m.x, y: m.y, ang: hero.aim + rnd(-0.07, 0.07), speed: 640, dmg: mult / n, src, kind: "bolt", color: w.color, life: 0.6, delay: i * 0.06, pierce: 1, hits: new Set(), trail: [] });
+  } else if (w.type === "arrow") {
+    shots.push({ x: m.x, y: m.y, ang: hero.aim, speed: 720, dmg: mult, src, kind: "arrow", color: w.color, life: 0.6, delay: 0, pierce: w.pierce, hits: new Set(), trail: [] });
+  } else if (w.type === "vacuum") {
+    vacuumFx = 0.2;
+    for (const s of shadows.slice()) {
+      const d = Math.hypot(s.x - c.x, s.y - c.y) - s.r;
+      const angDiff = Math.abs(Math.atan2(Math.sin(Math.atan2(s.y - c.y, s.x - c.x) - hero.aim), Math.cos(Math.atan2(s.y - c.y, s.x - c.x) - hero.aim)));
+      if (d <= heroRange() && (manual || angDiff < 0.8)) {
+        if (s.kind !== "boss") { const dd = Math.hypot(s.x - c.x, s.y - c.y) || 1; s.x -= (s.x - c.x) / dd * 6; s.y -= (s.y - c.y) / dd * 6; }
+        hit(s, src, mult);
+      }
+    }
+  } else if (w.type === "chain") {
+    const chain = [target];
+    while (chain.length < w.chain) {
+      const last = chain[chain.length - 1];
+      let next = null, nd = 130;
+      for (const s of shadows) { if (chain.includes(s)) continue; const d = Math.hypot(s.x - last.x, s.y - last.y); if (d < nd) { next = s; nd = d; } }
+      if (!next) break;
+      chain.push(next);
+    }
+    let from = m;
+    chain.forEach((s, i) => {
+      lightning.push({ x1: from.x, y1: from.y, x2: s.x, y2: s.y, t: 0, color: w.color, seed: Math.random() * 100 });
+      from = s;
+    });
+    chain.slice().forEach((s, i) => hit(s, src, mult * (1 - 0.15 * i)));
+  }
+}
+
 cv.addEventListener("pointerdown", e => {
+  if (dialogOpen()) return;
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
   lights.push({ x, y, t: 0 });
@@ -947,19 +1076,90 @@ cv.addEventListener("pointerdown", e => {
     const d = Math.hypot(s.x - x, s.y - y);
     if (d < s.r * 1.15 + 14 && d < bestD) { best = s; bestD = d; }
   }
-  if (!best) return;
-  const t = performance.now() / 1000;
-  if (t - lastHit < CLICK_COOLDOWN) return;
-  lastHit = t;
-  combo = t - lastTapT < 0.8 ? combo + 1 : 1;
-  lastTapT = t;
-  S.stats.taps++;
-  if (hintShown) { hintShown = false; $("hint").style.opacity = "0"; }
-  hit(best, "tap");
+  if (best) {
+    if (hintShown) { hintShown = false; $("hint").style.opacity = "0"; }
+    const c = heroCenter();
+    if (Math.hypot(best.x - c.x, best.y - c.y) - best.r <= heroRange()) { hero.chase = null; manualShot(best); }
+    else { hero.chase = best; floats.push({ x: hero.x, y: hero.y - 70, text: "Бегу!", kind: "spirit", t: 0 }); }
+    return;
+  }
+  // пустое место — джойстик
+  joy = { id: e.pointerId, ox: x, oy: y, x, y };
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
 });
+cv.addEventListener("pointermove", e => {
+  if (!joy || e.pointerId !== joy.id) return;
+  const r = cv.getBoundingClientRect();
+  joy.x = e.clientX - r.left; joy.y = e.clientY - r.top;
+});
+const endJoy = e => { if (joy && e.pointerId === joy.id) joy = null; };
+cv.addEventListener("pointerup", endJoy);
+cv.addEventListener("pointercancel", endJoy);
+const KEYMAP = { ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r", ArrowUp: "u", KeyW: "u", ArrowDown: "d", KeyS: "d" };
+window.addEventListener("keydown", e => { if (KEYMAP[e.code]) keys.add(KEYMAP[e.code]); });
+window.addEventListener("keyup", e => { if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]); });
+
+function updateHero(dt) {
+  let ix = 0, iy = 0;
+  if (joy) {
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy);
+    if (d > 6) { const k = Math.min(1, d / 45); ix = dx / d * k; iy = dy / d * k; }
+  }
+  if (keys.size) {
+    ix = (keys.has("r") ? 1 : 0) - (keys.has("l") ? 1 : 0); iy = (keys.has("d") ? 1 : 0) - (keys.has("u") ? 1 : 0);
+    const d = Math.hypot(ix, iy); if (d) { ix /= d; iy /= d; }
+  }
+  if (ix || iy) hero.chase = null;
+  else if (hero.chase) {
+    if (!shadows.includes(hero.chase)) hero.chase = null;
+    else {
+      const c = heroCenter(), dx = hero.chase.x - c.x, dy = hero.chase.y - c.y, d = Math.hypot(dx, dy);
+      if (d - hero.chase.r <= heroRange() - 10) { const tg = hero.chase; hero.chase = null; manualShot(tg); }
+      else { ix = dx / d; iy = dy / d; }
+    }
+  }
+  const sp = heroSpeed();
+  const nx = Math.max(18, Math.min(W - 18, hero.x + ix * sp * dt)), ny = Math.max(80, Math.min(H - 12, hero.y + iy * sp * dt));
+  heroDistance += Math.hypot(nx - hero.x, ny - hero.y);
+  hero.x = nx; hero.y = ny;
+  if (ix || iy) { hero.walk += dt * 9 * Math.min(1, Math.hypot(ix, iy)); if (Math.abs(ix) > 0.15) hero.face = ix > 0 ? 1 : -1; }
+  else hero.walk = 0;
+  hero.recoil = Math.max(0, hero.recoil - dt);
+  vacuumFx = Math.max(0, vacuumFx - dt);
+
+  // автоматическая стрельба по ближайшей тени в радиусе
+  if (view <= S.zone && shadows.length && !dialogOpen()) {
+    const w = weapon(), interval = 1 / (w.rate * (S.passes.AutoCatch ? 1.6 : 1));
+    hero.fireT += dt;
+    if (hero.fireT >= interval) {
+      const tg = findTarget(heroRange());
+      if (tg) { fireWeapon(tg, false); hero.fireT = 0; } else hero.fireT = interval;
+    }
+  }
+
+  // снаряды
+  for (let i = shots.length - 1; i >= 0; i--) {
+    const sh = shots[i];
+    if (sh.delay > 0) { sh.delay -= dt; continue; }
+    sh.life -= dt;
+    sh.x += Math.cos(sh.ang) * sh.speed * dt; sh.y += Math.sin(sh.ang) * sh.speed * dt;
+    sh.trail.push([sh.x, sh.y]); if (sh.trail.length > 6) sh.trail.shift();
+    for (const s of shadows.slice()) {
+      if (sh.hits.has(s)) continue;
+      if (Math.hypot(s.x - sh.x, s.y - sh.y) < s.r + 4) {
+        sh.hits.add(s); sh.pierce--;
+        burst(sh.x, sh.y, 5, sh.color);
+        hit(s, sh.src, sh.dmg);
+        if (sh.pierce <= 0) break;
+      }
+    }
+    if (sh.pierce <= 0 || sh.life <= 0 || sh.x < -20 || sh.x > W + 20 || sh.y < -20 || sh.y > H + 20) shots.splice(i, 1);
+  }
+  for (let i = lightning.length - 1; i >= 0; i--) { lightning[i].t += dt; if (lightning[i].t > 0.18) lightning.splice(i, 1); }
+}
 
 let autoTimer = 0, spiritTimer = 0, petSource = 0;
-const lanternPos = () => ({ x: W / 2, y: H - 42 });
+const lanternPos = () => ({ x: hero.x, y: hero.y - 26 });
 function petPositions() {
   const t = performance.now() / 1000, L = lanternPos();
   const pets = equippedPets(), n = pets.length;
@@ -979,6 +1179,14 @@ function update(dt) {
   for (const s of shadows) {
     s.phase += dt * 3; s.flash = Math.max(0, s.flash - dt); s.sq = Math.max(0, s.sq - dt); s.spawn = Math.max(0, s.spawn - dt);
     s.blink -= dt; if (s.blink < -0.15) s.blink = rnd(1.5, 4.5);
+    if (s.kind !== "boss") { // тени убегают от охотника
+      const c = heroCenter(), fx = s.x - c.x, fy = s.y - c.y, fd = Math.hypot(fx, fy), fr = s.kind === "gold" ? 110 : 70;
+      if (fd < fr && fd > 0.1) {
+        const push = (fr - fd) / fr * (s.kind === "gold" ? 130 : 55) * dt;
+        s.x = Math.max(s.r + 8, Math.min(W - s.r - 8, s.x + fx / fd * push));
+        s.y = Math.max(s.r + 40, Math.min(H - s.r - 20, s.y + fy / fd * push));
+      }
+    }
     if (s.kind === "boss") {
       s.time -= dt;
       if (s.time <= 0) {
@@ -996,6 +1204,8 @@ function update(dt) {
     s.x += dx / d * step; s.y += dy / d * step;
     if (Math.abs(dx) > 1) s.dir = dx > 0 ? 1 : -1;
   }
+
+  updateHero(dt);
 
   for (let i = respawns.length - 1; i >= 0; i--) {
     respawns[i] -= dt;
@@ -1067,16 +1277,6 @@ function update(dt) {
   essPulse = Math.max(0, essPulse - dt);
 
   if (view <= S.zone && shadows.length) {
-    // Авто-ловля (Game Pass)
-    if (S.passes.AutoCatch) {
-      autoTimer += dt;
-      if (autoTimer >= 0.5) {
-        autoTimer = 0;
-        let target = boss || shadows[0];
-        if (!boss) for (const s of shadows) if (s.hp < target.hp) target = s;
-        hit(target, "auto");
-      }
-    }
     // Дух-помощник: питомцы стреляют сгустками
     if (S.up.spirit > 0) {
       spiritTimer += dt;
@@ -1361,28 +1561,143 @@ function drawLantern(t) {
   const { x, y } = lanternPos();
   const fl = 0.88 + Math.sin(t * 13) * 0.06 + Math.sin(t * 7.3) * 0.05;
   ctx.globalCompositeOperation = "lighter";
-  const g = ctx.createRadialGradient(x, y, 4, x, y, 95 * fl);
-  g.addColorStop(0, `rgba(255,200,110,${0.5 * fl})`); g.addColorStop(1, "rgba(255,200,110,0)");
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 95 * fl, 0, 6.283); ctx.fill();
+  const g = ctx.createRadialGradient(x, y, 4, x, y, 80 * fl);
+  g.addColorStop(0, `rgba(255,200,110,${0.42 * fl})`); g.addColorStop(1, "rgba(255,200,110,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 80 * fl, 0, 6.283); ctx.fill();
   ctx.globalCompositeOperation = "source-over";
-  // осколки света кружат над фонарём
+  // осколки света кружат над головой охотника
   S.shards.forEach((zi, i) => {
-    const a = t * 1.2 + i * 6.283 / S.shards.length, sx = x + Math.cos(a) * 20, sy = y - 30 + Math.sin(a) * 6;
+    const a = t * 1.2 + i * 6.283 / S.shards.length, sx = hero.x + Math.cos(a) * 18, sy = hero.y - 82 + Math.sin(a) * 5;
     ctx.fillStyle = rgba(ZONES[zi - 1].glow); ctx.shadowColor = rgba(ZONES[zi - 1].glow); ctx.shadowBlur = 8;
-    ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.fillText("✦", sx, sy); ctx.shadowBlur = 0;
+    ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.fillText("✦", sx, sy); ctx.shadowBlur = 0;
   });
-  ctx.strokeStyle = "#3a2a18"; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.arc(x, y - 20, 7, Math.PI, 0); ctx.stroke();
-  ctx.fillStyle = "#5a3e22";
-  ctx.beginPath(); ctx.moveTo(x - 12, y - 13); ctx.lineTo(x + 12, y - 13); ctx.lineTo(x + 7, y - 21); ctx.lineTo(x - 7, y - 21); ctx.closePath(); ctx.fill();
-  const glass = ctx.createLinearGradient(x, y - 13, x, y + 11);
-  glass.addColorStop(0, "rgba(255,240,190,0.95)"); glass.addColorStop(1, "rgba(255,165,60,0.95)");
-  ctx.fillStyle = glass; roundRect(x - 9, y - 13, 18, 24, 4); ctx.fill();
-  ctx.fillStyle = "#fffaf0"; ctx.beginPath(); ctx.ellipse(x, y + 1, 3.2, 6.5 * fl, 0, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = "#5a3e22"; ctx.lineWidth = 2;
-  roundRect(x - 9, y - 13, 18, 24, 4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x, y - 13); ctx.lineTo(x, y + 11); ctx.stroke();
-  ctx.fillStyle = "#5a3e22"; roundRect(x - 12, y + 11, 24, 5, 2); ctx.fill();
+  drawHero(ctx, hero.x, hero.y, 1.45, { skin: S.hero.skin, gear: S.hero.gear, weapon: S.hero.weapon, face: hero.face, walk: hero.walk, aim: hero.aim, recoil: hero.recoil, t });
+}
+
+// ---------- Модель охотника (рисуется и на арене, и в меню «Герой») ----------
+function rrect(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+function drawHero(c, x, y, k, o) {
+  const sk = SKINS.find(q => q.id === o.skin) || SKINS[0];
+  const w = WEAPONS.find(q => q.id === o.weapon) || WEAPONS[0];
+  const t = o.t, gear = o.gear;
+  c.save();
+  c.translate(x, y); c.scale(k, k);
+  c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(0, 1, 14, 4, 0, 0, 6.283); c.fill();
+  const bob = o.walk ? -Math.abs(Math.sin(o.walk)) * 2 : Math.sin(t * 2) * 0.6;
+  c.translate(0, bob);
+  c.scale(o.face, 1);
+  const leg = o.walk ? Math.sin(o.walk) * 4 : 0;
+
+  // за спиной: сумка / протонный ранец / плащ света
+  if (gear.armor === 1) {
+    c.fillStyle = "#4b505c"; rrect(c, -15, -34, 8, 19, 3); c.fill();
+    c.fillStyle = rgba(w.color, 0.6 + 0.3 * Math.sin(t * 6)); c.fillRect(-13.5, -30, 5, 2.5); c.fillRect(-13.5, -24, 5, 2.5);
+    c.strokeStyle = "#2b2f38"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-11, -16); c.quadraticCurveTo(-6, -10, 2, -20); c.stroke();
+  } else if (gear.armor === 2) {
+    c.fillStyle = `rgba(255,215,120,${0.35 + 0.12 * Math.sin(t * 3)})`;
+    c.beginPath(); c.moveTo(-6, -33); c.quadraticCurveTo(-28, -30 + Math.sin(t * 2) * 2, -22, -4); c.quadraticCurveTo(-14, -12, -6, -12); c.closePath(); c.fill();
+  } else {
+    c.fillStyle = "#6b4a2a"; rrect(c, -13, -28, 6, 10, 2); c.fill();
+  }
+
+  // ноги и ботинки
+  const bootColor = ["#34343e", "#6b3f1d", "#f2eeff"][gear.boots];
+  for (const [lx, off] of [[-5.5, -leg], [0.5, leg]]) {
+    c.fillStyle = sk.pants; rrect(c, lx + off * 0.35, -15, 5, 12, 2); c.fill();
+    c.fillStyle = bootColor; rrect(c, lx + off * 0.35 - 0.5, -4.5, 7.5, 4.5, 2); c.fill();
+    if (gear.boots === 2) { c.fillStyle = "rgba(255,255,255,0.9)"; c.beginPath(); c.ellipse(lx + off * 0.35 - 2.5, -4, 3.2, 1.5, -0.6, 0, 6.283); c.fill(); }
+  }
+
+  // туловище
+  const torso = c.createLinearGradient(0, -31, 0, -13);
+  torso.addColorStop(0, sk.suit); torso.addColorStop(1, sk.pants);
+  c.fillStyle = torso; rrect(c, -9, -31, 18, 18, 5); c.fill();
+  c.fillStyle = sk.accent; c.fillRect(-9, -17, 18, 2.5);
+  c.strokeStyle = sk.accent; c.lineWidth = 1.2;
+  c.beginPath(); c.arc(2.5, -24, 3.3, 0, 6.283); c.stroke();
+  c.beginPath(); c.moveTo(0.2, -26.3); c.lineTo(4.8, -21.7); c.stroke();
+  if (gear.armor === 2) {
+    c.fillStyle = "#ffd36a"; rrect(c, -10.5, -32, 7, 5, 2); c.fill(); rrect(c, 3.5, -32, 7, 5, 2); c.fill();
+    c.fillStyle = "rgba(255,240,180,0.6)"; c.fillRect(-1, -31, 2, 13);
+  }
+
+  // голова
+  const hx = 1.5, hy = -39;
+  if (sk.head === "pumpkin") {
+    const pg = c.createRadialGradient(hx - 2, hy - 2, 1, hx, hy, 10);
+    pg.addColorStop(0, "#ffb24a"); pg.addColorStop(1, "#d8650e");
+    c.fillStyle = pg; c.beginPath(); c.ellipse(hx, hy, 10, 8.5, 0, 0, 6.283); c.fill();
+    c.strokeStyle = "rgba(120,50,0,0.5)"; c.lineWidth = 1; c.beginPath(); c.ellipse(hx, hy, 4, 8.5, 0, 0, 6.283); c.stroke();
+    c.fillStyle = "#3d6b1e"; c.fillRect(hx - 1, hy - 11, 2.5, 3.5);
+    c.fillStyle = `rgba(255,${200 + 40 * Math.sin(t * 8)},80,1)`; c.shadowColor = "#ffb000"; c.shadowBlur = 6;
+    c.beginPath(); c.moveTo(hx + 1, hy - 1); c.lineTo(hx + 3.5, hy - 4.5); c.lineTo(hx + 5.5, hy - 1); c.fill();
+    c.beginPath(); c.moveTo(hx + 5.5, hy - 1); c.lineTo(hx + 7.5, hy - 4.5); c.lineTo(hx + 9, hy - 1); c.fill();
+    c.beginPath(); c.moveTo(hx + 1, hy + 3); c.lineTo(hx + 9, hy + 3); c.lineTo(hx + 5, hy + 6); c.fill();
+    c.shadowBlur = 0;
+  } else {
+    c.fillStyle = "#f2c9a0"; c.beginPath(); c.arc(hx, hy, 8.5, 0, 6.283); c.fill();
+    c.fillStyle = sk.hair; c.beginPath(); c.arc(hx - 1, hy - 1.5, 8.6, Math.PI * 0.95, Math.PI * 1.75); c.lineTo(hx - 1, hy - 1.5); c.fill();
+    c.fillStyle = "#2a1a10";
+    c.beginPath(); c.ellipse(hx + 4.2, hy - 0.5, 1.2, 1.7, 0, 0, 6.283); c.fill();
+    c.beginPath(); c.ellipse(hx + 7.4, hy - 0.5, 1.1, 1.6, 0, 0, 6.283); c.fill();
+    if (sk.head === "mask") { c.fillStyle = "#150f1e"; rrect(c, hx - 8.5, hy + 1.5, 17.5, 6, 2.5); c.fill(); c.fillStyle = sk.accent; c.fillRect(hx - 8.5, hy - 3.8, 17.5, 1.5); }
+    else { c.strokeStyle = "#a0583a"; c.lineWidth = 0.9; c.beginPath(); c.arc(hx + 5.6, hy + 3, 1.8, 0.2, Math.PI - 0.2); c.stroke(); }
+  }
+  // головной убор
+  if (gear.helmet === 0) {
+    c.fillStyle = sk.accent; c.beginPath(); c.arc(hx, hy - 2, 8.8, Math.PI, 0); c.fill();
+    rrect(c, hx + 2, hy - 3.5, 10, 2.5, 1.2); c.fill();
+  } else if (gear.helmet === 1) {
+    c.fillStyle = "#7d8494"; c.beginPath(); c.arc(hx, hy - 1.5, 9.4, Math.PI, 0); c.fill();
+    c.fillStyle = "#5a6070"; c.fillRect(hx - 9.4, hy - 2.5, 18.8, 2);
+    c.fillStyle = "#fff4c2"; c.shadowColor = "#ffe08a"; c.shadowBlur = 8; c.beginPath(); c.arc(hx + 6, hy - 6, 2.4, 0, 6.283); c.fill(); c.shadowBlur = 0;
+    c.globalCompositeOperation = "lighter";
+    const lg = c.createLinearGradient(hx + 6, 0, hx + 34, 0); lg.addColorStop(0, "rgba(255,240,180,0.35)"); lg.addColorStop(1, "rgba(255,240,180,0)");
+    c.fillStyle = lg; c.beginPath(); c.moveTo(hx + 7, hy - 7.5); c.lineTo(hx + 34, hy - 14); c.lineTo(hx + 34, hy + 2); c.lineTo(hx + 7, hy - 4.5); c.fill();
+    c.globalCompositeOperation = "source-over";
+  } else {
+    c.fillStyle = "#ffcf4d"; c.shadowColor = "#ffd66b"; c.shadowBlur = 8;
+    c.beginPath(); c.moveTo(hx - 7, hy - 6); c.lineTo(hx - 7, hy - 13); c.lineTo(hx - 3.5, hy - 9); c.lineTo(hx, hy - 15); c.lineTo(hx + 3.5, hy - 9); c.lineTo(hx + 7, hy - 13); c.lineTo(hx + 7, hy - 6); c.closePath(); c.fill();
+    c.shadowBlur = 0; c.fillStyle = "#ff4a8a"; c.beginPath(); c.arc(hx, hy - 9, 1.5, 0, 6.283); c.fill();
+  }
+  if (sk.head === "astro") {
+    c.fillStyle = "rgba(170,210,255,0.25)"; c.strokeStyle = "rgba(230,240,255,0.9)"; c.lineWidth = 1.4;
+    c.beginPath(); c.arc(hx, hy, 11.5, 0, 6.283); c.fill(); c.stroke();
+    c.fillStyle = "rgba(255,255,255,0.6)"; c.beginPath(); c.ellipse(hx + 4, hy - 6, 3, 1.5, -0.5, 0, 6.283); c.fill();
+  }
+
+  // рука с оружием смотрит на цель
+  const local = Math.atan2(Math.sin(o.aim), o.face * Math.cos(o.aim));
+  c.save(); c.translate(1, -25); c.rotate(local); c.translate(-(o.recoil || 0) * 18, 0);
+  c.fillStyle = sk.suit; rrect(c, 0, -2.5, 9, 5, 2.5); c.fill();
+  c.fillStyle = "#f2c9a0"; c.beginPath(); c.arc(9.5, 0, 2.4, 0, 6.283); c.fill();
+  const wc = rgba(w.color);
+  if (w.type === "beam") {
+    c.strokeStyle = "#3a2a18"; c.lineWidth = 1.2; c.beginPath(); c.arc(13, -5, 3, Math.PI, 0); c.stroke();
+    c.fillStyle = "#5a3e22"; rrect(c, 9.5, -5, 7, 10, 2); c.fill();
+    c.fillStyle = "rgba(255,225,150,0.95)"; c.shadowColor = "#ffcc70"; c.shadowBlur = 10; rrect(c, 10.5, -3.8, 5, 7.5, 1.5); c.fill(); c.shadowBlur = 0;
+  } else if (w.type === "bolt") {
+    c.fillStyle = "#3a3f4d"; rrect(c, 7, -3.2, 15, 6.4, 2); c.fill();
+    c.fillStyle = "#2a2e38"; c.fillRect(9, 2, 3, 5);
+    c.fillStyle = wc; c.shadowColor = wc; c.shadowBlur = 8; rrect(c, 20, -2, 4, 4, 1.5); c.fill(); c.fillRect(10, -1, 8, 1.4); c.shadowBlur = 0;
+  } else if (w.type === "vacuum") {
+    c.fillStyle = "#5c5470"; rrect(c, 6, -2.5, 12, 5, 2); c.fill();
+    c.fillStyle = "#7a6f96"; c.beginPath(); c.moveTo(17, -3); c.lineTo(25, -7); c.lineTo(25, 7); c.lineTo(17, 3); c.closePath(); c.fill();
+    c.strokeStyle = wc; c.lineWidth = 1.2; c.beginPath(); c.arc(25, 0, 4 + Math.sin(t * 20) * 1.5, -1.2, 1.2); c.stroke();
+  } else if (w.type === "arrow") {
+    c.fillStyle = "#6b4426"; rrect(c, 5, -1.6, 17, 3.2, 1.2); c.fill();
+    c.strokeStyle = "#8a5a30"; c.lineWidth = 2.2; c.beginPath(); c.moveTo(18, -9); c.quadraticCurveTo(24, 0, 18, 9); c.stroke();
+    c.strokeStyle = "rgba(255,240,200,0.9)"; c.lineWidth = 0.7; c.beginPath(); c.moveTo(18, -9); c.lineTo(12, 0); c.lineTo(18, 9); c.stroke();
+    c.fillStyle = wc; c.beginPath(); c.moveTo(22, -2); c.lineTo(26, 0); c.lineTo(22, 2); c.fill();
+  } else {
+    c.strokeStyle = "#5a3e22"; c.lineWidth = 2.4; c.beginPath(); c.moveTo(0, 7); c.lineTo(24, -1); c.stroke();
+    c.fillStyle = wc; c.shadowColor = wc; c.shadowBlur = 12; c.beginPath(); c.arc(25, -1.5, 3.4 + Math.sin(t * 9) * 0.6, 0, 6.283); c.fill(); c.shadowBlur = 0;
+  }
+  c.restore();
+  c.restore();
 }
 
 function drawChest(t) {
@@ -1509,6 +1824,7 @@ function draw() {
   drawChest(t);
   drawSouls();
   drawBeams();
+  drawWeaponFx(t);
   ctx.globalCompositeOperation = "lighter";
 
   for (const r of rings) {
@@ -1558,6 +1874,7 @@ function draw() {
   }
   ctx.globalAlpha = 1;
   drawConfetti();
+  drawRangeAndJoystick();
   drawOverlays(t);
   drawHudOnCanvas();
   ctx.restore();
@@ -1598,17 +1915,67 @@ function drawMist() {
 }
 
 // Луч фонаря от игрока к тени
+function drawWeaponFx(t) {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (const sh of shots) {
+    if (sh.delay > 0) continue;
+    sh.trail.forEach(([x, y], i) => { ctx.fillStyle = rgba(sh.color, (i + 1) / sh.trail.length * 0.45); ctx.beginPath(); ctx.arc(x, y, 1.5 + i * 0.4, 0, 6.283); ctx.fill(); });
+    if (sh.kind === "arrow") {
+      ctx.strokeStyle = rgba(sh.color); ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(sh.x - Math.cos(sh.ang) * 16, sh.y - Math.sin(sh.ang) * 16); ctx.lineTo(sh.x, sh.y); ctx.stroke();
+    }
+    const g = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, 9);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.35, rgba(sh.color, 0.9)); g.addColorStop(1, rgba(sh.color, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sh.x, sh.y, 9, 0, 6.283); ctx.fill();
+  }
+  for (const l of lightning) {
+    const a = 1 - l.t / 0.18;
+    ctx.strokeStyle = rgba(l.color, a); ctx.lineWidth = 2.5; ctx.shadowColor = rgba(l.color); ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(l.x1, l.y1);
+    for (let i = 1; i < 7; i++) {
+      const k = i / 7, px = l.x1 + (l.x2 - l.x1) * k, py = l.y1 + (l.y2 - l.y1) * k;
+      ctx.lineTo(px + Math.sin(l.seed + i * 3.1 + t * 40) * 7, py + Math.cos(l.seed + i * 2.3 + t * 40) * 7);
+    }
+    ctx.lineTo(l.x2, l.y2); ctx.stroke(); ctx.shadowBlur = 0;
+  }
+  if (vacuumFx > 0) {
+    const c = heroCenter(), a = vacuumFx / 0.2, R = heroRange();
+    const w = weapon();
+    ctx.translate(c.x, c.y); ctx.rotate(hero.aim);
+    const g = ctx.createRadialGradient(0, 0, 10, 0, 0, R);
+    g.addColorStop(0, rgba(w.color, 0.35 * a)); g.addColorStop(1, rgba(w.color, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, -0.8, 0.8); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = rgba(w.color, 0.5 * a); ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) { const rr2 = ((t * 160 + i * R / 4) % R); ctx.beginPath(); ctx.arc(0, 0, R - rr2, -0.6, 0.6); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+function drawRangeAndJoystick() {
+  if (view <= S.zone) {
+    const c = heroCenter();
+    ctx.strokeStyle = rgba(weapon().color, joy || hero.chase ? 0.28 : 0.12); ctx.lineWidth = 1.5; ctx.setLineDash([5, 7]);
+    ctx.beginPath(); ctx.ellipse(c.x, c.y + 14, heroRange(), heroRange() * 0.9, 0, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (joy) {
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), k = d > 45 ? 45 / d : 1;
+    ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 45, 0, 6.283); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.beginPath(); ctx.arc(joy.ox + dx * k, joy.oy + dy * k, 18, 0, 6.283); ctx.fill();
+  }
+}
 function drawBeams() {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   for (const b of beams) {
     const k = b.t / 0.22, a = (1 - k);
-    const L = lanternPos(), fx = L.x, fy = L.y - 4, ang = Math.atan2(b.y - fy, b.x - fx), len = Math.hypot(b.x - fx, b.y - fy);
+    const fx = b.fx ?? lanternPos().x, fy = b.fy ?? lanternPos().y, ang = Math.atan2(b.y - fy, b.x - fx), len = Math.hypot(b.x - fx, b.y - fy);
+    const bc = b.color || [255, 240, 190];
     ctx.save(); ctx.translate(fx, fy); ctx.rotate(ang);
     const g = ctx.createLinearGradient(0, 0, len, 0);
-    g.addColorStop(0, `rgba(255,240,190,${0.05 * a})`); g.addColorStop(1, `rgba(255,240,190,${0.45 * a})`);
+    g.addColorStop(0, rgba(bc, 0.15 * a)); g.addColorStop(1, rgba(bc, 0.5 * a));
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(len, -b.r * 0.9); ctx.lineTo(len, b.r * 0.9); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(len, -b.r * 0.8); ctx.lineTo(len, b.r * 0.8); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill();
     ctx.restore();
     const spot = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r * 1.4);
     spot.addColorStop(0, `rgba(255,245,210,${0.5 * a})`); spot.addColorStop(1, "rgba(255,245,210,0)");
@@ -2167,7 +2534,11 @@ const PANELS = {
           <div class="bar"><i style="width:${S.xp / need * 100}%"></i></div>
           <div class="muted" style="margin-top:6px">Каждый уровень: +3% эссенции и +1% урона</div>`;
         fight.innerHTML =
-          line("🔦 Урон за касание", fmt(tapDamage())) +
+          line(`${weapon().icon} Оружие`, weapon().name) +
+          line("🔦 Базовый урон", fmt(tapDamage())) +
+          line("🔫 Урон в секунду (авто)", fmt(tapDamage() * weapon().auto * weapon().rate * (S.passes.AutoCatch ? 1.6 : 1))) +
+          line("🎯 Дальность", Math.round(heroRange())) +
+          line("👟 Скорость бега", Math.round(heroSpeed())) +
           line("🎯 Шанс крита", Math.round(critChance() * 100) + "%") +
           line("💥 Сила крита", fmtMult(critMult())) +
           line("✨ Урон духов в секунду", autoDps() ? fmt(autoDps()) : "—") +
@@ -2188,6 +2559,92 @@ const PANELS = {
           line("Хранителей побеждено", fmt(S.stats.bosses)) + line("Критов", fmt(S.stats.crits)) +
           line("Открыто яиц", fmt(S.stats.eggs)) + line("Всего эссенции", fmt(S.total)) +
           line("Время в игре", fmtLong(S.stats.time));
+      };
+    },
+  },
+
+  hero: {
+    title: "🧥 Охотник",
+    sig: () => JSON.stringify(S.hero) + heroTab,
+    build(body) {
+      const card = el("div", "card heroCard");
+      const pc = document.createElement("canvas"); pc.width = 240; pc.height = 240;
+      const st = el("div", "st");
+      card.append(pc, st); body.append(card);
+      const pctx = pc.getContext("2d");
+
+      const seg = el("div", "seg");
+      for (const [key, label] of [["weapons", "🔫 Оружие"], ["gear", "🎒 Снаряжение"], ["skins", "🎨 Скины"]]) {
+        const b = el("button", "btn", label);
+        setBtn(b, label, true, heroTab === key ? "gold" : "");
+        b.onclick = () => { heroTab = key; };
+        seg.append(b);
+      }
+      body.append(seg);
+
+      const buyRefs = [];
+      const price = item => item.gems ? `💎 ${item.gems}` : item.robux ? `R$ ${item.robux}` : `🌑 ${fmt(item.cost)}`;
+      const canPay = item => item.gems ? S.gems >= item.gems : item.robux ? true : S.essence >= item.cost;
+      const pay = item => {
+        if (!canPay(item)) { toast(item.gems ? "Не хватает кристаллов 💎" : "Не хватает эссенции", "bad"); return false; }
+        if (item.gems) S.gems -= item.gems;
+        else if (item.robux) toast(`Демо-покупка (в Roblox — ${item.robux} R$)`, "good");
+        else S.essence -= item.cost;
+        return true;
+      };
+
+      if (heroTab === "weapons") {
+        for (const w of WEAPONS) {
+          const owned = S.hero.weapons.includes(w.id), using = S.hero.weapon === w.id;
+          const x = row(w.icon, w.name, `${w.desc}<br><b>x${w.tap}</b> за выстрел • <b>${w.rate}</b>/сек • дальность <b>${w.range}</b>`);
+          if (using) setBtn(x.b, "✓ В руках", false);
+          else if (owned) { setBtn(x.b, "Взять", true, "good"); x.b.onclick = () => { S.hero.weapon = w.id; save(); toast(`${w.icon} В руках: ${w.name}`, "good"); }; }
+          else {
+            x.b.onclick = () => { if (pay(w)) { S.hero.weapons.push(w.id); S.hero.weapon = w.id; save(); toast(`${w.icon} Новое оружие: ${w.name}!`, "gold"); confettiBurst(W / 2, H * 0.4, 40); } };
+            buyRefs.push([x.b, w]);
+          }
+          body.append(x.r);
+        }
+      } else if (heroTab === "gear") {
+        for (const slot of GEAR_SLOTS) {
+          body.append(el("div", "hdr", slot.name));
+          slot.items.forEach((it, i) => {
+            const owned = S.hero.owned[slot.key].includes(i), using = S.hero.gear[slot.key] === i;
+            const fx = [it.crit ? `+${Math.round(it.crit * 100)}% шанс крита` : "", it.dmg ? `+${Math.round(it.dmg * 100)}% урона` : "",
+              it.speed ? `+${Math.round(it.speed * 100)}% скорости` : "", it.range ? `+${Math.round(it.range * 100)}% дальности` : ""].filter(Boolean).join(" • ") || "Базовое снаряжение";
+            const x = row(it.icon, it.name, fx);
+            if (using) setBtn(x.b, "✓ Надето", false);
+            else if (owned) { setBtn(x.b, "Надеть", true, "good"); x.b.onclick = () => { S.hero.gear[slot.key] = i; save(); }; }
+            else {
+              x.b.onclick = () => { if (pay(it)) { S.hero.owned[slot.key].push(i); S.hero.gear[slot.key] = i; save(); toast(`${it.icon} Надето: ${it.name}`, "gold"); } };
+              buyRefs.push([x.b, it]);
+            }
+            body.append(x.r);
+          });
+        }
+      } else {
+        body.append(el("div", "note", "Скины меняют только внешний вид. Скины за R$ в прототипе бесплатные (демо)."));
+        for (const sk of SKINS) {
+          const owned = S.hero.skins.includes(sk.id), using = S.hero.skin === sk.id;
+          const x = row(sk.icon, sk.name, sk.robux ? "Эксклюзивный скин за Robux" : sk.gems ? "Скин за кристаллы" : "Стартовый костюм");
+          x.r.style.borderLeft = `4px solid ${sk.accent}`;
+          if (using) setBtn(x.b, "✓ Надет", false);
+          else if (owned) { setBtn(x.b, "Надеть", true, "good"); x.b.onclick = () => { S.hero.skin = sk.id; save(); }; }
+          else {
+            x.b.onclick = () => { if (pay(sk)) { S.hero.skins.push(sk.id); S.hero.skin = sk.id; save(); toast(`${sk.icon} Новый скин: ${sk.name}!`, "gold"); } };
+            buyRefs.push([x.b, sk]);
+          }
+          body.append(x.r);
+        }
+      }
+
+      return () => {
+        const t = performance.now() / 1000;
+        pctx.setTransform(2, 0, 0, 2, 0, 0); pctx.clearRect(0, 0, 120, 120);
+        drawHero(pctx, 58, 100, 1.9, { skin: S.hero.skin, gear: S.hero.gear, weapon: S.hero.weapon, face: 1, walk: 0, aim: -0.25 + Math.sin(t) * 0.15, recoil: 0, t });
+        const w = weapon();
+        st.innerHTML = `<b>${w.icon} ${w.name}</b><br>Урон: <b>${fmt(tapDamage() * w.tap)}</b> за выстрел<br>Авто: <b>${fmt(tapDamage() * w.auto * w.rate * (S.passes.AutoCatch ? 1.6 : 1))}</b>/сек<br>Крит: <b>${Math.round(critChance() * 100)}%</b> • Бег: <b>${Math.round(heroSpeed())}</b>`;
+        for (const [b, item] of buyRefs) setBtn(b, price(item), canPay(item), item.gems ? "gem" : item.robux ? "good" : "");
       };
     },
   },
@@ -2275,7 +2732,7 @@ const PANELS = {
   },
 };
 
-let deleteMode = false;
+let deleteMode = false, heroTab = "weapons";
 let openName = null, panelUpdate = null, panelSig = null;
 function renderPanel() {
   const p = PANELS[openName], body = $("sheetBody"), scroll = body.scrollTop;
