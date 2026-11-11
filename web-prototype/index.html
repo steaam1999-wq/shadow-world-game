@@ -200,6 +200,66 @@
   }
   #ess { text-shadow: 0 0 18px rgba(200, 170, 255, .55); }
   #gems { box-shadow: 0 0 12px rgba(95, 227, 255, .25); }
+  /* --- сюжет, цели, колесо --- */
+  #lvl { cursor: pointer; }
+  #wheelBtn {
+    position: absolute; right: 10px; top: 64px; width: 46px; height: 46px; border-radius: 14px; border: 0;
+    background: rgba(36, 29, 61, .85); font-size: 24px; display: grid; place-items: center;
+    box-shadow: 0 0 0 1.5px rgba(95, 227, 255, .5);
+  }
+  #wheelBtn .dot { position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--bad); border: 2px solid var(--bg); display: none; }
+  #wheelBtn.ready { animation: pulse 1.4s infinite; box-shadow: 0 0 16px rgba(95, 227, 255, .8), 0 0 0 2px var(--gem); }
+  #wheelBtn.ready .dot { display: block; }
+  #objective {
+    display: flex; align-items: center; gap: 10px; margin: 8px 10px 0; padding: 7px 10px; border-radius: 14px;
+    background: linear-gradient(90deg, rgba(255, 201, 77, .16), rgba(36, 29, 61, .92)); border: 1.5px solid rgba(255, 201, 77, .45);
+  }
+  #objective .oi { font-size: 22px; }
+  #objective .ob { flex: 1; min-width: 0; }
+  #oTitle { font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #objective .bar { margin-top: 5px; }
+  #objective .bar > i { background: linear-gradient(90deg, #ffc94d, #ffe9a8); transition: width .3s; }
+  #oBtn { min-width: 84px; padding: 8px; font-size: 13px; }
+  #objective.done { animation: glowPulse 1.2s infinite; }
+  #dialog {
+    position: fixed; inset: 0; z-index: 35; display: none; align-items: flex-end; justify-content: center;
+    padding: 0 10px 18px; background: linear-gradient(180deg, transparent 40%, rgba(5, 3, 12, .8));
+  }
+  #dialog.show { display: flex; }
+  .dlg {
+    width: 100%; max-width: 540px; display: flex; gap: 12px; align-items: flex-start;
+    background: linear-gradient(180deg, #2e2650, #1b1530); border: 2px solid var(--sc, #8c5aff); border-radius: 18px; padding: 14px;
+    box-shadow: 0 0 30px color-mix(in srgb, var(--sc, #8c5aff) 45%, transparent); animation: drop .25s ease;
+  }
+  .portrait {
+    flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 36px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--sc, #8c5aff) 45%, #1b1530), #120e1e);
+    border: 2px solid var(--sc, #8c5aff); box-shadow: 0 0 16px var(--sc, #8c5aff);
+  }
+  .dlgBody { flex: 1; min-width: 0; }
+  .dlgName { font-weight: 900; color: var(--sc, #8c5aff); margin-bottom: 4px; }
+  .dlgText { font-size: 15.5px; line-height: 1.45; min-height: 44px; }
+  .dlgNext { text-align: right; font-size: 12px; color: var(--muted); margin-top: 6px; animation: blink 1.2s infinite; }
+  .shards { display: flex; justify-content: center; gap: 12px; font-size: 32px; margin-bottom: 6px; }
+  .shard { color: #3d3654; }
+  .shard.got { color: var(--c); text-shadow: 0 0 12px var(--c), 0 0 26px var(--c); }
+  .wheelWrap { position: relative; width: 250px; height: 250px; margin: 14px auto 10px; }
+  .wheel {
+    width: 250px; height: 250px; border-radius: 50%; position: relative; border: 5px solid var(--gold);
+    box-shadow: 0 0 30px rgba(255, 201, 77, .5), inset 0 0 22px rgba(0, 0, 0, .45);
+  }
+  .wheel span {
+    position: absolute; left: 50%; top: 50%; width: 70px; margin: -10px 0 0 -35px; text-align: center;
+    font-weight: 900; font-size: 13px; color: #fff; text-shadow: 0 1px 3px #000;
+  }
+  .wheel .hub {
+    position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+    background: radial-gradient(#fff3c4, var(--gold)); display: grid; place-items: center; color: #5a3d00; font-weight: 900;
+    box-shadow: 0 0 12px rgba(0, 0, 0, .5);
+  }
+  .pointer { position: absolute; left: 50%; top: -16px; transform: translateX(-50%); font-size: 28px; color: var(--gold); z-index: 2; text-shadow: 0 2px 4px #000; }
+  @keyframes glowPulse { 50% { box-shadow: 0 0 18px rgba(255, 201, 77, .65); } }
+  @keyframes blink { 50% { opacity: .4; } }
   @keyframes shine { 0% { left: -60%; } 45%, 100% { left: 130%; } }
   @keyframes rowIn { from { opacity: 0; transform: translateY(12px) scale(.98); } }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -235,17 +295,23 @@
     <div id="hint">👆 Нажимайте на призраков, чтобы ловить их</div>
     <div id="banner">⚔ ХРАНИТЕЛЬ ЗОНЫ!</div>
     <button id="gift" aria-label="Ежедневная награда">🎁<i class="dot"></i></button>
+    <button id="wheelBtn" aria-label="Колесо фортуны">🎡<i class="dot"></i></button>
     <div id="lock">
       <div class="big">🔒</div>
       <div id="lockText"></div>
       <button id="lockBtn" class="btn"></button>
     </div>
   </div>
+  <div id="objective">
+    <div class="oi">📖</div>
+    <div class="ob"><div id="oTitle"></div><div class="bar"><i id="oBar"></i></div></div>
+    <button class="btn" id="oBtn"></button>
+  </div>
   <div id="nav">
     <button data-panel="upgrades"><span>⚡</span>Прокачка</button>
     <button data-panel="pets"><span>🐾</span>Питомцы</button>
     <button data-panel="quests"><span>📜</span>Задания<i class="navdot" id="questDot"></i></button>
-    <button data-panel="profile"><span>👤</span>Профиль</button>
+    <button data-panel="story"><span>📖</span>Сюжет</button>
     <button data-panel="rebirth"><span>♻️</span>Рождение</button>
     <button data-panel="shop"><span>💎</span>Магазин</button>
   </div>
@@ -258,6 +324,12 @@
 </div>
 <div id="toasts"></div>
 <div id="modal"><div class="box" id="modalBox"></div></div>
+<div id="dialog">
+  <div class="dlg">
+    <div class="portrait" id="dlgPortrait">🌙</div>
+    <div class="dlgBody"><div class="dlgName" id="dlgName"></div><div class="dlgText" id="dlgText"></div><div class="dlgNext">▶ нажмите, чтобы продолжить</div></div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -336,6 +408,130 @@ const QUESTS = [
 ];
 
 // =====================================================================
+// СЮЖЕТ
+// =====================================================================
+const GUARDIANS = [
+  { name: "Терновый Страж", emoji: "🦌", color: [150, 235, 120], body: [30, 52, 34],  eye: "#a6ff7a" },
+  { name: "Болотная Ведьма", emoji: "🧙", color: [90, 225, 185],  body: [16, 46, 50],  eye: "#6dffd6" },
+  { name: "Пепельный Голем", emoji: "🗿", color: [255, 125, 50],  body: [64, 46, 40],  eye: "#ff8a3a" },
+  { name: "Ледяной Лич",     emoji: "💀", color: [140, 215, 255], body: [38, 58, 96],  eye: "#a8ecff" },
+  { name: "Владыка Бездны",  emoji: "👁️", color: [255, 70, 210],  body: [40, 0, 60],   eye: "#ff4ad8" },
+];
+const PROLOGUE = [
+  { who: "moon", text: "Проснись, Хранитель… Тьма накрыла мир, и тени украли весь свет." },
+  { who: "moon", text: "Только твой Фонарь ещё горит. Его луч — последняя надежда." },
+  { who: "moon", text: "Лови тени лучом: из них рождается эссенция. Ею ты сделаешь Фонарь сильнее." },
+  { who: "moon", text: "В каждой земле тьму стережёт Хранитель. Победи их и собери пять Осколков Света — тогда мир снова засияет." },
+];
+const ZONE_STORY = [
+  {
+    intro: [
+      { who: "moon", text: "Это Сумеречный лес. Когда-то здесь танцевали светлячки…" },
+      { who: "moon", text: "Теперь лес сторожит Терновый Страж. Поймай 25 теней — и он явится сам." },
+    ],
+    appear: "Мой лес не отдам! Убирайся, огонёк!",
+    defeat: [
+      { who: "g1", text: "Мои корни… снова чувствуют солнце…" },
+      { who: "moon", text: "Страж был добрым духом леса, пока Тьма не исказила его. Он оставил Осколок Света!" },
+    ],
+    lore: "Терновый Страж веками берёг лес, пока Тьма не пронзила его сердце шипами.",
+  },
+  {
+    intro: [
+      { who: "moon", text: "Туманные болота… Слышишь шёпот? Это украденные сны." },
+      { who: "moon", text: "Болотная Ведьма варит из них свой туман. Будь осторожен." },
+    ],
+    appear: "Хи-хи-хи! Какой яркий огонёк… Он станет моим туманом!",
+    defeat: [
+      { who: "g2", text: "Мои сны… мои прекрасные сны… разлетаются…" },
+      { who: "moon", text: "Сны вернутся к тем, у кого их украли. А у тебя — второй Осколок!" },
+    ],
+    lore: "Ведьма собирала чужие сны, чтобы никогда не видеть собственных кошмаров.",
+  },
+  {
+    intro: [
+      { who: "moon", text: "Здесь стоял Город Огней. От него остались лишь пепел и руины." },
+      { who: "moon", text: "Пепельный Голем бродит среди обломков. Он помнит каждый погасший огонь." },
+    ],
+    appear: "ГРРР… ОГОНЬ… ПОГАСНЕТ… ВЕСЬ…",
+    defeat: [
+      { who: "g3", text: "ОГОНЬ… ТЁПЛЫЙ… Я… ПОМНЮ…" },
+      { who: "moon", text: "Голем зажигал фонари этого города. Теперь угли снова тлеют. Третий Осколок твой!" },
+    ],
+    lore: "Голем зажигал фонари Города Огней каждую ночь, пока последний из них не погас.",
+  },
+  {
+    intro: [
+      { who: "moon", text: "Ледяной склеп. Холод здесь древнее самой Тьмы." },
+      { who: "moon", text: "Ледяной Лич остановил время, чтобы зима длилась вечно." },
+    ],
+    appear: "Твоё пламя замёрзнет. Как и всё остальное.",
+    defeat: [
+      { who: "g4", text: "Лёд… тает? Время… снова… идёт…" },
+      { who: "moon", text: "Слышишь капель? Весна вернулась в склеп. Остался последний Осколок." },
+    ],
+    lore: "Лич заморозил время, надеясь сохранить мгновение, которое любил больше всего.",
+  },
+  {
+    intro: [
+      { who: "moon", text: "Это Бездна — сердце Тьмы. Отсюда она расползлась по миру." },
+      { who: "moon", text: "Владыка Бездны знает, что ты идёшь. Он ждёт тебя." },
+    ],
+    appear: "Наконец-то. Последний свет мира… Я поглощу его.",
+    defeat: [
+      { who: "g5", text: "Невозможно… свет… внутри Бездны…" },
+      { who: "moon", text: "Пять Осколков! Скорее, соедини их с Фонарём!" },
+    ],
+    lore: "Владыка был первой тенью, что испугалась света — и решила погасить его навсегда.",
+  },
+];
+const ENDING = [
+  { who: "moon", text: "Осколки сливаются с Фонарём… Смотри!" },
+  { who: "moon", text: "Свет разливается по всем землям. Лес, болота, руины, склеп — всё сияет!" },
+  { who: "moon", text: "Ты спас мир, Хранитель Света. Но Тьма никогда не исчезает навсегда…" },
+  { who: "moon", text: "Перерождайся, становись сильнее — и будь готов, когда она вернётся." },
+];
+const SHARD_BONUS = 0.25;
+
+// Цели: подсказывают, что делать дальше
+const OBJECTIVES = [
+  { text: "Поймай 10 теней",                cur: () => S.stats.kills, goal: 10, ess: 30 },
+  { text: "Улучши «Силу фонаря» до 3",      cur: () => S.up.power, goal: 3, gems: 2 },
+  { text: "Поймай 25 теней — призови Стража", cur: () => S.shards.includes(1) ? 25 : (S.zk[1] || 0), goal: 25, ess: 100 },
+  { text: "Победи Тернового Стража",        cur: () => S.shards.includes(1) ? 1 : 0, goal: 1, gems: 5 },
+  { text: "Открой первое яйцо питомца",     cur: () => S.stats.eggs, goal: 1, ess: 150 },
+  { text: "Открой Туманные болота",         cur: () => S.maxZone >= 2 ? 1 : 0, goal: 1, gems: 5 },
+  { text: "Победи Болотную Ведьму",         cur: () => S.shards.includes(2) ? 1 : 0, goal: 1, gems: 10 },
+  { text: "Прокачай «Шанс крита» до 5",     cur: () => S.up.crit, goal: 5, ess: 2000 },
+  { text: "Открой Пепельные руины",         cur: () => S.maxZone >= 3 ? 1 : 0, goal: 1, gems: 10 },
+  { text: "Победи Пепельного Голема",       cur: () => S.shards.includes(3) ? 1 : 0, goal: 1, gems: 15 },
+  { text: "Переродись в первый раз",        cur: () => S.rebirths, goal: 1, gems: 15 },
+  { text: "Открой Ледяной склеп",           cur: () => S.maxZone >= 4 ? 1 : 0, goal: 1, gems: 15 },
+  { text: "Победи Ледяного Лича",           cur: () => S.shards.includes(4) ? 1 : 0, goal: 1, gems: 20 },
+  { text: "Открой Бездну",                  cur: () => S.maxZone >= 5 ? 1 : 0, goal: 1, gems: 20 },
+  { text: "Победи Владыку Бездны",          cur: () => S.shards.includes(5) ? 1 : 0, goal: 1, gems: 50 },
+];
+
+// Колесо фортуны
+const SPIN_COOLDOWN = 4 * 3600, SPIN_COST = 15;
+const WHEEL = [
+  { label: "🌑 x50",  w: 25, color: "#5b3ea8", apply: () => giveEss(ZONES[S.zone - 1].value * essMult() * 50) },
+  { label: "💎 5",    w: 20, color: "#21708a", apply: () => { S.gems += 5; return "+5 💎"; } },
+  { label: "⚡ 5 мин", w: 15, color: "#9a7420", apply: () => { S.boostEnds = Math.max(S.boostEnds, now()) + 300; return "Буст x2 на 5 минут"; } },
+  { label: "🌑 x200", w: 12, color: "#7a3ea8", apply: () => giveEss(ZONES[S.zone - 1].value * essMult() * 200) },
+  { label: "💎 15",   w: 10, color: "#1c5f86", apply: () => { S.gems += 15; return "+15 💎"; } },
+  { label: "🥚",      w: 10, color: "#3e8a5b", apply: () => freeEgg(false) },
+  { label: "🌟",      w: 4,  color: "#b88a1c", apply: () => freeEgg(true) },
+  { label: "💎 50",   w: 4,  color: "#c0396b", apply: () => { S.gems += 50; return "ДЖЕКПОТ! +50 💎"; } },
+];
+function giveEss(a) { a = Math.floor(a); S.essence += a; S.total += a; return `+${fmt(a)} эссенции`; }
+function freeEgg(golden) {
+  if (S.pets.length >= PET_INVENTORY) { S.gems += 10; return "Инвентарь полон — +10 💎"; }
+  openEgg(golden ? S.zone : S.zone, golden, true);
+  return golden ? "Золотое яйцо!" : "Яйцо питомца!";
+}
+
+// =====================================================================
 // СОХРАНЕНИЕ
 // =====================================================================
 const SAVE_KEY = "shadowworld_proto_v2";
@@ -346,6 +542,7 @@ function fresh() {
     pets: [], eq: [], zk: {}, q: {},
     stats: { kills: 0, golden: 0, bosses: 0, eggs: 0, crits: 0, taps: 0, time: 0 },
     lastDaily: 0, streak: 0, boostEnds: 0, passes: {}, lastSeen: 0,
+    story: { prologue: false, seen: {}, ending: false }, shards: [], obj: 0, lastSpin: 0,
   };
 }
 let S = fresh();
@@ -356,6 +553,7 @@ try {
     S = Object.assign(f, d);
     S.up = Object.assign(fresh().up, d.up || {});
     S.stats = Object.assign(fresh().stats, d.stats || {});
+    S.story = Object.assign(fresh().story, d.story || {});
   }
 } catch (e) { /* хранилище недоступно — играем без сохранения */ }
 function save() {
@@ -404,6 +602,7 @@ function essMult() {
   if (S.passes.DoubleEssence) m *= 2;
   if (S.passes.VIP) m *= 1.5;
   if (boostActive()) m *= 2;
+  m *= 1 + SHARD_BONUS * S.shards.length;
   return m;
 }
 let combo = 0, lastTapT = 0;
@@ -473,6 +672,7 @@ let boss = null, shakeT = 0, shakeMag = 0, essPulse = 0;
 let beams = [], souls = [], confetti = [], stars = [], mist = [];
 let transition = 0, zoneTitleT = 9, flash = 0, moon = { x: 0, y: 0, r: 0 };
 let lastTapPos = { x: 0, y: 0 }, displayEss = S.essence;
+let ev = null, nextEventIn = 60 + Math.random() * 40, chest = null, nextChestIn = 30 + Math.random() * 20, rain = [];
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rgba = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 const mix = (c, k) => c.map(v => Math.min(255, v * k));
@@ -511,14 +711,15 @@ function pickTarget(s) {
   s.ty = Math.min(H - s.r - 60, Math.max(s.r + 40, s.y + rnd(-range, range)));
   s.wait = s.kind === "gold" ? rnd(0, 0.3) : rnd(0.3, 1.5);
 }
-function spawnRegular() { return newShadow(Math.random() < goldChance() ? "gold" : "normal"); }
+function spawnRegular() { return newShadow(Math.random() < goldChance() * (ev && ev.type === "gold" ? 6 : 1) ? "gold" : "normal"); }
 function fillZone() {
   shadows = []; respawns = []; particles = []; floats = []; rings = []; orbs = []; bolts = []; boss = null;
   if (view <= S.zone) for (let i = 0; i < SHADOWS_PER_ZONE; i++) shadows.push(spawnRegular());
   buildBackground();
   makeAmbient();
   updateZoneBar();
-  transition = 1; zoneTitleT = 0;
+  transition = 1; zoneTitleT = 0; ev = null; rain = []; chest = null;
+  checkStory();
   const z = zone();
   $("arenaWrap").style.borderColor = rgba(z.glow, 0.6);
   $("arenaWrap").style.boxShadow = `0 0 28px ${rgba(z.glow, 0.28)}, inset 0 0 40px rgba(0,0,0,.5)`;
@@ -614,6 +815,21 @@ function buildBackground() {
   ground.addColorStop(0, rgba(mix(z.floor, 1.35), 0.55)); ground.addColorStop(1, rgba(z.floor, 0));
   g.fillStyle = ground; g.fillRect(0, 0, W, H);
 
+  // очищенная зона: тёплый свет и цветы
+  if (S.shards.includes(view)) {
+    const warm = g.createRadialGradient(W / 2, H * 0.75, 10, W / 2, H * 0.75, Math.max(W, H) * 0.7);
+    warm.addColorStop(0, "rgba(255,215,140,0.3)"); warm.addColorStop(1, "rgba(255,215,140,0)");
+    g.fillStyle = warm; g.fillRect(0, 0, W, H);
+    const flowers = [[255, 200, 120], [255, 150, 200], [180, 255, 160], [160, 220, 255]];
+    for (let i = 0; i < 30; i++) {
+      const fx = R() * W, fy = H * (0.42 + R() * 0.55), c = flowers[i % 4];
+      const fg = g.createRadialGradient(fx, fy, 0, fx, fy, 10);
+      fg.addColorStop(0, rgba(c, 0.45)); fg.addColorStop(1, rgba(c, 0));
+      g.fillStyle = fg; g.fillRect(fx - 10, fy - 10, 20, 20);
+      g.fillStyle = rgba(c, 0.95); g.beginPath(); g.arc(fx, fy, 2 + R() * 1.5, 0, 6.283); g.fill();
+    }
+  }
+
   // виньетка
   const vig = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
   vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, "rgba(0,0,0,0.65)");
@@ -680,9 +896,10 @@ function kill(s) {
   if (s.kind === "gold") { base *= 10; gems = 1; xp *= 5; S.stats.golden++; }
   if (s.kind === "boss") {
     base *= BOSS.rewardMult; gems = 3 * view; xp *= 25; S.stats.bosses++; S.zk[view] = 0; boss = null;
-    shake(12, 0.6); toast(`⚔ Хранитель повержен! +${gems} 💎`, "gold");
+    shake(12, 0.6); toast(`⚔ ${GUARDIANS[view - 1].name} повержен! +${gems} 💎`, "gold");
+    if (!S.shards.includes(view)) { const zi = view; setTimeout(() => onGuardianDefeated(zi), 900); }
   }
-  const gain = Math.floor(Math.max(1, base * essMult() * comboMult()));
+  const gain = Math.floor(Math.max(1, base * essMult() * comboMult() * (ev && ev.type === "rain" ? 2 : 1)));
   S.essence += gain; S.total += gain; S.gems += gems; S.stats.kills++;
   if (s.kind !== "boss") S.zk[view] = Math.min(BOSS.kills, (S.zk[view] || 0) + 1);
   addXp(xp);
@@ -697,7 +914,7 @@ function kill(s) {
 
   souls.push({ x: s.x, y: s.y, r: s.r * 0.55, t: 0, color, dir: s.dir });
   shadows.splice(shadows.indexOf(s), 1);
-  if (s.kind !== "boss") respawns.push(RESPAWN_TIME);
+  if (s.kind !== "boss" && !s.extra) respawns.push(RESPAWN_TIME);
 }
 
 function addXp(xp) {
@@ -715,7 +932,8 @@ function summonBoss() {
   if (boss || view > S.zone) return;
   boss = newShadow("boss");
   shadows.push(boss);
-  const b = $("banner"); b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+  boss.speech = ZONE_STORY[view - 1].appear; boss.speechT = 4.5;
+  showBanner(`⚔ ${GUARDIANS[view - 1].name.toUpperCase()}!`, "#ff5a6e");
   shake(6, 0.4);
 }
 
@@ -723,6 +941,7 @@ cv.addEventListener("pointerdown", e => {
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
   lights.push({ x, y, t: 0 });
+  if (chest && Math.hypot(chest.x - x, chest.y - y) < 36) { openChest(); return; }
   let best = null, bestD = Infinity;
   for (const s of shadows) {
     const d = Math.hypot(s.x - x, s.y - y);
@@ -740,10 +959,15 @@ cv.addEventListener("pointerdown", e => {
 });
 
 let autoTimer = 0, spiritTimer = 0, petSource = 0;
+const lanternPos = () => ({ x: W / 2, y: H - 42 });
 function petPositions() {
+  const t = performance.now() / 1000, L = lanternPos();
   const pets = equippedPets(), n = pets.length;
-  const list = pets.map((p, i) => ({ p, x: W / 2 + (i - (n - 1) / 2) * 46, y: H - 30 }));
-  if (!n && S.up.spirit > 0) list.push({ p: null, x: W / 2, y: H - 30 });
+  const list = pets.map((p, i) => {
+    const a = t * 0.9 + i * 6.283 / n;
+    return { p, x: L.x + Math.cos(a) * 64, y: L.y - 6 + Math.sin(a) * 16, front: Math.sin(a) > 0 };
+  });
+  if (!n && S.up.spirit > 0) { const a = t * 1.6; list.push({ p: null, x: L.x + Math.cos(a) * 40, y: L.y - 6 + Math.sin(a) * 12, front: Math.sin(a) > 0 }); }
   return list;
 }
 
@@ -778,6 +1002,19 @@ function update(dt) {
     if (respawns[i] <= 0 && view <= S.zone) { respawns.splice(i, 1); shadows.push(spawnRegular()); }
   }
   if (!boss && view <= S.zone && (S.zk[view] || 0) >= BOSS.kills) summonBoss();
+
+  // случайные события и сундуки
+  if (view <= S.zone && !boss && !dialogOpen()) {
+    if (!ev) { nextEventIn -= dt; if (nextEventIn <= 0) { startEvent(Math.random() < 0.55 ? "rain" : "gold"); nextEventIn = rnd(100, 170); } }
+    if (!chest) {
+      nextChestIn -= dt;
+      if (nextChestIn <= 0) { chest = { x: rnd(40, W - 40), y: rnd(110, H - 130), t: 12 }; nextChestIn = rnd(45, 80); toast("💰 Появился сундук! Успейте открыть", "gold"); }
+    }
+  }
+  if (ev) { ev.t -= dt; if (ev.t <= 0) { ev = null; rain = []; } }
+  if (chest) { chest.t -= dt; if (chest.t <= 0) chest = null; }
+  for (const d of rain) { d.y += d.sp * dt; d.x -= d.sp * 0.15 * dt; if (d.y > H) { d.y = rnd(-40, 0); d.x = rnd(0, W + 60); } }
+  if (boss && boss.speechT > 0) boss.speechT -= dt;
 
   // эффекты
   for (let i = particles.length - 1; i >= 0; i--) {
@@ -874,7 +1111,8 @@ function ghostPath(r, t) {
 function drawShadow(s) {
   const z = zone(), t = s.phase;
   const isGold = s.kind === "gold", isBoss = s.kind === "boss";
-  const glow = isGold ? [255, 210, 80] : isBoss ? [255, 50, 80] : z.glow;
+  const G = GUARDIANS[view - 1];
+  const glow = isGold ? [255, 210, 80] : isBoss ? G.color : z.glow;
   const bob = Math.sin(t) * s.r * 0.08;
   const spawnK = 1 - s.spawn / 0.45;
   const sx = (1 + s.sq * 1.2) * spawnK, sy = (1 - s.sq * 0.9) * spawnK;
@@ -912,20 +1150,14 @@ function drawShadow(s) {
   ctx.scale(sx * s.dir, sy);
   ctx.rotate(Math.sin(t * 0.7) * 0.06);
 
-  // рога босса
-  if (isBoss) {
-    ctx.fillStyle = "#1a0a12";
-    for (const k of [-1, 1]) {
-      ctx.beginPath(); ctx.moveTo(k * s.r * 0.35, -s.r * 0.95); ctx.quadraticCurveTo(k * s.r * 0.9, -s.r * 1.5, k * s.r * 0.95, -s.r * 1.75); ctx.lineTo(k * s.r * 0.65, -s.r * 0.85); ctx.fill();
-    }
-  }
+  drawBackParts(s, isGold, isBoss, t, glow);
 
   // тело
   ghostPath(s.r, t);
   const body = ctx.createLinearGradient(0, -s.r * 1.2, 0, s.r * 1.2);
   if (s.flash > 0) { body.addColorStop(0, "#ffffff"); body.addColorStop(1, rgba(glow, 0.9)); }
   else if (isGold) { body.addColorStop(0, "#fff1b0"); body.addColorStop(0.5, "#ffc93d"); body.addColorStop(1, "rgba(190,120,20,0.7)"); }
-  else if (isBoss) { body.addColorStop(0, "#3a1426"); body.addColorStop(1, "rgba(10,0,8,0.85)"); }
+  else if (isBoss) { body.addColorStop(0, rgba(mix(G.body, 2.2))); body.addColorStop(0.6, rgba(G.body)); body.addColorStop(1, rgba(G.body, 0.85)); }
   else { body.addColorStop(0, rgba(mix(z.shadow, 2.6))); body.addColorStop(0.6, rgba(z.shadow)); body.addColorStop(1, rgba(z.shadow, 0.55)); }
   ctx.shadowColor = rgba(glow, 0.9); ctx.shadowBlur = s.r * 0.6;
   ctx.fillStyle = body; ctx.fill();
@@ -936,25 +1168,39 @@ function drawShadow(s) {
   ctx.fillStyle = "rgba(255,255,255,0.13)";
   ctx.beginPath(); ctx.ellipse(-s.r * 0.35, -s.r * 0.55, s.r * 0.22, s.r * 0.12, -0.6, 0, 6.283); ctx.fill();
 
+  drawFrontParts(s, isGold, isBoss, t, glow);
+
   // глаза
-  const eyeH = s.blink < 0 ? 0.04 : (isBoss ? 0.16 : 0.22);
-  const eyeColor = isBoss ? "#ff3048" : isGold ? "#6a3c00" : rgba(mix(glow, 1.2));
-  ctx.fillStyle = eyeColor; ctx.shadowColor = eyeColor; ctx.shadowBlur = isGold ? 0 : s.r * 0.4;
-  for (const ex of [-0.32, 0.32]) {
-    ctx.beginPath(); ctx.ellipse(ex * s.r + s.r * 0.05, -s.r * 0.18, s.r * (isBoss ? 0.17 : 0.13), s.r * eyeH, isBoss ? ex * 1.2 : 0, 0, 6.283); ctx.fill();
-  }
-  ctx.shadowBlur = 0;
-  if (s.blink >= 0) {
-    const lx = lastTapPos.x - s.x, ly = lastTapPos.y - s.y, ld = Math.hypot(lx, ly) || 1;
-    const px = lx / ld * s.r * 0.05 * s.dir, py = ly / ld * s.r * 0.05;
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    for (const ex of [-0.32, 0.32]) { ctx.beginPath(); ctx.arc(ex * s.r + s.r * 0.05 + px, -s.r * 0.24 + py, s.r * 0.045, 0, 6.283); ctx.fill(); }
+  const lx = lastTapPos.x - s.x, ly = lastTapPos.y - s.y, ld = Math.hypot(lx, ly) || 1;
+  const lookX = lx / ld * s.dir, lookY = ly / ld;
+  const cyclops = view === 5 && !isGold;
+  if (cyclops) {
+    const er = s.r * (isBoss ? 0.3 : 0.25), ey = -s.r * 0.22, open = s.blink < 0 ? 0.12 : 1;
+    ctx.fillStyle = "#f6e9ff"; ctx.shadowColor = rgba(glow); ctx.shadowBlur = s.r * 0.5;
+    ctx.beginPath(); ctx.ellipse(s.r * 0.05, ey, er, er * open, 0, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
+    if (open === 1) {
+      ctx.fillStyle = rgba(glow); ctx.beginPath(); ctx.arc(s.r * 0.05 + lookX * er * 0.35, ey + lookY * er * 0.35, er * 0.58, 0, 6.283); ctx.fill();
+      ctx.fillStyle = "#12001c"; ctx.beginPath(); ctx.ellipse(s.r * 0.05 + lookX * er * 0.42, ey + lookY * er * 0.42, er * 0.16, er * 0.42, 0, 0, 6.283); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(s.r * 0.05 + lookX * er * 0.3 - er * 0.2, ey - er * 0.25, er * 0.12, 0, 6.283); ctx.fill();
+    }
+  } else {
+    const eyeH = s.blink < 0 ? 0.04 : (isBoss ? 0.16 : 0.22);
+    const eyeColor = isBoss ? G.eye : isGold ? "#6a3c00" : rgba(mix(glow, 1.2));
+    ctx.fillStyle = eyeColor; ctx.shadowColor = eyeColor; ctx.shadowBlur = isGold ? 0 : s.r * 0.4;
+    for (const ex of [-0.32, 0.32]) {
+      ctx.beginPath(); ctx.ellipse(ex * s.r + s.r * 0.05, -s.r * 0.18, s.r * (isBoss ? 0.17 : 0.13), s.r * eyeH, isBoss ? ex * 1.2 : 0, 0, 6.283); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    if (s.blink >= 0) {
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      for (const ex of [-0.32, 0.32]) { ctx.beginPath(); ctx.arc(ex * s.r + s.r * 0.05 + lookX * s.r * 0.05, -s.r * 0.24 + lookY * s.r * 0.05, s.r * 0.045, 0, 6.283); ctx.fill(); }
+    }
   }
   // рот
   ctx.strokeStyle = isGold ? "#6a3c00" : rgba(glow, 0.8); ctx.lineWidth = Math.max(1.2, s.r * 0.05);
   ctx.beginPath();
   if (isBoss) { ctx.moveTo(-s.r * 0.3, s.r * 0.22); for (let i = 1; i <= 6; i++) ctx.lineTo(-s.r * 0.3 + i * s.r * 0.1, s.r * (i % 2 ? 0.32 : 0.22)); }
-  else ctx.arc(s.r * 0.05, s.r * 0.12, s.r * 0.14, 0.15 * Math.PI, 0.85 * Math.PI);
+  else if (!cyclops) ctx.arc(s.r * 0.05, s.r * 0.12, s.r * 0.14, 0.15 * Math.PI, 0.85 * Math.PI);
   ctx.stroke();
   ctx.restore();
 
@@ -966,6 +1212,120 @@ function drawShadow(s) {
     const w = s.r * 2, y = s.y - s.r * 1.55 + bob;
     ctx.fillStyle = "rgba(10,6,20,0.85)"; roundRect(s.x - w / 2 - 1, y - 1, w + 2, 7, 3); ctx.fill();
     ctx.fillStyle = rgba(glow); roundRect(s.x - w / 2, y, w * Math.max(0, s.hp / s.max), 5, 2.5); ctx.fill();
+  }
+}
+
+// ---------- Украшения моделей: у каждой зоны свой вид теней и уникальный Хранитель ----------
+function flame(x, y, size, t) {
+  const f = 1 + Math.sin(t * 5 + x) * 0.12;
+  ctx.globalCompositeOperation = "lighter";
+  const g = ctx.createRadialGradient(x, y - size * 0.3, 0, x, y - size * 0.5, size * 1.4 * f);
+  g.addColorStop(0, "rgba(255,245,190,0.95)"); g.addColorStop(0.45, "rgba(255,140,40,0.85)"); g.addColorStop(1, "rgba(255,60,0,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(x - size * 0.5, y);
+  ctx.quadraticCurveTo(x - size * 0.45, y - size * 1.1 * f, x + Math.sin(t * 4) * size * 0.15, y - size * 1.7 * f);
+  ctx.quadraticCurveTo(x + size * 0.45, y - size * 1.1 * f, x + size * 0.5, y);
+  ctx.quadraticCurveTo(x, y + size * 0.4, x - size * 0.5, y); ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+}
+function iceSpikes(r, n, h) {
+  for (let i = 0; i < n; i++) {
+    const x = -r * 0.5 + r * (i / (n - 1)), mid = i === Math.floor(n / 2);
+    const hh = h * r * (mid ? 1.35 : 1 - Math.abs(i - (n - 1) / 2) * 0.12);
+    const g = ctx.createLinearGradient(x, -r * 1.05 - hh, x, -r * 1.05);
+    g.addColorStop(0, "rgba(255,255,255,0.98)"); g.addColorStop(1, "rgba(140,210,255,0.85)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(x - r * 0.11, -r * 1.02); ctx.lineTo(x, -r * 1.05 - hh); ctx.lineTo(x + r * 0.11, -r * 1.02); ctx.closePath(); ctx.fill();
+  }
+}
+function cracks(r, t, color) {
+  ctx.strokeStyle = rgba(color, 0.55 + 0.35 * Math.sin(t * 1.5)); ctx.lineWidth = Math.max(1.2, r * 0.05);
+  ctx.shadowColor = rgba(color); ctx.shadowBlur = r * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.62, -r * 0.6); ctx.lineTo(-r * 0.36, -r * 0.36); ctx.lineTo(-r * 0.52, -r * 0.04); ctx.lineTo(-r * 0.3, r * 0.32);
+  ctx.moveTo(r * 0.58, -r * 0.72); ctx.lineTo(r * 0.4, -r * 0.32); ctx.lineTo(r * 0.62, 0); ctx.lineTo(r * 0.45, r * 0.4);
+  ctx.stroke(); ctx.shadowBlur = 0;
+}
+function tentacles(r, n, t, color) {
+  ctx.strokeStyle = color; ctx.lineCap = "round";
+  for (let i = 0; i < n; i++) {
+    const bx = -r * 0.6 + 1.2 * r * (i / (n - 1));
+    ctx.lineWidth = r * 0.17;
+    ctx.beginPath(); ctx.moveTo(bx, r * 0.55);
+    ctx.bezierCurveTo(bx + Math.sin(t * 0.8 + i) * r * 0.35, r * 1.1, bx - Math.sin(t * 0.9 + i * 1.7) * r * 0.4, r * 1.45, bx + Math.sin(t + i) * r * 0.3, r * 1.85);
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+}
+function drawBackParts(s, isGold, isBoss, t, glow) {
+  const r = s.r;
+  if (view === 5 && !isGold) tentacles(r, isBoss ? 5 : 3, t, rgba(isBoss ? mix(GUARDIANS[4].body, 1.6) : mix(zone().shadow, 1.5), 0.95));
+  if (isBoss && view === 1) { // рога-ветви Тернового Стража
+    ctx.strokeStyle = "#3b2a1a"; ctx.lineWidth = Math.max(2, r * 0.09); ctx.lineCap = "round";
+    for (const k of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(k * r * 0.35, -r * 0.95); ctx.quadraticCurveTo(k * r * 0.7, -r * 1.4, k * r * 1.0, -r * 1.95);
+      ctx.moveTo(k * r * 0.6, -r * 1.35); ctx.lineTo(k * r * 0.25, -r * 1.8);
+      ctx.moveTo(k * r * 0.82, -r * 1.65); ctx.lineTo(k * r * 1.3, -r * 1.72);
+      ctx.stroke();
+      ctx.fillStyle = rgba(glow); ctx.shadowColor = rgba(glow); ctx.shadowBlur = 10;
+      for (const [px, py] of [[1.0, -1.95], [0.25, -1.8], [1.3, -1.72]]) { ctx.beginPath(); ctx.arc(k * r * px, r * py, r * 0.06, 0, 6.283); ctx.fill(); }
+      ctx.shadowBlur = 0;
+    }
+    ctx.lineCap = "butt";
+  }
+}
+function drawFrontParts(s, isGold, isBoss, t, glow) {
+  const r = s.r;
+  if (isGold) return;
+  if (!isBoss) {
+    if (view === 1) { // росток
+      ctx.strokeStyle = "#4f9a4a"; ctx.lineWidth = Math.max(1.5, r * 0.06);
+      ctx.beginPath(); ctx.moveTo(0, -r * 1.17); ctx.quadraticCurveTo(r * 0.06, -r * 1.35, 0, -r * 1.5); ctx.stroke();
+      ctx.fillStyle = "#7fd36a";
+      ctx.beginPath(); ctx.ellipse(-r * 0.14, -r * 1.45, r * 0.15, r * 0.07, -0.6, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(r * 0.14, -r * 1.42, r * 0.15, r * 0.07, 0.6, 0, 6.283); ctx.fill();
+    } else if (view === 2) { // капли тины
+      for (let i = 0; i < 3; i++) {
+        const ph = (t * 0.33 + i * 0.33) % 1, x = (-0.45 + i * 0.45) * r;
+        ctx.fillStyle = rgba(glow, 0.8 * (1 - ph));
+        ctx.beginPath(); ctx.ellipse(x, r * 1.1 + ph * r * 0.7, r * 0.06, r * 0.1, 0, 0, 6.283); ctx.fill();
+      }
+    } else if (view === 3) { cracks(r, t, [255, 130, 40]); flame(0, -r * 1.12, r * 0.35, t); }
+    else if (view === 4) iceSpikes(r, 3, 0.35);
+    return;
+  }
+  // Хранители
+  if (view === 2) { // шляпа Ведьмы
+    ctx.fillStyle = "#0f2a2d";
+    ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 1.05);
+    ctx.quadraticCurveTo(-r * 0.2, -r * 1.7, r * 0.1, -r * 2.05); ctx.quadraticCurveTo(r * 0.5, -r * 2.2, r * 0.75, -r * 1.95);
+    ctx.quadraticCurveTo(r * 0.35, -r * 1.75, r * 0.5, -r * 1.05); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, -r * 1.02, r * 1.05, r * 0.17, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = rgba(glow); ctx.shadowColor = rgba(glow); ctx.shadowBlur = 10;
+    ctx.fillRect(-r * 0.5, -r * 1.22, r * 1.0, r * 0.1); ctx.shadowBlur = 0;
+    for (let i = 0; i < 4; i++) {
+      const ph = (t * 0.3 + i * 0.25) % 1, x = (-0.6 + i * 0.4) * r;
+      ctx.fillStyle = rgba(glow, 0.8 * (1 - ph)); ctx.beginPath(); ctx.ellipse(x, r * 1.15 + ph * r * 0.8, r * 0.05, r * 0.09, 0, 0, 6.283); ctx.fill();
+    }
+  } else if (view === 3) { // Голем: каменные пластины, трещины, пламя
+    ctx.fillStyle = "rgba(30,20,16,0.45)";
+    for (const [x, y, w, h] of [[-0.7, -0.75, 0.5, 0.35], [0.15, -0.85, 0.55, 0.3], [-0.55, 0.05, 0.45, 0.4], [0.2, -0.1, 0.5, 0.45]]) {
+      ctx.beginPath(); ctx.moveTo(x * r, y * r); ctx.lineTo((x + w) * r, (y + 0.05) * r); ctx.lineTo((x + w - 0.05) * r, (y + h) * r); ctx.lineTo((x + 0.05) * r, (y + h - 0.05) * r); ctx.closePath(); ctx.fill();
+    }
+    cracks(r, t, [255, 140, 40]);
+    flame(-r * 0.75, -r * 0.75, r * 0.3, t); flame(r * 0.75, -r * 0.75, r * 0.3, t + 1); flame(0, -r * 1.15, r * 0.4, t + 2);
+  } else if (view === 4) { // корона Лича
+    iceSpikes(r, 5, 0.55);
+    if (Math.random() < 0.3) particles.push({ x: s.x + rnd(-r, r), y: s.y + r * 0.3, vx: rnd(-15, 15), vy: rnd(-30, -10), t: 0, life: 0.8, color: [200, 240, 255], r: 1.8 });
+  } else if (view === 5) { // корона Владыки
+    ctx.fillStyle = "#c79a2a";
+    ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 1.0);
+    for (let i = 0; i <= 4; i++) { const x = -r * 0.55 + i * r * 0.275; ctx.lineTo(x, -r * (i % 2 ? 1.25 : 1.6)); }
+    ctx.lineTo(r * 0.55, -r * 1.0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = rgba(glow); ctx.shadowColor = rgba(glow); ctx.shadowBlur = 10;
+    for (const x of [-0.55, 0, 0.55]) { ctx.beginPath(); ctx.arc(x * r, -r * (x === 0 ? 1.55 : 1.52), r * 0.07, 0, 6.283); ctx.fill(); }
+    ctx.shadowBlur = 0;
   }
 }
 
@@ -997,23 +1357,107 @@ function drawAmbient() {
   }
 }
 
+function drawLantern(t) {
+  const { x, y } = lanternPos();
+  const fl = 0.88 + Math.sin(t * 13) * 0.06 + Math.sin(t * 7.3) * 0.05;
+  ctx.globalCompositeOperation = "lighter";
+  const g = ctx.createRadialGradient(x, y, 4, x, y, 95 * fl);
+  g.addColorStop(0, `rgba(255,200,110,${0.5 * fl})`); g.addColorStop(1, "rgba(255,200,110,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 95 * fl, 0, 6.283); ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+  // осколки света кружат над фонарём
+  S.shards.forEach((zi, i) => {
+    const a = t * 1.2 + i * 6.283 / S.shards.length, sx = x + Math.cos(a) * 20, sy = y - 30 + Math.sin(a) * 6;
+    ctx.fillStyle = rgba(ZONES[zi - 1].glow); ctx.shadowColor = rgba(ZONES[zi - 1].glow); ctx.shadowBlur = 8;
+    ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.fillText("✦", sx, sy); ctx.shadowBlur = 0;
+  });
+  ctx.strokeStyle = "#3a2a18"; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(x, y - 20, 7, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = "#5a3e22";
+  ctx.beginPath(); ctx.moveTo(x - 12, y - 13); ctx.lineTo(x + 12, y - 13); ctx.lineTo(x + 7, y - 21); ctx.lineTo(x - 7, y - 21); ctx.closePath(); ctx.fill();
+  const glass = ctx.createLinearGradient(x, y - 13, x, y + 11);
+  glass.addColorStop(0, "rgba(255,240,190,0.95)"); glass.addColorStop(1, "rgba(255,165,60,0.95)");
+  ctx.fillStyle = glass; roundRect(x - 9, y - 13, 18, 24, 4); ctx.fill();
+  ctx.fillStyle = "#fffaf0"; ctx.beginPath(); ctx.ellipse(x, y + 1, 3.2, 6.5 * fl, 0, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = "#5a3e22"; ctx.lineWidth = 2;
+  roundRect(x - 9, y - 13, 18, 24, 4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y - 13); ctx.lineTo(x, y + 11); ctx.stroke();
+  ctx.fillStyle = "#5a3e22"; roundRect(x - 12, y + 11, 24, 5, 2); ctx.fill();
+}
+
+function drawChest(t) {
+  if (!chest) return;
+  const c = chest, bounce = Math.abs(Math.sin(t * 4)) * 6, x = c.x, y = c.y - bounce;
+  ctx.globalAlpha = c.t < 3 ? (Math.sin(t * 20) > 0 ? 1 : 0.45) : 1;
+  ctx.globalCompositeOperation = "lighter";
+  const g = ctx.createRadialGradient(x, y, 4, x, y, 50);
+  g.addColorStop(0, "rgba(255,210,90,0.5)"); g.addColorStop(1, "rgba(255,210,90,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 50, 0, 6.283); ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(c.x, c.y + 16, 20, 5, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = "#6b3f1d"; roundRect(x - 18, y - 8, 36, 20, 4); ctx.fill();
+  ctx.fillStyle = "#8f5629"; roundRect(x - 19, y - 21, 38, 15, 7); ctx.fill();
+  ctx.fillStyle = "#ffc94d";
+  ctx.fillRect(x - 19, y - 9, 38, 3); ctx.fillRect(x - 3, y - 21, 6, 33);
+  roundRect(x - 5, y - 7, 10, 9, 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  if (Math.random() < 0.15) particles.push({ x: x + rnd(-20, 20), y: y + rnd(-20, 5), vx: 0, vy: -25, t: 0, life: 0.6, color: [255, 230, 120], r: 1.6 });
+}
+
 function drawPets(t) {
   const list = petPositions();
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const back = list.filter(pp => !pp.front), front = list.filter(pp => pp.front);
+  drawPetList(back, t, 0.85);
+  ctx.textBaseline = "alphabetic"; drawLantern(t); ctx.textBaseline = "middle";
+  drawPetList(front, t, 1);
+  ctx.textBaseline = "alphabetic";
+}
+function drawPetList(list, t, k) {
+  ctx.textAlign = "center";
   list.forEach((pp, i) => {
-    const y = pp.y + Math.sin(t * 2.4 + i) * 4;
+    const y = pp.y + Math.sin(t * 2.4 + i) * 3;
     const color = pp.p ? hexToRgb(RARITY[pp.p.r].color) : [200, 170, 255];
     const g = ctx.createRadialGradient(pp.x, y, 2, pp.x, y, 26);
     g.addColorStop(0, rgba(color, 0.45)); g.addColorStop(1, rgba(color, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pp.x, y, 26, 0, 6.283); ctx.fill();
-    if (pp.p) { ctx.font = "26px system-ui, 'Apple Color Emoji', sans-serif"; ctx.fillText(petInfo(pp.p)[0], pp.x, y); }
-    else { ctx.fillStyle = "rgba(230,215,255,0.9)"; ctx.beginPath(); ctx.arc(pp.x, y, 7, 0, 6.283); ctx.fill(); }
+    ctx.globalAlpha = k;
+    if (pp.p) { ctx.font = `${Math.round(26 * k)}px system-ui, 'Apple Color Emoji', sans-serif`; ctx.fillText(petInfo(pp.p)[0], pp.x, y); }
+    else { ctx.fillStyle = "rgba(230,215,255,0.9)"; ctx.beginPath(); ctx.arc(pp.x, y, 7 * k, 0, 6.283); ctx.fill(); }
+    ctx.globalAlpha = 1;
   });
-  ctx.textBaseline = "alphabetic";
 }
 
+function wrapText(text, maxW) {
+  const words = text.split(" "), lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 function drawHudOnCanvas() {
   const z = zone();
+  if (ev) {
+    const txt = ev.type === "rain" ? `🌧 Дождь x2 • ${Math.ceil(ev.t)}с` : `✨ Золотой час • ${Math.ceil(ev.t)}с`;
+    ctx.font = "800 12px system-ui, sans-serif"; ctx.textAlign = "left";
+    const w = ctx.measureText(txt).width + 20, y = boss ? 52 : 46;
+    ctx.fillStyle = ev.type === "rain" ? "rgba(70,45,140,0.88)" : "rgba(130,95,15,0.88)"; roundRect(10, y, w, 24, 8); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText(txt, 20, y + 16);
+  }
+  if (boss && boss.speechT > 0) {
+    ctx.globalAlpha = Math.min(1, boss.speechT / 0.4);
+    ctx.font = "800 13px system-ui, sans-serif"; ctx.textAlign = "left";
+    const lines = wrapText(boss.speech, Math.min(220, W * 0.62));
+    const bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 22, bh = lines.length * 17 + 14;
+    const bx = Math.max(8, Math.min(W - bw - 8, boss.x - bw / 2)), by = Math.max(56, boss.y - boss.r * 2.3 - bh);
+    ctx.fillStyle = "rgba(255,246,236,0.96)"; roundRect(bx, by, bw, bh, 10); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(boss.x - 8, by + bh); ctx.lineTo(boss.x, by + bh + 10); ctx.lineTo(boss.x + 8, by + bh); ctx.fill();
+    ctx.fillStyle = "#3a0c1a"; lines.forEach((l, i) => ctx.fillText(l, bx + 11, by + 20 + i * 17));
+    ctx.globalAlpha = 1;
+  }
   ctx.textAlign = "left"; ctx.font = "800 12px system-ui, sans-serif";
   if (view <= S.zone && !boss) {
     const k = (S.zk[view] || 0) / BOSS.kills, w = Math.min(150, W * 0.42);
@@ -1025,7 +1469,7 @@ function drawHudOnCanvas() {
   if (boss) {
     const w = W - 80, x = 12, y = 12;
     ctx.fillStyle = "rgba(10,6,20,0.8)"; roundRect(x, y, w, 34, 10); ctx.fill();
-    ctx.fillStyle = "#ffd0d6"; ctx.fillText(`ХРАНИТЕЛЬ • ${fmt(Math.max(0, boss.hp))} / ${fmt(boss.max)}`, x + 10, y + 15);
+    ctx.fillStyle = "#ffd0d6"; ctx.fillText(`${GUARDIANS[view - 1].name.toUpperCase()} • ${fmt(Math.max(0, boss.hp))} / ${fmt(boss.max)}`, x + 10, y + 15);
     ctx.textAlign = "right"; ctx.fillStyle = boss.time < 10 ? "#ff5a6e" : "#f3efff";
     ctx.fillText(`⏱ ${Math.ceil(boss.time)}с`, x + w - 10, y + 15); ctx.textAlign = "left";
     ctx.fillStyle = "rgba(255,255,255,0.1)"; roundRect(x + 10, y + 22, w - 20, 6, 3); ctx.fill();
@@ -1037,7 +1481,7 @@ function drawHudOnCanvas() {
     ctx.textAlign = "center"; ctx.font = `900 ${16 + k * 8}px system-ui, sans-serif`;
     ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,0.6)";
     const txt = `КОМБО ${combo}  ${fmtMult(comboMult())}`;
-    const y = boss ? 66 : 62;
+    const y = H - 92;
     ctx.strokeText(txt, W / 2, y);
     ctx.fillStyle = `hsl(${45 - k * 45}, 100%, ${65 - k * 10}%)`; ctx.fillText(txt, W / 2, y);
   }
@@ -1062,6 +1506,7 @@ function draw() {
 
   const sorted = shadows.slice().sort((a, b) => a.y - b.y);
   for (const s of sorted) drawShadow(s);
+  drawChest(t);
   drawSouls();
   drawBeams();
   ctx.globalCompositeOperation = "lighter";
@@ -1158,7 +1603,7 @@ function drawBeams() {
   ctx.globalCompositeOperation = "lighter";
   for (const b of beams) {
     const k = b.t / 0.22, a = (1 - k);
-    const fx = W / 2, fy = H + 10, ang = Math.atan2(b.y - fy, b.x - fx), len = Math.hypot(b.x - fx, b.y - fy);
+    const L = lanternPos(), fx = L.x, fy = L.y - 4, ang = Math.atan2(b.y - fy, b.x - fx), len = Math.hypot(b.x - fx, b.y - fy);
     ctx.save(); ctx.translate(fx, fy); ctx.rotate(ang);
     const g = ctx.createLinearGradient(0, 0, len, 0);
     g.addColorStop(0, `rgba(255,240,190,${0.05 * a})`); g.addColorStop(1, `rgba(255,240,190,${0.45 * a})`);
@@ -1199,6 +1644,16 @@ function drawConfetti() {
 
 // Виньетка Хранителя, вспышка крита, переход между зонами
 function drawOverlays(t) {
+  if (ev && ev.type === "rain") {
+    ctx.fillStyle = "rgba(20,10,45,0.2)"; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "rgba(190,170,255,0.4)"; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (const d of rain) { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - d.len * 0.15, d.y + d.len); }
+    ctx.stroke();
+  }
+  if (ev && ev.type === "gold") {
+    ctx.fillStyle = `rgba(255,200,80,${0.07 + 0.03 * Math.sin(t * 3)})`; ctx.fillRect(0, 0, W, H);
+    if (Math.random() < 0.5) particles.push({ x: rnd(0, W), y: rnd(0, H), vx: 0, vy: -15, t: 0, life: 0.8, color: [255, 220, 120], r: 1.6 });
+  }
   if (boss) {
     const speed = boss.time < 10 ? 9 : 3;
     const a = 0.28 + 0.14 * Math.sin(t * speed);
@@ -1233,11 +1688,208 @@ function frame(ts) {
 }
 
 // =====================================================================
+// СЮЖЕТ: ДИАЛОГИ
+// =====================================================================
+const SPEAKERS = { moon: { name: "Дух Луны", emoji: "🌙", color: "#b9a6ff" } };
+GUARDIANS.forEach((g, i) => { SPEAKERS["g" + (i + 1)] = { name: g.name, emoji: g.emoji, color: rgba(g.color) }; });
+let dlgQueue = [], dlgCurrent = null, dlgTimer = null, dlgChars = [], dlgShown = 0;
+const dialogOpen = () => dlgCurrent !== null;
+
+function say(lines, onDone) {
+  const copy = lines.map(l => ({ ...l }));
+  if (onDone && copy.length) copy[copy.length - 1].onDone = onDone;
+  dlgQueue.push(...copy);
+  if (!dlgCurrent) nextLine();
+}
+function nextLine() {
+  clearInterval(dlgTimer);
+  dlgCurrent = dlgQueue.shift() || null;
+  const box = $("dialog");
+  if (!dlgCurrent) { box.classList.remove("show"); return; }
+  const sp = SPEAKERS[dlgCurrent.who] || SPEAKERS.moon;
+  box.classList.add("show");
+  box.style.setProperty("--sc", sp.color);
+  $("dlgPortrait").textContent = sp.emoji;
+  $("dlgName").textContent = sp.name;
+  dlgChars = Array.from(dlgCurrent.text); dlgShown = 0; $("dlgText").textContent = "";
+  const dlg = box.querySelector(".dlg"); dlg.style.animation = "none"; void dlg.offsetWidth; dlg.style.animation = "";
+  dlgTimer = setInterval(() => {
+    dlgShown = Math.min(dlgChars.length, dlgShown + 2);
+    $("dlgText").textContent = dlgChars.slice(0, dlgShown).join("");
+    if (dlgShown >= dlgChars.length) clearInterval(dlgTimer);
+  }, 24);
+}
+$("dialog").addEventListener("click", () => {
+  if (!dlgCurrent) return;
+  if (dlgShown < dlgChars.length) { clearInterval(dlgTimer); dlgShown = dlgChars.length; $("dlgText").textContent = dlgCurrent.text; return; }
+  const done = dlgCurrent.onDone;
+  nextLine();
+  if (done) done();
+});
+
+function checkStory() {
+  if (!S.story.prologue) return;
+  if (view <= S.zone && !S.story.seen[view]) {
+    S.story.seen[view] = true; save();
+    say(ZONE_STORY[view - 1].intro);
+  }
+}
+function startStory() {
+  if (!S.story.prologue) say(PROLOGUE, () => { S.story.prologue = true; save(); checkStory(); });
+  else checkStory();
+}
+
+function onGuardianDefeated(zi) {
+  if (S.shards.includes(zi)) return;
+  S.shards.push(zi); save();
+  if (view === zi) { buildBackground(); updateZoneBar(); }
+  const st = ZONE_STORY[zi - 1], z = ZONES[zi - 1], c = rgba(z.glow);
+  say(st.defeat, () => {
+    confettiBurst(W / 2, H * 0.35, 80);
+    showModal(`<div class="big reveal" style="color:${c};text-shadow:0 0 30px ${c}">✦</div>
+      <div style="color:${c};font-weight:900;letter-spacing:1px">ОСКОЛОК СВЕТА ${S.shards.length}/${ZONES.length}</div>
+      <h2>${z.name} очищена!</h2>
+      <p>Навсегда <b>+25% эссенции</b>.<br><i>${st.lore}</i></p>
+      <button class="btn wide gold" data-close>Принять свет</button>`, c, () => {
+      if (S.shards.length >= ZONES.length && !S.story.ending) {
+        S.story.ending = true; S.gems += 100; save();
+        say(ENDING, () => {
+          confettiBurst(W / 2, H * 0.3, 120);
+          showModal(`<div class="big reveal">🏮</div><h2>Свет вернулся в мир!</h2>
+            <p>Теперь вы — <b style="color:var(--gold)">Хранитель Света</b>.<br>Награда: <b>+100 💎</b></p>
+            <button class="btn wide gold" data-close>Продолжить</button>`, "var(--gold)");
+        });
+      }
+    });
+  });
+}
+
+function showBanner(text, color) {
+  const b = $("banner");
+  b.textContent = text; b.style.color = color; b.style.textShadow = `0 0 18px ${color}, 0 2px 0 #000`;
+  b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+}
+
+// =====================================================================
+// СОБЫТИЯ И СУНДУКИ
+// =====================================================================
+function startEvent(type) {
+  ev = { type, t: type === "rain" ? 20 : 15 };
+  if (type === "rain") {
+    for (let i = 0; i < 6; i++) { const sh = spawnRegular(); sh.extra = true; shadows.push(sh); }
+    rain = Array.from({ length: 70 }, () => ({ x: rnd(0, W + 60), y: rnd(-H, H), len: rnd(10, 22), sp: rnd(380, 560) }));
+    showBanner("🌧 ТЕНЕВОЙ ДОЖДЬ! x2", "#c4b0ff");
+  } else {
+    let n = 0;
+    for (const sh of shadows) if (sh.kind === "normal" && n < 3) { sh.kind = "gold"; sh.hp = sh.max = zone().hp * 2; n++; }
+    showBanner("✨ ЗОЛОТОЙ ЧАС!", "#ffc94d");
+  }
+}
+function openChest() {
+  const c = chest; chest = null;
+  const color = [255, 201, 77];
+  if (Math.random() < 0.7) {
+    const a = Math.floor(zone().value * essMult() * 40);
+    S.essence += a; S.total += a;
+    floats.push({ x: c.x, y: c.y - 24, text: "+" + fmt(a), kind: "gain", t: 0 });
+  } else {
+    const gm = 2 + ((Math.random() * 4) | 0);
+    S.gems += gm;
+    floats.push({ x: c.x, y: c.y - 24, text: `+${gm} 💎`, kind: "gem", t: 0 });
+  }
+  burst(c.x, c.y, 30, color, 1.4);
+  rings.push({ x: c.x, y: c.y, r: 10, max: 90, t: 0, color });
+  confettiBurst(c.x, c.y, 25); shake(4, 0.2); save();
+}
+
+// =====================================================================
+// ЦЕЛИ
+// =====================================================================
+const objectiveReward = o => o.gems ? `${o.gems} 💎` : `🌑 ${fmt(o.ess)}`;
+function refreshObjective() {
+  const o = OBJECTIVES[S.obj];
+  if (!o) {
+    $("oTitle").textContent = "✦ Свет восстановлен! Перерождайтесь и становитесь сильнее";
+    $("oBar").style.width = "100%"; $("oBtn").style.display = "none"; $("objective").classList.remove("done");
+    return;
+  }
+  const cur = Math.min(o.cur(), o.goal), done = cur >= o.goal;
+  $("oTitle").textContent = o.goal > 1 ? `${o.text} • ${fmt(cur)}/${fmt(o.goal)}` : o.text;
+  $("oBar").style.width = (cur / o.goal * 100) + "%";
+  $("oBtn").style.display = "";
+  setBtn($("oBtn"), done ? "Забрать!" : objectiveReward(o), done, "gold");
+  $("objective").classList.toggle("done", done);
+}
+$("oBtn").onclick = () => {
+  const o = OBJECTIVES[S.obj];
+  if (!o || o.cur() < o.goal) return;
+  if (o.gems) S.gems += o.gems;
+  if (o.ess) { S.essence += o.ess; S.total += o.ess; }
+  S.obj++; save();
+  toast(`📖 Цель выполнена! +${objectiveReward(o)}`, "gold");
+  confettiBurst(W / 2, H - 20, 30);
+  refreshObjective();
+};
+
+// =====================================================================
+// КОЛЕСО ФОРТУНЫ
+// =====================================================================
+let wheelRot = 0, spinning = false;
+const freeSpin = () => now() - S.lastSpin >= SPIN_COOLDOWN;
+function openWheel() {
+  const seg = 360 / WHEEL.length;
+  const grad = WHEEL.map((p, i) => `${p.color} ${i * seg}deg ${(i + 1) * seg}deg`).join(",");
+  const labels = WHEEL.map((p, i) => `<span style="transform:rotate(${i * seg + seg / 2}deg) translateY(-92px)">${p.label}</span>`).join("");
+  showModal(`<h2>🎡 Колесо фортуны</h2>
+    <div class="wheelWrap"><div class="pointer">▼</div>
+      <div class="wheel" id="wheelDisc" style="background:conic-gradient(${grad});transform:rotate(${wheelRot}deg)">${labels}<div class="hub">✦</div></div>
+    </div>
+    <p id="wheelInfo"></p>
+    <button class="btn wide gold" id="spinBtn"></button>
+    <button class="btn wide" data-close style="margin-top:8px">Закрыть</button>`, "var(--gold)");
+  $("spinBtn").onclick = spinWheel;
+  updateWheelUI();
+}
+function updateWheelUI() {
+  const btn = $("spinBtn");
+  if (!btn || $("modal").style.display === "none") return;
+  if (spinning) { setBtn(btn, "Крутится…", false); return; }
+  if (freeSpin()) { setBtn(btn, "Крутить бесплатно!", true, "gold"); $("wheelInfo").textContent = "Бесплатное вращение доступно!"; }
+  else { setBtn(btn, `Крутить за ${SPIN_COST} 💎`, S.gems >= SPIN_COST, "gem"); $("wheelInfo").textContent = "Бесплатно через " + fmtTime(SPIN_COOLDOWN - (now() - S.lastSpin)); }
+}
+function spinWheel() {
+  if (spinning) return;
+  if (freeSpin()) S.lastSpin = now();
+  else if (S.gems >= SPIN_COST) S.gems -= SPIN_COST;
+  else return toast("Не хватает кристаллов 💎", "bad");
+  save(); spinning = true;
+  const total = WHEEL.reduce((a, p) => a + p.w, 0);
+  let roll = Math.random() * total, idx = 0;
+  for (let i = 0; i < WHEEL.length; i++) { if (roll < WHEEL[i].w) { idx = i; break; } roll -= WHEEL[i].w; }
+  const seg = 360 / WHEEL.length, center = idx * seg + seg / 2 + rnd(-seg * 0.35, seg * 0.35);
+  wheelRot = wheelRot - (wheelRot % 360) + 360 * 6 + (360 - center);
+  const disc = $("wheelDisc");
+  disc.style.transition = "transform 4s cubic-bezier(.12,.8,.2,1)";
+  disc.style.transform = `rotate(${wheelRot}deg)`;
+  updateWheelUI();
+  setTimeout(() => {
+    spinning = false;
+    const msg = WHEEL[idx].apply();
+    save();
+    toast(`🎡 ${msg}`, "gold");
+    confettiBurst(W / 2, H * 0.3, 40);
+    updateWheelUI();
+  }, 4100);
+}
+$("wheelBtn").onclick = openWheel;
+$("lvl").onclick = () => openSheet("profile");
+
+// =====================================================================
 // ЗОНЫ
 // =====================================================================
 function updateZoneBar() {
   const z = zone();
-  $("zname").textContent = `${view}. ${z.name}`;
+  $("zname").textContent = `${view}. ${z.name}` + (S.shards.includes(view) ? " ✦" : "");
   $("zname").style.color = rgba(mix(z.glow, 1.1));
   $("prevZone").disabled = view <= 1;
   $("nextZone").disabled = view >= Math.min(S.zone + 1, ZONES.length);
@@ -1299,9 +1951,10 @@ function rollRarity(odds) {
   for (const k of RARITY_ORDER) { if (r < odds[k]) return k; r -= odds[k]; }
   return "common";
 }
-function openEgg(tier, golden) {
+function openEgg(tier, golden, free) {
   if (S.pets.length >= PET_INVENTORY) return toast("Инвентарь полон — удалите слабых питомцев", "bad");
-  if (golden) { if (S.gems < GOLD_EGG_PRICE) return toast("Не хватает кристаллов 💎", "bad"); S.gems -= GOLD_EGG_PRICE; }
+  if (free) { /* приз колеса */ }
+  else if (golden) { if (S.gems < GOLD_EGG_PRICE) return toast("Не хватает кристаллов 💎", "bad"); S.gems -= GOLD_EGG_PRICE; }
   else { const c = ZONES[tier - 1].egg; if (S.essence < c) return toast("Не хватает эссенции", "bad"); S.essence -= c; }
   const r = rollRarity(golden ? GOLD_EGG_ODDS : EGG_ODDS);
   const pet = { uid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), r, k: (Math.random() * PET_POOL[r].length) | 0, t: tier };
@@ -1525,6 +2178,7 @@ const PANELS = {
           line("💰 Жадность", fmtMult(1 + 0.1 * S.up.greed)) +
           line("♻️ Перерождения", fmtMult(rebirthMult(S.rebirths))) +
           line("⭐ Уровень", fmtMult(levelMult())) +
+          line("✦ Осколки Света", fmtMult(1 + SHARD_BONUS * S.shards.length)) +
           line("🐾 Питомцы", fmtMult(1 + pb.ess)) +
           line("👑 Пропуска", fmtMult((S.passes.DoubleEssence ? 2 : 1) * (S.passes.VIP ? 1.5 : 1))) +
           line("⚡ Буст", boostActive() ? "x2 • " + fmtTime(S.boostEnds - now()) : "—") +
@@ -1538,6 +2192,39 @@ const PANELS = {
     },
   },
 
+  story: {
+    title: "📖 Сюжет",
+    sig: () => [S.shards.join(), S.zone, Object.keys(S.story.seen).join(), S.story.ending].join("|"),
+    build(body) {
+      const card = el("div", "card");
+      const shards = ZONES.map((z, i) => `<span class="shard ${S.shards.includes(i + 1) ? "got" : ""}" style="--c:${rgba(z.glow)}">✦</span>`).join("");
+      card.innerHTML = `<div class="shards">${shards}</div>
+        <div class="note">Осколки Света: <b style="color:var(--text)">${S.shards.length}/${ZONES.length}</b> • бонус <b style="color:var(--gold)">+${S.shards.length * 25}% эссенции</b><br>Побеждайте Хранителей зон, чтобы собрать все осколки.</div>`;
+      body.append(card);
+      const pro = row("🌙", "Пролог", "Пробуждение Хранителя Фонаря");
+      setBtn(pro.b, "Читать", true); pro.b.onclick = () => { closeSheet(); say(PROLOGUE); };
+      body.append(pro.r);
+      ZONES.forEach((z, i) => {
+        const idx = i + 1, g = GUARDIANS[i], st = ZONE_STORY[i], got = S.shards.includes(idx), open = idx <= S.zone || idx <= S.maxZone;
+        const x = row(got ? g.emoji : open ? "⚔️" : "🔒", `Глава ${idx}: ${z.name}`,
+          got ? `✦ Очищена. <i>${st.lore}</i>` : open ? `Победите: <b>${g.name}</b>` : "Откройте эту зону, чтобы продолжить историю");
+        x.n.style.color = rgba(z.glow);
+        if (S.story.seen[idx]) { setBtn(x.b, "Читать", true); x.b.onclick = () => { closeSheet(); say(got ? st.intro.concat(st.defeat) : st.intro); }; }
+        else setBtn(x.b, open ? "—" : "🔒", false);
+        body.append(x.r);
+      });
+      if (S.story.ending) {
+        const e = row("🏮", "Финал", "Свет вернулся в мир");
+        setBtn(e.b, "Читать", true); e.b.onclick = () => { closeSheet(); say(ENDING); };
+        body.append(e.r);
+      }
+      const prof = el("button", "btn wide", "👤 Характеристики героя");
+      prof.onclick = () => openSheet("profile");
+      body.append(prof);
+      return () => {};
+    },
+  },
+
   rebirth: {
     title: "♻️ Перерождение",
     build(body) {
@@ -1545,7 +2232,7 @@ const PANELS = {
       body.append(card, btn);
       const pending = confirmable(btn, doRebirth);
       const resetBtn = el("button", "btn wide bad");
-      const resetPending = confirmable(resetBtn, () => { S = fresh(); view = 1; save(); fillZone(); closeSheet(); toast("Прогресс прототипа сброшен"); });
+      const resetPending = confirmable(resetBtn, () => { S = fresh(); view = 1; displayEss = 0; save(); fillZone(); closeSheet(); toast("Прогресс прототипа сброшен"); startStory(); });
       body.append(el("div", "hdr", "Для тестирования"), resetBtn);
       return () => {
         const c = rebirthCost(S.rebirths);
@@ -1634,6 +2321,9 @@ function refreshHud() {
   if (S.passes.VIP) parts.push("👑 VIP");
   $("info").textContent = parts.join(" • ");
   $("gift").classList.toggle("ready", dailyReady());
+  $("wheelBtn").classList.toggle("ready", freeSpin());
+  refreshObjective();
+  updateWheelUI();
   $("questDot").style.display = QUESTS.some(questReady) ? "block" : "none";
   const next = ZONES[S.zone];
   if (view > S.zone && next) setBtn($("lockBtn"), "🔓 Открыть за " + fmt(next.price), S.essence >= next.price);
@@ -1668,6 +2358,7 @@ resize();
 fillZone();
 refreshHud();
 offlineEarnings();
+startStory();
 requestAnimationFrame(frame);
 </script>
 </body>
