@@ -16,7 +16,15 @@
 
 Вся логика работает на сервере. Клиент только показывает данные и отправляет запросы, поэтому читер не сможет выдать себе эссенцию.
 
-## Как запустить
+## Самый простой запуск (без Rojo)
+
+1. Установите [Roblox Studio](https://create.roblox.com/) (только Windows или Mac).
+2. Скачайте файл [`build/ShadowWorld.rbxlx`](build/ShadowWorld.rbxlx) и откройте его в Studio.
+3. Нажмите **Play** (или F5).
+
+После изменений в `src/` пересоберите файл: `python3 tools/build_place.py`.
+
+## Запуск через Rojo (для разработки)
 
 1. Установите [Roblox Studio](https://create.roblox.com/) и [Rokit](https://github.com/rojo-rbx/rokit).
 2. В папке проекта выполните:

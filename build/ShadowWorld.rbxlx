@@ -1,0 +1,2140 @@
+<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
+<Item class="ReplicatedStorage" referent="RBX00000004"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX00000003"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX00000001"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- Все настройки баланса и монетизации в одном месте.
+-- Меняйте цифры здесь — сервер и интерфейс подхватят их автоматически.
+
+local Config = {}
+
+---------------------------------------------------------------------
+-- Данные
+---------------------------------------------------------------------
+-- Если поменять имя — у всех игроков начнётся новый прогресс.
+Config.DataStoreName = "ShadowWorld_PlayerData_v1"
+Config.AutosaveInterval = 120 -- секунд
+
+---------------------------------------------------------------------
+-- Мир
+---------------------------------------------------------------------
+Config.World = {
+	ZoneSize = 120, -- размер платформы зоны (studs)
+	ZoneGap = 24, -- расстояние между зонами (там мост)
+	RemoveDefaultBaseplate = true, -- удалить стандартный Baseplate шаблона
+	ApplyLighting = true, -- ночная «теневая» атмосфера
+}
+
+-- Зоны идут по порядку. price — цена открытия в эссенции.
+-- shadowHp — сколько урона нужно, чтобы поймать тень.
+-- shadowValue — базовая награда за тень.
+Config.Zones = {
+	{
+		name = "Сумеречный лес",
+		price = 0,
+		shadowHp = 3,
+		shadowValue = 1,
+		floorColor = Color3.fromRGB(46, 58, 52),
+		shadowColor = Color3.fromRGB(15, 12, 25),
+		glowColor = Color3.fromRGB(140, 90, 255),
+	},
+	{
+		name = "Туманные болота",
+		price = 500,
+		shadowHp = 12,
+		shadowValue = 6,
+		floorColor = Color3.fromRGB(52, 62, 70),
+		shadowColor = Color3.fromRGB(25, 20, 45),
+		glowColor = Color3.fromRGB(90, 200, 170),
+	},
+	{
+		name = "Пепельные руины",
+		price = 5000,
+		shadowHp = 40,
+		shadowValue = 25,
+		floorColor = Color3.fromRGB(70, 52, 45),
+		shadowColor = Color3.fromRGB(45, 15, 15),
+		glowColor = Color3.fromRGB(255, 110, 60),
+	},
+	{
+		name = "Ледяной склеп",
+		price = 50000,
+		shadowHp = 150,
+		shadowValue = 120,
+		floorColor = Color3.fromRGB(70, 90, 110),
+		shadowColor = Color3.fromRGB(20, 30, 60),
+		glowColor = Color3.fromRGB(120, 200, 255),
+	},
+	{
+		name = "Бездна",
+		price = 500000,
+		shadowHp = 600,
+		shadowValue = 600,
+		floorColor = Color3.fromRGB(25, 15, 35),
+		shadowColor = Color3.fromRGB(60, 0, 90),
+		glowColor = Color3.fromRGB(255, 60, 200),
+	},
+}
+
+---------------------------------------------------------------------
+-- Тени
+---------------------------------------------------------------------
+Config.ShadowsPerZone = 8
+Config.ShadowRespawnTime = 3 -- секунд
+Config.ClickCooldown = 0.12 -- защита от автокликеров (секунд между ударами)
+Config.ClickRange = 32 -- с какого расстояния можно кликнуть по тени
+Config.AutoCatchInterval = 0.5 -- как часто бьёт авто-ловля
+Config.AutoCatchRange = 30
+
+---------------------------------------------------------------------
+-- Улучшения
+---------------------------------------------------------------------
+Config.Upgrades = {
+	power = {
+		name = "Сила фонаря",
+		description = "+1 урон по тени за клик",
+		baseCost = 10,
+		growth = 1.45,
+		maxLevel = 200,
+	},
+	greed = {
+		name = "Жадность",
+		description = "+10% эссенции за тень",
+		baseCost = 25,
+		growth = 1.55,
+		maxLevel = 200,
+	},
+	speed = {
+		name = "Теневой шаг",
+		description = "+2 к скорости бега",
+		baseCost = 50,
+		growth = 2.2,
+		maxLevel = 10,
+	},
+}
+Config.UpgradeOrder = { "power", "greed", "speed" }
+
+function Config.UpgradeCost(id: string, level: number): number
+	local def = Config.Upgrades[id]
+	return math.floor(def.baseCost * def.growth ^ level)
+end
+
+function Config.Damage(powerLevel: number): number
+	return 1 + powerLevel
+end
+
+function Config.GreedMultiplier(greedLevel: number): number
+	return 1 + 0.1 * greedLevel
+end
+
+function Config.WalkSpeed(speedLevel: number, isVip: boolean): number
+	return 16 + 2 * speedLevel + (if isVip then 4 else 0)
+end
+
+---------------------------------------------------------------------
+-- Перерождение
+---------------------------------------------------------------------
+Config.Rebirth = {
+	baseCost = 25000,
+	growth = 3,
+	multiplierPerRebirth = 0.5, -- +50% эссенции за каждое перерождение
+}
+
+function Config.RebirthCost(rebirths: number): number
+	return math.floor(Config.Rebirth.baseCost * Config.Rebirth.growth ^ rebirths)
+end
+
+function Config.RebirthMultiplier(rebirths: number): number
+	return 1 + Config.Rebirth.multiplierPerRebirth * rebirths
+end
+
+---------------------------------------------------------------------
+-- Ежедневная награда
+---------------------------------------------------------------------
+Config.Daily = {
+	cooldown = 20 * 3600, -- можно забирать раз в 20 часов
+	streakWindow = 48 * 3600, -- если не зайти за 48 часов — серия сбрасывается
+	maxStreak = 7,
+	baseReward = 250,
+}
+
+function Config.NextDailyStreak(lastDaily: number, streak: number, now: number): number
+	if lastDaily > 0 and now - lastDaily <= Config.Daily.streakWindow then
+		return math.min(streak + 1, Config.Daily.maxStreak)
+	end
+	return 1
+end
+
+function Config.DailyReward(streak: number, unlockedZone: number, rebirths: number): number
+	local zone = Config.Zones[unlockedZone]
+	return math.floor(Config.Daily.baseReward * streak * zone.shadowValue * Config.RebirthMultiplier(rebirths))
+end
+
+---------------------------------------------------------------------
+-- Монетизация
+---------------------------------------------------------------------
+-- 1. Создайте Game Passes и Developer Products в Creator Dashboard
+--    (create.roblox.com → ваша игра → Monetization).
+-- 2. Впишите их ID вместо 0. Пока ID = 0, кнопка в магазине неактивна.
+-- price — только запасной текст для кнопки; настоящая цена берётся из Roblox.
+
+Config.GamePasses = {
+	DoubleEssence = {
+		id = 0,
+		name = "x2 Эссенция",
+		description = "Навсегда удваивает всю эссенцию",
+		price = 199,
+	},
+	AutoCatch = {
+		id = 0,
+		name = "Авто-ловля",
+		description = "Фонарь сам бьёт ближайшую тень",
+		price = 249,
+	},
+	VIP = {
+		id = 0,
+		name = "Теневой VIP",
+		description = "+50% эссенции и +4 к скорости",
+		price = 299,
+	},
+}
+Config.GamePassOrder = { "DoubleEssence", "AutoCatch", "VIP" }
+
+-- kind = "essence": amount × награда тени лучшей открытой зоны × множитель перерождений
+-- kind = "boost": x2 эссенция на duration секунд (время складывается)
+Config.Products = {
+	EssenceSmall = {
+		id = 0,
+		kind = "essence",
+		name = "Горсть эссенции",
+		amount = 500,
+		price = 25,
+	},
+	EssenceMedium = {
+		id = 0,
+		kind = "essence",
+		name = "Сосуд эссенции",
+		amount = 5000,
+		price = 99,
+	},
+	EssenceLarge = {
+		id = 0,
+		kind = "essence",
+		name = "Сундук эссенции",
+		amount = 50000,
+		price = 399,
+	},
+	Boost = {
+		id = 0,
+		kind = "boost",
+		name = "Буст x2 на 15 минут",
+		duration = 15 * 60,
+		price = 49,
+	},
+}
+Config.ProductOrder = { "Boost", "EssenceSmall", "EssenceMedium", "EssenceLarge" }
+
+function Config.EssencePackAmount(product, unlockedZone: number, rebirths: number): number
+	local zone = Config.Zones[unlockedZone]
+	return math.floor(product.amount * zone.shadowValue * Config.RebirthMultiplier(rebirths))
+end
+
+---------------------------------------------------------------------
+-- Итоговый множитель эссенции (используют и сервер, и интерфейс)
+---------------------------------------------------------------------
+function Config.EssenceMultiplier(data, passes, now: number): number
+	local multiplier = Config.GreedMultiplier(data.upgrades.greed) * Config.RebirthMultiplier(data.rebirths)
+	if passes.DoubleEssence then
+		multiplier *= 2
+	end
+	if passes.VIP then
+		multiplier *= 1.5
+	end
+	if (data.boostEndsAt or 0) > now then
+		multiplier *= 2
+	end
+	return multiplier
+end
+
+return Config
+]]></ProtectedString></Properties></Item>
+<Item class="ModuleScript" referent="RBX00000002"><Properties><string name="Name">Format</string><ProtectedString name="Source"><![CDATA[-- Красивое отображение чисел и времени.
+
+local Format = {}
+
+local SUFFIXES = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc" }
+
+local function trimZeros(text: string): string
+	if string.find(text, "%.") then
+		text = (string.gsub(text, "0+$", ""))
+		text = (string.gsub(text, "%.$", ""))
+	end
+	return text
+end
+
+-- 1234 -> "1.23K", 5600000 -> "5.6M"
+function Format.Number(value: number): string
+	value = math.floor(value or 0)
+	if math.abs(value) < 1000 then
+		return tostring(value)
+	end
+
+	local index = 1
+	local scaled = value
+	while math.abs(scaled) >= 1000 and index < #SUFFIXES do
+		scaled /= 1000
+		index += 1
+	end
+
+	local text
+	if math.abs(scaled) >= 100 then
+		text = string.format("%.0f", scaled)
+	elseif math.abs(scaled) >= 10 then
+		text = string.format("%.1f", scaled)
+	else
+		text = string.format("%.2f", scaled)
+	end
+	return trimZeros(text) .. SUFFIXES[index]
+end
+
+-- 2.5 -> "x2.5"
+function Format.Multiplier(value: number): string
+	return "x" .. trimZeros(string.format("%.2f", value))
+end
+
+-- 3725 -> "1:02:05", 125 -> "2:05"
+function Format.Duration(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	local hours = seconds // 3600
+	local minutes = (seconds % 3600) // 60
+	local secs = seconds % 60
+	if hours > 0 then
+		return string.format("%d:%02d:%02d", hours, minutes, secs)
+	end
+	return string.format("%d:%02d", minutes, secs)
+end
+
+return Format
+]]></ProtectedString></Properties></Item>
+</Item>
+</Item>
+<Item class="ServerScriptService" referent="RBX0000000C"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Folder" referent="RBX0000000B"><Properties><string name="Name">Server</string></Properties><Item class="ModuleScript" referent="RBX00000005"><Properties><string name="Name">DataService</string><ProtectedString name="Source"><![CDATA[-- Загрузка, хранение и сохранение данных игроков (DataStore).
+-- Сервер — единственный источник правды: клиент только получает снимки.
+
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Format = require(ReplicatedStorage.Shared.Format)
+local Remotes = require(script.Parent.Remotes)
+
+local DataService = {}
+
+local TEMPLATE = {
+	essence = 0,
+	totalEssence = 0,
+	rebirths = 0,
+	upgrades = {
+		power = 0,
+		greed = 0,
+		speed = 0,
+	},
+	unlockedZone = 1,
+	lastDaily = 0,
+	dailyStreak = 0,
+	boostEndsAt = 0,
+	purchases = {}, -- [PurchaseId] = true — защита от двойной выдачи покупок
+	purchaseLog = {}, -- порядок покупок, чтобы хранить только последние
+}
+
+local MAX_PURCHASE_HISTORY = 50
+
+local store: DataStore? = nil
+local sessions = {} -- [Player] = session
+local loadedCallbacks = {}
+
+local function deepCopy(value)
+	if type(value) ~= "table" then
+		return value
+	end
+	local copy = {}
+	for key, inner in value do
+		copy[key] = deepCopy(inner)
+	end
+	return copy
+end
+
+-- Добавляет недостающие поля (когда в игре появляются новые данные).
+local function reconcile(data, template)
+	for key, value in template do
+		if data[key] == nil then
+			data[key] = deepCopy(value)
+		elseif type(value) == "table" and type(data[key]) == "table" then
+			reconcile(data[key], value)
+		end
+	end
+end
+
+local function keyFor(player: Player): string
+	return "player_" .. player.UserId
+end
+
+local function retry(callback, attempts: number)
+	local lastError
+	for attempt = 1, attempts do
+		local ok, result = pcall(callback)
+		if ok then
+			return true, result
+		end
+		lastError = result
+		warn(string.format("[DataService] попытка %d/%d не удалась: %s", attempt, attempts, tostring(result)))
+		if attempt < attempts then
+			task.wait(2 ^ attempt)
+		end
+	end
+	return false, lastError
+end
+
+local function createLeaderstats(player: Player)
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+
+	local essence = Instance.new("StringValue")
+	essence.Name = "Эссенция"
+	essence.Value = "0"
+	essence.Parent = leaderstats
+
+	local rebirths = Instance.new("IntValue")
+	rebirths.Name = "Перерождения"
+	rebirths.Parent = leaderstats
+
+	leaderstats.Parent = player
+end
+
+local function updateLeaderstats(player: Player, data)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if not leaderstats then
+		return
+	end
+	local essence = leaderstats:FindFirstChild("Эссенция")
+	local rebirths = leaderstats:FindFirstChild("Перерождения")
+	if essence then
+		essence.Value = Format.Number(data.essence)
+	end
+	if rebirths then
+		rebirths.Value = data.rebirths
+	end
+end
+
+local function loadPlayer(player: Player)
+	local data
+	local canSave = false
+
+	if store then
+		local ok, result = retry(function()
+			return store:GetAsync(keyFor(player))
+		end, 3)
+
+		if ok then
+			data = if type(result) == "table" then result else deepCopy(TEMPLATE)
+			canSave = true
+		elseif RunService:IsStudio() then
+			warn("[DataService] DataStore недоступен в Studio — прогресс не будет сохраняться. "
+				.. "Включите Game Settings → Security → Enable Studio Access to API Services.")
+			data = deepCopy(TEMPLATE)
+		else
+			-- Не пускаем в игру без данных, иначе можно затереть настоящий прогресс.
+			player:Kick("Не удалось загрузить ваши данные. Пожалуйста, перезайдите.")
+			return
+		end
+	else
+		data = deepCopy(TEMPLATE)
+	end
+
+	reconcile(data, TEMPLATE)
+	data.unlockedZone = math.clamp(data.unlockedZone, 1, #Config.Zones)
+
+	if player.Parent ~= Players then
+		return -- игрок вышел, пока грузились данные
+	end
+
+	sessions[player] = {
+		data = data,
+		canSave = canSave,
+		passes = {}, -- заполняет MonetizationService
+		dirty = false,
+		lastClick = 0,
+		lastAction = 0,
+		lastNotice = 0,
+	}
+
+	createLeaderstats(player)
+	DataService.Push(player)
+
+	for _, callback in loadedCallbacks do
+		task.spawn(callback, player)
+	end
+end
+
+-- Возвращает сессию игрока или nil, если данные ещё не загружены.
+function DataService.Get(player: Player)
+	return sessions[player]
+end
+
+-- Вызывает callback(player), когда данные игрока загружены.
+function DataService.OnPlayerLoaded(callback)
+	table.insert(loadedCallbacks, callback)
+end
+
+-- Отправляет клиенту свежий снимок данных прямо сейчас.
+function DataService.Push(player: Player)
+	local session = sessions[player]
+	if not session then
+		return
+	end
+	session.dirty = false
+	local data = session.data
+	Remotes.DataChanged:FireClient(player, {
+		essence = data.essence,
+		totalEssence = data.totalEssence,
+		rebirths = data.rebirths,
+		upgrades = data.upgrades,
+		unlockedZone = data.unlockedZone,
+		lastDaily = data.lastDaily,
+		dailyStreak = data.dailyStreak,
+		boostEndsAt = data.boostEndsAt,
+		passes = session.passes,
+	})
+	updateLeaderstats(player, data)
+end
+
+-- Помечает данные изменёнными: снимок уйдёт клиенту в ближайшие доли секунды.
+-- Нужно для частых событий (клики), чтобы не спамить сетью.
+function DataService.MarkDirty(player: Player)
+	local session = sessions[player]
+	if session then
+		session.dirty = true
+	end
+end
+
+-- Отмечает покупку выданной и хранит только последние N идентификаторов.
+function DataService.RecordPurchase(player: Player, purchaseId: string)
+	local session = sessions[player]
+	if not session then
+		return
+	end
+	local data = session.data
+	data.purchases[purchaseId] = true
+	table.insert(data.purchaseLog, purchaseId)
+	while #data.purchaseLog > MAX_PURCHASE_HISTORY do
+		local oldest = table.remove(data.purchaseLog, 1)
+		data.purchases[oldest] = nil
+	end
+end
+
+function DataService.Save(player: Player): boolean
+	local session = sessions[player]
+	if not session or not session.canSave or not store then
+		return false
+	end
+	local snapshot = deepCopy(session.data)
+	local ok = retry(function()
+		store:SetAsync(keyFor(player), snapshot, { player.UserId })
+	end, 3)
+	return ok
+end
+
+function DataService.Start()
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore(Config.DataStoreName)
+	end)
+	if ok then
+		store = result
+	else
+		warn("[DataService] DataStore недоступен: " .. tostring(result))
+	end
+
+	Players.PlayerAdded:Connect(loadPlayer)
+	for _, player in Players:GetPlayers() do
+		task.spawn(loadPlayer, player)
+	end
+
+	Players.PlayerRemoving:Connect(function(player)
+		if sessions[player] then
+			DataService.Save(player)
+			sessions[player] = nil
+		end
+	end)
+
+	-- Автосохранение
+	task.spawn(function()
+		while true do
+			task.wait(Config.AutosaveInterval)
+			for player in sessions do
+				task.spawn(DataService.Save, player)
+			end
+		end
+	end)
+
+	-- Отправка «грязных» снимков клиентам
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			for player, session in sessions do
+				if session.dirty then
+					DataService.Push(player)
+				end
+			end
+		end
+	end)
+
+	-- Сохранение всех при выключении сервера
+	game:BindToClose(function()
+		local pending = 0
+		for player in sessions do
+			pending += 1
+			task.spawn(function()
+				DataService.Save(player)
+				pending -= 1
+			end)
+		end
+		local started = os.clock()
+		while pending > 0 and os.clock() - started < 25 do
+			task.wait(0.1)
+		end
+	end)
+end
+
+return DataService
+]]></ProtectedString></Properties></Item>
+<Item class="ModuleScript" referent="RBX00000006"><Properties><string name="Name">GameService</string><ProtectedString name="Source"><![CDATA[-- Игровая логика: награды, улучшения, зоны, перерождение, ежедневная награда.
+-- Все действия игрока приходят сюда через Remotes.Action и проверяются на сервере.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Format = require(ReplicatedStorage.Shared.Format)
+local DataService = require(script.Parent.DataService)
+local Remotes = require(script.Parent.Remotes)
+
+local GameService = {}
+
+local ACTION_COOLDOWN = 0.15
+local actions = {}
+
+function GameService.Notify(player: Player, text: string, kind: string?)
+	Remotes.Notify:FireClient(player, text, kind or "info")
+end
+
+function GameService.Multiplier(player: Player): number
+	local session = DataService.Get(player)
+	if not session then
+		return 1
+	end
+	return Config.EssenceMultiplier(session.data, session.passes, os.time())
+end
+
+-- Начисляет эссенцию. pushNow = true — сразу обновить интерфейс.
+function GameService.AddEssence(player: Player, amount: number, pushNow: boolean?): number
+	local session = DataService.Get(player)
+	if not session then
+		return 0
+	end
+	amount = math.max(0, math.floor(amount))
+	session.data.essence += amount
+	session.data.totalEssence += amount
+	if pushNow then
+		DataService.Push(player)
+	else
+		DataService.MarkDirty(player)
+	end
+	return amount
+end
+
+-- Награда за пойманную тень.
+function GameService.RewardShadow(player: Player, zoneIndex: number): number
+	local zone = Config.Zones[zoneIndex]
+	return GameService.AddEssence(player, math.max(1, zone.shadowValue * GameService.Multiplier(player)))
+end
+
+function GameService.ApplySpeed(player: Player)
+	local session = DataService.Get(player)
+	local character = player.Character
+	if not session or not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.WalkSpeed = Config.WalkSpeed(session.data.upgrades.speed, session.passes.VIP == true)
+	end
+end
+
+-- Регистрирует действие, которое клиент может вызвать: Action:FireServer(name, arg)
+function GameService.RegisterAction(name: string, handler)
+	actions[name] = handler
+end
+
+---------------------------------------------------------------------
+-- Действия
+---------------------------------------------------------------------
+
+GameService.RegisterAction("sync", function(player)
+	DataService.Push(player)
+end)
+
+GameService.RegisterAction("buyUpgrade", function(player, session, id)
+	local def = if type(id) == "string" then Config.Upgrades[id] else nil
+	if not def then
+		return
+	end
+	local data = session.data
+	local level = data.upgrades[id]
+	if level >= def.maxLevel then
+		return GameService.Notify(player, "Это улучшение уже на максимуме", "bad")
+	end
+	local cost = Config.UpgradeCost(id, level)
+	if data.essence < cost then
+		return GameService.Notify(player, "Не хватает эссенции", "bad")
+	end
+	data.essence -= cost
+	data.upgrades[id] = level + 1
+	if id == "speed" then
+		GameService.ApplySpeed(player)
+	end
+	DataService.Push(player)
+end)
+
+GameService.RegisterAction("buyZone", function(player, session)
+	local data = session.data
+	local nextIndex = data.unlockedZone + 1
+	local zone = Config.Zones[nextIndex]
+	if not zone then
+		return GameService.Notify(player, "Все зоны уже открыты!", "info")
+	end
+	if data.essence < zone.price then
+		return GameService.Notify(player, "Не хватает эссенции", "bad")
+	end
+	data.essence -= zone.price
+	data.unlockedZone = nextIndex
+	DataService.Push(player)
+	GameService.Notify(player, "Открыта зона «" .. zone.name .. "»!", "good")
+end)
+
+GameService.RegisterAction("rebirth", function(player, session)
+	local data = session.data
+	local cost = Config.RebirthCost(data.rebirths)
+	if data.essence < cost then
+		return GameService.Notify(player, "Для перерождения нужно " .. Format.Number(cost) .. " эссенции", "bad")
+	end
+	data.rebirths += 1
+	data.essence = 0
+	data.unlockedZone = 1
+	for id in data.upgrades do
+		data.upgrades[id] = 0
+	end
+	DataService.Push(player)
+	player:LoadCharacter() -- возвращаем на старт
+	GameService.Notify(
+		player,
+		"Перерождение! Множитель теперь " .. Format.Multiplier(Config.RebirthMultiplier(data.rebirths)),
+		"good"
+	)
+end)
+
+GameService.RegisterAction("claimDaily", function(player, session)
+	local data = session.data
+	local now = os.time()
+	local remaining = Config.Daily.cooldown - (now - data.lastDaily)
+	if data.lastDaily > 0 and remaining > 0 then
+		return GameService.Notify(player, "Награда будет доступна через " .. Format.Duration(remaining), "bad")
+	end
+	local streak = Config.NextDailyStreak(data.lastDaily, data.dailyStreak, now)
+	local reward = Config.DailyReward(streak, data.unlockedZone, data.rebirths)
+	data.dailyStreak = streak
+	data.lastDaily = now
+	GameService.AddEssence(player, reward, true)
+	GameService.Notify(player, string.format("День %d: +%s эссенции!", streak, Format.Number(reward)), "good")
+end)
+
+---------------------------------------------------------------------
+
+function GameService.Init()
+	Remotes.Action.OnServerEvent:Connect(function(player, name, arg)
+		if type(name) ~= "string" then
+			return
+		end
+		local handler = actions[name]
+		local session = DataService.Get(player)
+		if not handler or not session then
+			return
+		end
+		local now = os.clock()
+		if now - session.lastAction < ACTION_COOLDOWN then
+			return
+		end
+		session.lastAction = now
+
+		local ok, err = pcall(handler, player, session, arg)
+		if not ok then
+			warn("[GameService] ошибка в действии " .. name .. ": " .. tostring(err))
+		end
+	end)
+
+	DataService.OnPlayerLoaded(function(player)
+		player.CharacterAdded:Connect(function(character)
+			character:WaitForChild("Humanoid", 10)
+			GameService.ApplySpeed(player)
+		end)
+		GameService.ApplySpeed(player)
+	end)
+end
+
+return GameService
+]]></ProtectedString></Properties></Item>
+<Item class="Script" referent="RBX00000007"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Точка входа сервера. Порядок важен: сначала подписки, потом загрузка игроков.
+
+local Server = script.Parent
+
+local DataService = require(Server.DataService)
+local GameService = require(Server.GameService)
+local MonetizationService = require(Server.MonetizationService)
+local WorldService = require(Server.WorldService)
+
+GameService.Init()
+MonetizationService.Init()
+WorldService.Init()
+DataService.Start()
+]]></ProtectedString></Properties></Item>
+<Item class="ModuleScript" referent="RBX00000008"><Properties><string name="Name">MonetizationService</string><ProtectedString name="Source"><![CDATA[-- Game Passes и Developer Products.
+-- ID задаются в ReplicatedStorage.Shared.Config.
+
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Format = require(ReplicatedStorage.Shared.Format)
+local DataService = require(script.Parent.DataService)
+local GameService = require(script.Parent.GameService)
+
+local MonetizationService = {}
+
+local passKeyById = {} -- [gamePassId] = "DoubleEssence"
+local productById = {} -- [productId] = def
+
+for key, def in Config.GamePasses do
+	if def.id ~= 0 then
+		passKeyById[def.id] = key
+	end
+end
+for _, def in Config.Products do
+	if def.id ~= 0 then
+		productById[def.id] = def
+	end
+end
+
+local function grantPass(player: Player, key: string)
+	local session = DataService.Get(player)
+	if not session then
+		return
+	end
+	session.passes[key] = true
+	GameService.ApplySpeed(player)
+	DataService.Push(player)
+end
+
+local function checkPasses(player: Player)
+	local session = DataService.Get(player)
+	if not session then
+		return
+	end
+	for key, def in Config.GamePasses do
+		if def.id ~= 0 then
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, def.id)
+			end)
+			if ok and owns then
+				session.passes[key] = true
+			end
+		end
+	end
+	GameService.ApplySpeed(player)
+	DataService.Push(player)
+end
+
+-- Выдача Developer Products по типу.
+local productHandlers = {
+	essence = function(player: Player, def)
+		local data = DataService.Get(player).data
+		local amount = Config.EssencePackAmount(def, data.unlockedZone, data.rebirths)
+		GameService.AddEssence(player, amount, true)
+		GameService.Notify(player, "Спасибо за покупку! +" .. Format.Number(amount) .. " эссенции", "good")
+	end,
+
+	boost = function(player: Player, def)
+		local data = DataService.Get(player).data
+		data.boostEndsAt = math.max(data.boostEndsAt, os.time()) + def.duration
+		DataService.Push(player)
+		GameService.Notify(player, "Буст x2 активирован!", "good")
+	end,
+}
+
+local function processReceipt(receipt)
+	local player = Players:GetPlayerByUserId(receipt.PlayerId)
+	if not player then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	local session = DataService.Get(player)
+	if not session then
+		-- Данные ещё не загружены — Roblox повторит попытку позже.
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	-- Эта покупка уже выдана (повторный вызов) — не выдаём второй раз.
+	if session.data.purchases[receipt.PurchaseId] then
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+
+	local def = productById[receipt.ProductId]
+	local handler = def and productHandlers[def.kind]
+	if not handler then
+		warn("[Monetization] неизвестный продукт: " .. tostring(receipt.ProductId))
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	local ok, err = pcall(handler, player, def)
+	if not ok then
+		warn("[Monetization] ошибка выдачи: " .. tostring(err))
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	DataService.RecordPurchase(player, receipt.PurchaseId)
+
+	-- Подтверждаем покупку только после сохранения — иначе при сбое игрок потеряет товар.
+	if session.canSave and not DataService.Save(player) then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+function MonetizationService.Init()
+	DataService.OnPlayerLoaded(checkPasses)
+
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+		local key = passKeyById[passId]
+		if purchased and key then
+			grantPass(player, key)
+			GameService.Notify(player, "Куплено: " .. Config.GamePasses[key].name .. "!", "good")
+		end
+	end)
+
+	MarketplaceService.ProcessReceipt = processReceipt
+end
+
+return MonetizationService
+]]></ProtectedString></Properties></Item>
+<Item class="ModuleScript" referent="RBX00000009"><Properties><string name="Name">Remotes</string><ProtectedString name="Source"><![CDATA[-- Создаёт RemoteEvent'ы для связи сервера и клиента.
+-- Модуль кэшируется, поэтому объекты создаются один раз.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local folder = Instance.new("Folder")
+folder.Name = "Remotes"
+
+local function make(name: string): RemoteEvent
+	local remote = Instance.new("RemoteEvent")
+	remote.Name = name
+	remote.Parent = folder
+	return remote
+end
+
+local Remotes = {
+	DataChanged = make("DataChanged"), -- сервер → клиент: снимок данных игрока
+	Notify = make("Notify"), -- сервер → клиент: всплывающее сообщение
+	Action = make("Action"), -- клиент → сервер: действие игрока (купить, переродиться...)
+}
+
+folder.Parent = ReplicatedStorage
+
+return Remotes
+]]></ProtectedString></Properties></Item>
+<Item class="ModuleScript" referent="RBX0000000A"><Properties><string name="Name">WorldService</string><ProtectedString name="Source"><![CDATA[-- Генерирует мир (зоны, мосты, освещение) и управляет тенями.
+-- Карту потом можно заменить своей — логика теней от неё почти не зависит.
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local DataService = require(script.Parent.DataService)
+local GameService = require(script.Parent.GameService)
+
+local WorldService = {}
+
+local ZONE_SIZE = Config.World.ZoneSize
+local ZONE_GAP = Config.World.ZoneGap
+
+local rng = Random.new()
+local worldFolder: Folder
+local shadowsFolder: Folder
+local shadowStates = {} -- [BasePart] = state
+
+local function zoneCenter(index: number): Vector3
+	return Vector3.new((index - 1) * (ZONE_SIZE + ZONE_GAP), 0, 0)
+end
+
+-- Точка входа в зону (западный край) — сюда телепортируем игрока.
+local function zoneEntrance(index: number): Vector3
+	return zoneCenter(index) + Vector3.new(-ZONE_SIZE / 2 + 12, 4, 0)
+end
+
+local function clampToZone(index: number, position: Vector3): Vector3
+	local center = zoneCenter(index)
+	local half = ZONE_SIZE / 2 - 8
+	return Vector3.new(
+		math.clamp(position.X, center.X - half, center.X + half),
+		position.Y,
+		math.clamp(position.Z, center.Z - half, center.Z + half)
+	)
+end
+
+local function randomPointInZone(index: number, height: number): Vector3
+	local center = zoneCenter(index)
+	local half = ZONE_SIZE / 2 - 10
+	return center + Vector3.new(rng:NextNumber(-half, half), height, rng:NextNumber(-half, half))
+end
+
+-- Свойства, которые нужно ставить в строгом порядке (форма → размер → остальное → позиция).
+local ORDERED_FIRST = { "Shape", "Size" }
+local ORDERED_LAST = { "Position", "CFrame", "Parent" }
+local SPECIAL = { Shape = true, Size = true, Position = true, CFrame = true, Parent = true }
+
+local function makePart(props): Part
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	for _, key in ORDERED_FIRST do
+		if props[key] ~= nil then
+			part[key] = props[key]
+		end
+	end
+	for key, value in props do
+		if not SPECIAL[key] then
+			part[key] = value
+		end
+	end
+	for _, key in ORDERED_LAST do
+		if props[key] ~= nil then
+			part[key] = props[key]
+		end
+	end
+	return part
+end
+
+---------------------------------------------------------------------
+-- Карта
+---------------------------------------------------------------------
+
+local function applyLighting()
+	Lighting.ClockTime = 0
+	Lighting.Brightness = 1.5
+	Lighting.Ambient = Color3.fromRGB(70, 60, 100)
+	Lighting.OutdoorAmbient = Color3.fromRGB(90, 80, 130)
+
+	if not Lighting:FindFirstChildOfClass("Atmosphere") then
+		local atmosphere = Instance.new("Atmosphere")
+		atmosphere.Density = 0.35
+		atmosphere.Color = Color3.fromRGB(80, 70, 120)
+		atmosphere.Decay = Color3.fromRGB(40, 30, 70)
+		atmosphere.Parent = Lighting
+	end
+end
+
+local function buildZone(index: number, zone)
+	local model = Instance.new("Model")
+	model.Name = string.format("Zone%d", index)
+
+	local center = zoneCenter(index)
+
+	makePart({
+		Name = "Floor",
+		Size = Vector3.new(ZONE_SIZE, 4, ZONE_SIZE),
+		Position = center - Vector3.new(0, 2, 0),
+		Color = zone.floorColor,
+		Material = Enum.Material.Slate,
+		Parent = model,
+	})
+
+	-- Мост к следующей зоне
+	if index < #Config.Zones then
+		makePart({
+			Name = "Bridge",
+			Size = Vector3.new(ZONE_GAP, 2, 16),
+			Position = center + Vector3.new(ZONE_SIZE / 2 + ZONE_GAP / 2, -1, 0),
+			Color = Color3.fromRGB(40, 35, 55),
+			Material = Enum.Material.WoodPlanks,
+			Parent = model,
+		})
+	end
+
+	-- Декор: тёмные колонны со свечением
+	for _ = 1, 6 do
+		local height = rng:NextNumber(10, 24)
+		local pillar = makePart({
+			Name = "Pillar",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(height, 3, 3),
+			CFrame = CFrame.new(randomPointInZone(index, height / 2)) * CFrame.Angles(0, 0, math.rad(90)),
+			Color = zone.shadowColor,
+			Material = Enum.Material.Basalt,
+			Parent = model,
+		})
+		local light = Instance.new("PointLight")
+		light.Color = zone.glowColor
+		light.Range = 16
+		light.Brightness = 1.5
+		light.Parent = pillar
+	end
+
+	-- Табличка с названием и ценой зоны
+	local signAnchor = makePart({
+		Name = "Sign",
+		Size = Vector3.new(1, 1, 1),
+		Position = zoneEntrance(index) + Vector3.new(0, 10, 0),
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = model,
+	})
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(320, 80)
+	billboard.MaxDistance = 220
+	billboard.Parent = signAnchor
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBlack
+	label.TextScaled = true
+	label.TextColor3 = zone.glowColor
+	label.TextStrokeTransparency = 0.3
+	label.Text = if zone.price > 0
+		then string.format("%s\n🔒 %d эссенции", zone.name, zone.price)
+		else zone.name
+	label.Parent = billboard
+
+	model.Parent = worldFolder
+end
+
+local function buildWorld()
+	if Config.World.RemoveDefaultBaseplate then
+		local baseplate = workspace:FindFirstChild("Baseplate")
+		if baseplate then
+			baseplate:Destroy()
+		end
+		for _, child in workspace:GetChildren() do
+			if child:IsA("SpawnLocation") then
+				child:Destroy()
+			end
+		end
+	end
+
+	if Config.World.ApplyLighting then
+		applyLighting()
+	end
+
+	worldFolder = Instance.new("Folder")
+	worldFolder.Name = "ShadowWorld"
+	worldFolder.Parent = workspace
+
+	for index, zone in Config.Zones do
+		buildZone(index, zone)
+	end
+
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Anchored = true
+	spawn.Size = Vector3.new(10, 1, 10)
+	spawn.Position = zoneEntrance(1) - Vector3.new(0, 3.5, 0)
+	spawn.Color = Color3.fromRGB(140, 90, 255)
+	spawn.Material = Enum.Material.Neon
+	spawn.Duration = 0
+	spawn.Parent = worldFolder
+
+	shadowsFolder = Instance.new("Folder")
+	shadowsFolder.Name = "Shadows"
+	shadowsFolder.Parent = workspace
+end
+
+---------------------------------------------------------------------
+-- Тени
+---------------------------------------------------------------------
+
+local spawnShadow -- объявлено заранее, чтобы использовать внутри Hit
+
+local function updateHealthBar(state)
+	local ratio = math.clamp(state.hp / state.maxHp, 0, 1)
+	state.fill.Size = UDim2.fromScale(ratio, 1)
+end
+
+local function wander(part: BasePart, state)
+	while state.alive do
+		local target = clampToZone(
+			state.zone,
+			part.Position + Vector3.new(rng:NextNumber(-18, 18), 0, rng:NextNumber(-18, 18))
+		)
+		local duration = rng:NextNumber(2.5, 4.5)
+		TweenService:Create(part, TweenInfo.new(duration, Enum.EasingStyle.Sine), { Position = target }):Play()
+		task.wait(duration + rng:NextNumber(0.5, 2))
+	end
+end
+
+local function killShadow(part: BasePart, state)
+	state.alive = false
+	shadowStates[part] = nil
+
+	local tween = TweenService:Create(part, TweenInfo.new(0.25), {
+		Size = part.Size * 1.8,
+		Transparency = 1,
+	})
+	tween:Play()
+	tween.Completed:Once(function()
+		part:Destroy()
+	end)
+
+	task.delay(Config.ShadowRespawnTime, spawnShadow, state.zone)
+end
+
+-- Удар по тени. isAuto = удар от авто-ловли (без кулдауна клика).
+function WorldService.Hit(player: Player, part: BasePart, isAuto: boolean)
+	local state = shadowStates[part]
+	if not state or not state.alive then
+		return
+	end
+	local session = DataService.Get(player)
+	if not session then
+		return
+	end
+
+	local now = os.clock()
+	if not isAuto then
+		if now - session.lastClick < Config.ClickCooldown then
+			return
+		end
+		session.lastClick = now
+
+		-- Проверка расстояния на сервере (защита от читов)
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root or (root.Position - part.Position).Magnitude > Config.ClickRange + 10 then
+			return
+		end
+	end
+
+	if session.data.unlockedZone < state.zone then
+		if now - session.lastNotice > 2 then
+			session.lastNotice = now
+			GameService.Notify(player, "Эта зона закрыта — откройте её в меню «Зоны»", "bad")
+		end
+		return
+	end
+
+	state.hp -= Config.Damage(session.data.upgrades.power)
+	if state.hp <= 0 then
+		killShadow(part, state)
+		GameService.RewardShadow(player, state.zone)
+	else
+		updateHealthBar(state)
+	end
+end
+
+function spawnShadow(zoneIndex: number)
+	local zone = Config.Zones[zoneIndex]
+	local size = 4 * (1 + (zoneIndex - 1) * 0.2)
+
+	local part = makePart({
+		Name = "Shadow",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(size, size, size),
+		Position = randomPointInZone(zoneIndex, size / 2 + 1),
+		Color = zone.shadowColor,
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+	})
+
+	local light = Instance.new("PointLight")
+	light.Color = zone.glowColor
+	light.Range = 10
+	light.Brightness = 2
+	light.Parent = part
+
+	local click = Instance.new("ClickDetector")
+	click.MaxActivationDistance = Config.ClickRange
+	click.Parent = part
+
+	-- Полоска здоровья
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromOffset(80, 10)
+	billboard.StudsOffset = Vector3.new(0, size / 2 + 1.5, 0)
+	billboard.MaxDistance = 70
+	billboard.Parent = part
+
+	local back = Instance.new("Frame")
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = Color3.fromRGB(20, 15, 30)
+	back.BorderSizePixel = 0
+	back.Parent = billboard
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.BackgroundColor3 = zone.glowColor
+	fill.BorderSizePixel = 0
+	fill.Parent = back
+
+	local state = {
+		zone = zoneIndex,
+		hp = zone.shadowHp,
+		maxHp = zone.shadowHp,
+		alive = true,
+		fill = fill,
+	}
+	shadowStates[part] = state
+
+	click.MouseClick:Connect(function(player)
+		WorldService.Hit(player, part, false)
+	end)
+
+	part.Parent = shadowsFolder
+	task.spawn(wander, part, state)
+end
+
+-- Авто-ловля для владельцев Game Pass
+local function autoCatchLoop()
+	while true do
+		task.wait(Config.AutoCatchInterval)
+		for _, player in Players:GetPlayers() do
+			local session = DataService.Get(player)
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if session and session.passes.AutoCatch and root then
+				local nearest, nearestDistance = nil, Config.AutoCatchRange
+				for part, state in shadowStates do
+					if state.alive and state.zone <= session.data.unlockedZone then
+						local distance = (part.Position - root.Position).Magnitude
+						if distance < nearestDistance then
+							nearest, nearestDistance = part, distance
+						end
+					end
+				end
+				if nearest then
+					WorldService.Hit(player, nearest, true)
+				end
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------
+
+function WorldService.Init()
+	buildWorld()
+
+	for zoneIndex = 1, #Config.Zones do
+		for _ = 1, Config.ShadowsPerZone do
+			spawnShadow(zoneIndex)
+		end
+	end
+
+	task.spawn(autoCatchLoop)
+
+	GameService.RegisterAction("teleport", function(player, session, zoneIndex)
+		if type(zoneIndex) ~= "number" or zoneIndex % 1 ~= 0 then
+			return
+		end
+		if zoneIndex < 1 or zoneIndex > session.data.unlockedZone then
+			return
+		end
+		local character = player.Character
+		if character then
+			character:PivotTo(CFrame.new(zoneEntrance(zoneIndex)) * CFrame.Angles(0, math.rad(-90), 0))
+		end
+	end)
+end
+
+return WorldService
+]]></ProtectedString></Properties></Item>
+</Item>
+</Item>
+<Item class="StarterPlayer" referent="RBX00000011"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX00000010"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="Folder" referent="RBX0000000F"><Properties><string name="Name">Client</string></Properties><Item class="LocalScript" referent="RBX0000000D"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Интерфейс игрока: верхняя панель, меню, окна и уведомления.
+-- Клиент только показывает данные и отправляет запросы — всё проверяет сервер.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Format = require(Shared:WaitForChild("Format"))
+local UI = require(script.Parent:WaitForChild("UI"))
+local Theme = UI.Theme
+
+local player = Players.LocalPlayer
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local ActionRemote = Remotes:WaitForChild("Action")
+local DataChanged = Remotes:WaitForChild("DataChanged")
+local NotifyRemote = Remotes:WaitForChild("Notify")
+
+local state = nil -- последний снимок данных с сервера
+
+local function serverNow(): number
+	return workspace:GetServerTimeNow()
+end
+
+local function sendAction(name: string, arg)
+	ActionRemote:FireServer(name, arg)
+end
+
+---------------------------------------------------------------------
+-- Основа интерфейса
+---------------------------------------------------------------------
+
+local gui = UI.new("ScreenGui", {
+	Name = "ShadowHUD",
+	ResetOnSpawn = false,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Parent = player:WaitForChild("PlayerGui"),
+})
+
+-- Верхняя панель с эссенцией
+local topBar = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 8),
+	Size = UDim2.fromOffset(400, 64),
+	BackgroundColor3 = Theme.Background,
+	BackgroundTransparency = 0.1,
+	Parent = gui,
+}, { UI.corner(14), UI.stroke() })
+
+local essenceLabel = UI.label({
+	Position = UDim2.fromOffset(16, 6),
+	Size = UDim2.new(1, -32, 0, 30),
+	TextSize = 26,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	Text = "🌑 0",
+	Parent = topBar,
+})
+
+local infoLabel = UI.label({
+	Position = UDim2.fromOffset(16, 36),
+	Size = UDim2.new(1, -32, 0, 22),
+	TextSize = 15,
+	TextColor3 = Theme.Muted,
+	TextXAlignment = Enum.TextXAlignment.Center,
+	Text = "",
+	Parent = topBar,
+})
+
+-- Меню слева
+local menu = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 10, 0.5, 0),
+	Size = UDim2.fromOffset(170, 300),
+	BackgroundTransparency = 1,
+	Parent = gui,
+}, {
+	UI.new("UIListLayout", {
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}),
+})
+
+-- Окно для панелей
+local window = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.55),
+	Size = UDim2.fromScale(0.9, 0.7),
+	BackgroundColor3 = Theme.Background,
+	Visible = false,
+	Parent = gui,
+}, {
+	UI.corner(14),
+	UI.stroke(),
+	UI.new("UISizeConstraint", { MaxSize = Vector2.new(500, 440) }),
+})
+
+local windowTitle = UI.label({
+	Position = UDim2.fromOffset(16, 10),
+	Size = UDim2.new(1, -70, 0, 36),
+	TextSize = 24,
+	Parent = window,
+})
+
+local closeButton = UI.button({
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -10, 0, 10),
+	Size = UDim2.fromOffset(36, 36),
+	Text = "✕",
+	BackgroundColor3 = Theme.Bad,
+	Parent = window,
+})
+
+local content = UI.new("ScrollingFrame", {
+	Position = UDim2.fromOffset(12, 56),
+	Size = UDim2.new(1, -18, 1, -66),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	CanvasSize = UDim2.new(),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollBarThickness = 6,
+	ScrollBarImageColor3 = Theme.Accent,
+	Parent = window,
+}, {
+	UI.new("UIListLayout", {
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+})
+
+-- Уведомления снизу
+local toasts = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -110),
+	Size = UDim2.fromOffset(420, 200),
+	BackgroundTransparency = 1,
+	Parent = gui,
+}, {
+	UI.new("UIListLayout", {
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	}),
+})
+
+local toastCounter = 0
+local TOAST_COLORS = { good = Theme.Good, bad = Theme.Bad, info = Theme.Accent }
+
+local function showToast(text: string, kind: string?)
+	toastCounter += 1
+	local toast = UI.label({
+		Size = UDim2.new(1, 0, 0, 36),
+		BackgroundColor3 = Theme.Background,
+		BackgroundTransparency = 0.1,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextSize = 17,
+		Text = text,
+		LayoutOrder = toastCounter,
+		Parent = toasts,
+	})
+	UI.corner(10).Parent = toast
+	UI.stroke(TOAST_COLORS[kind or "info"] or Theme.Accent, 2).Parent = toast
+
+	task.delay(3, function()
+		local fade = TweenService:Create(toast, TweenInfo.new(0.4), {
+			BackgroundTransparency = 1,
+			TextTransparency = 1,
+		})
+		fade:Play()
+		fade.Completed:Wait()
+		toast:Destroy()
+	end)
+end
+
+-- Всплывающее «+X» под счётчиком
+local function popGain(amount: number)
+	local label = UI.label({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, math.random(-60, 60), 0, 76),
+		Size = UDim2.fromOffset(160, 28),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextColor3 = Theme.Gold,
+		TextStrokeTransparency = 0.4,
+		TextSize = 22,
+		Text = "+" .. Format.Number(amount),
+		Parent = gui,
+	})
+	local tween = TweenService:Create(label, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {
+		Position = label.Position - UDim2.fromOffset(0, 30),
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	})
+	tween:Play()
+	tween.Completed:Once(function()
+		label:Destroy()
+	end)
+end
+
+---------------------------------------------------------------------
+-- Панели. build(content) строит строки и возвращает update(state).
+---------------------------------------------------------------------
+
+local Panels = {}
+
+Panels.upgrades = {
+	title = "⚡ Улучшения",
+	build = function(parent)
+		local rows = {}
+		for order, id in Config.UpgradeOrder do
+			local def = Config.Upgrades[id]
+			local row = UI.row(parent, 72, order)
+			local title = UI.label({
+				Position = UDim2.fromOffset(14, 10),
+				Size = UDim2.new(1, -180, 0, 24),
+				Text = def.name,
+				Parent = row,
+			})
+			UI.label({
+				Position = UDim2.fromOffset(14, 36),
+				Size = UDim2.new(1, -180, 0, 24),
+				Text = def.description,
+				TextSize = 14,
+				TextColor3 = Theme.Muted,
+				Font = Enum.Font.Gotham,
+				Parent = row,
+			})
+			local button = UI.button({
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -12, 0.5, 0),
+				Size = UDim2.fromOffset(150, 44),
+				Parent = row,
+			})
+			button.Activated:Connect(function()
+				sendAction("buyUpgrade", id)
+			end)
+			rows[id] = { title = title, button = button }
+		end
+
+		return function(s)
+			for id, row in rows do
+				local def = Config.Upgrades[id]
+				local level = s.upgrades[id]
+				row.title.Text = string.format("%s  •  ур. %d", def.name, level)
+				if level >= def.maxLevel then
+					UI.setButton(row.button, "МАКС", false)
+				else
+					local cost = Config.UpgradeCost(id, level)
+					UI.setButton(row.button, "🌑 " .. Format.Number(cost), s.essence >= cost)
+				end
+			end
+		end
+	end,
+}
+
+Panels.zones = {
+	title = "🗺 Зоны",
+	build = function(parent)
+		local rows = {}
+		for index, zone in Config.Zones do
+			local row = UI.row(parent, 72, index)
+			UI.label({
+				Position = UDim2.fromOffset(14, 10),
+				Size = UDim2.new(1, -180, 0, 24),
+				Text = zone.name,
+				TextColor3 = zone.glowColor,
+				Parent = row,
+			})
+			UI.label({
+				Position = UDim2.fromOffset(14, 36),
+				Size = UDim2.new(1, -180, 0, 24),
+				Text = string.format("Тень: %s ОЗ • награда %s", Format.Number(zone.shadowHp), Format.Number(zone.shadowValue)),
+				TextSize = 14,
+				TextColor3 = Theme.Muted,
+				Font = Enum.Font.Gotham,
+				Parent = row,
+			})
+			local button = UI.button({
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -12, 0.5, 0),
+				Size = UDim2.fromOffset(150, 44),
+				Parent = row,
+			})
+			button.Activated:Connect(function()
+				if not state then
+					return
+				end
+				if index <= state.unlockedZone then
+					sendAction("teleport", index)
+				elseif index == state.unlockedZone + 1 then
+					sendAction("buyZone")
+				end
+			end)
+			rows[index] = button
+		end
+
+		return function(s)
+			for index, button in rows do
+				local zone = Config.Zones[index]
+				if index <= s.unlockedZone then
+					UI.setButton(button, "Телепорт", true, Theme.Good)
+				elseif index == s.unlockedZone + 1 then
+					UI.setButton(button, "🔓 " .. Format.Number(zone.price), s.essence >= zone.price)
+				else
+					UI.setButton(button, "🔒", false)
+				end
+			end
+		end
+	end,
+}
+
+Panels.rebirth = {
+	title = "♻ Перерождение",
+	build = function(parent)
+		local row = UI.row(parent, 230, 1)
+		local text = UI.label({
+			Position = UDim2.fromOffset(16, 12),
+			Size = UDim2.new(1, -32, 0, 140),
+			TextYAlignment = Enum.TextYAlignment.Top,
+			TextSize = 17,
+			RichText = true,
+			Parent = row,
+		})
+		local button = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -14),
+			Size = UDim2.new(1, -32, 0, 50),
+			TextSize = 20,
+			Parent = row,
+		})
+
+		-- Защита от случайного нажатия: подтверждение вторым кликом.
+		local confirmUntil = 0
+		local update
+
+		button.Activated:Connect(function()
+			if os.clock() < confirmUntil then
+				confirmUntil = 0
+				sendAction("rebirth")
+			else
+				confirmUntil = os.clock() + 3
+				button.Text = "Точно? Нажмите ещё раз"
+				task.delay(3, function()
+					if state and update then
+						update(state)
+					end
+				end)
+			end
+		end)
+
+		update = function(s)
+			local cost = Config.RebirthCost(s.rebirths)
+			text.Text = string.format(
+				"Перерождений: <b>%d</b>\nМножитель: <b>%s → %s</b>\n\n"
+					.. "<font color=\"#a59bc3\">Сбросит эссенцию, улучшения и зоны, "
+					.. "но навсегда увеличит доход.</font>",
+				s.rebirths,
+				Format.Multiplier(Config.RebirthMultiplier(s.rebirths)),
+				Format.Multiplier(Config.RebirthMultiplier(s.rebirths + 1))
+			)
+			if os.clock() >= confirmUntil then
+				UI.setButton(button, "Переродиться • 🌑 " .. Format.Number(cost), s.essence >= cost, Theme.Gold)
+			end
+		end
+		return update
+	end,
+}
+
+-- Кэш настоящих цен из Roblox
+local priceCache = {}
+local function fetchPrice(id: number, infoType: Enum.InfoType, onReady)
+	if priceCache[id] then
+		onReady(priceCache[id])
+		return
+	end
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return MarketplaceService:GetProductInfo(id, infoType)
+		end)
+		if ok and info and info.PriceInRobux then
+			priceCache[id] = info.PriceInRobux
+			onReady(info.PriceInRobux)
+		end
+	end)
+end
+
+Panels.shop = {
+	title = "💎 Магазин",
+	build = function(parent)
+		local passRows = {}
+		local order = 0
+		local function nextOrder()
+			order += 1
+			return order
+		end
+
+		UI.header(parent, "Навсегда", nextOrder())
+		for _, key in Config.GamePassOrder do
+			local def = Config.GamePasses[key]
+			local row = UI.row(parent, 72, nextOrder())
+			UI.label({ Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -170, 0, 24), Text = def.name, Parent = row })
+			UI.label({
+				Position = UDim2.fromOffset(14, 36),
+				Size = UDim2.new(1, -170, 0, 24),
+				Text = def.description,
+				TextSize = 14,
+				TextColor3 = Theme.Muted,
+				Font = Enum.Font.Gotham,
+				Parent = row,
+			})
+			local button = UI.button({
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -12, 0.5, 0),
+				Size = UDim2.fromOffset(140, 44),
+				Parent = row,
+			})
+			local entry = { button = button, price = def.price }
+			passRows[key] = entry
+			if def.id ~= 0 then
+				fetchPrice(def.id, Enum.InfoType.GamePass, function(price)
+					entry.price = price
+					if state and Panels.shop.update then
+						Panels.shop.update(state)
+					end
+				end)
+			end
+			button.Activated:Connect(function()
+				if def.id == 0 then
+					warn("Укажите ID Game Pass «" .. key .. "» в Config.GamePasses")
+					return
+				end
+				if state and not state.passes[key] then
+					MarketplaceService:PromptGamePassPurchase(player, def.id)
+				end
+			end)
+		end
+
+		UI.header(parent, "Разовые покупки", nextOrder())
+		local productRows = {}
+		for _, key in Config.ProductOrder do
+			local def = Config.Products[key]
+			local row = UI.row(parent, 72, nextOrder())
+			UI.label({ Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -170, 0, 24), Text = def.name, Parent = row })
+			local desc = UI.label({
+				Position = UDim2.fromOffset(14, 36),
+				Size = UDim2.new(1, -170, 0, 24),
+				TextSize = 14,
+				TextColor3 = Theme.Muted,
+				Font = Enum.Font.Gotham,
+				Parent = row,
+			})
+			local button = UI.button({
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -12, 0.5, 0),
+				Size = UDim2.fromOffset(140, 44),
+				Parent = row,
+			})
+			local entry = { button = button, desc = desc, price = def.price, def = def }
+			productRows[key] = entry
+			if def.id ~= 0 then
+				fetchPrice(def.id, Enum.InfoType.Product, function(price)
+					entry.price = price
+					if state and Panels.shop.update then
+						Panels.shop.update(state)
+					end
+				end)
+			end
+			button.Activated:Connect(function()
+				if def.id == 0 then
+					warn("Укажите ID Developer Product «" .. key .. "» в Config.Products")
+					return
+				end
+				MarketplaceService:PromptProductPurchase(player, def.id)
+			end)
+		end
+
+		return function(s)
+			for key, entry in passRows do
+				local def = Config.GamePasses[key]
+				if s.passes[key] then
+					UI.setButton(entry.button, "✓ Куплено", false)
+				elseif def.id == 0 then
+					UI.setButton(entry.button, "Не настроено", false)
+				else
+					UI.setButton(entry.button, "R$ " .. entry.price, true, Theme.Good)
+				end
+			end
+			for _, entry in productRows do
+				local def = entry.def
+				if def.kind == "essence" then
+					entry.desc.Text = "+" .. Format.Number(Config.EssencePackAmount(def, s.unlockedZone, s.rebirths)) .. " эссенции"
+				else
+					entry.desc.Text = "Удваивает эссенцию, время складывается"
+				end
+				if def.id == 0 then
+					UI.setButton(entry.button, "Не настроено", false)
+				else
+					UI.setButton(entry.button, "R$ " .. entry.price, true, Theme.Good)
+				end
+			end
+		end
+	end,
+}
+
+Panels.daily = {
+	title = "🎁 Ежедневная награда",
+	build = function(parent)
+		local row = UI.row(parent, 200, 1)
+		local text = UI.label({
+			Position = UDim2.fromOffset(16, 12),
+			Size = UDim2.new(1, -32, 0, 110),
+			TextYAlignment = Enum.TextYAlignment.Top,
+			TextSize = 17,
+			RichText = true,
+			Parent = row,
+		})
+		local button = UI.button({
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -14),
+			Size = UDim2.new(1, -32, 0, 50),
+			TextSize = 20,
+			Parent = row,
+		})
+		button.Activated:Connect(function()
+			sendAction("claimDaily")
+		end)
+
+		return function(s)
+			local now = serverNow()
+			local streak = Config.NextDailyStreak(s.lastDaily, s.dailyStreak, now)
+			local reward = Config.DailyReward(streak, s.unlockedZone, s.rebirths)
+			local remaining = Config.Daily.cooldown - (now - s.lastDaily)
+			text.Text = string.format(
+				"Серия: <b>%d / %d</b> дней\nНаграда: <b>🌑 %s</b>\n\n"
+					.. "<font color=\"#a59bc3\">Заходите каждый день — награда растёт. "
+					.. "Пропуск больше 2 дней сбросит серию.</font>",
+				s.dailyStreak,
+				Config.Daily.maxStreak,
+				Format.Number(reward)
+			)
+			if s.lastDaily == 0 or remaining <= 0 then
+				UI.setButton(button, "Забрать!", true, Theme.Good)
+			else
+				UI.setButton(button, "Через " .. Format.Duration(remaining), false)
+			end
+		end
+	end,
+}
+
+---------------------------------------------------------------------
+-- Открытие / закрытие панелей
+---------------------------------------------------------------------
+
+local openPanel = nil
+
+local function clearContent()
+	for _, child in content:GetChildren() do
+		if not child:IsA("UIListLayout") then
+			child:Destroy()
+		end
+	end
+end
+
+local function closePanel()
+	window.Visible = false
+	if openPanel then
+		openPanel.update = nil
+	end
+	openPanel = nil
+	clearContent()
+end
+
+local function togglePanel(name: string)
+	local panel = Panels[name]
+	if openPanel == panel then
+		closePanel()
+		return
+	end
+	closePanel()
+	openPanel = panel
+	windowTitle.Text = panel.title
+	panel.update = panel.build(content)
+	content.CanvasPosition = Vector2.zero
+	window.Visible = true
+	if state then
+		panel.update(state)
+	end
+end
+
+closeButton.Activated:Connect(closePanel)
+
+local MENU = {
+	{ "⚡ Улучшения", "upgrades" },
+	{ "🗺 Зоны", "zones" },
+	{ "♻ Перерождение", "rebirth" },
+	{ "💎 Магазин", "shop" },
+	{ "🎁 Награда", "daily" },
+}
+for order, item in MENU do
+	local button = UI.button({
+		Size = UDim2.new(1, 0, 0, 48),
+		Text = item[1],
+		LayoutOrder = order,
+		BackgroundColor3 = Theme.Background,
+		Parent = menu,
+	})
+	UI.stroke().Parent = button
+	button.Activated:Connect(function()
+		togglePanel(item[2])
+	end)
+end
+
+---------------------------------------------------------------------
+-- Обновление данных
+---------------------------------------------------------------------
+
+local function refreshTopBar()
+	if not state then
+		return
+	end
+	essenceLabel.Text = "🌑 " .. Format.Number(state.essence) .. " эссенции"
+	local now = serverNow()
+	local parts = {
+		"Множитель " .. Format.Multiplier(Config.EssenceMultiplier(state, state.passes, now)),
+		"Перерождений: " .. state.rebirths,
+	}
+	if state.boostEndsAt > now then
+		table.insert(parts, "⚡ Буст " .. Format.Duration(state.boostEndsAt - now))
+	end
+	infoLabel.Text = table.concat(parts, "  •  ")
+end
+
+local function refresh()
+	refreshTopBar()
+	if openPanel and openPanel.update and state then
+		openPanel.update(state)
+	end
+end
+
+DataChanged.OnClientEvent:Connect(function(snapshot)
+	local previous = state
+	state = snapshot
+	if previous and snapshot.essence > previous.essence then
+		popGain(snapshot.essence - previous.essence)
+	end
+	refresh()
+end)
+
+NotifyRemote.OnClientEvent:Connect(showToast)
+
+-- Таймеры (буст, ежедневная награда) обновляются раз в секунду
+task.spawn(function()
+	while true do
+		task.wait(1)
+		refresh()
+	end
+end)
+
+-- Запрашиваем данные, если первый снимок пришёл раньше, чем скрипт запустился
+sendAction("sync")
+]]></ProtectedString></Properties></Item>
+<Item class="ModuleScript" referent="RBX0000000E"><Properties><string name="Name">UI</string><ProtectedString name="Source"><![CDATA[-- Маленькая библиотека для сборки интерфейса из кода.
+
+local UI = {}
+
+UI.Theme = {
+	Background = Color3.fromRGB(24, 20, 38),
+	Panel = Color3.fromRGB(38, 32, 60),
+	Accent = Color3.fromRGB(140, 90, 255),
+	Disabled = Color3.fromRGB(70, 64, 90),
+	Text = Color3.fromRGB(240, 235, 255),
+	Muted = Color3.fromRGB(165, 155, 195),
+	Good = Color3.fromRGB(90, 210, 140),
+	Bad = Color3.fromRGB(235, 85, 110),
+	Gold = Color3.fromRGB(255, 205, 90),
+}
+
+local Theme = UI.Theme
+
+-- Создаёт объект: UI.new("Frame", { Size = ..., Parent = ... }, { дочерние })
+function UI.new(className: string, props, children)
+	local instance = Instance.new(className)
+	for key, value in props or {} do
+		if key ~= "Parent" then
+			instance[key] = value
+		end
+	end
+	for _, child in children or {} do
+		child.Parent = instance
+	end
+	if props and props.Parent then
+		instance.Parent = props.Parent
+	end
+	return instance
+end
+
+function UI.corner(radius: number?)
+	return UI.new("UICorner", { CornerRadius = UDim.new(0, radius or 10) })
+end
+
+function UI.stroke(color: Color3?, thickness: number?)
+	return UI.new("UIStroke", {
+		Color = color or Theme.Accent,
+		Thickness = thickness or 1.5,
+		Transparency = 0.4,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	})
+end
+
+function UI.label(props)
+	local defaults = {
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		TextColor3 = Theme.Text,
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = true,
+	}
+	for key, value in props do
+		defaults[key] = value
+	end
+	return UI.new("TextLabel", defaults)
+end
+
+function UI.button(props)
+	local defaults = {
+		BackgroundColor3 = Theme.Accent,
+		Font = Enum.Font.GothamBold,
+		TextColor3 = Theme.Text,
+		TextSize = 18,
+		AutoButtonColor = true,
+	}
+	for key, value in props do
+		defaults[key] = value
+	end
+	return UI.new("TextButton", defaults, { UI.corner(10) })
+end
+
+function UI.setButton(button: TextButton, text: string, enabled: boolean, color: Color3?)
+	button.Text = text
+	button.BackgroundColor3 = if enabled then (color or Theme.Accent) else Theme.Disabled
+	button.AutoButtonColor = enabled
+end
+
+-- Карточка-строка внутри списка
+function UI.row(parent: Instance, height: number, order: number)
+	return UI.new("Frame", {
+		Size = UDim2.new(1, -6, 0, height),
+		BackgroundColor3 = Theme.Panel,
+		LayoutOrder = order,
+		Parent = parent,
+	}, { UI.corner(10) })
+end
+
+-- Заголовок секции внутри списка
+function UI.header(parent: Instance, text: string, order: number)
+	return UI.label({
+		Size = UDim2.new(1, -6, 0, 26),
+		Text = text,
+		TextColor3 = Theme.Gold,
+		TextSize = 18,
+		LayoutOrder = order,
+		Parent = parent,
+	})
+end
+
+return UI
+]]></ProtectedString></Properties></Item>
+</Item>
+</Item>
+</Item>
+</roblox>
