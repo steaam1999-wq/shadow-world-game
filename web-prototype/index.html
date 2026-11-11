@@ -6,93 +6,195 @@
 <title>Shadow World — прототип</title>
 <style>
   :root {
-    --bg: #181426; --panel: #262040; --accent: #8c5aff; --dis: #46405a;
-    --text: #f0ebff; --muted: #a59bc3; --good: #5ad28c; --bad: #eb556e; --gold: #ffcd5a;
+    --bg: #120e1e; --bg2: #1b1530; --panel: #241d3d; --panel2: #2e2650; --accent: #8c5aff;
+    --dis: #3d3654; --text: #f3efff; --muted: #a59bc3; --good: #4fd68a; --bad: #ef5470;
+    --gold: #ffc94d; --gem: #5fe3ff;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    margin: 0; height: 100%; color: var(--text); overflow: hidden;
+    background: radial-gradient(120% 80% at 50% 0%, #241a44 0%, var(--bg) 60%);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden; user-select: none; -webkit-user-select: none;
+    user-select: none; -webkit-user-select: none;
   }
   button { font-family: inherit; cursor: pointer; }
   #app { display: flex; flex-direction: column; height: 100%; max-width: 560px; margin: 0 auto; }
-  #top { padding: 10px 12px 4px; text-align: center; }
-  #ess { font-size: 26px; font-weight: 800; }
-  #info { font-size: 13px; color: var(--muted); margin-top: 2px; min-height: 17px; }
+
+  /* ---------- Верхняя панель ---------- */
+  #top { display: grid; grid-template-columns: 58px 1fr 76px; align-items: center; gap: 8px; padding: 10px 12px 4px; }
+  #lvl {
+    width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; position: relative;
+    background: conic-gradient(var(--accent) calc(var(--xp, 0) * 1%), #2c2446 0);
+    box-shadow: 0 0 14px rgba(140, 90, 255, .45);
+  }
+  #lvl > div {
+    width: 42px; height: 42px; border-radius: 50%; background: var(--bg2); display: grid; place-items: center;
+    font-weight: 900; font-size: 17px; line-height: 1;
+  }
+  #lvl small { display: block; font-size: 9px; color: var(--muted); font-weight: 700; }
+  #mid { text-align: center; min-width: 0; }
+  #ess { font-size: 25px; font-weight: 900; letter-spacing: .3px; white-space: nowrap; transition: transform .12s; }
+  #ess.pop { transform: scale(1.08); }
+  #info { font-size: 12px; color: var(--muted); margin-top: 2px; min-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #gems {
+    justify-self: end; background: var(--panel); border: 1.5px solid rgba(95, 227, 255, .45); border-radius: 12px;
+    padding: 6px 8px; font-weight: 900; font-size: 15px; white-space: nowrap;
+  }
+
+  /* ---------- Зона ---------- */
   #zonebar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
   #zonebar button {
-    width: 40px; height: 36px; border-radius: 10px; border: 1.5px solid rgba(140,90,255,.5);
-    background: var(--panel); color: var(--text); font-size: 18px; font-weight: 800;
+    width: 40px; height: 36px; border-radius: 10px; border: 1.5px solid rgba(140, 90, 255, .5);
+    background: var(--panel); color: var(--text); font-size: 16px; font-weight: 900;
   }
-  #zonebar button:disabled { opacity: .35; }
-  #zname { flex: 1; text-align: center; font-weight: 800; font-size: 16px; }
+  #zonebar button:disabled { opacity: .3; }
+  #zname { flex: 1; text-align: center; font-weight: 900; font-size: 16px; text-shadow: 0 0 12px currentColor; }
   #arenaWrap {
-    flex: 1; position: relative; margin: 0 10px; border-radius: 16px; overflow: hidden;
-    border: 1.5px solid rgba(140,90,255,.5);
+    flex: 1; position: relative; margin: 0 10px; border-radius: 18px; overflow: hidden; min-height: 200px;
+    border: 1.5px solid rgba(140, 90, 255, .45); box-shadow: 0 0 24px rgba(140, 90, 255, .18), inset 0 0 40px rgba(0, 0, 0, .5);
   }
   canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  #gift {
+    position: absolute; right: 10px; top: 10px; width: 46px; height: 46px; border-radius: 14px; border: 0;
+    background: rgba(36, 29, 61, .85); font-size: 24px; display: grid; place-items: center;
+    box-shadow: 0 0 0 1.5px rgba(255, 201, 77, .5);
+  }
+  #gift.ready { animation: pulse 1.2s infinite; box-shadow: 0 0 18px rgba(255, 201, 77, .8), 0 0 0 2px var(--gold); }
+  #gift .dot, .navdot {
+    position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bad); border: 2px solid var(--bg); display: none;
+  }
+  #gift.ready .dot { display: block; }
   #lock {
-    position: absolute; inset: 0; display: none; flex-direction: column; align-items: center;
-    justify-content: center; gap: 12px; padding: 20px; text-align: center;
-    background: rgba(10,8,20,.72); font-weight: 700;
+    position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 20px; text-align: center; background: rgba(8, 6, 16, .72); font-weight: 700; backdrop-filter: blur(3px);
   }
-  #lock .big { font-size: 40px; }
+  #lock .big { font-size: 44px; }
   #hint {
-    position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 13px;
-    color: rgba(240,235,255,.75); pointer-events: none; transition: opacity .6s;
+    position: absolute; left: 0; right: 0; bottom: 64px; text-align: center; font-size: 14px; font-weight: 700;
+    color: rgba(243, 239, 255, .85); pointer-events: none; transition: opacity .6s; text-shadow: 0 1px 6px #000;
   }
-  #nav { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px 10px 14px; }
+  #banner {
+    position: absolute; left: 0; right: 0; top: 38%; text-align: center; pointer-events: none; opacity: 0;
+    font-size: 26px; font-weight: 900; letter-spacing: 1px; color: #ff5a6e; text-shadow: 0 0 18px #ff2040, 0 2px 0 #000;
+  }
+  #banner.show { animation: banner 2.2s ease forwards; }
+
+  /* ---------- Нижнее меню ---------- */
+  #nav { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; padding: 8px 8px 14px; }
   #nav button {
-    background: var(--panel); color: var(--text); border: 1.5px solid rgba(140,90,255,.5);
-    border-radius: 12px; padding: 7px 2px; font-size: 11px; font-weight: 700;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    position: relative; background: linear-gradient(180deg, var(--panel2), var(--panel)); color: var(--text);
+    border: 1.5px solid rgba(140, 90, 255, .45); border-radius: 12px; padding: 6px 0 5px; font-size: 10px; font-weight: 800;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
   }
   #nav button span { font-size: 20px; }
+  #nav button:active { transform: scale(.95); }
+
+  /* ---------- Кнопки ---------- */
   .btn {
-    background: var(--accent); color: var(--text); border: 0; border-radius: 10px;
-    font-weight: 800; font-size: 15px; padding: 10px 12px; min-width: 112px; white-space: nowrap;
+    background: linear-gradient(180deg, #a07aff, var(--accent)); color: #fff; border: 0; border-radius: 11px;
+    font-weight: 900; font-size: 14px; padding: 10px 10px; min-width: 104px; white-space: nowrap;
+    box-shadow: 0 3px 0 #5b36b8;
   }
-  .btn.off { background: var(--dis); color: #cfc8e6; }
-  .btn.good { background: var(--good); color: #10261a; }
-  .btn.gold { background: var(--gold); color: #2a2008; }
-  .btn.bad { background: var(--bad); }
-  .btn.wide { width: 100%; padding: 13px; font-size: 17px; }
-  #shade { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 9; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #5b36b8; }
+  .btn.off { background: var(--dis); color: #b8b0d0; box-shadow: 0 3px 0 #2a2440; }
+  .btn.good { background: linear-gradient(180deg, #74f0a8, var(--good)); color: #0d2a1a; box-shadow: 0 3px 0 #2a8a55; }
+  .btn.gold { background: linear-gradient(180deg, #ffe08a, var(--gold)); color: #3a2800; box-shadow: 0 3px 0 #b88a1c; }
+  .btn.gem { background: linear-gradient(180deg, #9af0ff, var(--gem)); color: #062a33; box-shadow: 0 3px 0 #2aa0bb; }
+  .btn.bad { background: linear-gradient(180deg, #ff7d93, var(--bad)); box-shadow: 0 3px 0 #a3283f; }
+  .btn.wide { width: 100%; padding: 13px; font-size: 16px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; min-width: 0; }
+
+  /* ---------- Шторка ---------- */
+  #shade { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none; z-index: 9; }
   #sheet {
-    position: fixed; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto;
-    background: var(--bg); border-top: 2px solid var(--accent); border-radius: 18px 18px 0 0;
-    max-height: 74%; display: flex; flex-direction: column; z-index: 10;
-    transform: translateY(105%); transition: transform .22s ease;
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; z-index: 10;
+    background: linear-gradient(180deg, var(--bg2), var(--bg)); border-top: 2px solid var(--accent);
+    border-radius: 20px 20px 0 0; max-height: 78%; display: flex; flex-direction: column;
+    transform: translateY(105%); transition: transform .22s ease; box-shadow: 0 -10px 40px rgba(140, 90, 255, .25);
   }
   #sheet.open { transform: none; }
-  #sheetHead { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
-  #sheetTitle { font-size: 20px; font-weight: 800; }
+  #sheetHead { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
+  #sheetTitle { font-size: 20px; font-weight: 900; }
   #sheetClose { width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--bad); color: #fff; font-size: 16px; }
-  #sheetBody { overflow-y: auto; padding: 0 12px 20px; display: flex; flex-direction: column; gap: 8px; }
-  .row { background: var(--panel); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  #sheetBody { overflow-y: auto; padding: 0 12px 22px; display: flex; flex-direction: column; gap: 8px; }
+  .row { background: var(--panel); border-radius: 13px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255, 255, 255, .04); }
+  .row .ic { font-size: 26px; width: 34px; text-align: center; flex: none; }
   .row .t { flex: 1; min-width: 0; }
-  .row .n { font-weight: 800; }
-  .row .d { font-size: 13px; color: var(--muted); margin-top: 3px; }
-  .card { background: var(--panel); border-radius: 12px; padding: 14px; line-height: 1.5; }
-  .card .muted { color: var(--muted); font-size: 14px; }
-  .hdr { color: var(--gold); font-weight: 800; margin-top: 6px; }
+  .row .n { font-weight: 900; }
+  .row .d { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .row .d b { color: var(--text); }
+  .bar { height: 6px; border-radius: 4px; background: #17122a; overflow: hidden; margin-top: 6px; }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #c9a8ff); border-radius: 4px; }
+  .card { background: var(--panel); border-radius: 13px; padding: 14px; line-height: 1.55; }
+  .card .muted, .muted { color: var(--muted); font-size: 13.5px; }
+  .hdr { color: var(--gold); font-weight: 900; margin-top: 6px; }
   .note { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.4; }
-  #toasts {
-    position: fixed; left: 0; right: 0; top: 64px; display: flex; flex-direction: column;
-    align-items: center; gap: 6px; pointer-events: none; z-index: 20;
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .pet {
+    position: relative; background: var(--panel); border-radius: 12px; padding: 8px 2px 6px; text-align: center;
+    border: 2px solid var(--rc, #555); box-shadow: inset 0 0 14px color-mix(in srgb, var(--rc, #555) 35%, transparent);
   }
+  .pet .e { font-size: 30px; line-height: 1.1; }
+  .pet .b { font-size: 10.5px; color: var(--muted); font-weight: 700; margin-top: 2px; }
+  .pet .tier { position: absolute; left: 4px; top: 3px; font-size: 9.5px; font-weight: 900; color: var(--rc); }
+  .pet.eq::after {
+    content: "✓"; position: absolute; right: 3px; top: 1px; font-size: 12px; font-weight: 900; color: #0d2a1a;
+    background: var(--good); border-radius: 50%; width: 16px; height: 16px; line-height: 16px;
+  }
+  .pet.del { animation: wobble .4s infinite; }
+  .slots { display: flex; gap: 8px; justify-content: center; margin: 4px 0 2px; }
+  .slot {
+    width: 54px; height: 54px; border-radius: 14px; border: 2px dashed #4a4170; display: grid; place-items: center; font-size: 28px;
+  }
+  .slot.f { border-style: solid; border-color: var(--rc); box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 50%, transparent); }
+  .stat { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+  .stat:last-child { border-bottom: 0; }
+  .stat span:last-child { font-weight: 900; text-align: right; }
+
+  /* ---------- Уведомления и оверлеи ---------- */
+  #toasts { position: fixed; left: 0; right: 0; top: 70px; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 30; }
   .toast {
-    background: var(--bg); border: 2px solid var(--accent); border-radius: 10px; padding: 8px 14px;
-    font-weight: 700; font-size: 14px; max-width: 90%; text-align: center; transition: opacity .4s;
+    background: rgba(18, 14, 30, .95); border: 2px solid var(--accent); border-radius: 12px; padding: 8px 14px;
+    font-weight: 800; font-size: 14px; max-width: 90%; text-align: center; transition: opacity .4s, transform .4s;
+    animation: drop .25s ease;
   }
+  #modal {
+    position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
+    background: rgba(5, 3, 12, .8); backdrop-filter: blur(4px); padding: 24px;
+  }
+  #modal .box {
+    width: 100%; max-width: 360px; background: linear-gradient(180deg, var(--panel2), var(--bg2)); border-radius: 20px;
+    padding: 22px 18px 18px; text-align: center; border: 2px solid var(--rc, var(--accent));
+    box-shadow: 0 0 40px color-mix(in srgb, var(--rc, var(--accent)) 50%, transparent);
+  }
+  #modal .big { font-size: 74px; line-height: 1.1; margin: 6px 0; }
+  #modal .big.shake { animation: eggshake .9s ease; }
+  #modal .big.reveal { animation: reveal .5s ease; }
+  #modal h2 { margin: 6px 0 4px; font-size: 22px; }
+  #modal p { margin: 4px 0 14px; color: var(--muted); }
+
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+  @keyframes drop { from { opacity: 0; transform: translateY(-10px); } }
+  @keyframes banner { 0% { opacity: 0; transform: scale(2); } 15% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
+  @keyframes eggshake {
+    0%, 100% { transform: rotate(0); } 15% { transform: rotate(-14deg); } 30% { transform: rotate(14deg); }
+    45% { transform: rotate(-10deg); } 60% { transform: rotate(10deg) scale(1.1); } 80% { transform: rotate(-4deg) scale(1.2); }
+  }
+  @keyframes reveal { from { transform: scale(.2) rotate(-30deg); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes wobble { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="top">
-    <div id="ess">🌑 0</div>
-    <div id="info"></div>
+    <div id="lvl"><div><span><small>УР.</small><b id="lvlNum">1</b></span></div></div>
+    <div id="mid">
+      <div id="ess">🌑 0</div>
+      <div id="info"></div>
+    </div>
+    <div id="gems">💎 0</div>
   </div>
   <div id="zonebar">
     <button id="prevZone" aria-label="Предыдущая зона">◀</button>
@@ -101,7 +203,9 @@
   </div>
   <div id="arenaWrap">
     <canvas id="cv"></canvas>
-    <div id="hint">Нажимайте на тени, чтобы ловить их</div>
+    <div id="hint">👆 Нажимайте на призраков, чтобы ловить их</div>
+    <div id="banner">⚔ ХРАНИТЕЛЬ ЗОНЫ!</div>
+    <button id="gift" aria-label="Ежедневная награда">🎁<i class="dot"></i></button>
     <div id="lock">
       <div class="big">🔒</div>
       <div id="lockText"></div>
@@ -109,11 +213,12 @@
     </div>
   </div>
   <div id="nav">
-    <button data-panel="upgrades"><span>⚡</span>Улучшения</button>
-    <button data-panel="zones"><span>🗺</span>Зоны</button>
-    <button data-panel="rebirth"><span>♻</span>Перерожд.</button>
+    <button data-panel="upgrades"><span>⚡</span>Прокачка</button>
+    <button data-panel="pets"><span>🐾</span>Питомцы</button>
+    <button data-panel="quests"><span>📜</span>Задания<i class="navdot" id="questDot"></i></button>
+    <button data-panel="profile"><span>👤</span>Профиль</button>
+    <button data-panel="rebirth"><span>♻️</span>Рождение</button>
     <button data-panel="shop"><span>💎</span>Магазин</button>
-    <button data-panel="daily"><span>🎁</span>Награда</button>
   </div>
 </div>
 
@@ -123,75 +228,167 @@
   <div id="sheetBody"></div>
 </div>
 <div id="toasts"></div>
+<div id="modal"><div class="box" id="modalBox"></div></div>
 
 <script>
 "use strict";
-// ================= Баланс (копия src/shared/Config.luau) =================
+// =====================================================================
+// БАЛАНС
+// =====================================================================
 const ZONES = [
-  { name: "Сумеречный лес",  price: 0,      hp: 3,   value: 1,   floor: [46, 58, 52],  shadow: [15, 12, 25], glow: [140, 90, 255] },
-  { name: "Туманные болота", price: 500,    hp: 12,  value: 6,   floor: [52, 62, 70],  shadow: [25, 20, 45], glow: [90, 200, 170] },
-  { name: "Пепельные руины", price: 5000,   hp: 40,  value: 25,  floor: [70, 52, 45],  shadow: [45, 15, 15], glow: [255, 110, 60] },
-  { name: "Ледяной склеп",   price: 50000,  hp: 150, value: 120, floor: [70, 90, 110], shadow: [20, 30, 60], glow: [120, 200, 255] },
-  { name: "Бездна",          price: 500000, hp: 600, value: 600, floor: [25, 15, 35],  shadow: [60, 0, 90],  glow: [255, 60, 200] },
+  { name: "Сумеречный лес",  price: 0,      hp: 3,   value: 1,   egg: 200,     sky: [10, 18, 20], floor: [30, 50, 40],  shadow: [22, 16, 40], glow: [160, 110, 255], fx: "fireflies", fxColor: [210, 255, 130] },
+  { name: "Туманные болота", price: 500,    hp: 12,  value: 6,   egg: 2500,    sky: [8, 20, 24],  floor: [30, 56, 60],  shadow: [16, 36, 44], glow: [90, 225, 185],  fx: "fog",       fxColor: [170, 235, 215] },
+  { name: "Пепельные руины", price: 5000,   hp: 40,  value: 25,  egg: 30000,   sky: [24, 10, 8],  floor: [66, 38, 30],  shadow: [48, 16, 12], glow: [255, 125, 60],  fx: "embers",    fxColor: [255, 160, 70] },
+  { name: "Ледяной склеп",   price: 50000,  hp: 150, value: 120, egg: 350000,  sky: [10, 18, 36], floor: [48, 70, 100], shadow: [18, 30, 66], glow: [135, 215, 255], fx: "snow",      fxColor: [235, 248, 255] },
+  { name: "Бездна",          price: 500000, hp: 600, value: 600, egg: 4000000, sky: [6, 2, 14],   floor: [34, 14, 50],  shadow: [56, 0, 88],  glow: [255, 80, 215],  fx: "void",      fxColor: [255, 130, 245] },
 ];
-const UPGRADES = {
-  power: { name: "Сила фонаря", desc: "+1 урон по тени за касание", base: 10, growth: 1.45, max: 200 },
-  greed: { name: "Жадность", desc: "+10% эссенции за тень", base: 25, growth: 1.55, max: 200 },
+
+const UPG = {
+  power:   { icon: "🔦", name: "Сила фонаря",  base: 10,  g: 1.45, max: 300, eff: l => `урон ${fmt((1 + l) * dmgMultNoPower())}` },
+  crit:    { icon: "🎯", name: "Шанс крита",   base: 60,  g: 1.75, max: 50,  eff: l => `${Math.round(critChanceAt(l) * 100)}%` },
+  critDmg: { icon: "💥", name: "Сила крита",   base: 90,  g: 1.7,  max: 40,  eff: l => fmtMult(critMultAt(l)) },
+  greed:   { icon: "💰", name: "Жадность",     base: 25,  g: 1.55, max: 200, eff: l => `+${l * 10}% эссенции` },
+  luck:    { icon: "🍀", name: "Удача",        base: 120, g: 1.85, max: 30,  eff: l => `${(goldChanceAt(l) * 100).toFixed(1)}% золотых` },
+  spirit:  { icon: "✨", name: "Дух-помощник", base: 200, g: 1.6,  max: 150, eff: l => l ? `${l * 30}% урона/сек` : "нет" },
 };
+const UPG_DESC = {
+  power: "Больше урона за каждое касание",
+  crit: "Шанс нанести критический удар",
+  critDmg: "Во сколько раз крит сильнее",
+  greed: "Больше эссенции за каждую тень",
+  luck: "Чаще появляются золотые тени (x10 и 💎)",
+  spirit: "Питомцы сами атакуют теней каждую секунду",
+};
+
+const RARITY = {
+  common:    { name: "Обычный",     color: "#b9b3cc", ess: 0.10, dmg: 0.00 },
+  rare:      { name: "Редкий",      color: "#4fa3ff", ess: 0.25, dmg: 0.05 },
+  epic:      { name: "Эпический",   color: "#c06bff", ess: 0.60, dmg: 0.20 },
+  legendary: { name: "Легендарный", color: "#ffb020", ess: 1.50, dmg: 0.50 },
+};
+const RARITY_ORDER = ["common", "rare", "epic", "legendary"];
+const PET_POOL = {
+  common:    [["🦇", "Ночная мышь"], ["🕷️", "Паучок"], ["🐀", "Подвальная крыса"]],
+  rare:      [["🐈‍⬛", "Теневой кот"], ["🦉", "Сова-призрак"]],
+  epic:      [["👻", "Фантом"], ["🐺", "Лунный волк"]],
+  legendary: [["🐉", "Дракон Бездны"], ["🔮", "Око тьмы"]],
+};
+const EGG_ODDS = { common: 0.62, rare: 0.27, epic: 0.09, legendary: 0.02 };
+const GOLD_EGG_ODDS = { common: 0.30, rare: 0.40, epic: 0.22, legendary: 0.08 };
+const GOLD_EGG_PRICE = 25; // 💎
+const PET_SLOTS = 3, PET_INVENTORY = 40;
+
 const REBIRTH = { base: 25000, growth: 3, per: 0.5 };
 const DAILY = { cooldown: 20 * 3600, window: 48 * 3600, max: 7, base: 250 };
+const BOSS = { kills: 25, hpMult: 50, time: 30, rewardMult: 60 };
+const SHADOWS_PER_ZONE = 8, RESPAWN_TIME = 2.5, CLICK_COOLDOWN = 0.08;
+
 const PASSES = [
-  { key: "DoubleEssence", name: "x2 Эссенция", desc: "Навсегда удваивает всю эссенцию", price: 199 },
-  { key: "AutoCatch", name: "Авто-ловля", desc: "Фонарь сам бьёт тени", price: 249 },
-  { key: "VIP", name: "Теневой VIP", desc: "+50% эссенции (в Roblox ещё +скорость)", price: 299 },
+  { key: "DoubleEssence", icon: "✖️2", name: "x2 Эссенция", desc: "Навсегда удваивает всю эссенцию", price: 199 },
+  { key: "AutoCatch", icon: "🤖", name: "Авто-ловля", desc: "Фонарь сам бьёт 2 раза в секунду", price: 249 },
+  { key: "PetSlot", icon: "🐾", name: "+1 слот питомца", desc: "4 питомца вместо 3", price: 149 },
+  { key: "VIP", icon: "👑", name: "Теневой VIP", desc: "+50% эссенции и золотое имя", price: 299 },
 ];
 const PRODUCTS = [
-  { key: "Boost", kind: "boost", name: "Буст x2 на 15 минут", duration: 900, price: 49 },
-  { key: "EssenceSmall", kind: "essence", name: "Горсть эссенции", amount: 500, price: 25 },
-  { key: "EssenceMedium", kind: "essence", name: "Сосуд эссенции", amount: 5000, price: 99 },
-  { key: "EssenceLarge", kind: "essence", name: "Сундук эссенции", amount: 50000, price: 399 },
+  { key: "Boost", icon: "⚡", kind: "boost", name: "Буст x2 на 15 минут", duration: 900, price: 49 },
+  { key: "Gems", icon: "💎", kind: "gems", name: "Мешочек кристаллов", amount: 50, price: 99 },
+  { key: "EssenceMedium", icon: "🧪", kind: "essence", name: "Сосуд эссенции", amount: 5000, price: 99 },
+  { key: "EssenceLarge", icon: "📦", kind: "essence", name: "Сундук эссенции", amount: 50000, price: 399 },
 ];
-const SHADOWS_PER_ZONE = 8, RESPAWN_TIME = 3, CLICK_COOLDOWN = 0.12, AUTO_INTERVAL = 0.5;
 
-// ================= Сохранение =================
-const SAVE_KEY = "shadowworld_proto_v1";
-const fresh = () => ({
-  essence: 0, total: 0, rebirths: 0, up: { power: 0, greed: 0 }, zone: 1,
-  lastDaily: 0, streak: 0, boostEnds: 0, passes: {},
-});
+const QUESTS = [
+  { id: "kills",  icon: "👻", name: "Ловец теней",       stat: s => s.stats.kills,  text: n => `Поймать ${fmt(n)} теней`,       goals: [25, 100, 500, 2000, 10000, 50000], rewards: [2, 5, 10, 20, 40, 80] },
+  { id: "golden", icon: "✨", name: "Золотая лихорадка", stat: s => s.stats.golden, text: n => `Поймать ${n} золотых теней`,   goals: [1, 10, 50, 200],                  rewards: [3, 8, 20, 50] },
+  { id: "bosses", icon: "⚔️", name: "Гроза Хранителей",  stat: s => s.stats.bosses, text: n => `Победить ${n} Хранителей`,     goals: [1, 5, 20, 50],                    rewards: [5, 15, 40, 80] },
+  { id: "eggs",   icon: "🥚", name: "Заводчик",          stat: s => s.stats.eggs,   text: n => `Открыть ${n} яиц`,             goals: [1, 10, 50, 200],                  rewards: [2, 8, 20, 50] },
+  { id: "crits",  icon: "🎯", name: "Точный удар",       stat: s => s.stats.crits,  text: n => `Нанести ${fmt(n)} критов`,      goals: [50, 500, 5000, 25000],            rewards: [2, 8, 20, 40] },
+  { id: "level",  icon: "⭐", name: "Опыт тьмы",         stat: s => s.level,        text: n => `Достичь ${n} уровня`,          goals: [5, 10, 20, 35, 50],               rewards: [3, 8, 15, 30, 60] },
+  { id: "zones",  icon: "🗺️", name: "Исследователь",     stat: s => s.maxZone,      text: n => `Открыть зону ${n}`,            goals: [2, 3, 4, 5],                      rewards: [5, 10, 25, 50] },
+];
+
+// =====================================================================
+// СОХРАНЕНИЕ
+// =====================================================================
+const SAVE_KEY = "shadowworld_proto_v2";
+function fresh() {
+  return {
+    essence: 0, total: 0, gems: 0, rebirths: 0, zone: 1, maxZone: 1, level: 1, xp: 0,
+    up: { power: 0, crit: 0, critDmg: 0, greed: 0, luck: 0, spirit: 0 },
+    pets: [], eq: [], zk: {}, q: {},
+    stats: { kills: 0, golden: 0, bosses: 0, eggs: 0, crits: 0, taps: 0, time: 0 },
+    lastDaily: 0, streak: 0, boostEnds: 0, passes: {}, lastSeen: 0,
+  };
+}
 let S = fresh();
 try {
   const raw = localStorage.getItem(SAVE_KEY);
   if (raw) {
-    const d = JSON.parse(raw);
-    S = Object.assign(fresh(), d);
+    const d = JSON.parse(raw), f = fresh();
+    S = Object.assign(f, d);
     S.up = Object.assign(fresh().up, d.up || {});
-    S.passes = d.passes || {};
+    S.stats = Object.assign(fresh().stats, d.stats || {});
   }
 } catch (e) { /* хранилище недоступно — играем без сохранения */ }
-function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function save() {
+  S.lastSeen = Date.now() / 1000;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {}
+}
 setInterval(save, 2000);
+window.addEventListener("pagehide", save);
 
-// ================= Формулы =================
+// =====================================================================
+// ФОРМУЛЫ
+// =====================================================================
 const now = () => Date.now() / 1000;
-const upCost = (id, lvl) => Math.floor(UPGRADES[id].base * Math.pow(UPGRADES[id].growth, lvl));
-const damage = () => 1 + S.up.power;
+const upCost = (id, lvl) => Math.floor(UPG[id].base * Math.pow(UPG[id].g, lvl));
+function upCostN(id, lvl, n) { let c = 0; for (let i = 0; i < n; i++) c += upCost(id, lvl + i); return c; }
+const critChanceAt = l => Math.min(0.55, 0.05 + 0.01 * l);
+const critMultAt = l => 2 + 0.25 * l;
+const goldChanceAt = l => 0.02 + 0.005 * l;
 const rebirthCost = r => Math.floor(REBIRTH.base * Math.pow(REBIRTH.growth, r));
 const rebirthMult = r => 1 + REBIRTH.per * r;
-function multiplier() {
-  let m = (1 + 0.1 * S.up.greed) * rebirthMult(S.rebirths);
+const levelMult = () => 1 + 0.03 * (S.level - 1);
+const xpNeed = l => Math.floor(8 * Math.pow(l, 1.6));
+const petSlots = () => PET_SLOTS + (S.passes.PetSlot ? 1 : 0);
+
+function petStats(p) {
+  const r = RARITY[p.r], tf = 1 + (p.t - 1) * 0.75;
+  return { ess: r.ess * tf, dmg: r.dmg * tf };
+}
+const petPower = p => { const s = petStats(p); return s.ess + s.dmg * 1.5; };
+const petInfo = p => PET_POOL[p.r][p.k] || PET_POOL[p.r][0];
+function equippedPets() { return S.eq.map(uid => S.pets.find(p => p.uid === uid)).filter(Boolean); }
+function petBonus() {
+  let ess = 0, dmg = 0;
+  for (const p of equippedPets()) { const s = petStats(p); ess += s.ess; dmg += s.dmg; }
+  return { ess, dmg };
+}
+const dmgMultNoPower = () => (1 + petBonus().dmg) * (1 + 0.01 * (S.level - 1));
+const tapDamage = () => (1 + S.up.power) * dmgMultNoPower();
+const autoDps = () => S.up.spirit > 0 ? tapDamage() * 0.3 * S.up.spirit : 0;
+const critChance = () => critChanceAt(S.up.crit);
+const critMult = () => critMultAt(S.up.critDmg);
+const goldChance = () => goldChanceAt(S.up.luck);
+const boostActive = () => S.boostEnds > now();
+function essMult() {
+  let m = (1 + 0.1 * S.up.greed) * rebirthMult(S.rebirths) * levelMult() * (1 + petBonus().ess);
   if (S.passes.DoubleEssence) m *= 2;
   if (S.passes.VIP) m *= 1.5;
-  if (S.boostEnds > now()) m *= 2;
+  if (boostActive()) m *= 2;
   return m;
 }
+let combo = 0, lastTapT = 0;
+const comboMult = () => 1 + Math.min(combo, 50) * 0.01;
 const nextStreak = () => (S.lastDaily > 0 && now() - S.lastDaily <= DAILY.window) ? Math.min(S.streak + 1, DAILY.max) : 1;
 const dailyReward = st => Math.floor(DAILY.base * st * ZONES[S.zone - 1].value * rebirthMult(S.rebirths));
+const dailyReady = () => S.lastDaily === 0 || now() - S.lastDaily >= DAILY.cooldown;
 const packAmount = p => Math.floor(p.amount * ZONES[S.zone - 1].value * rebirthMult(S.rebirths));
 
-// ================= Форматирование =================
+// =====================================================================
+// ФОРМАТИРОВАНИЕ
+// =====================================================================
 const SUFFIXES = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
-function trimZeros(t) { return t.includes(".") ? t.replace(/0+$/, "").replace(/\.$/, "") : t; }
+const trimZeros = t => t.includes(".") ? t.replace(/0+$/, "").replace(/\.$/, "") : t;
 function fmt(v) {
   v = Math.floor(v || 0);
   if (Math.abs(v) < 1000) return String(v);
@@ -201,207 +398,624 @@ function fmt(v) {
   return trimZeros(t) + SUFFIXES[i];
 }
 const fmtMult = m => "x" + trimZeros(m.toFixed(2));
+const pct = v => "+" + trimZeros((v * 100).toFixed(0)) + "%";
 function fmtTime(sec) {
   sec = Math.max(0, Math.floor(sec));
-  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
-  const p = n => String(n).padStart(2, "0");
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60, p = n => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
 }
+function fmtLong(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60);
+  return h > 0 ? `${h} ч ${m} мин` : `${m} мин`;
+}
 
-// ================= Уведомления =================
+// =====================================================================
+// УВЕДОМЛЕНИЯ И ОКНА
+// =====================================================================
 const $ = id => document.getElementById(id);
 function toast(text, kind) {
   const el = document.createElement("div");
   el.className = "toast";
-  el.style.borderColor = kind === "good" ? "var(--good)" : kind === "bad" ? "var(--bad)" : "var(--accent)";
+  el.style.borderColor = { good: "var(--good)", bad: "var(--bad)", gold: "var(--gold)", gem: "var(--gem)" }[kind] || "var(--accent)";
   el.textContent = text;
-  $("toasts").append(el);
-  setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 400); }, 2600);
+  const box = $("toasts");
+  box.append(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(-8px)"; setTimeout(() => el.remove(), 400); }, 2400);
+}
+function showModal(html, color, onClose) {
+  const box = $("modalBox");
+  box.style.setProperty("--rc", color || "var(--accent)");
+  box.innerHTML = html;
+  $("modal").style.display = "flex";
+  const btn = box.querySelector("[data-close]");
+  if (btn) btn.onclick = () => { $("modal").style.display = "none"; if (onClose) onClose(); };
 }
 
-// ================= Арена =================
+// =====================================================================
+// АРЕНА: ДАННЫЕ
+// =====================================================================
 const cv = $("cv"), ctx = cv.getContext("2d");
-let W = 300, H = 300;
-let view = S.zone; // какая зона сейчас на экране
-let shadows = [], respawns = [], particles = [], floats = [], decor = [];
+const bgCanvas = document.createElement("canvas"), bg = bgCanvas.getContext("2d");
+let W = 300, H = 300, DPR = 1;
+let view = Math.min(Math.max(1, S.zone), ZONES.length);
+let shadows = [], respawns = [], particles = [], floats = [], rings = [], orbs = [], ambient = [], fogs = [], lights = [], bolts = [];
+let boss = null, shakeT = 0, shakeMag = 0, essPulse = 0;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rgba = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
-const scale = (c, k) => c.map(v => Math.min(255, v * k));
+const mix = (c, k) => c.map(v => Math.min(255, v * k));
+const zone = () => ZONES[view - 1];
+const baseRadius = () => Math.min(W, H) * 0.07 * (1 + (view - 1) * 0.1);
 
 function resize() {
   const r = cv.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = Math.max(100, r.width); H = Math.max(100, r.height);
-  cv.width = W * dpr; cv.height = H * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(120, r.width); H = Math.max(160, r.height);
+  cv.width = W * DPR; cv.height = H * DPR;
+  bgCanvas.width = W * DPR; bgCanvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  bg.setTransform(DPR, 0, 0, DPR, 0, 0);
   for (const s of shadows) { s.x = Math.min(s.x, W - s.r); s.y = Math.min(s.y, H - s.r); pickTarget(s); }
-  makeDecor();
+  buildBackground();
+  makeAmbient();
 }
 window.addEventListener("resize", resize);
 
-const shadowRadius = z => Math.min(W, H) * 0.07 * (1 + (z - 1) * 0.12);
-function newShadow() {
-  const z = ZONES[view - 1], r = shadowRadius(view);
-  const s = { x: rnd(r + 6, W - r - 6), y: rnd(r + 20, H - r - 6), r, hp: z.hp, max: z.hp, phase: rnd(0, 6.28), flash: 0, spawn: 0.4 };
+function newShadow(kind) {
+  const r = baseRadius() * (kind === "boss" ? 2.1 : kind === "gold" ? 0.9 : rnd(0.9, 1.1));
+  const z = zone();
+  const hp = kind === "boss" ? z.hp * BOSS.hpMult : kind === "gold" ? z.hp * 2 : z.hp;
+  const s = {
+    kind, r, hp, max: hp, x: rnd(r + 8, W - r - 8), y: rnd(r + 40, H - r - 60),
+    phase: rnd(0, 6.28), blink: rnd(1, 4), flash: 0, sq: 0, spawn: 0.45, dir: 1,
+  };
+  if (kind === "boss") { s.x = W / 2; s.y = H * 0.42; s.time = BOSS.time; }
   pickTarget(s);
   return s;
 }
 function pickTarget(s) {
-  s.tx = Math.min(W - s.r - 6, Math.max(s.r + 6, s.x + rnd(-90, 90)));
-  s.ty = Math.min(H - s.r - 6, Math.max(s.r + 20, s.y + rnd(-90, 90)));
-  s.wait = rnd(0.3, 1.6);
+  const range = s.kind === "boss" ? 60 : 100;
+  s.tx = Math.min(W - s.r - 8, Math.max(s.r + 8, s.x + rnd(-range, range)));
+  s.ty = Math.min(H - s.r - 60, Math.max(s.r + 40, s.y + rnd(-range, range)));
+  s.wait = s.kind === "gold" ? rnd(0, 0.3) : rnd(0.3, 1.5);
 }
-function makeDecor() {
-  decor = [];
-  for (let i = 0; i < 7; i++) decor.push({ x: rnd(20, W - 20), y: rnd(20, H - 20), r: rnd(5, 9), a: rnd(0, 1.5) });
-}
+function spawnRegular() { return newShadow(Math.random() < goldChance() ? "gold" : "normal"); }
 function fillZone() {
-  shadows = []; respawns = []; particles = []; floats = [];
-  if (view <= S.zone) for (let i = 0; i < SHADOWS_PER_ZONE; i++) shadows.push(newShadow());
-  makeDecor();
+  shadows = []; respawns = []; particles = []; floats = []; rings = []; orbs = []; bolts = []; boss = null;
+  if (view <= S.zone) for (let i = 0; i < SHADOWS_PER_ZONE; i++) shadows.push(spawnRegular());
+  buildBackground();
+  makeAmbient();
   updateZoneBar();
 }
 
-function burst(x, y, n, color) {
+// =====================================================================
+// АРЕНА: ФОН (рисуется один раз на зону)
+// =====================================================================
+function seeded(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function buildBackground() {
+  const z = zone(), g = bg, R = seeded(view * 9973 + 7);
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, rgba(z.sky));
+  sky.addColorStop(0.45, rgba(mix(z.floor, 0.75)));
+  sky.addColorStop(1, rgba(mix(z.floor, 0.45)));
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+
+  // луна / свечение
+  const mx = W * 0.78, my = H * 0.12, mr = Math.min(W, H) * 0.09;
+  const halo = g.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 4);
+  halo.addColorStop(0, rgba(z.glow, 0.35)); halo.addColorStop(1, rgba(z.glow, 0));
+  g.fillStyle = halo; g.fillRect(0, 0, W, H);
+  if (z.fx !== "void") {
+    g.fillStyle = rgba(mix(z.glow, 1.3), 0.85);
+    g.beginPath(); g.arc(mx, my, mr, 0, 6.283); g.fill();
+    g.fillStyle = rgba(z.sky, 0.55);
+    g.beginPath(); g.arc(mx + mr * 0.35, my - mr * 0.15, mr * 0.85, 0, 6.283); g.fill();
+  } else {
+    for (let i = 0; i < 70; i++) { g.fillStyle = `rgba(255,255,255,${R() * 0.7})`; g.fillRect(R() * W, R() * H * 0.7, 1.5, 1.5); }
+    const hole = g.createRadialGradient(W / 2, H * 0.3, 2, W / 2, H * 0.3, mr * 2.4);
+    hole.addColorStop(0, "rgba(0,0,0,1)"); hole.addColorStop(0.55, rgba(z.glow, 0.5)); hole.addColorStop(1, rgba(z.glow, 0));
+    g.fillStyle = hole; g.beginPath(); g.arc(W / 2, H * 0.3, mr * 2.4, 0, 6.283); g.fill();
+  }
+
+  const sil = rgba(mix(z.sky, 0.6), 0.95), sil2 = rgba(mix(z.floor, 0.5), 0.9);
+  const props = {
+    fireflies() {
+      for (let layer = 0; layer < 2; layer++) {
+        g.fillStyle = layer ? sil2 : sil;
+        for (let i = 0; i < 9; i++) {
+          const x = R() * W, h = (layer ? 0.18 : 0.26) * H * (0.7 + R() * 0.6), w = h * 0.38, base = H * (layer ? 0.34 : 0.28);
+          for (let k = 0; k < 3; k++) {
+            g.beginPath(); g.moveTo(x, base - h + k * h * 0.22);
+            g.lineTo(x + w * (0.6 + k * 0.2), base - h * 0.35 + k * h * 0.25); g.lineTo(x - w * (0.6 + k * 0.2), base - h * 0.35 + k * h * 0.25);
+            g.fill();
+          }
+          g.fillRect(x - 2, base - h * 0.2, 4, h * 0.25);
+        }
+      }
+    },
+    fog() {
+      for (let i = 0; i < 6; i++) {
+        const x = R() * W, y = H * (0.45 + R() * 0.45), rx = 30 + R() * 50;
+        g.fillStyle = rgba(z.glow, 0.10); g.beginPath(); g.ellipse(x, y, rx, rx * 0.3, 0, 0, 6.283); g.fill();
+      }
+      g.strokeStyle = sil; g.lineWidth = 2;
+      for (let i = 0; i < 40; i++) {
+        const x = R() * W, y = H * (0.25 + R() * 0.1), h = 20 + R() * 40;
+        g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + rnd(-8, 8), y - h / 2, x + rnd(-12, 12), y - h); g.stroke();
+      }
+    },
+    embers() {
+      g.fillStyle = sil;
+      for (let i = 0; i < 7; i++) {
+        const x = R() * W, w = 14 + R() * 14, h = 40 + R() * 70, base = H * 0.3;
+        g.fillRect(x, base - h, w, h);
+        g.fillRect(x - 4, base - h - 6, w + 8, 6);
+        g.beginPath(); g.moveTo(x, base - h - 6); g.lineTo(x + w * 0.5, base - h - 16 * R()); g.lineTo(x + w, base - h - 6); g.fill();
+      }
+      for (let i = 0; i < 25; i++) { g.fillStyle = rgba(mix(z.floor, 0.6), 0.8); g.beginPath(); g.arc(R() * W, H * (0.4 + R() * 0.6), 2 + R() * 5, 0, 6.283); g.fill(); }
+    },
+    snow() {
+      g.fillStyle = rgba(mix(z.glow, 0.5), 0.55);
+      for (let i = 0; i < 14; i++) {
+        const x = R() * W, h = 30 + R() * 70, w = 8 + R() * 10, base = H * 0.3;
+        g.beginPath(); g.moveTo(x - w, base); g.lineTo(x, base - h); g.lineTo(x + w, base); g.fill();
+      }
+      for (let i = 0; i < 18; i++) { g.fillStyle = "rgba(230,245,255,0.08)"; g.beginPath(); g.ellipse(R() * W, H * (0.4 + R() * 0.6), 20 + R() * 30, 6, 0, 0, 6.283); g.fill(); }
+    },
+    void() {
+      g.fillStyle = sil;
+      for (let i = 0; i < 6; i++) {
+        const x = R() * W, y = H * (0.15 + R() * 0.25), s = 10 + R() * 22;
+        g.beginPath(); g.moveTo(x - s, y); g.lineTo(x - s * 0.4, y - s * 0.5); g.lineTo(x + s * 0.6, y - s * 0.4); g.lineTo(x + s, y); g.lineTo(x, y + s * 0.9); g.fill();
+      }
+    },
+  };
+  props[z.fx]();
+
+  // земля: мягкое пятно света по центру
+  const ground = g.createRadialGradient(W / 2, H * 0.68, 10, W / 2, H * 0.68, Math.max(W, H) * 0.6);
+  ground.addColorStop(0, rgba(mix(z.floor, 1.35), 0.55)); ground.addColorStop(1, rgba(z.floor, 0));
+  g.fillStyle = ground; g.fillRect(0, 0, W, H);
+
+  // виньетка
+  const vig = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+  vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, "rgba(0,0,0,0.65)");
+  g.fillStyle = vig; g.fillRect(0, 0, W, H);
+}
+
+function makeAmbient() {
+  const z = zone();
+  ambient = [];
+  const n = { fireflies: 22, fog: 14, embers: 34, snow: 60, void: 40 }[z.fx];
+  for (let i = 0; i < n; i++) ambient.push(newAmbient(true));
+  fogs = [];
+  for (let i = 0; i < 4; i++) fogs.push({ x: rnd(0, W), y: rnd(H * 0.3, H), r: rnd(80, 160), v: rnd(6, 16) * (Math.random() < 0.5 ? -1 : 1) });
+}
+function newAmbient(initial) {
+  const fx = zone().fx;
+  const a = { x: rnd(0, W), y: initial ? rnd(0, H) : 0, t: rnd(0, 6.28), s: rnd(1, 2.6), life: 0 };
+  if (fx === "fireflies") { a.vx = rnd(-10, 10); a.vy = rnd(-8, 8); }
+  if (fx === "fog") { a.vx = rnd(-6, 6); a.vy = rnd(-12, -4); a.y = initial ? a.y : H; a.s = rnd(1.5, 3.5); }
+  if (fx === "embers") { a.vx = rnd(-8, 8); a.vy = rnd(-50, -20); a.y = initial ? a.y : H + 5; }
+  if (fx === "snow") { a.vx = rnd(-12, 4); a.vy = rnd(18, 45); a.y = initial ? a.y : -5; }
+  if (fx === "void") { a.cx = W / 2; a.cy = H * 0.3; a.ang = rnd(0, 6.28); a.rad = rnd(20, Math.max(W, H) * 0.7); }
+  return a;
+}
+
+// =====================================================================
+// АРЕНА: ИГРОВАЯ ЛОГИКА
+// =====================================================================
+function shake(mag, t = 0.25) { shakeMag = Math.max(shakeMag, mag); shakeT = Math.max(shakeT, t); }
+function burst(x, y, n, color, speed = 1) {
   for (let i = 0; i < n; i++) {
-    const a = rnd(0, 6.28), sp = rnd(40, 160);
-    particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0, life: rnd(0.3, 0.6), color });
+    const a = rnd(0, 6.28), sp = rnd(40, 170) * speed;
+    particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0, life: rnd(0.35, 0.7), color, r: rnd(1.5, 3.5) });
   }
 }
 
 let lastHit = 0, hintShown = true;
-function hit(s, auto) {
-  if (view > S.zone || !shadows.includes(s)) return;
-  const t = performance.now() / 1000;
-  if (!auto) {
-    if (t - lastHit < CLICK_COOLDOWN) return;
-    lastHit = t;
-    if (hintShown) { hintShown = false; $("hint").style.opacity = "0"; }
+function hit(s, src) {
+  if (!shadows.includes(s) || view > S.zone) return;
+  let dmg = src === "spirit" ? autoDps() : tapDamage(), crit = false;
+  if (src !== "spirit" && Math.random() < critChance()) { dmg *= critMult(); crit = true; S.stats.crits++; shake(crit ? 3 : 0, 0.12); }
+  s.hp -= dmg; s.flash = 0.1; s.sq = 0.16;
+  floats.push({ x: s.x + rnd(-10, 10), y: s.y - s.r * 0.7, text: (crit ? "КРИТ " : "") + fmt(dmg), kind: crit ? "crit" : src === "spirit" ? "spirit" : "dmg", t: 0 });
+  burst(s.x, s.y, crit ? 10 : 4, s.kind === "gold" ? [255, 215, 90] : zone().glow);
+  if (s.hp <= 0) kill(s);
+}
+
+function kill(s) {
+  const z = zone();
+  let base = z.value, gems = 0, xp = view;
+  if (s.kind === "gold") { base *= 10; gems = 1; xp *= 5; S.stats.golden++; }
+  if (s.kind === "boss") {
+    base *= BOSS.rewardMult; gems = 3 * view; xp *= 25; S.stats.bosses++; S.zk[view] = 0; boss = null;
+    shake(12, 0.6); toast(`⚔ Хранитель повержен! +${gems} 💎`, "gold");
   }
-  const z = ZONES[view - 1];
-  s.hp -= damage();
-  s.flash = 0.12;
-  burst(s.x, s.y, 4, z.glow);
-  if (s.hp <= 0) {
-    const gain = Math.floor(Math.max(1, z.value * multiplier()));
-    S.essence += gain; S.total += gain;
-    floats.push({ x: s.x, y: s.y - s.r, text: "+" + fmt(gain), t: 0 });
-    burst(s.x, s.y, 16, z.glow);
-    shadows.splice(shadows.indexOf(s), 1);
-    respawns.push(RESPAWN_TIME);
+  const gain = Math.floor(Math.max(1, base * essMult() * comboMult()));
+  S.essence += gain; S.total += gain; S.gems += gems; S.stats.kills++;
+  if (s.kind !== "boss") S.zk[view] = Math.min(BOSS.kills, (S.zk[view] || 0) + 1);
+  addXp(xp);
+
+  const color = s.kind === "gold" ? [255, 215, 90] : z.glow;
+  floats.push({ x: s.x, y: s.y - s.r, text: "+" + fmt(gain), kind: "gain", t: 0 });
+  if (gems) floats.push({ x: s.x, y: s.y - s.r - 26, text: `+${gems} 💎`, kind: "gem", t: 0 });
+  rings.push({ x: s.x, y: s.y, r: s.r * 0.6, max: s.r * (s.kind === "boss" ? 5 : 2.6), t: 0, color });
+  burst(s.x, s.y, s.kind === "boss" ? 60 : 18, color, s.kind === "boss" ? 1.8 : 1);
+  const n = s.kind === "boss" ? 14 : s.kind === "gold" ? 8 : 4;
+  for (let i = 0; i < n; i++) orbs.push({ x: s.x + rnd(-10, 10), y: s.y + rnd(-10, 10), sx: s.x, sy: s.y, t: -i * 0.04, color });
+
+  shadows.splice(shadows.indexOf(s), 1);
+  if (s.kind !== "boss") respawns.push(RESPAWN_TIME);
+}
+
+function addXp(xp) {
+  S.xp += xp;
+  let leveled = false;
+  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; leveled = true; }
+  if (leveled) {
+    toast(`⭐ Уровень ${S.level}! Урон и эссенция выросли`, "gold");
+    rings.push({ x: W / 2, y: H / 2, r: 10, max: Math.max(W, H), t: 0, color: [255, 210, 90] });
   }
+}
+
+function summonBoss() {
+  if (boss || view > S.zone) return;
+  boss = newShadow("boss");
+  shadows.push(boss);
+  const b = $("banner"); b.classList.remove("show"); void b.offsetWidth; b.classList.add("show");
+  shake(6, 0.4);
 }
 
 cv.addEventListener("pointerdown", e => {
   const r = cv.getBoundingClientRect();
   const x = e.clientX - r.left, y = e.clientY - r.top;
+  lights.push({ x, y, t: 0 });
   let best = null, bestD = Infinity;
   for (const s of shadows) {
     const d = Math.hypot(s.x - x, s.y - y);
-    if (d < s.r + 16 && d < bestD) { best = s; bestD = d; }
+    if (d < s.r * 1.15 + 14 && d < bestD) { best = s; bestD = d; }
   }
-  if (best) hit(best, false);
+  if (!best) return;
+  const t = performance.now() / 1000;
+  if (t - lastHit < CLICK_COOLDOWN) return;
+  lastHit = t;
+  combo = t - lastTapT < 0.8 ? combo + 1 : 1;
+  lastTapT = t;
+  S.stats.taps++;
+  if (hintShown) { hintShown = false; $("hint").style.opacity = "0"; }
+  hit(best, "tap");
 });
 
-let autoTimer = 0;
+let autoTimer = 0, spiritTimer = 0, petSource = 0;
+function petPositions() {
+  const pets = equippedPets(), n = pets.length;
+  const list = pets.map((p, i) => ({ p, x: W / 2 + (i - (n - 1) / 2) * 46, y: H - 30 }));
+  if (!n && S.up.spirit > 0) list.push({ p: null, x: W / 2, y: H - 30 });
+  return list;
+}
+
 function update(dt) {
+  const t = performance.now() / 1000;
+  S.stats.time += dt;
+  if (t - lastTapT > 1.3) combo = 0;
+
   for (const s of shadows) {
-    s.phase += dt * 3;
-    s.flash = Math.max(0, s.flash - dt);
-    s.spawn = Math.max(0, s.spawn - dt);
+    s.phase += dt * 3; s.flash = Math.max(0, s.flash - dt); s.sq = Math.max(0, s.sq - dt); s.spawn = Math.max(0, s.spawn - dt);
+    s.blink -= dt; if (s.blink < -0.15) s.blink = rnd(1.5, 4.5);
+    if (s.kind === "boss") {
+      s.time -= dt;
+      if (s.time <= 0) {
+        shadows.splice(shadows.indexOf(s), 1); boss = null; S.zk[view] = 15;
+        toast("Хранитель ушёл… Прокачайтесь и попробуйте снова", "bad");
+        burst(s.x, s.y, 30, [120, 120, 140]);
+        continue;
+      }
+    }
     if (s.wait > 0) { s.wait -= dt; continue; }
     const dx = s.tx - s.x, dy = s.ty - s.y, d = Math.hypot(dx, dy);
     if (d < 2) { pickTarget(s); continue; }
-    const step = Math.min(d, 40 * dt);
+    const speed = s.kind === "gold" ? 95 : s.kind === "boss" ? 25 : 42;
+    const step = Math.min(d, speed * dt);
     s.x += dx / d * step; s.y += dy / d * step;
+    if (Math.abs(dx) > 1) s.dir = dx > 0 ? 1 : -1;
   }
+
   for (let i = respawns.length - 1; i >= 0; i--) {
     respawns[i] -= dt;
-    if (respawns[i] <= 0) { respawns.splice(i, 1); shadows.push(newShadow()); }
+    if (respawns[i] <= 0 && view <= S.zone) { respawns.splice(i, 1); shadows.push(spawnRegular()); }
   }
+  if (!boss && view <= S.zone && (S.zk[view] || 0) >= BOSS.kills) summonBoss();
+
+  // эффекты
   for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.94; p.vy *= 0.94;
+    const p = particles[i]; p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.93; p.vy = p.vy * 0.93 + 60 * dt;
     if (p.t > p.life) particles.splice(i, 1);
   }
-  for (let i = floats.length - 1; i >= 0; i--) {
-    const f = floats[i];
-    f.t += dt; f.y -= 45 * dt;
-    if (f.t > 0.9) floats.splice(i, 1);
+  for (let i = floats.length - 1; i >= 0; i--) { const f = floats[i]; f.t += dt; f.y -= (f.kind === "crit" ? 60 : 45) * dt; if (f.t > 0.95) floats.splice(i, 1); }
+  for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.t += dt; if (r.t > 0.5) rings.splice(i, 1); }
+  for (let i = lights.length - 1; i >= 0; i--) { lights[i].t += dt; if (lights[i].t > 0.35) lights.splice(i, 1); }
+  for (let i = orbs.length - 1; i >= 0; i--) {
+    const o = orbs[i]; o.t += dt;
+    if (o.t >= 0.65) { orbs.splice(i, 1); essPulse = 0.12; }
   }
-  if (S.passes.AutoCatch && view <= S.zone && shadows.length) {
-    autoTimer += dt;
-    if (autoTimer >= AUTO_INTERVAL) {
-      autoTimer = 0;
-      // бьём самую «раненую» тень, чтобы авто-ловля добивала
-      let target = shadows[0];
-      for (const s of shadows) if (s.hp < target.hp) target = s;
-      hit(target, true);
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i];
+    if (!shadows.includes(b.target)) { bolts.splice(i, 1); continue; }
+    const dx = b.target.x - b.x, dy = b.target.y - b.y, d = Math.hypot(dx, dy);
+    if (d < b.target.r * 0.6) { bolts.splice(i, 1); hit(b.target, "spirit"); continue; }
+    const step = 520 * dt; b.x += dx / d * step; b.y += dy / d * step;
+    b.trail.push([b.x, b.y]); if (b.trail.length > 8) b.trail.shift();
+  }
+  for (const a of ambient) a.t += dt;
+  const fx = zone().fx;
+  for (let i = 0; i < ambient.length; i++) {
+    const a = ambient[i];
+    if (fx === "void") { a.ang += dt * (40 / a.rad); a.rad -= dt * 14; a.x = a.cx + Math.cos(a.ang) * a.rad; a.y = a.cy + Math.sin(a.ang) * a.rad * 0.6; if (a.rad < 8) ambient[i] = newAmbient(false); continue; }
+    a.x += (a.vx + (fx === "snow" ? Math.sin(a.t) * 10 : 0)) * dt; a.y += a.vy * dt;
+    if (fx === "fireflies") { a.vx += rnd(-20, 20) * dt; a.vy += rnd(-20, 20) * dt; a.vx = Math.max(-15, Math.min(15, a.vx)); a.vy = Math.max(-15, Math.min(15, a.vy)); }
+    if (a.x < -10) a.x = W + 10; if (a.x > W + 10) a.x = -10;
+    if (a.y < -10 || a.y > H + 10) ambient[i] = newAmbient(false);
+  }
+  for (const f of fogs) { f.x += f.v * dt; if (f.x < -f.r) f.x = W + f.r; if (f.x > W + f.r) f.x = -f.r; }
+  shakeT = Math.max(0, shakeT - dt); if (shakeT === 0) shakeMag = 0;
+  essPulse = Math.max(0, essPulse - dt);
+
+  if (view <= S.zone && shadows.length) {
+    // Авто-ловля (Game Pass)
+    if (S.passes.AutoCatch) {
+      autoTimer += dt;
+      if (autoTimer >= 0.5) {
+        autoTimer = 0;
+        let target = boss || shadows[0];
+        if (!boss) for (const s of shadows) if (s.hp < target.hp) target = s;
+        hit(target, "auto");
+      }
+    }
+    // Дух-помощник: питомцы стреляют сгустками
+    if (S.up.spirit > 0) {
+      spiritTimer += dt;
+      if (spiritTimer >= 1) {
+        spiritTimer = 0;
+        const src = petPositions();
+        const from = src[petSource++ % src.length];
+        let target = boss || shadows[(Math.random() * shadows.length) | 0];
+        bolts.push({ x: from.x, y: from.y - 16, target, trail: [], color: from.p ? hexToRgb(RARITY[from.p.r].color) : [200, 170, 255] });
+      }
+    }
+  }
+}
+function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+// =====================================================================
+// АРЕНА: ОТРИСОВКА
+// =====================================================================
+function ghostPath(r, t) {
+  ctx.beginPath();
+  const top = -r * 0.2, bottom = r * 0.9;
+  ctx.arc(0, top, r, Math.PI, 0);
+  ctx.lineTo(r, bottom);
+  const waves = 4;
+  for (let i = waves; i > 0; i--) {
+    const x1 = -r + 2 * r * (i - 0.5) / waves, x2 = -r + 2 * r * (i - 1) / waves;
+    ctx.quadraticCurveTo(x1, bottom + r * 0.32 + Math.sin(t * 2.2 + i * 1.7) * r * 0.12, x2, bottom);
+  }
+  ctx.closePath();
+}
+
+function drawShadow(s) {
+  const z = zone(), t = s.phase;
+  const isGold = s.kind === "gold", isBoss = s.kind === "boss";
+  const glow = isGold ? [255, 210, 80] : isBoss ? [255, 50, 80] : z.glow;
+  const bob = Math.sin(t) * s.r * 0.08;
+  const spawnK = 1 - s.spawn / 0.45;
+  const sx = (1 + s.sq * 1.2) * spawnK, sy = (1 - s.sq * 0.9) * spawnK;
+
+  ctx.save();
+  ctx.translate(s.x, s.y + bob);
+
+  // тень на земле
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath(); ctx.ellipse(0, s.r * 1.45 - bob, s.r * 0.8, s.r * 0.18, 0, 0, 6.283); ctx.fill();
+
+  // аура
+  const aura = ctx.createRadialGradient(0, 0, s.r * 0.4, 0, 0, s.r * (isBoss ? 2.6 : 2));
+  aura.addColorStop(0, rgba(glow, isBoss ? 0.5 + Math.sin(t * 2) * 0.15 : 0.42)); aura.addColorStop(1, rgba(glow, 0));
+  ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0, 0, s.r * (isBoss ? 2.6 : 2), 0, 6.283); ctx.fill();
+
+  ctx.scale(sx * s.dir, sy);
+  ctx.rotate(Math.sin(t * 0.7) * 0.06);
+
+  // рога босса
+  if (isBoss) {
+    ctx.fillStyle = "#1a0a12";
+    for (const k of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(k * s.r * 0.35, -s.r * 0.95); ctx.quadraticCurveTo(k * s.r * 0.9, -s.r * 1.5, k * s.r * 0.95, -s.r * 1.75); ctx.lineTo(k * s.r * 0.65, -s.r * 0.85); ctx.fill();
+    }
+  }
+
+  // тело
+  ghostPath(s.r, t);
+  const body = ctx.createLinearGradient(0, -s.r * 1.2, 0, s.r * 1.2);
+  if (s.flash > 0) { body.addColorStop(0, "#ffffff"); body.addColorStop(1, rgba(glow, 0.9)); }
+  else if (isGold) { body.addColorStop(0, "#fff1b0"); body.addColorStop(0.5, "#ffc93d"); body.addColorStop(1, "rgba(190,120,20,0.7)"); }
+  else if (isBoss) { body.addColorStop(0, "#3a1426"); body.addColorStop(1, "rgba(10,0,8,0.85)"); }
+  else { body.addColorStop(0, rgba(mix(z.shadow, 2.6))); body.addColorStop(0.6, rgba(z.shadow)); body.addColorStop(1, rgba(z.shadow, 0.55)); }
+  ctx.shadowColor = rgba(glow, 0.9); ctx.shadowBlur = s.r * 0.6;
+  ctx.fillStyle = body; ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = Math.max(1.5, s.r * 0.06); ctx.strokeStyle = rgba(glow, 0.65); ctx.stroke();
+
+  // блик
+  ctx.fillStyle = "rgba(255,255,255,0.13)";
+  ctx.beginPath(); ctx.ellipse(-s.r * 0.35, -s.r * 0.55, s.r * 0.22, s.r * 0.12, -0.6, 0, 6.283); ctx.fill();
+
+  // глаза
+  const eyeH = s.blink < 0 ? 0.04 : (isBoss ? 0.16 : 0.22);
+  const eyeColor = isBoss ? "#ff3048" : isGold ? "#6a3c00" : rgba(mix(glow, 1.2));
+  ctx.fillStyle = eyeColor; ctx.shadowColor = eyeColor; ctx.shadowBlur = isGold ? 0 : s.r * 0.4;
+  for (const ex of [-0.32, 0.32]) {
+    ctx.beginPath(); ctx.ellipse(ex * s.r + s.r * 0.05, -s.r * 0.18, s.r * (isBoss ? 0.17 : 0.13), s.r * eyeH, isBoss ? ex * 1.2 : 0, 0, 6.283); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  // рот
+  ctx.strokeStyle = isGold ? "#6a3c00" : rgba(glow, 0.8); ctx.lineWidth = Math.max(1.2, s.r * 0.05);
+  ctx.beginPath();
+  if (isBoss) { ctx.moveTo(-s.r * 0.3, s.r * 0.22); for (let i = 1; i <= 6; i++) ctx.lineTo(-s.r * 0.3 + i * s.r * 0.1, s.r * (i % 2 ? 0.32 : 0.22)); }
+  else ctx.arc(s.r * 0.05, s.r * 0.12, s.r * 0.14, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+  ctx.restore();
+
+  // искорки у золотой
+  if (isGold && Math.random() < 0.3) particles.push({ x: s.x + rnd(-s.r, s.r), y: s.y + rnd(-s.r, s.r), vx: 0, vy: -20, t: 0, life: 0.5, color: [255, 230, 120], r: 1.8 });
+
+  // полоска здоровья
+  if (!isBoss && s.hp < s.max) {
+    const w = s.r * 2, y = s.y - s.r * 1.55 + bob;
+    ctx.fillStyle = "rgba(10,6,20,0.85)"; roundRect(s.x - w / 2 - 1, y - 1, w + 2, 7, 3); ctx.fill();
+    ctx.fillStyle = rgba(glow); roundRect(s.x - w / 2, y, w * Math.max(0, s.hp / s.max), 5, 2.5); ctx.fill();
+  }
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function drawAmbient() {
+  const z = zone(), c = z.fxColor;
+  for (const f of fogs) {
+    const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+    g.addColorStop(0, rgba(z.fx === "embers" ? [80, 40, 30] : c, z.fx === "fog" ? 0.13 : 0.06)); g.addColorStop(1, rgba(c, 0));
+    ctx.fillStyle = g; ctx.fillRect(f.x - f.r, f.y - f.r, f.r * 2, f.r * 2);
+  }
+  for (const a of ambient) {
+    let alpha = 0.8;
+    if (z.fx === "fireflies") alpha = 0.35 + 0.65 * Math.max(0, Math.sin(a.t * 2.5));
+    if (z.fx === "fog") alpha = 0.18;
+    if (z.fx === "embers") alpha = 0.5 + 0.5 * Math.sin(a.t * 6);
+    if (z.fx === "void") alpha = Math.min(1, a.rad / 60);
+    if (z.fx === "fireflies" || z.fx === "embers" || z.fx === "void") {
+      const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, a.s * 4);
+      g.addColorStop(0, rgba(c, alpha)); g.addColorStop(1, rgba(c, 0));
+      ctx.fillStyle = g; ctx.fillRect(a.x - a.s * 4, a.y - a.s * 4, a.s * 8, a.s * 8);
+    } else {
+      ctx.fillStyle = rgba(c, alpha); ctx.beginPath(); ctx.arc(a.x, a.y, a.s, 0, 6.283); ctx.fill();
     }
   }
 }
 
-function draw() {
-  const z = ZONES[view - 1];
-  const bg = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, Math.max(W, H) * 0.75);
-  bg.addColorStop(0, rgba(scale(z.floor, 1.15)));
-  bg.addColorStop(1, rgba(scale(z.floor, 0.3)));
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
+function drawPets(t) {
+  const list = petPositions();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  list.forEach((pp, i) => {
+    const y = pp.y + Math.sin(t * 2.4 + i) * 4;
+    const color = pp.p ? hexToRgb(RARITY[pp.p.r].color) : [200, 170, 255];
+    const g = ctx.createRadialGradient(pp.x, y, 2, pp.x, y, 26);
+    g.addColorStop(0, rgba(color, 0.45)); g.addColorStop(1, rgba(color, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pp.x, y, 26, 0, 6.283); ctx.fill();
+    if (pp.p) { ctx.font = "26px system-ui, 'Apple Color Emoji', sans-serif"; ctx.fillText(petInfo(pp.p)[0], pp.x, y); }
+    else { ctx.fillStyle = "rgba(230,215,255,0.9)"; ctx.beginPath(); ctx.arc(pp.x, y, 7, 0, 6.283); ctx.fill(); }
+  });
+  ctx.textBaseline = "alphabetic";
+}
 
-  for (const d of decor) {
-    const g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r * 4);
-    g.addColorStop(0, rgba(z.glow, 0.28)); g.addColorStop(1, rgba(z.glow, 0));
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(d.x, d.y, d.r * 4, 0, 6.283); ctx.fill();
-    // светящийся кристалл (не путать с тенью)
-    ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a);
-    ctx.fillStyle = rgba(z.glow, 0.35);
-    ctx.beginPath(); ctx.moveTo(0, -d.r * 1.6); ctx.lineTo(d.r * 0.7, 0); ctx.lineTo(0, d.r * 1.6); ctx.lineTo(-d.r * 0.7, 0); ctx.closePath(); ctx.fill();
-    ctx.restore();
+function drawHudOnCanvas() {
+  const z = zone();
+  ctx.textAlign = "left"; ctx.font = "800 12px system-ui, sans-serif";
+  if (view <= S.zone && !boss) {
+    const k = (S.zk[view] || 0) / BOSS.kills, w = Math.min(150, W * 0.42);
+    ctx.fillStyle = "rgba(10,6,20,0.7)"; roundRect(10, 10, w, 30, 9); ctx.fill();
+    ctx.fillStyle = "#f3efff"; ctx.fillText(`⚔ Хранитель ${S.zk[view] || 0}/${BOSS.kills}`, 18, 24);
+    ctx.fillStyle = "rgba(255,255,255,0.12)"; roundRect(18, 30, w - 16, 4, 2); ctx.fill();
+    ctx.fillStyle = "#ff5a6e"; roundRect(18, 30, (w - 16) * k, 4, 2); ctx.fill();
   }
-
-  for (const s of shadows) {
-    const k = (1 + Math.sin(s.phase) * 0.05) * (s.flash > 0 ? 1.12 : 1) * (1 - s.spawn / 0.4 * 0.8);
-    const r = s.r * k;
-    const glow = ctx.createRadialGradient(s.x, s.y, r * 0.5, s.x, s.y, r * 1.9);
-    glow.addColorStop(0, rgba(z.glow, 0.5)); glow.addColorStop(1, rgba(z.glow, 0));
-    ctx.fillStyle = glow;
-    ctx.beginPath(); ctx.arc(s.x, s.y, r * 1.9, 0, 6.283); ctx.fill();
-
-    const body = ctx.createRadialGradient(s.x - r * 0.3, s.y - r * 0.35, r * 0.1, s.x, s.y, r);
-    body.addColorStop(0, rgba(s.flash > 0 ? [255, 255, 255] : scale(z.shadow, 2.4)));
-    body.addColorStop(1, rgba(z.shadow));
-    ctx.fillStyle = body;
-    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, 6.283); ctx.fill();
-
-    ctx.fillStyle = rgba(z.glow);
-    for (const ex of [-0.33, 0.33]) {
-      ctx.beginPath(); ctx.ellipse(s.x + ex * r, s.y - r * 0.12, r * 0.15, r * 0.24, 0, 0, 6.283); ctx.fill();
-    }
-
-    if (s.hp < s.max) {
-      const w = s.r * 2, y = s.y - s.r - 12;
-      ctx.fillStyle = "rgba(20,15,30,.85)"; ctx.fillRect(s.x - w / 2, y, w, 6);
-      ctx.fillStyle = rgba(z.glow); ctx.fillRect(s.x - w / 2, y, w * Math.max(0, s.hp / s.max), 6);
-    }
+  if (boss) {
+    const w = W - 80, x = 12, y = 12;
+    ctx.fillStyle = "rgba(10,6,20,0.8)"; roundRect(x, y, w, 34, 10); ctx.fill();
+    ctx.fillStyle = "#ffd0d6"; ctx.fillText(`ХРАНИТЕЛЬ • ${fmt(Math.max(0, boss.hp))} / ${fmt(boss.max)}`, x + 10, y + 15);
+    ctx.textAlign = "right"; ctx.fillStyle = boss.time < 10 ? "#ff5a6e" : "#f3efff";
+    ctx.fillText(`⏱ ${Math.ceil(boss.time)}с`, x + w - 10, y + 15); ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(255,255,255,0.1)"; roundRect(x + 10, y + 22, w - 20, 6, 3); ctx.fill();
+    const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, "#ff2a4a"); g.addColorStop(1, "#ff8a5a");
+    ctx.fillStyle = g; roundRect(x + 10, y + 22, (w - 20) * Math.max(0, boss.hp / boss.max), 6, 3); ctx.fill();
   }
-
-  for (const p of particles) {
-    ctx.fillStyle = rgba(p.color, 1 - p.t / p.life);
-    ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, 6.283); ctx.fill();
+  if (combo >= 5) {
+    const k = Math.min(combo, 50) / 50;
+    ctx.textAlign = "center"; ctx.font = `900 ${16 + k * 8}px system-ui, sans-serif`;
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,0.6)";
+    const txt = `КОМБО ${combo}  ${fmtMult(comboMult())}`;
+    const y = boss ? 66 : 62;
+    ctx.strokeText(txt, W / 2, y);
+    ctx.fillStyle = `hsl(${45 - k * 45}, 100%, ${65 - k * 10}%)`; ctx.fillText(txt, W / 2, y);
   }
-
-  ctx.textAlign = "center"; ctx.font = "800 20px system-ui, sans-serif";
-  for (const f of floats) {
-    ctx.globalAlpha = Math.max(0, 1 - f.t / 0.9);
-    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.strokeText(f.text, f.x, f.y);
-    ctx.fillStyle = "#ffcd5a"; ctx.fillText(f.text, f.x, f.y);
-  }
-  ctx.globalAlpha = 1;
 }
 
 let lastFrame = performance.now();
+function draw() {
+  const t = performance.now() / 1000;
+  ctx.save();
+  if (shakeT > 0) ctx.translate(rnd(-shakeMag, shakeMag), rnd(-shakeMag, shakeMag));
+  ctx.drawImage(bgCanvas, 0, 0, W, H);
+  drawAmbient();
+
+  for (const l of lights) {
+    const k = l.t / 0.35, r = 40 + k * 30;
+    const g = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, r);
+    g.addColorStop(0, `rgba(255,240,200,${0.35 * (1 - k)})`); g.addColorStop(1, "rgba(255,240,200,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, r, 0, 6.283); ctx.fill();
+  }
+
+  const sorted = shadows.slice().sort((a, b) => a.y - b.y);
+  for (const s of sorted) drawShadow(s);
+
+  for (const r of rings) {
+    const k = r.t / 0.5;
+    ctx.strokeStyle = rgba(r.color, 1 - k); ctx.lineWidth = 4 * (1 - k) + 1;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r + (r.max - r.r) * k, 0, 6.283); ctx.stroke();
+  }
+  for (const p of particles) {
+    ctx.fillStyle = rgba(p.color, Math.max(0, 1 - p.t / p.life));
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
+  }
+  for (const b of bolts) {
+    for (let i = 0; i < b.trail.length; i++) {
+      const [x, y] = b.trail[i];
+      ctx.fillStyle = rgba(b.color, (i + 1) / b.trail.length * 0.6);
+      ctx.beginPath(); ctx.arc(x, y, 2 + i * 0.5, 0, 6.283); ctx.fill();
+    }
+    const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 12);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.3, rgba(b.color, 0.9)); g.addColorStop(1, rgba(b.color, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, 12, 0, 6.283); ctx.fill();
+  }
+  drawPets(t);
+
+  for (const o of orbs) {
+    if (o.t < 0) continue;
+    const k = Math.min(1, o.t / 0.65), e = k * k * (3 - 2 * k);
+    const tx = W / 2, ty = -10;
+    const x = o.sx + (tx - o.sx) * e + Math.sin(k * 3.14) * 40 * (o.sx < W / 2 ? -1 : 1);
+    const y = o.sy + (ty - o.sy) * e;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, 9);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.4, rgba(o.color, 0.9)); g.addColorStop(1, rgba(o.color, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.283); ctx.fill();
+  }
+
+  ctx.textAlign = "center";
+  for (const f of floats) {
+    const a = Math.max(0, 1 - Math.max(0, f.t - 0.35) / 0.6);
+    const pop = f.t < 0.12 ? 1 + (0.12 - f.t) * 5 : 1;
+    const size = { crit: 26, gain: 21, gem: 18, dmg: 15, spirit: 13 }[f.kind] * pop;
+    const color = { crit: "#ffcf4d", gain: "#ffe28a", gem: "#7eeaff", dmg: "#ffffff", spirit: "#d9c6ff" }[f.kind];
+    ctx.globalAlpha = a; ctx.font = `900 ${size}px system-ui, sans-serif`;
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,0.65)"; ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = color; ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+  drawHudOnCanvas();
+  ctx.restore();
+}
+
 function frame(ts) {
   const dt = Math.min(0.05, (ts - lastFrame) / 1000);
   lastFrame = ts;
@@ -409,227 +1023,384 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 
-// ================= Зоны: переключение =================
+// =====================================================================
+// ЗОНЫ
+// =====================================================================
 function updateZoneBar() {
-  const z = ZONES[view - 1];
+  const z = zone();
   $("zname").textContent = `${view}. ${z.name}`;
-  $("zname").style.color = rgba(z.glow);
+  $("zname").style.color = rgba(mix(z.glow, 1.1));
   $("prevZone").disabled = view <= 1;
   $("nextZone").disabled = view >= Math.min(S.zone + 1, ZONES.length);
   const locked = view > S.zone;
   $("lock").style.display = locked ? "flex" : "none";
-  if (locked) $("lockText").textContent = `«${z.name}» закрыта. Тени здесь дают ${fmt(z.value)} эссенции (базово).`;
+  if (locked) $("lockText").innerHTML = `<b>${z.name}</b><br><span class="muted">Призраки здесь дают в ${z.value / ZONES[view - 2].value} раз больше эссенции</span>`;
 }
 $("prevZone").onclick = () => { if (view > 1) { view--; fillZone(); } };
 $("nextZone").onclick = () => { if (view < Math.min(S.zone + 1, ZONES.length)) { view++; fillZone(); } };
 $("lockBtn").onclick = buyZone;
 
-// ================= Действия =================
+// =====================================================================
+// ДЕЙСТВИЯ
+// =====================================================================
+let buyMode = 1; // 1, 10 или Infinity (макс)
 function buyUpgrade(id) {
-  const u = UPGRADES[id], lvl = S.up[id];
-  if (lvl >= u.max) return toast("Это улучшение уже на максимуме", "bad");
-  const cost = upCost(id, lvl);
-  if (S.essence < cost) return toast("Не хватает эссенции", "bad");
-  S.essence -= cost; S.up[id] = lvl + 1; save();
+  const u = UPG[id];
+  let n = 0, cost = 0;
+  while (n < buyMode && S.up[id] + n < u.max) {
+    const c = upCost(id, S.up[id] + n);
+    if (S.essence < cost + c) break;
+    cost += c; n++;
+  }
+  if (S.up[id] >= u.max) return toast("Это улучшение на максимуме", "bad");
+  if (n === 0) return toast("Не хватает эссенции", "bad");
+  S.essence -= cost; S.up[id] += n; save();
 }
 function buyZone() {
   const next = ZONES[S.zone];
   if (!next) return toast("Все зоны уже открыты!");
   if (S.essence < next.price) return toast("Не хватает эссенции", "bad");
-  S.essence -= next.price; S.zone++; view = S.zone; save();
+  S.essence -= next.price; S.zone++; S.maxZone = Math.max(S.maxZone, S.zone); view = S.zone; save();
   fillZone();
-  toast(`Открыта зона «${next.name}»!`, "good");
+  toast(`🗺 Открыта зона «${next.name}»!`, "good");
 }
 function doRebirth() {
   const cost = rebirthCost(S.rebirths);
-  if (S.essence < cost) return toast(`Для перерождения нужно ${fmt(cost)} эссенции`, "bad");
-  S.rebirths++; S.essence = 0; S.zone = 1; S.up = { power: 0, greed: 0 }; view = 1; save();
-  fillZone();
-  toast(`Перерождение! Множитель теперь ${fmtMult(rebirthMult(S.rebirths))}`, "good");
+  if (S.essence < cost) return toast(`Нужно ${fmt(cost)} эссенции`, "bad");
+  const gems = 10 * (S.rebirths + 1);
+  S.rebirths++; S.essence = 0; S.zone = 1; S.zk = {}; S.gems += gems;
+  for (const k in S.up) S.up[k] = 0;
+  view = 1; save(); fillZone(); closeSheet();
+  showModal(`<div class="big reveal">♻️</div><h2>Перерождение ${S.rebirths}!</h2>
+    <p>Множитель эссенции: <b>${fmtMult(rebirthMult(S.rebirths))}</b><br>Награда: <b>+${gems} 💎</b><br>Питомцы, уровень и кристаллы сохранены.</p>
+    <button class="btn wide gold" data-close>Вперёд!</button>`, "var(--gold)");
 }
 function claimDaily() {
-  const left = DAILY.cooldown - (now() - S.lastDaily);
-  if (S.lastDaily > 0 && left > 0) return toast("Награда будет через " + fmtTime(left), "bad");
-  const st = nextStreak(), reward = dailyReward(st);
-  S.streak = st; S.lastDaily = now(); S.essence += reward; S.total += reward; save();
-  toast(`День ${st}: +${fmt(reward)} эссенции!`, "good");
+  if (!dailyReady()) return toast("Награда будет через " + fmtTime(DAILY.cooldown - (now() - S.lastDaily)), "bad");
+  const st = nextStreak(), reward = dailyReward(st), gems = st;
+  S.streak = st; S.lastDaily = now(); S.essence += reward; S.total += reward; S.gems += gems; save();
+  showModal(`<div class="big reveal">🎁</div><h2>День ${st} из ${DAILY.max}</h2>
+    <p><b>+${fmt(reward)}</b> эссенции и <b>+${gems} 💎</b><br>Заходите завтра — награда вырастет!</p>
+    <button class="btn wide good" data-close>Забрать</button>`, "var(--gold)");
 }
-function demoPass(p) {
-  S.passes[p.key] = true; save();
-  toast(`Демо-покупка: ${p.name} (в Roblox — ${p.price} R$)`, "good");
+$("gift").onclick = claimDaily;
+
+function rollRarity(odds) {
+  let r = Math.random();
+  for (const k of RARITY_ORDER) { if (r < odds[k]) return k; r -= odds[k]; }
+  return "common";
 }
-function demoProduct(p) {
-  if (p.kind === "boost") {
-    S.boostEnds = Math.max(S.boostEnds, now()) + p.duration;
-    toast(`Демо: буст x2 активирован (в Roblox — ${p.price} R$)`, "good");
-  } else {
-    const a = packAmount(p);
-    S.essence += a; S.total += a;
-    toast(`Демо: +${fmt(a)} эссенции (в Roblox — ${p.price} R$)`, "good");
-  }
+function openEgg(tier, golden) {
+  if (S.pets.length >= PET_INVENTORY) return toast("Инвентарь полон — удалите слабых питомцев", "bad");
+  if (golden) { if (S.gems < GOLD_EGG_PRICE) return toast("Не хватает кристаллов 💎", "bad"); S.gems -= GOLD_EGG_PRICE; }
+  else { const c = ZONES[tier - 1].egg; if (S.essence < c) return toast("Не хватает эссенции", "bad"); S.essence -= c; }
+  const r = rollRarity(golden ? GOLD_EGG_ODDS : EGG_ODDS);
+  const pet = { uid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), r, k: (Math.random() * PET_POOL[r].length) | 0, t: tier };
+  S.pets.push(pet); S.stats.eggs++;
+  let autoEq = false;
+  if (S.eq.length < petSlots()) { S.eq.push(pet.uid); autoEq = true; }
+  save();
+  const info = petInfo(pet), st = petStats(pet), rc = RARITY[r].color;
+  showModal(`<div class="big shake">${golden ? "🌟" : "🥚"}</div><p>Вылупляется…</p>`, rc);
+  setTimeout(() => {
+    showModal(`<div class="big reveal">${info[0]}</div>
+      <div style="color:${rc};font-weight:900;letter-spacing:1px">${RARITY[r].name.toUpperCase()} • T${tier}</div>
+      <h2>${info[1]}</h2>
+      <p>${pct(st.ess)} эссенции${st.dmg ? ` • ${pct(st.dmg)} урона` : ""}${autoEq ? "<br>✓ Сразу экипирован" : ""}</p>
+      <div class="seg"><button class="btn good" data-close>Круто!</button></div>`, rc);
+    if (r === "legendary" || r === "epic") shake(8, 0.4);
+  }, 950);
+}
+function toggleEquip(uid) {
+  const i = S.eq.indexOf(uid);
+  if (i >= 0) S.eq.splice(i, 1);
+  else if (S.eq.length < petSlots()) S.eq.push(uid);
+  else return toast(`Максимум ${petSlots()} питомца — снимите одного`, "bad");
   save();
 }
+function equipBest() {
+  S.eq = S.pets.slice().sort((a, b) => petPower(b) - petPower(a)).slice(0, petSlots()).map(p => p.uid);
+  save(); toast("Экипированы лучшие питомцы", "good");
+}
+function deletePet(uid) {
+  S.pets = S.pets.filter(p => p.uid !== uid);
+  S.eq = S.eq.filter(u => u !== uid);
+  save();
+}
+function claimQuest(q) {
+  const tier = S.q[q.id] || 0;
+  if (tier >= q.goals.length || q.stat(S) < q.goals[tier]) return;
+  S.gems += q.rewards[tier]; S.q[q.id] = tier + 1; save();
+  toast(`📜 ${q.name}: +${q.rewards[tier]} 💎`, "gem");
+}
+const questReady = q => { const t = S.q[q.id] || 0; return t < q.goals.length && q.stat(S) >= q.goals[t]; };
 
-// ================= Панели =================
-function el(tag, cls, text) {
+function gemBoost() {
+  if (S.gems < 10) return toast("Не хватает кристаллов 💎", "bad");
+  S.gems -= 10; S.boostEnds = Math.max(S.boostEnds, now()) + 300; save();
+  toast("⚡ Буст x2 на 5 минут!", "good");
+}
+function demoPass(p) { S.passes[p.key] = true; save(); toast(`Демо-покупка: ${p.name} (в Roblox — ${p.price} R$)`, "good"); }
+function demoProduct(p) {
+  if (p.kind === "boost") S.boostEnds = Math.max(S.boostEnds, now()) + p.duration;
+  if (p.kind === "gems") S.gems += p.amount;
+  if (p.kind === "essence") { const a = packAmount(p); S.essence += a; S.total += a; }
+  save(); toast(`Демо: ${p.name} (в Roblox — ${p.price} R$)`, "good");
+}
+
+// =====================================================================
+// ПАНЕЛИ
+// =====================================================================
+function el(tag, cls, html) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
-  if (text != null) e.textContent = text;
+  if (html != null) e.innerHTML = html;
   return e;
 }
-function row(name, desc) {
-  const r = el("div", "row"), t = el("div", "t"), n = el("div", "n", name), d = el("div", "d", desc), b = el("button", "btn");
-  t.append(n, d); r.append(t, b);
-  return { r, n, d, b };
+function row(icon, name, desc) {
+  const r = el("div", "row"), ic = el("div", "ic", icon), t = el("div", "t"), n = el("div", "n", name), d = el("div", "d", desc), b = el("button", "btn");
+  t.append(n, d); r.append(ic, t, b);
+  return { r, n, d, b, t };
 }
 function setBtn(b, text, enabled, cls) {
-  b.textContent = text;
-  b.className = "btn" + (b.classList.contains("wide") ? " wide" : "") + (enabled ? (cls ? " " + cls : "") : " off");
+  if (b._t !== text) { b.textContent = text; b._t = text; }
+  const c = "btn" + (b.classList.contains("wide") ? " wide" : "") + (enabled ? (cls ? " " + cls : "") : " off");
+  if (b.className !== c) b.className = c;
 }
-// Двойное нажатие для опасных действий
-function confirmable(btn, action, getText) {
+function confirmable(btn, action) {
   let until = 0;
   btn.onclick = () => {
     if (Date.now() < until) { until = 0; action(); }
-    else { until = Date.now() + 3000; btn.textContent = "Точно? Нажмите ещё раз"; }
+    else { until = Date.now() + 3000; btn.textContent = "Точно? Нажмите ещё раз"; btn._t = null; }
   };
   return () => Date.now() < until;
 }
 
 const PANELS = {
   upgrades: {
-    title: "⚡ Улучшения",
+    title: "⚡ Прокачка",
     build(body) {
+      const seg = el("div", "seg"), modes = [[1, "x1"], [10, "x10"], [Infinity, "МАКС"]];
+      const modeBtns = modes.map(([m, label]) => { const b = el("button", "btn", label); b.onclick = () => { buyMode = m; }; seg.append(b); return [m, b]; });
+      body.append(seg);
       const refs = {};
-      for (const id of Object.keys(UPGRADES)) {
-        const u = UPGRADES[id], x = row(u.name, u.desc);
+      for (const id of Object.keys(UPG)) {
+        const u = UPG[id], x = row(u.icon, u.name, "");
+        const bar = el("div", "bar", "<i></i>"); x.t.append(bar); x.bar = bar.firstChild;
         x.b.onclick = () => buyUpgrade(id);
         refs[id] = x; body.append(x.r);
       }
-      body.append(el("div", "note", "В Roblox-версии есть ещё «Теневой шаг» — скорость бега персонажа."));
       return () => {
+        for (const [m, b] of modeBtns) setBtn(b, b.textContent, true, buyMode === m ? "gold" : "");
         for (const id in refs) {
-          const u = UPGRADES[id], lvl = S.up[id], x = refs[id];
-          x.n.textContent = `${u.name} • ур. ${lvl}`;
-          if (lvl >= u.max) setBtn(x.b, "МАКС", false);
-          else { const c = upCost(id, lvl); setBtn(x.b, "🌑 " + fmt(c), S.essence >= c); }
+          const u = UPG[id], lvl = S.up[id], x = refs[id];
+          x.n.textContent = `${u.name} • ${lvl}/${u.max}`;
+          x.bar.style.width = (lvl / u.max * 100) + "%";
+          if (lvl >= u.max) { x.d.innerHTML = `${UPG_DESC[id]}<br><b>${u.eff(lvl)}</b>`; setBtn(x.b, "МАКС", false); continue; }
+          let n = 0, cost = 0;
+          if (buyMode === Infinity) { while (lvl + n < u.max && cost + upCost(id, lvl + n) <= S.essence) { cost += upCost(id, lvl + n); n++; } if (!n) { n = 1; cost = upCost(id, lvl); } }
+          else { n = Math.min(buyMode, u.max - lvl); cost = upCostN(id, lvl, n); }
+          x.d.innerHTML = `${UPG_DESC[id]}<br><b>${u.eff(lvl)}</b> → <b style="color:var(--good)">${u.eff(lvl + n)}</b>`;
+          setBtn(x.b, `${n > 1 ? "+" + n + " • " : ""}🌑 ${fmt(cost)}`, S.essence >= cost);
         }
       };
     },
   },
-  zones: {
-    title: "🗺 Зоны",
+
+  pets: {
+    title: "🐾 Питомцы",
+    sig: () => [S.pets.length, S.eq.join(), S.zone, petSlots(), deleteMode].join("|"),
     build(body) {
-      const refs = ZONES.map((z, i) => {
-        const x = row(z.name, `Тень: ${fmt(z.hp)} ОЗ • награда ${fmt(z.value)}`);
-        x.n.style.color = rgba(z.glow);
-        x.b.onclick = () => {
-          const idx = i + 1;
-          if (idx <= S.zone) { view = idx; fillZone(); closeSheet(); }
-          else if (idx === S.zone + 1) buyZone();
+      const pb = petBonus(), eq = equippedPets();
+      const card = el("div", "card");
+      const slots = el("div", "slots");
+      for (let i = 0; i < petSlots(); i++) {
+        const p = eq[i], s = el("div", "slot" + (p ? " f" : ""), p ? petInfo(p)[0] : "");
+        if (p) s.style.setProperty("--rc", RARITY[p.r].color);
+        slots.append(s);
+      }
+      card.append(slots, el("div", "note", `Бонус: <b style="color:var(--text)">${pct(pb.ess)} эссенции • ${pct(pb.dmg)} урона</b>`));
+      body.append(card);
+
+      const seg = el("div", "seg");
+      const best = el("button", "btn good", "Экипировать лучших"); best.onclick = equipBest;
+      const del = el("button", "btn" + (deleteMode ? " bad" : ""), deleteMode ? "Готово" : "🗑 Удалять");
+      del.onclick = () => { deleteMode = !deleteMode; };
+      seg.append(best, del); body.append(seg);
+
+      body.append(el("div", "hdr", "Яйца"));
+      const eggRefs = [];
+      for (let i = 1; i <= S.zone; i++) {
+        const z = ZONES[i - 1], x = row("🥚", `Яйцо: ${z.name}`, `Питомцы T${i} • сильнее с каждой зоной`);
+        x.b.onclick = () => openEgg(i, false);
+        eggRefs.push([x.b, () => z.egg, "essence"]); body.append(x.r);
+      }
+      const g = row("🌟", "Золотое яйцо", `T${S.zone} • шанс легендарного 8% (обычно 2%)`);
+      g.b.onclick = () => openEgg(S.zone, true);
+      eggRefs.push([g.b, () => GOLD_EGG_PRICE, "gems"]); body.append(g.r);
+      body.append(el("div", "note", "Шансы: Обычный 62% • Редкий 27% • Эпический 9% • Легендарный 2%"));
+
+      body.append(el("div", "hdr", `Инвентарь ${S.pets.length}/${PET_INVENTORY}` + (deleteMode ? " — нажмите, чтобы удалить" : " — нажмите, чтобы надеть/снять")));
+      if (!S.pets.length) body.append(el("div", "note", "Пока пусто. Откройте первое яйцо!"));
+      const grid = el("div", "grid");
+      const sorted = S.pets.slice().sort((a, b) => petPower(b) - petPower(a));
+      for (const p of sorted) {
+        const st = petStats(p), equipped = S.eq.includes(p.uid);
+        const c = el("div", "pet" + (equipped ? " eq" : "") + (deleteMode && !equipped ? " del" : ""),
+          `<div class="tier">T${p.t}</div><div class="e">${petInfo(p)[0]}</div><div class="b">${pct(st.ess)}${st.dmg ? "<br>⚔" + pct(st.dmg) : ""}</div>`);
+        c.style.setProperty("--rc", RARITY[p.r].color);
+        c.onclick = () => {
+          if (deleteMode) { if (equipped) return toast("Сначала снимите питомца", "bad"); deletePet(p.uid); }
+          else toggleEquip(p.uid);
         };
-        body.append(x.r);
-        return x;
-      });
-      return () => refs.forEach((x, i) => {
-        const idx = i + 1, z = ZONES[i];
-        if (idx <= S.zone) setBtn(x.b, idx === view ? "Вы здесь" : "Перейти", idx !== view, "good");
-        else if (idx === S.zone + 1) setBtn(x.b, "🔓 " + fmt(z.price), S.essence >= z.price);
-        else setBtn(x.b, "🔒", false);
-      });
+        grid.append(c);
+      }
+      body.append(grid);
+      return () => {
+        for (const [b, price, cur] of eggRefs) {
+          const full = S.pets.length >= PET_INVENTORY;
+          if (cur === "gems") setBtn(b, `💎 ${price()}`, !full && S.gems >= price(), "gem");
+          else setBtn(b, `🌑 ${fmt(price())}`, !full && S.essence >= price());
+        }
+      };
     },
   },
+
+  quests: {
+    title: "📜 Задания",
+    sig: () => QUESTS.map(q => S.q[q.id] || 0).join(),
+    build(body) {
+      body.append(el("div", "note", "Выполняйте задания и получайте кристаллы 💎 — за них можно купить Золотое яйцо и бусты."));
+      const refs = QUESTS.map(q => {
+        const x = row(q.icon, q.name, "");
+        const bar = el("div", "bar", "<i></i>"); x.t.append(bar); x.bar = bar.firstChild;
+        x.b.onclick = () => claimQuest(q);
+        body.append(x.r);
+        return [q, x];
+      });
+      return () => {
+        for (const [q, x] of refs) {
+          const tier = S.q[q.id] || 0;
+          if (tier >= q.goals.length) { x.d.textContent = "Все этапы выполнены!"; x.bar.style.width = "100%"; setBtn(x.b, "✓", false); continue; }
+          const goal = q.goals[tier], v = Math.min(q.stat(S), goal);
+          x.n.textContent = `${q.name} • этап ${tier + 1}/${q.goals.length}`;
+          x.d.innerHTML = `${q.text(goal)} — <b>${fmt(v)}/${fmt(goal)}</b>`;
+          x.bar.style.width = (v / goal * 100) + "%";
+          setBtn(x.b, v >= goal ? `Забрать ${q.rewards[tier]} 💎` : `${q.rewards[tier]} 💎`, v >= goal, "gem");
+        }
+      };
+    },
+  },
+
+  profile: {
+    title: "👤 Характеристики",
+    build(body) {
+      const lv = el("div", "card"), fight = el("div", "card"), econ = el("div", "card"), stats = el("div", "card");
+      body.append(lv, el("div", "hdr", "⚔ Бой"), fight, el("div", "hdr", "💰 Доход"), econ, el("div", "hdr", "📊 Статистика"), stats);
+      const line = (a, b) => `<div class="stat"><span>${a}</span><span>${b}</span></div>`;
+      return () => {
+        const need = xpNeed(S.level), pb = petBonus();
+        lv.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+          <b style="font-size:18px">⭐ Уровень ${S.level}</b><span class="muted">${fmt(S.xp)} / ${fmt(need)} опыта</span></div>
+          <div class="bar"><i style="width:${S.xp / need * 100}%"></i></div>
+          <div class="muted" style="margin-top:6px">Каждый уровень: +3% эссенции и +1% урона</div>`;
+        fight.innerHTML =
+          line("🔦 Урон за касание", fmt(tapDamage())) +
+          line("🎯 Шанс крита", Math.round(critChance() * 100) + "%") +
+          line("💥 Сила крита", fmtMult(critMult())) +
+          line("✨ Урон духов в секунду", autoDps() ? fmt(autoDps()) : "—") +
+          line("🐾 Бонус урона питомцев", pct(pb.dmg)) +
+          line("🍀 Шанс золотой тени", (goldChance() * 100).toFixed(1) + "%");
+        econ.innerHTML =
+          line("Итоговый множитель", `<span style="color:var(--gold)">${fmtMult(essMult())}</span>`) +
+          line("💰 Жадность", fmtMult(1 + 0.1 * S.up.greed)) +
+          line("♻️ Перерождения", fmtMult(rebirthMult(S.rebirths))) +
+          line("⭐ Уровень", fmtMult(levelMult())) +
+          line("🐾 Питомцы", fmtMult(1 + pb.ess)) +
+          line("👑 Пропуска", fmtMult((S.passes.DoubleEssence ? 2 : 1) * (S.passes.VIP ? 1.5 : 1))) +
+          line("⚡ Буст", boostActive() ? "x2 • " + fmtTime(S.boostEnds - now()) : "—") +
+          line("🔥 Комбо (сейчас)", fmtMult(comboMult()));
+        stats.innerHTML =
+          line("Поймано теней", fmt(S.stats.kills)) + line("Золотых теней", fmt(S.stats.golden)) +
+          line("Хранителей побеждено", fmt(S.stats.bosses)) + line("Критов", fmt(S.stats.crits)) +
+          line("Открыто яиц", fmt(S.stats.eggs)) + line("Всего эссенции", fmt(S.total)) +
+          line("Время в игре", fmtLong(S.stats.time));
+      };
+    },
+  },
+
   rebirth: {
-    title: "♻ Перерождение",
+    title: "♻️ Перерождение",
     build(body) {
       const card = el("div", "card"), btn = el("button", "btn wide");
       body.append(card, btn);
       const pending = confirmable(btn, doRebirth);
       const resetBtn = el("button", "btn wide bad");
-      const resetPending = confirmable(resetBtn, () => {
-        S = fresh(); view = 1; save(); fillZone(); toast("Прогресс прототипа сброшен");
-      });
+      const resetPending = confirmable(resetBtn, () => { S = fresh(); view = 1; save(); fillZone(); closeSheet(); toast("Прогресс прототипа сброшен"); });
       body.append(el("div", "hdr", "Для тестирования"), resetBtn);
       return () => {
         const c = rebirthCost(S.rebirths);
-        card.innerHTML = "";
-        card.append(
-          el("div", null, `Перерождений: ${S.rebirths}`),
-          el("div", null, `Множитель: ${fmtMult(rebirthMult(S.rebirths))} → ${fmtMult(rebirthMult(S.rebirths + 1))}`),
-          el("div", "muted", "Сбросит эссенцию, улучшения и зоны, но навсегда увеличит доход."),
-        );
+        card.innerHTML = `<div style="font-size:17px">Перерождений: <b>${S.rebirths}</b></div>
+          <div>Множитель: <b>${fmtMult(rebirthMult(S.rebirths))}</b> → <b style="color:var(--good)">${fmtMult(rebirthMult(S.rebirths + 1))}</b></div>
+          <div>Награда: <b>+${10 * (S.rebirths + 1)} 💎</b></div>
+          <div class="muted" style="margin-top:6px">Сбросятся эссенция, прокачка и зоны.<br>Сохранятся уровень, питомцы, кристаллы и задания.</div>
+          <div class="bar"><i style="width:${Math.min(100, S.essence / c * 100)}%"></i></div>`;
         if (!pending()) setBtn(btn, `Переродиться • 🌑 ${fmt(c)}`, S.essence >= c, "gold");
         if (!resetPending()) setBtn(resetBtn, "Сбросить весь прогресс", true, "bad");
       };
     },
   },
+
   shop: {
     title: "💎 Магазин",
+    sig: () => Object.keys(S.passes).join(),
     build(body) {
-      body.append(el("div", "note", "Это прототип: покупки здесь бесплатные и нужны, чтобы почувствовать бонусы. В Roblox они стоят Robux."));
+      body.append(el("div", "hdr", "За кристаллы 💎"));
+      const gb = row("⚡", "Буст x2 на 5 минут", "Удваивает всю эссенцию");
+      gb.b.onclick = gemBoost; body.append(gb.r);
+
       body.append(el("div", "hdr", "Навсегда (Game Pass)"));
-      const passRefs = PASSES.map(p => {
-        const x = row(p.name, p.desc);
-        x.b.onclick = () => { if (!S.passes[p.key]) demoPass(p); };
-        body.append(x.r);
-        return [p, x];
-      });
+      body.append(el("div", "note", "Прототип: покупки за Robux здесь бесплатные — чтобы почувствовать бонусы."));
+      const passRefs = PASSES.map(p => { const x = row(p.icon, p.name, p.desc); x.b.onclick = () => { if (!S.passes[p.key]) demoPass(p); }; body.append(x.r); return [p, x]; });
       body.append(el("div", "hdr", "Разовые покупки"));
-      const prodRefs = PRODUCTS.map(p => {
-        const x = row(p.name, "");
-        x.b.onclick = () => demoProduct(p);
-        body.append(x.r);
-        return [p, x];
-      });
-      const undo = el("button", "btn wide");
-      undo.onclick = () => { S.passes = {}; save(); toast("Демо-пропуска отключены"); };
+      const prodRefs = PRODUCTS.map(p => { const x = row(p.icon, p.name, ""); x.b.onclick = () => demoProduct(p); body.append(x.r); return [p, x]; });
+      const undo = el("button", "btn wide"); undo.onclick = () => { S.passes = {}; if (S.eq.length > petSlots()) S.eq.length = petSlots(); save(); toast("Демо-пропуска отключены"); };
       body.append(undo);
       return () => {
-        for (const [p, x] of passRefs) setBtn(x.b, S.passes[p.key] ? "✓ Куплено" : `R$ ${p.price}`, !S.passes[p.key], "good");
+        setBtn(gb.b, "💎 10", S.gems >= 10, "gem");
+        for (const [p, x] of passRefs) setBtn(x.b, S.passes[p.key] ? "✓ Есть" : `R$ ${p.price}`, !S.passes[p.key], "good");
         for (const [p, x] of prodRefs) {
-          x.d.textContent = p.kind === "boost" ? "Удваивает эссенцию, время складывается" : `+${fmt(packAmount(p))} эссенции`;
+          x.d.textContent = p.kind === "boost" ? "x2 эссенция, время складывается" : p.kind === "gems" ? `+${p.amount} 💎` : `+${fmt(packAmount(p))} эссенции`;
           setBtn(x.b, `R$ ${p.price}`, true, "good");
         }
         setBtn(undo, "Отключить демо-пропуска", Object.keys(S.passes).length > 0);
       };
     },
   },
-  daily: {
-    title: "🎁 Ежедневная награда",
-    build(body) {
-      const card = el("div", "card"), btn = el("button", "btn wide");
-      btn.onclick = claimDaily;
-      body.append(card, btn);
-      return () => {
-        const st = nextStreak(), left = DAILY.cooldown - (now() - S.lastDaily);
-        card.innerHTML = "";
-        card.append(
-          el("div", null, `Серия: ${S.streak} / ${DAILY.max} дней`),
-          el("div", null, `Награда: 🌑 ${fmt(dailyReward(st))}`),
-          el("div", "muted", "Заходите каждый день — награда растёт. Пропуск больше 2 дней сбросит серию."),
-        );
-        if (S.lastDaily === 0 || left <= 0) setBtn(btn, "Забрать!", true, "good");
-        else setBtn(btn, "Через " + fmtTime(left), false);
-      };
-    },
-  },
 };
 
-let openName = null, panelUpdate = null;
+let deleteMode = false;
+let openName = null, panelUpdate = null, panelSig = null;
+function renderPanel() {
+  const p = PANELS[openName], body = $("sheetBody"), scroll = body.scrollTop;
+  body.innerHTML = "";
+  panelUpdate = p.build(body);
+  panelSig = p.sig ? p.sig() : null;
+  panelUpdate();
+  body.scrollTop = scroll;
+}
 function openSheet(name) {
   if (openName === name) return closeSheet();
-  const p = PANELS[name];
+  if (name !== "pets") deleteMode = false;
   openName = name;
-  $("sheetTitle").textContent = p.title;
-  const body = $("sheetBody");
-  body.innerHTML = ""; body.scrollTop = 0;
-  panelUpdate = p.build(body);
-  panelUpdate();
+  $("sheetTitle").textContent = PANELS[name].title;
+  $("sheetBody").scrollTop = 0;
+  renderPanel();
   $("sheet").classList.add("open");
   $("shade").style.display = "block";
 }
 function closeSheet() {
-  openName = null; panelUpdate = null;
+  openName = null; panelUpdate = null; deleteMode = false;
   $("sheet").classList.remove("open");
   $("shade").style.display = "none";
 }
@@ -637,24 +1408,55 @@ document.querySelectorAll("#nav button").forEach(b => b.onclick = () => openShee
 $("sheetClose").onclick = closeSheet;
 $("shade").onclick = closeSheet;
 
-// ================= HUD =================
+// =====================================================================
+// HUD
+// =====================================================================
 function refreshHud() {
-  $("ess").textContent = `🌑 ${fmt(S.essence)} эссенции`;
-  const parts = [`Множитель ${fmtMult(multiplier())}`, `Перерождений: ${S.rebirths}`];
-  if (S.boostEnds > now()) parts.push("⚡ Буст " + fmtTime(S.boostEnds - now()));
-  if (S.passes.AutoCatch) parts.push("🤖 Авто");
+  $("ess").textContent = `🌑 ${fmt(S.essence)}`;
+  $("ess").classList.toggle("pop", essPulse > 0);
+  $("gems").textContent = `💎 ${fmt(S.gems)}`;
+  $("lvlNum").textContent = S.level;
+  $("lvl").style.setProperty("--xp", Math.min(100, S.xp / xpNeed(S.level) * 100));
+  const parts = [fmtMult(essMult()) + " эссенции"];
+  if (boostActive()) parts.push("⚡ " + fmtTime(S.boostEnds - now()));
+  if (S.passes.AutoCatch) parts.push("🤖 авто");
+  if (S.passes.VIP) parts.push("👑 VIP");
   $("info").textContent = parts.join(" • ");
+  $("gift").classList.toggle("ready", dailyReady());
+  $("questDot").style.display = QUESTS.some(questReady) ? "block" : "none";
   const next = ZONES[S.zone];
   if (view > S.zone && next) setBtn($("lockBtn"), "🔓 Открыть за " + fmt(next.price), S.essence >= next.price);
-  if (panelUpdate) panelUpdate();
+  if (openName) {
+    const p = PANELS[openName];
+    if (p.sig && p.sig() !== panelSig) renderPanel();
+    else if (panelUpdate) panelUpdate();
+  }
 }
-setInterval(refreshHud, 150);
+setInterval(refreshHud, 120);
 
-// ================= Старт =================
-view = Math.min(Math.max(1, S.zone), ZONES.length);
+// =====================================================================
+// СТАРТ
+// =====================================================================
+function offlineEarnings() {
+  if (!S.lastSeen) return;
+  const away = Math.min(8 * 3600, now() - S.lastSeen);
+  if (away < 120) return;
+  const z = ZONES[S.zone - 1];
+  const dps = autoDps() + (S.passes.AutoCatch ? tapDamage() * 2 : 0);
+  if (dps <= 0) return;
+  const perSec = Math.min(dps / z.hp, 4) * z.value * essMult() * 0.5;
+  const gain = Math.floor(perSec * away);
+  if (gain <= 0) return;
+  S.essence += gain; S.total += gain; save();
+  showModal(`<div class="big reveal">🌙</div><h2>С возвращением!</h2>
+    <p>Пока вас не было (${fmtLong(away)}), духи-помощники собрали<br><b style="color:var(--gold);font-size:20px">+${fmt(gain)} эссенции</b></p>
+    <button class="btn wide gold" data-close>Забрать</button>`, "var(--gold)");
+}
+
 resize();
 fillZone();
 refreshHud();
+offlineEarnings();
 requestAnimationFrame(frame);
 </script>
 </body>
