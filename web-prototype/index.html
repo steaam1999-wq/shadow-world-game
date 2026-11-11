@@ -1086,10 +1086,14 @@ const hero = { x: 150, y: 300, face: 1, walk: 0, aim: -1.2, recoil: 0, fireT: 0,
 let joy = null, heroDistance = 0, vacuumFx = 0;
 const keys = new Set();
 let shots = [], lightning = [];
-const heroCenter = () => ({ x: hero.x, y: hero.y - 28 });
+const HERO_SCALE = 1.12;
+const WEAPON_TIP = { lantern: 18, blaster: 31, vacuum: 32, crossbow: 33, staff: 34 };
+const heldWeapon = () => (run && hero.held) || S.hero.weapon;
+const heroCenter = () => ({ x: hero.x, y: hero.y - 31 });
 function muzzle() {
-  const c = heroCenter();
-  return { x: c.x + Math.cos(hero.aim) * 30, y: c.y - 4 + Math.sin(hero.aim) * 30 };
+  // кончик оружия в руке: плечо + направление прицела × длина оружия
+  const tip = (WEAPON_TIP[heldWeapon()] || 28) * HERO_SCALE;
+  return { x: hero.x + 3 * hero.face * HERO_SCALE + Math.cos(hero.aim) * tip, y: hero.y - 32 * HERO_SCALE + Math.sin(hero.aim) * tip };
 }
 function findTarget(range) {
   const c = heroCenter();
@@ -1233,7 +1237,7 @@ function updateHero(dt) {
 }
 
 let autoTimer = 0, spiritTimer = 0, petSource = 0;
-const lanternPos = () => ({ x: hero.x, y: hero.y - 25 });
+const lanternPos = () => ({ x: hero.x, y: hero.y - 28 });
 function petPositions() {
   const t = performance.now() / 1000, L = lanternPos();
   const pets = equippedPets(), n = pets.length;
@@ -1632,11 +1636,13 @@ function drawLantern(t) {
   ctx.globalCompositeOperation = "source-over";
   // осколки света кружат над головой охотника
   S.shards.forEach((zi, i) => {
-    const a = t * 1.2 + i * 6.283 / S.shards.length, sx = hero.x + Math.cos(a) * 18, sy = hero.y - 74 + Math.sin(a) * 5;
+    const a = t * 1.2 + i * 6.283 / S.shards.length, sx = hero.x + Math.cos(a) * 18, sy = hero.y - 84 + Math.sin(a) * 5;
     ctx.fillStyle = rgba(ZONES[zi - 1].glow); ctx.shadowColor = rgba(ZONES[zi - 1].glow); ctx.shadowBlur = 8;
     ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.fillText("✦", sx, sy); ctx.shadowBlur = 0;
   });
-  drawHero(ctx, hero.x, hero.y, 1.0, { skin: S.hero.skin, gear: S.hero.gear, weapon: S.hero.weapon, face: hero.face, walk: hero.walk, aim: hero.aim, recoil: hero.recoil, t });
+  const held = heldWeapon();
+  const holstered = run ? Object.keys(run.weapons).filter(id => id !== held) : [];
+  drawHero(ctx, hero.x, hero.y, HERO_SCALE, { skin: S.hero.skin, gear: S.hero.gear, weapon: held, holstered, face: hero.face, walk: hero.walk, aim: hero.aim, recoil: hero.recoil, t });
 }
 
 // ---------- Модель охотника (рисуется и на арене, и в меню «Герой») ----------
@@ -1710,6 +1716,26 @@ function drawHero(c, x, y, k, o) {
   c.strokeStyle = shadeHex(L.roll, -0.35); c.lineWidth = 0.7; c.beginPath();
   for (let a = 0; a < 12; a += 0.4) { const rr = a * 0.25; c.lineTo(-20.5 + Math.cos(a) * rr * 0.7, -40.2 + Math.sin(a) * rr); }
   c.stroke();
+  // оружие, закреплённое на рюкзаке
+  const hol = o.holstered || [];
+  if (hol.includes("staff")) {
+    c.strokeStyle = "#5a3e22"; c.lineWidth = 2.6; c.lineCap = "round";
+    c.beginPath(); c.moveTo(-22, -6); c.lineTo(-6, -60); c.stroke(); c.lineCap = "butt";
+    const sc = rgba(WEAPONS.find(q => q.id === "staff").color);
+    c.fillStyle = sc; c.shadowColor = sc; c.shadowBlur = 8; c.beginPath(); c.arc(-5.5, -62, 3.4, 0, 6.283); c.fill(); c.shadowBlur = 0;
+  }
+  if (hol.includes("crossbow")) {
+    c.save(); c.translate(-14, -30); c.rotate(-1.05);
+    c.fillStyle = "#6b4426"; rrect(c, -12, -1.5, 24, 3, 1); c.fill();
+    c.strokeStyle = "#8a5a30"; c.lineWidth = 2; c.beginPath(); c.moveTo(6, -9); c.quadraticCurveTo(11, 0, 6, 9); c.stroke();
+    c.strokeStyle = "rgba(255,240,200,0.8)"; c.lineWidth = 0.6; c.beginPath(); c.moveTo(6, -9); c.lineTo(1, 0); c.lineTo(6, 9); c.stroke();
+    c.restore();
+  }
+  if (hol.includes("vacuum")) {
+    block(c, -25, -34, 6, 16, 3, "#6c6650", 0.4);
+    c.fillStyle = "#8f8a6a"; c.fillRect(-24.5, -30, 5, 1.2); c.fillRect(-24.5, -24, 5, 1.2);
+    c.strokeStyle = "#3a3628"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-22, -18); c.quadraticCurveTo(-16, -6, -8, -14); c.stroke();
+  }
 
   // ноги и ботинки
   const bootCol = gear.boots === 1 ? "#6b3f1d" : gear.boots === 2 ? "#e9e4ff" : L.boots;
@@ -1735,6 +1761,20 @@ function drawHero(c, x, y, k, o) {
   c.fillStyle = L.accent; c.fillRect(-2.8, -28, 1.6, 4.5);
   if (gear.armor === 2) {
     block(c, -12, -37.5, 8, 6, 2.5, "#ffcf5a", 0.3); block(c, 4, -37.5, 8, 6, 2.5, "#ffcf5a", 0.3);
+  }
+  // на поясе
+  if (hol.includes("blaster")) {
+    c.fillStyle = "#3a2a18"; rrect(c, 5.5, -19, 6, 9, 2); c.fill();
+    c.save(); c.translate(8.5, -14); c.rotate(1.35);
+    c.fillStyle = "#3a3f4d"; rrect(c, -2, -2.4, 13, 4.8, 1.6); c.fill();
+    const bc = rgba(WEAPONS.find(q => q.id === "blaster").color);
+    c.fillStyle = bc; c.fillRect(8.5, -1.2, 2.5, 2.4);
+    c.restore();
+  }
+  if (hol.includes("lantern")) {
+    c.strokeStyle = "#3a2a18"; c.lineWidth = 0.8; c.beginPath(); c.moveTo(-6, -17); c.lineTo(-6, -14); c.stroke();
+    c.fillStyle = "#5a3e22"; rrect(c, -9, -14, 6, 8, 1.6); c.fill();
+    c.fillStyle = "rgba(255,225,150,0.95)"; c.shadowColor = "#ffcc70"; c.shadowBlur = 6; rrect(c, -8.2, -13, 4.4, 5.8, 1.2); c.fill(); c.shadowBlur = 0;
   }
 
   drawHeroHead(c, L, gear, t);
@@ -1957,16 +1997,6 @@ function draw() {
 
   ctx.save(); ctx.translate(-cam.x, -cam.y);
   if (run) { drawSeals(t); drawPickups(t); }
-  if (run && vacuumFx > 0 && run.weapons.vacuum) {
-    const c = heroCenter(), R = wStats("vacuum").range, a = vacuumFx / 0.3;
-    ctx.globalCompositeOperation = "lighter";
-    const g = ctx.createRadialGradient(c.x, c.y, 10, c.x, c.y, R);
-    g.addColorStop(0, "rgba(190,140,255,0)"); g.addColorStop(0.8, `rgba(190,140,255,${0.18 * a})`); g.addColorStop(1, "rgba(190,140,255,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, R, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = `rgba(210,170,255,${0.5 * a})`; ctx.lineWidth = 2;
-    for (let i = 0; i < 3; i++) { const rr = R * (1 - ((t * 1.6 + i / 3) % 1)); ctx.beginPath(); ctx.arc(c.x, c.y, rr, 0, 6.283); ctx.stroke(); }
-    ctx.globalCompositeOperation = "source-over";
-  }
   const sorted = shadows.slice().sort((a, b) => a.y - b.y);
   const heroDrawn = { v: false };
   for (const s of sorted) {
@@ -2085,14 +2115,28 @@ function drawWeaponFx(t) {
   ctx.globalCompositeOperation = "lighter";
   for (const sh of shots) {
     if (sh.delay > 0) continue;
-    sh.trail.forEach(([x, y], i) => { ctx.fillStyle = rgba(sh.color, (i + 1) / sh.trail.length * 0.45); ctx.beginPath(); ctx.arc(x, y, 1.5 + i * 0.4, 0, 6.283); ctx.fill(); });
+    ctx.save(); ctx.translate(sh.x, sh.y); ctx.rotate(sh.ang);
     if (sh.kind === "arrow") {
-      ctx.strokeStyle = rgba(sh.color); ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(sh.x - Math.cos(sh.ang) * 16, sh.y - Math.sin(sh.ang) * 16); ctx.lineTo(sh.x, sh.y); ctx.stroke();
+      // святая стрела: древко, наконечник, оперение и светящийся след
+      ctx.globalCompositeOperation = "lighter";
+      const tr = ctx.createLinearGradient(-34, 0, 0, 0); tr.addColorStop(0, rgba(sh.color, 0)); tr.addColorStop(1, rgba(sh.color, 0.5));
+      ctx.fillStyle = tr; ctx.fillRect(-34, -2, 34, 4);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#c9a26a"; ctx.fillRect(-16, -1, 18, 2);
+      ctx.fillStyle = "#fff4c8"; ctx.shadowColor = rgba(sh.color); ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(1, -4); ctx.lineTo(2, 0); ctx.lineTo(1, 4); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = "#e8e2ff";
+      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-21, -4); ctx.lineTo(-13, -1); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-21, 4); ctx.lineTo(-13, 1); ctx.fill();
+    } else {
+      // протонный заряд: вытянутый лазерный импульс
+      ctx.globalCompositeOperation = "lighter";
+      const glow = ctx.createLinearGradient(-26, 0, 6, 0); glow.addColorStop(0, rgba(sh.color, 0)); glow.addColorStop(1, rgba(sh.color, 0.75));
+      ctx.fillStyle = glow; roundRect(-26, -4.5, 32, 9, 4.5); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.95)"; roundRect(-12, -1.8, 18, 3.6, 1.8); ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
     }
-    const g = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, 9);
-    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.35, rgba(sh.color, 0.9)); g.addColorStop(1, rgba(sh.color, 0));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sh.x, sh.y, 9, 0, 6.283); ctx.fill();
+    ctx.restore();
   }
   for (const l of lightning) {
     const a = 1 - l.t / 0.18;
@@ -2104,15 +2148,30 @@ function drawWeaponFx(t) {
     }
     ctx.lineTo(l.x2, l.y2); ctx.stroke(); ctx.shadowBlur = 0;
   }
-  if (vacuumFx > 0) {
-    const c = heroCenter(), a = vacuumFx / 0.2, R = heroRange();
-    const w = weapon();
-    ctx.translate(c.x, c.y); ctx.rotate(hero.aim);
-    const g = ctx.createRadialGradient(0, 0, 10, 0, 0, R);
-    g.addColorStop(0, rgba(w.color, 0.35 * a)); g.addColorStop(1, rgba(w.color, 0));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, -0.8, 0.8); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = rgba(w.color, 0.5 * a); ctx.lineWidth = 1.5;
-    for (let i = 0; i < 4; i++) { const rr2 = ((t * 160 + i * R / 4) % R); ctx.beginPath(); ctx.arc(0, 0, R - rr2, -0.6, 0.6); ctx.stroke(); }
+  // вспышки у дула
+  for (const f of muzzleFx) {
+    const a = 1 - f.t / 0.1, r = 12 * f.size;
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.6);
+    g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.4, rgba(f.color, 0.8 * a)); g.addColorStop(1, rgba(f.color, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(r * 0.5, 0, r * 1.6, r * 0.7, 0, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+  if (vacuumFx > 0 && run && run.weapons.vacuum) {
+    const m = muzzle(), a = vacuumFx / 0.3, R = wStats("vacuum").range + 20, col = WEAPONS.find(q => q.id === "vacuum").color;
+    ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(hero.aim);
+    const g = ctx.createLinearGradient(0, 0, R, 0);
+    g.addColorStop(0, rgba(col, 0.45 * a)); g.addColorStop(1, rgba(col, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(R, -R * 0.55); ctx.lineTo(R, R * 0.55); ctx.lineTo(0, 5); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = rgba(col, 0.6 * a); ctx.lineWidth = 1.6;
+    for (let i = 0; i < 4; i++) { const k = 1 - ((t * 2.2 + i / 4) % 1), x = R * k; ctx.beginPath(); ctx.moveTo(x, -x * 0.5); ctx.quadraticCurveTo(x + 6, 0, x, x * 0.5); ctx.stroke(); }
+    ctx.restore();
+    // тени «тянутся» в сопло
+    for (const v of run.vacuumTargets || []) {
+      ctx.strokeStyle = rgba(col, 0.35 * a); ctx.lineWidth = 2; ctx.setLineDash([4, 6]); ctx.lineDashOffset = -t * 60;
+      ctx.beginPath(); ctx.moveTo(v.x, v.y); ctx.quadraticCurveTo((v.x + m.x) / 2 + 12, (v.y + m.y) / 2 - 12, m.x, m.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
   ctx.restore();
 }
@@ -2681,20 +2740,28 @@ function nearestEnemies(range, n) {
   return shadows.map(s => [s, Math.hypot(s.x - c.x, s.y - c.y) - s.r]).filter(([, d]) => d <= range)
     .sort((a, b) => a[1] - b[1]).slice(0, n).map(([s]) => s);
 }
-function aimAt(s) {
+function aimAt(s, id) {
   const c = heroCenter();
   hero.aim = Math.atan2(s.y - c.y, s.x - c.x); hero.face = s.x >= hero.x ? 1 : -1; hero.recoil = 0.1;
+  if (id) { hero.held = id; hero.heldT = 0.35; }
 }
+let muzzleFx = [];
+function muzzleFlash(color, size) { const m = muzzle(); muzzleFx.push({ x: m.x, y: m.y, ang: hero.aim, color, size: size || 1, t: 0 }); }
 function runWeapons(dt) {
   for (const id of Object.keys(run.weapons)) {
     run.wcd[id] = (run.wcd[id] || 0) - dt;
     if (run.wcd[id] > 0) continue;
     const st = wStats(id), w = WEAPONS.find(q => q.id === id), c = heroCenter();
+    // пока другое оружие «в руках» после выстрела, ждём — так оружие сменяется в руке, а не мигает
+    if (hero.heldT > 0 && hero.held !== id && run.weapons[hero.held]) { run.wcd[id] = 0; continue; }
     let fired = false;
     if (id === "vacuum") {
       const hitList = shadows.filter(s => Math.hypot(s.x - c.x, s.y - c.y) - s.r <= st.range);
       if (hitList.length) {
         fired = true; vacuumFx = 0.3;
+        hitList.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y));
+        aimAt(hitList[0], id);
+        run.vacuumTargets = hitList.slice(0, 8).map(s => ({ x: s.x, y: s.y }));
         for (const s of hitList.slice()) {
           if (s.kind !== "boss") { const d = Math.hypot(s.x - c.x, s.y - c.y) || 1; s.x -= (s.x - c.x) / d * 5; s.y -= (s.y - c.y) / d * 5; }
           runHit(s, st.dmg, "auto");
@@ -2703,8 +2770,9 @@ function runWeapons(dt) {
     } else {
       const targets = nearestEnemies(st.range, id === "lantern" ? st.count : 1);
       if (targets.length) {
-        fired = true; aimAt(targets[0]);
+        fired = true; aimAt(targets[0], id);
         const m = muzzle();
+        muzzleFlash(w.color, id === "crossbow" ? 0.7 : id === "lantern" ? 1.3 : 1);
         if (id === "lantern") {
           for (const s of targets) { beams.push({ x: s.x, y: s.y, r: s.r, t: 0, fx: m.x, fy: m.y, color: w.color }); runHit(s, st.dmg, "auto"); }
         } else if (id === "blaster" || id === "crossbow") {
@@ -2749,6 +2817,8 @@ function runHeroMove(dt) {
   if (ix || iy) { hero.walk += dt * 9 * Math.min(1, Math.hypot(ix, iy)); if (Math.abs(ix) > 0.15) hero.face = ix > 0 ? 1 : -1; }
   else hero.walk = 0;
   hero.recoil = Math.max(0, hero.recoil - dt);
+  hero.heldT = Math.max(0, (hero.heldT || 0) - dt);
+  for (let i = muzzleFx.length - 1; i >= 0; i--) { muzzleFx[i].t += dt; if (muzzleFx[i].t > 0.1) muzzleFx.splice(i, 1); }
   hero.iframe = Math.max(0, (hero.iframe || 0) - dt);
   hero.hurt = Math.max(0, (hero.hurt || 0) - dt);
   vacuumFx = Math.max(0, vacuumFx - dt);
