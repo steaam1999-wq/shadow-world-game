@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>ARCANE SURVIVORS</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Титульный экран -->
+  <section id="title" class="screen hidden">
+    <div class="stars"></div>
+    <div class="title-wrap">
+      <h1 class="logo">ARCANE<br><span>SURVIVORS</span></h1>
+      <p class="epigraph">«Когда погаснут последние звёзды, останется лишь тот,<br>кто осмелится зажечь их снова».</p>
+      <div class="menu">
+        <button id="btnContinue" class="btn big">Начать путь</button>
+        <button id="btnPrologue" class="btn">Пролог</button>
+        <button id="btnReset" class="btn ghost">Сбросить прогресс</button>
+      </div>
+      <div class="controls-hint">WASD / стрелки — движение · ПРОБЕЛ — Сердце Эфира · ESC — пауза · 1-3 — выбор улучшения</div>
+    </div>
+  </section>
+
+  <!-- Убежище (хаб между забегами) -->
+  <section id="hub" class="screen hidden">
+    <div class="panel hub-panel">
+      <header class="hub-head">
+        <div>
+          <h2>Убежище ордена</h2>
+          <div class="muted">Последняя уцелевшая келья Арканистов. Здесь Сердце Эфира возвращает тебя после каждой смерти.</div>
+        </div>
+        <button id="btnHubBack" class="btn ghost small">← Меню</button>
+      </header>
+      <div class="hub-stats">
+        <div class="stat"><span>Эфир</span><b id="hubEther">0</b></div>
+        <div class="stat"><span>Фрагменты памяти</span><b id="hubFrag">0</b></div>
+        <div class="stat"><span>Концовки</span><b id="hubEnd">0</b></div>
+        <div class="stat corr">
+          <span>Порча</span><b id="hubCorr">0%</b>
+          <div class="corr-bar"><div id="hubCorrBar"></div></div>
+          <div id="hubCorrNote" class="muted small-text"></div>
+        </div>
+      </div>
+      <nav class="tabs">
+        <button id="tab-chapters" class="tab">Главы</button>
+        <button id="tab-codex" class="tab">Хроники</button>
+        <button id="tab-upgrades" class="tab">Наследие</button>
+      </nav>
+      <div id="pane-chapters" class="pane"></div>
+      <div id="pane-codex" class="pane hidden"></div>
+      <div id="pane-upgrades" class="pane hidden"></div>
+    </div>
+  </section>
+
+  <!-- Диалог -->
+  <section id="dialog" class="screen hidden">
+    <div id="dlgBox" class="dlg-box">
+      <div id="dlgWho" class="dlg-who"></div>
+      <div id="dlgText" class="dlg-text"></div>
+      <div class="dlg-foot"><span id="dlgCounter"></span><span>Нажми, ПРОБЕЛ или ENTER ▸</span><button id="dlgSkip" class="btn ghost small">Пропустить</button></div>
+    </div>
+  </section>
+
+  <!-- Повышение уровня -->
+  <section id="levelup" class="screen hidden">
+    <div class="lu-wrap">
+      <h2 id="luTitle">Новый уровень</h2>
+      <div id="luSub" class="muted"></div>
+      <div id="luCards" class="cards"></div>
+      <button id="btnReroll" class="btn small">Перебор</button>
+    </div>
+  </section>
+
+  <!-- Пауза -->
+  <section id="pause" class="screen hidden">
+    <div class="panel narrow">
+      <h2>Пауза</h2>
+      <div id="pauseBuild"></div>
+      <div class="menu row">
+        <button id="btnResume" class="btn">Продолжить</button>
+        <button id="btnQuit" class="btn ghost">В Убежище</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Итог забега -->
+  <section id="result" class="screen hidden">
+    <div class="panel narrow">
+      <h2 id="resTitle"></h2>
+      <div id="resSub" class="muted"></div>
+      <div id="resStats" class="res-stats"></div>
+      <div id="resFrags" class="res-frags"></div>
+      <div class="menu row"><button id="btnResHub" class="btn">В Убежище</button></div>
+    </div>
+  </section>
+
+  <!-- Финальный выбор -->
+  <section id="ending" class="screen hidden">
+    <div class="lu-wrap">
+      <h2>Врата Бездны</h2>
+      <div class="muted">Сердце Эфира бьётся в твоей ладони. Это ключ. Что ты сделаешь?</div>
+      <div id="endCards" class="cards"></div>
+      <div id="endCorr" class="muted"></div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast"></div>
+  <button id="heartBtn" class="heart-btn hidden">✦</button>
+  <button id="pauseBtn" class="pause-btn hidden">❚❚</button>
+
+  <script src="js/data.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
