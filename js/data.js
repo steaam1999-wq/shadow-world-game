@@ -220,19 +220,19 @@ DATA.bosses = {
   fallen_knight: {
     name: 'Падший рыцарь',
     title: 'Сэр Кадмон, страж разрушенного королевства',
-    hp: 2600, speed: 55, dmg: 22, r: 34, color: '#9aa0b8', shape: 'boss_knight',
+    hp: 2600, speed: 55, dmg: 22, r: 34, color: '#2e2a3d', shape: 'boss_knight',
     lore: 'Он поклялся, что враг не войдёт. Он стоит до сих пор.',
   },
   devourer: {
     name: 'Древний пожиратель',
     title: 'Чудовище, пьющее магию',
-    hp: 4600, speed: 40, dmg: 26, r: 46, color: '#5b8a4a', shape: 'boss_devourer',
+    hp: 4600, speed: 40, dmg: 26, r: 46, color: '#2f3b42', shape: 'boss_devourer',
     lore: 'Он рос, питаясь эфиром, что лился из трещины в небе.',
   },
   soulless_king: {
     name: 'Король без души',
     title: 'Аурелий III, пленник Бездны',
-    hp: 7000, speed: 48, dmg: 28, r: 38, color: '#e2c35a', shape: 'boss_king',
+    hp: 7000, speed: 48, dmg: 28, r: 38, color: '#b89a4a', shape: 'boss_king',
     lore: 'Он подписал указ. Он заплатил за это душой.',
   },
   abyss_lord: {

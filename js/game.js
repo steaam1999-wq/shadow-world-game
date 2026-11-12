@@ -88,7 +88,7 @@ const Game = (() => {
     const key = shape + r + color + (elite ? 'e' : '');
     let c = spriteCache.get(key);
     if (c) return c;
-    const S = Math.ceil(r * 3.2);
+    const S = Math.ceil(r * (shape.startsWith('boss_') ? 4 : 3.2));
     c = makeCanvas(S, S);
     const g = c.getContext('2d');
     g.translate(S / 2, S / 2);
@@ -234,51 +234,77 @@ const Game = (() => {
         break;
       }
       case 'boss_knight': {
-        g.fillStyle = '#7a1022';
-        g.beginPath(); g.moveTo(-r * 0.7, -r * 0.4); g.lineTo(-r * 1.1, r * 1.1); g.lineTo(r * 1.1, r * 1.1); g.lineTo(r * 0.7, -r * 0.4); g.fill();
-        g.fillStyle = color;
-        g.beginPath(); g.roundRect(-r * 0.7, -r * 0.6, r * 1.4, r * 1.5, r * 0.2); g.fill();
-        g.fillStyle = '#c6c9db'; g.beginPath(); g.roundRect(-r * 0.45, -r * 1.15, r * 0.9, r * 0.75, r * 0.3); g.fill();
-        g.fillStyle = '#ff2b2b'; g.fillRect(-r * 0.35, -r * 0.85, r * 0.7, r * 0.1);
-        g.fillStyle = '#d33'; g.beginPath(); g.moveTo(0, -r * 1.15); g.quadraticCurveTo(r * 0.5, -r * 1.6, r * 0.2, -r * 1.7); g.quadraticCurveTo(0, -r * 1.4, 0, -r * 1.15); g.fill();
-        g.strokeStyle = '#e8ecff'; g.lineWidth = r * 0.12; g.lineCap = 'round';
-        g.beginPath(); g.moveTo(r * 0.8, r * 0.6); g.lineTo(r * 1.3, -r * 1.2); g.stroke();
-        g.strokeStyle = '#d9b44a'; g.lineWidth = r * 0.1; g.beginPath(); g.moveTo(r * 0.6, r * 0.15); g.lineTo(r * 1.15, r * 0.35); g.stroke();
+        // тёмный доспех, рваный плащ, клинок с фиолетовым пламенем
+        g.fillStyle = '#140f1e';
+        g.beginPath(); g.moveTo(-r * 0.7, -r * 0.5); g.lineTo(-r * 1.15, r * 1.15);
+        for (let i = 0; i <= 6; i++) g.lineTo(-r * 1.15 + i * r * 0.38, r * (i % 2 ? 0.95 : 1.2));
+        g.lineTo(r * 0.7, -r * 0.5); g.fill();
+        g.fillStyle = '#2e2a3d'; g.beginPath(); g.roundRect(-r * 0.7, -r * 0.6, r * 1.4, r * 1.5, r * 0.2); g.fill();
+        g.strokeStyle = '#7a5cc0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, -r * 0.5); g.lineTo(0, r * 0.8); g.moveTo(-r * 0.5, 0); g.lineTo(r * 0.5, 0); g.stroke();
+        g.fillStyle = '#3a3550';
+        for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * r * 0.5, -r * 0.65); g.lineTo(sx * r * 1.05, -r * 1.0); g.lineTo(sx * r * 0.95, -r * 0.6); g.lineTo(sx * r * 1.15, -r * 0.45); g.lineTo(sx * r * 0.7, -r * 0.25); g.fill(); }
+        g.fillStyle = '#2a2638'; g.beginPath(); g.roundRect(-r * 0.42, -r * 1.15, r * 0.84, r * 0.75, r * 0.25); g.fill();
+        for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(sx * r * 0.2, -r * 1.1); g.lineTo(sx * r * 0.45, -r * 1.65); g.lineTo(sx * r * 0.38, -r * 1.05); g.fill(); }
+        g.fillStyle = '#c78bff'; g.fillRect(-r * 0.32, -r * 0.86, r * 0.64, r * 0.09);
+        g.strokeStyle = '#b46cff'; g.lineWidth = r * 0.2; g.lineCap = 'round'; g.globalAlpha = 0.45;
+        g.beginPath(); g.moveTo(r * 0.8, r * 0.6); g.lineTo(r * 1.35, -r * 1.25); g.stroke(); g.globalAlpha = 1;
+        g.strokeStyle = '#ead6ff'; g.lineWidth = r * 0.09; g.beginPath(); g.moveTo(r * 0.8, r * 0.6); g.lineTo(r * 1.35, -r * 1.25); g.stroke();
+        g.strokeStyle = '#6a4aa0'; g.lineWidth = r * 0.1; g.beginPath(); g.moveTo(r * 0.6, r * 0.2); g.lineTo(r * 1.15, r * 0.4); g.stroke();
         break;
       }
       case 'boss_devourer': {
-        g.fillStyle = '#2f4a26';
-        for (let i = 0; i < 8; i++) { const a = i * TAU / 8; g.beginPath(); g.ellipse(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95, r * 0.35, r * 0.2, a, 0, TAU); g.fill(); }
-        g.fillStyle = color; g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
-        g.fillStyle = '#16080c'; g.beginPath(); g.arc(0, r * 0.1, r * 0.6, 0, TAU); g.fill();
-        g.fillStyle = '#f2f0d8';
-        for (let i = 0; i < 12; i++) { const a = i * TAU / 12; const x = Math.cos(a) * r * 0.6, y = r * 0.1 + Math.sin(a) * r * 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x * 0.6 + Math.cos(a + 0.2) * 3, (y - r * 0.1) * 0.6 + r * 0.1); g.lineTo(Math.cos(a + 0.4) * r * 0.6, r * 0.1 + Math.sin(a + 0.4) * r * 0.6); g.fill(); }
-        g.fillStyle = '#b46cff'; g.beginPath(); g.arc(0, r * 0.1, r * 0.18, 0, TAU); g.fill();
-        eyes(g, r * 0.55, -r * 0.65, r * 0.1, '#e9ff6a');
+        // огромный лесной зверь: шипы, рога, пасть
+        g.fillStyle = '#1e262c';
+        for (let i = 0; i < 11; i++) { const a = Math.PI + i * Math.PI / 10; g.beginPath(); g.moveTo(Math.cos(a - 0.12) * r * 0.85, Math.sin(a - 0.12) * r * 0.85); g.lineTo(Math.cos(a) * r * 1.45, Math.sin(a) * r * 1.45); g.lineTo(Math.cos(a + 0.12) * r * 0.85, Math.sin(a + 0.12) * r * 0.85); g.fill(); }
+        g.fillStyle = color; g.beginPath(); g.ellipse(0, 0, r * 1.05, r * 0.95, 0, 0, TAU); g.fill();
+        g.fillStyle = '#2a343a'; g.beginPath(); g.ellipse(-r * 1.0, r * 0.45, r * 0.32, r * 0.5, 0.3, 0, TAU); g.ellipse(r * 1.0, r * 0.45, r * 0.32, r * 0.5, -0.3, 0, TAU); g.fill();
+        g.strokeStyle = '#8a7a5a'; g.lineWidth = r * 0.12; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(-r * 0.4, -r * 0.7); g.quadraticCurveTo(-r * 0.9, -r * 1.3, -r * 0.5, -r * 1.55); g.moveTo(r * 0.4, -r * 0.7); g.quadraticCurveTo(r * 0.9, -r * 1.3, r * 0.5, -r * 1.55); g.stroke();
+        g.fillStyle = '#0c0608'; g.beginPath(); g.ellipse(0, r * 0.3, r * 0.55, r * 0.4, 0, 0, TAU); g.fill();
+        g.fillStyle = '#e8e2c8';
+        for (let i = 0; i < 7; i++) { const x = -r * 0.45 + i * r * 0.15; g.beginPath(); g.moveTo(x - r * 0.06, r * 0.0); g.lineTo(x, r * 0.22); g.lineTo(x + r * 0.06, r * 0.0); g.fill(); g.beginPath(); g.moveTo(x - r * 0.05, r * 0.66); g.lineTo(x, r * 0.46); g.lineTo(x + r * 0.05, r * 0.66); g.fill(); }
+        g.fillStyle = '#b46cff'; g.globalAlpha = 0.8; g.beginPath(); g.arc(0, r * 0.33, r * 0.12, 0, TAU); g.fill(); g.globalAlpha = 1;
+        eyes(g, r * 0.4, -r * 0.35, r * 0.1, '#ff3a3a');
         break;
       }
       case 'boss_king': {
-        g.fillStyle = '#3b1f4a';
-        g.beginPath(); g.moveTo(0, -r * 0.6); g.lineTo(r * 1.1, r * 1.1); g.lineTo(-r * 1.1, r * 1.1); g.closePath(); g.fill();
-        g.strokeStyle = color; g.lineWidth = 2; g.stroke();
-        g.fillStyle = '#d8d2bf'; g.beginPath(); g.arc(0, -r * 0.6, r * 0.45, 0, TAU); g.fill();
-        g.fillStyle = '#1a0f22'; g.beginPath(); g.arc(-r * 0.17, -r * 0.65, r * 0.12, 0, TAU); g.arc(r * 0.17, -r * 0.65, r * 0.12, 0, TAU); g.fill();
+        // скелет в чёрной мантии с рогами и фиолетовым сиянием
+        g.fillStyle = '#0d0912';
+        g.beginPath(); g.moveTo(0, -r * 0.7); g.lineTo(-r * 0.8, -r * 0.5); g.lineTo(-r * 1.3, r * 1.15); g.lineTo(-r * 0.6, r * 0.9); g.lineTo(0, r * 1.2); g.lineTo(r * 0.6, r * 0.9); g.lineTo(r * 1.3, r * 1.15); g.lineTo(r * 0.8, -r * 0.5); g.closePath(); g.fill();
+        g.strokeStyle = '#3d2a55'; g.lineWidth = 2; g.stroke();
+        g.fillStyle = '#b46cff'; g.globalAlpha = 0.55; g.beginPath(); g.moveTo(0, -r * 0.2); g.lineTo(r * 0.18, r * 1.15); g.lineTo(-r * 0.18, r * 1.15); g.fill(); g.globalAlpha = 1;
+        g.strokeStyle = '#d8d2bf'; g.lineWidth = r * 0.06;
+        g.beginPath(); for (let i = 0; i < 4; i++) { const y = -r * 0.25 + i * r * 0.17; g.moveTo(-r * 0.35, y); g.quadraticCurveTo(0, y + r * 0.08, r * 0.35, y); } g.moveTo(0, -r * 0.35); g.lineTo(0, r * 0.4); g.stroke();
+        g.strokeStyle = '#2a2236'; g.lineWidth = r * 0.12; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(-r * 0.3, -r * 0.95); g.quadraticCurveTo(-r * 0.9, -r * 1.2, -r * 0.75, -r * 1.7); g.moveTo(r * 0.3, -r * 0.95); g.quadraticCurveTo(r * 0.9, -r * 1.2, r * 0.75, -r * 1.7); g.stroke();
         g.fillStyle = color;
-        g.beginPath(); g.moveTo(-r * 0.5, -r * 0.95); g.lineTo(-r * 0.5, -r * 1.4); g.lineTo(-r * 0.25, -r * 1.15); g.lineTo(0, -r * 1.5); g.lineTo(r * 0.25, -r * 1.15); g.lineTo(r * 0.5, -r * 1.4); g.lineTo(r * 0.5, -r * 0.95); g.closePath(); g.fill();
-        g.fillStyle = '#1a0f22'; g.beginPath(); g.arc(0, -r * 1.12, r * 0.1, 0, TAU); g.fill();
-        g.strokeStyle = color; g.lineWidth = r * 0.08; g.beginPath(); g.moveTo(-r * 1.0, r * 0.9); g.lineTo(-r * 0.9, -r * 0.6); g.stroke();
-        g.fillStyle = '#7fd6ff'; g.beginPath(); g.arc(-r * 0.9, -r * 0.7, r * 0.15, 0, TAU); g.fill();
+        g.beginPath(); g.moveTo(-r * 0.35, -r * 1.0); g.lineTo(-r * 0.35, -r * 1.3); g.lineTo(-r * 0.15, -r * 1.12); g.lineTo(0, -r * 1.38); g.lineTo(r * 0.15, -r * 1.12); g.lineTo(r * 0.35, -r * 1.3); g.lineTo(r * 0.35, -r * 1.0); g.closePath(); g.fill();
+        g.fillStyle = '#e4dcc6'; g.beginPath(); g.arc(0, -r * 0.7, r * 0.34, 0, TAU); g.fill();
+        g.fillStyle = '#0b0610'; g.beginPath(); g.arc(-r * 0.13, -r * 0.74, r * 0.1, 0, TAU); g.arc(r * 0.13, -r * 0.74, r * 0.1, 0, TAU); g.fill();
+        eyes(g, r * 0.13, -r * 0.74, r * 0.045, '#d68bff');
         break;
       }
       case 'boss_lord': {
-        g.strokeStyle = '#d68bff'; g.lineWidth = 2;
-        for (let i = 0; i < 10; i++) { const a = i * TAU / 10; g.beginPath(); g.moveTo(Math.cos(a) * r * 1.15, Math.sin(a) * r * 1.15 - r * 0.2); g.lineTo(Math.cos(a) * r * 1.45, Math.sin(a) * r * 1.45 - r * 0.2); g.stroke(); }
+        // крылатая тень с сияющим ядром Бездны
+        for (const sx of [-1, 1]) {
+          g.fillStyle = '#100818';
+          g.beginPath(); g.moveTo(sx * r * 0.3, -r * 0.5);
+          g.quadraticCurveTo(sx * r * 1.4, -r * 1.5, sx * r * 1.75, -r * 0.6);
+          for (let i = 0; i < 4; i++) g.lineTo(sx * r * (1.6 - i * 0.3), r * (-0.2 + i * 0.3)), g.lineTo(sx * r * (1.4 - i * 0.3), r * (0.1 + i * 0.25));
+          g.lineTo(sx * r * 0.4, r * 0.5); g.closePath(); g.fill();
+          g.strokeStyle = '#8a4cff'; g.lineWidth = 1.5; g.stroke();
+          g.strokeStyle = '#5a8cff'; g.lineWidth = 1; g.globalAlpha = 0.7;
+          g.beginPath(); g.moveTo(sx * r * 0.4, -r * 0.3); g.lineTo(sx * r * 1.6, -r * 0.6); g.moveTo(sx * r * 0.4, 0); g.lineTo(sx * r * 1.2, r * 0.3); g.stroke(); g.globalAlpha = 1;
+        }
         g.fillStyle = '#0b0410';
-        g.beginPath(); g.moveTo(0, -r * 1.2); g.quadraticCurveTo(r * 1.1, -r * 0.2, r * 0.9, r * 1.2); g.lineTo(-r * 0.9, r * 1.2); g.quadraticCurveTo(-r * 1.1, -r * 0.2, 0, -r * 1.2); g.fill();
-        g.strokeStyle = color; g.lineWidth = 3; g.stroke();
-        g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(-r * 0.25, -r * 0.45, r * 0.1, r * 0.05, 0.3, 0, TAU); g.ellipse(r * 0.25, -r * 0.45, r * 0.1, r * 0.05, -0.3, 0, TAU); g.fill();
-        g.strokeStyle = '#6b3a8f'; g.lineWidth = 1.5;
-        g.beginPath(); g.moveTo(-r * 0.2, -r * 0.1); g.lineTo(-r * 0.4, r * 0.8); g.moveTo(r * 0.2, -r * 0.1); g.lineTo(r * 0.45, r * 0.85); g.moveTo(0, 0); g.lineTo(0, r * 1.0); g.stroke();
+        g.beginPath(); g.moveTo(0, -r * 1.25); g.quadraticCurveTo(r * 0.75, -r * 0.6, r * 0.75, r * 1.2); g.lineTo(-r * 0.75, r * 1.2); g.quadraticCurveTo(-r * 0.75, -r * 0.6, 0, -r * 1.25); g.fill();
+        g.strokeStyle = color; g.lineWidth = 2.5; g.stroke();
+        const cg = g.createRadialGradient(0, -r * 0.05, 0, 0, -r * 0.05, r * 0.5);
+        cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.25, '#7fc0ff'); cg.addColorStop(1, 'rgba(60,40,255,0)');
+        g.fillStyle = cg; g.beginPath(); g.arc(0, -r * 0.05, r * 0.5, 0, TAU); g.fill();
+        g.strokeStyle = '#7fc0ff'; g.lineWidth = 1.2; g.globalAlpha = 0.8;
+        g.beginPath(); g.moveTo(0, r * 0.2); g.lineTo(-r * 0.25, r * 1.0); g.moveTo(0, r * 0.2); g.lineTo(r * 0.3, r * 1.05); g.moveTo(0, -r * 0.3); g.lineTo(0, -r * 0.7); g.stroke(); g.globalAlpha = 1;
+        g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(-r * 0.17, -r * 0.82, r * 0.08, r * 0.035, 0.3, 0, TAU); g.ellipse(r * 0.17, -r * 0.82, r * 0.08, r * 0.035, -0.3, 0, TAU); g.fill();
         break;
       }
       default:
@@ -1279,21 +1305,26 @@ const Game = (() => {
     ctx.scale(p.face, 1);
     // тень
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 15, 12, 4, 0, 0, TAU); ctx.fill();
-    // мантия
-    ctx.fillStyle = '#23285a';
-    ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(12, 14); ctx.lineTo(-12, 14); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#6f7dff'; ctx.lineWidth = 1.5; ctx.stroke();
-    // звёзды ордена
-    ctx.fillStyle = '#cfd7ff'; ctx.fillRect(-4, 4, 2, 2); ctx.fillRect(3, 9, 2, 2);
+    // мантия: фиолетовая с золотой каймой
+    ctx.fillStyle = '#2a1648';
+    ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(13, 15); ctx.lineTo(-13, 15); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#d8b25a'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.fillStyle = '#3d2068'; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(4, 15); ctx.lineTo(-4, 15); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#d8b25a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-7, 3); ctx.lineTo(7, 3); ctx.stroke();
+    ctx.fillStyle = '#c78bff'; ctx.beginPath(); ctx.moveTo(0, 0.5); ctx.lineTo(2, 3); ctx.lineTo(0, 5.5); ctx.lineTo(-2, 3); ctx.fill();
     // капюшон
-    ctx.fillStyle = '#1a1d44'; ctx.beginPath(); ctx.arc(0, -12, 8, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#05060f'; ctx.beginPath(); ctx.arc(2, -11, 5, 0, TAU); ctx.fill();
-    ctx.fillStyle = corr > 0.5 ? '#e08bff' : '#9fe0ff'; ctx.fillRect(2, -12, 2, 2); ctx.fillRect(5, -12, 1.5, 2);
-    // посох
-    ctx.strokeStyle = '#7a5a3a'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(10, 14); ctx.lineTo(13, -20); ctx.stroke();
-    // Сердце Эфира
-    const hc = p.heart >= 100 ? '#ff9bff' : '#b46cff';
-    ctx.fillStyle = hc; ctx.beginPath(); ctx.arc(13, -22, 3.5 + (p.heart >= 100 ? Math.sin(run.time * 10) : 0), 0, TAU); ctx.fill();
+    ctx.fillStyle = '#331a58'; ctx.beginPath(); ctx.moveTo(-1, -23); ctx.quadraticCurveTo(9, -20, 8, -9); ctx.lineTo(-8, -8); ctx.quadraticCurveTo(-9, -19, -1, -23); ctx.fill();
+    ctx.strokeStyle = '#d8b25a'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#05030a'; ctx.beginPath(); ctx.arc(2, -12, 4.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = corr > 0.5 ? '#e08bff' : '#c9a8ff'; ctx.fillRect(1.5, -13, 2, 1.6); ctx.fillRect(4.5, -13, 1.6, 1.6);
+    // свободная рука с зарядом магии
+    ctx.fillStyle = '#b46cff'; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.arc(-12, 0, 2.6 + Math.sin(run.time * 6) * 0.6, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+    // посох с золотым навершием
+    ctx.strokeStyle = '#3a2618'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(10, 15); ctx.lineTo(13, -18); ctx.stroke();
+    ctx.strokeStyle = '#d8b25a'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(9.5, -17); ctx.quadraticCurveTo(13, -14, 16.5, -18); ctx.moveTo(10.5, -20); ctx.lineTo(9, -26); ctx.moveTo(15.5, -20); ctx.lineTo(17, -26); ctx.stroke();
+    // Сердце Эфира — кристалл в навершии
+    const hc = p.heart >= 100 ? '#ff9bff' : '#b46cff', hs = 4 + (p.heart >= 100 ? Math.sin(run.time * 10) : 0);
+    ctx.fillStyle = hc; ctx.beginPath(); ctx.moveTo(13, -22 - hs * 1.3); ctx.lineTo(13 + hs * 0.7, -22); ctx.lineTo(13, -22 + hs * 0.9); ctx.lineTo(13 - hs * 0.7, -22); ctx.fill();
     ctx.restore();
     ctx.globalAlpha = 1;
     if (p.heart >= 100) {
