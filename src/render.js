@@ -11,6 +11,7 @@ import { SpriteBatch, rgb } from './fx.js';
 import { makeAtlas, CELL } from './textures.js';
 import { createWorld } from './world.js';
 import { enemyModel, animate, buildHero, buildBoss, mat, PROJ } from './models.js';
+import { Assets, loadAssets, makeAssetHero, makeAssetBoss } from './assets.js';
 
 const U = 1 / 20;                 // игровой пиксель -> мировая единица
 const TAU = Math.PI * 2;
@@ -85,6 +86,22 @@ export class Renderer {
     this.footprint = { W: 1280, H: 760 };
     this.applyQuality();
     this.resize();
+    // готовые модели из assets/manifest.js (если художник их положил)
+    loadAssets(window.ASSET_MANIFEST).then(() => this.onAssets());
+  }
+
+  onAssets() {
+    if (Assets.errors.length) console.warn('[assets] не загрузились:', Assets.errors);
+    if (Assets.hero) {
+      this.scene.remove(this.hero.root);
+      this.hero = makeAssetHero(Assets.hero);
+      this.scene.add(this.hero.root);
+    }
+    for (const id in Assets.enemies) {
+      const t = this.enemyTypes.get(id);
+      if (t) { for (const m of t.meshes) this.scene.remove(m.im); this.enemyTypes.delete(id); }
+    }
+    if (this.bossObj && Assets.bosses[this.boss && this.boss.bossId]) { this.scene.remove(this.bossObj.root); this.bossObj = null; this.boss = null; }
   }
 
   reset() {
@@ -180,6 +197,24 @@ export class Renderer {
   enemyType(type) {
     let t = this.enemyTypes.get(type);
     if (t) return t;
+    const A = Assets.enemies[type];
+    if (A) {
+      // готовая модель: кадры анимации -> инстансы
+      const meshes = [];
+      const mk = (frames) => frames.map((parts) => {
+        const F = { n: 0, ims: [] };
+        for (const { geo, mat: m } of parts) {
+          const im = new THREE.InstancedMesh(geo, m, CAP);
+          im.count = 0; im.frustumCulled = false; im.castShadow = this.enemyShadows;
+          im.setColorAt(0, new THREE.Color(1, 1, 1));
+          this.scene.add(im); F.ims.push(im); meshes.push({ im, F });
+        }
+        return F;
+      });
+      t = { baked: true, move: mk(A.move), attack: A.attack ? mk(A.attack) : null, meshes, n: 0, model: { h: A.height, float: A.float } };
+      this.enemyTypes.set(type, t);
+      return t;
+    }
     const model = enemyModel(type);
     const meshes = model.parts.map((p) => {
       const im = new THREE.InstancedMesh(p.geo, p.mat, CAP);
@@ -232,7 +267,13 @@ export class Renderer {
     else if (e.champion) col.setRGB(1.5, 0.95, 0.55);
     else if (e.slowT > 0) col.setRGB(0.85, 1.1, 1.4);
     else col.setRGB(1, 1, 1);
-    for (const { im, p } of t.meshes) {
+    if (t.baked) {
+      const atkK = e.st === 'wind' ? 0.3 : e.st === 'dash' ? 0.7 : e.atk > 0 ? 1 - e.atk / 0.35 : -1;
+      let F;
+      if (t.attack && atkK >= 0 && !dying) F = t.attack[Math.min(t.attack.length - 1, Math.floor(atkK * t.attack.length))];
+      else F = t.move[Math.floor(((e._ph * 0.35) % 1 + 1) % 1 * t.move.length) % t.move.length];
+      if (F.n < CAP) { const j = F.n++; for (const im of F.ims) { im.setMatrixAt(j, root); im.setColorAt(j, col); } }
+    } else for (const { im, p } of t.meshes) {
       const a = animate(p.ch, p.k, st);
       this.e.set(a.rx, a.ry, a.rz); this.q.setFromEuler(this.e);
       this.v.set(p.pv[0], p.pv[1] + a.dy, p.pv[2]); this.s.set(a.s, a.s, a.s);
@@ -267,7 +308,7 @@ export class Renderer {
     const b = run.boss;
     if (b && this.boss !== b) {
       if (this.bossObj) this.scene.remove(this.bossObj.root);
-      this.boss = b; this.bossObj = buildBoss(b.bossId); this.scene.add(this.bossObj.root);
+      this.boss = b; this.bossObj = Assets.bosses[b.bossId] ? makeAssetBoss(Assets.bosses[b.bossId]) : buildBoss(b.bossId); this.scene.add(this.bossObj.root);
       this.bossDie = 0; b._ph = 0; b._lx = b.x; b._ly = b.y; b._yaw = 0;
       this.burst(b.x * U, 1, b.y * U, '#b46cff', 60, 8, 0.4, 1);
     }
@@ -331,7 +372,7 @@ export class Renderer {
     const T = this.time;
     for (const b of [this.add, this.norm, this.gAdd, this.gNorm]) b.begin();
     this.lightCand.length = 0;
-    for (const t of this.enemyTypes.values()) t.n = 0;
+    for (const t of this.enemyTypes.values()) { t.n = 0; if (t.baked) { for (const F of t.move) F.n = 0; if (t.attack) for (const F of t.attack) F.n = 0; } }
 
     let px = 0, pz = 0;
     if (run) {
@@ -364,9 +405,10 @@ export class Renderer {
     this.drawMotes(px, pz, dt);
     this.drawFx(dt);
 
-    for (const t of this.enemyTypes.values()) for (const { im } of t.meshes) {
-      im.count = t.n;
-      if (t.n) { im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; }
+    for (const t of this.enemyTypes.values()) for (const { im, F } of t.meshes) {
+      const n = F ? F.n : t.n;
+      im.count = n;
+      if (n) { im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; }
     }
     for (const b of [this.add, this.norm, this.gAdd, this.gNorm]) b.end();
     this.assignLights(px, pz);
