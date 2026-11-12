@@ -1,0 +1,14 @@
+{
+  "name": "arcane-survivors",
+  "private": true,
+  "version": "2.0.0",
+  "description": "ARCANE SURVIVORS — 2.5D dark fantasy survivor roguelike (Three.js)",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/arcane.js",
+    "watch": "esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=dist/arcane.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0"
+  }
+}

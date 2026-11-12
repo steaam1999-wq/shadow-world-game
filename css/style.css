@@ -1,14 +1,16 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #07060b; color: #e6def5; font-family: Georgia, 'Times New Roman', serif; user-select: none; -webkit-user-select: none; }
 canvas#game { position: fixed; inset: 0; display: block; touch-action: none; }
+canvas#hud { position: fixed; inset: 0; display: block; pointer-events: none; z-index: 5; }
+.webgl-error { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 50; color: #ffd0d8; font-size: 20px; padding: 30px; text-align: center; background: #07060b; }
 .hidden { display: none !important; }
 .muted { color: #9b90b3; font-size: 14px; line-height: 1.5; }
 .small-text { font-size: 12px; margin-top: 4px; }
 
 /* ---------- экраны ---------- */
 .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 20px; overflow-y: auto; }
-#title { background: radial-gradient(ellipse at 50% 40%, #2a1745 0%, #0b0814 55%, #040307 100%); }
-#hub { background: radial-gradient(ellipse at 50% 0%, #1d1530 0%, #08060e 70%); align-items: flex-start; }
+#title { background: radial-gradient(ellipse at 50% 45%, rgba(30,14,52,0.25) 0%, rgba(8,5,16,0.55) 55%, rgba(3,2,6,0.92) 100%); }
+#hub { background: radial-gradient(ellipse at 50% 0%, rgba(29,21,48,0.55) 0%, rgba(8,6,14,0.8) 70%); align-items: flex-start; }
 #dialog { background: rgba(4, 3, 8, 0.82); align-items: flex-end; padding-bottom: 8vh; cursor: pointer; }
 #levelup, #ending { background: rgba(6, 4, 12, 0.78); backdrop-filter: blur(3px); }
 #pause, #result { background: rgba(6, 4, 12, 0.85); }
@@ -160,3 +162,9 @@ canvas#game { position: fixed; inset: 0; display: block; touch-action: none; }
   color: #d8c8ff; background: #120d20cc; border: 1px solid #4a3a70; }
 .ask { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(4,3,8,0.8); padding: 20px; }
 .ask-text { font-size: 18px; line-height: 1.5; text-align: center; color: #efe6ff; }
+.card-icon-img { width: 76px; height: 76px; border-radius: 50%; filter: drop-shadow(0 0 12px var(--c)); }
+.mini-icon { width: 26px; height: 26px; vertical-align: middle; margin-right: 8px; border-radius: 50%; }
+.heart-btn img { width: 100%; height: 100%; border-radius: 50%; }
+.heart-btn { padding: 0; overflow: hidden; }
+.logo { text-shadow: 0 0 18px #9b5cff, 0 0 60px #6a2cff88, 0 4px 18px #000; }
+.panel { background: linear-gradient(rgba(23,17,42,0.92), rgba(15,11,27,0.94)); border-color: #6a5430; box-shadow: 0 10px 60px #000a, inset 0 0 40px #2a1a4a55, 0 0 0 1px #2a1d10; }

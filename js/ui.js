@@ -123,7 +123,7 @@ const UI = (() => {
           <div class="ch-desc">${locked ? 'Победи стража предыдущей главы.' : esc(ch.desc)}</div>
           <div class="ch-meta">${locked ? '' : `Страж: <b>${esc(boss.name)}</b> · Фрагменты: ${found}/${ch.fragments.length}${s.bestTime[i] ? ' · Рекорд: ' + fmtTime(s.bestTime[i]) : ''}`}</div>
         </div>
-        <div class="ch-state">${locked ? '🔒' : s.cleared[i] ? '✦ Пройдено' : 'В бой'}</div>`;
+        <div class="ch-state">${locked ? 'Запечатано' : s.cleared[i] ? '✦ Пройдено' : 'В бой'}</div>`;
       if (!locked) card.onclick = () => startChapter(i);
       box.appendChild(card);
     });
@@ -210,7 +210,7 @@ const UI = (() => {
       const el = document.createElement('div');
       el.className = 'card' + (c.type === 'evo' ? ' evo' : '') + (c.type === 'spec' ? ' spec' : '');
       el.style.setProperty('--c', c.color);
-      el.innerHTML = `<div class="card-icon">${c.icon}</div><div class="card-tag">${esc(c.tag)}</div>
+      el.innerHTML = `<img class="card-icon-img" alt="" src="${Icons.url(iconOf(c))}"><div class="card-tag">${esc(c.tag)}</div>
         <div class="card-title">${esc(c.title)}</div><div class="card-desc">${esc(c.desc)}</div><div class="card-key">${idx + 1}</div>`;
       el.onclick = () => choose(idx);
       box.appendChild(el);
@@ -218,6 +218,11 @@ const UI = (() => {
     const rr = Game.rerolls;
     $('btnReroll').classList.toggle('hidden', isSpec || rr <= 0);
     $('btnReroll').textContent = 'Перебор (' + rr + ')';
+  }
+  function iconOf(c) {
+    if (c.type === 'evo') return 'evo_' + c.id;
+    if (c.type === 'spec') return 'spec_' + c.id;
+    return c.id;
   }
   function choose(idx) {
     const c = currentChoices[idx];
@@ -272,7 +277,7 @@ const UI = (() => {
     let fh = '';
     for (const f of frags) {
       const fr = DATA.chapters[f.ch].fragments[f.i];
-      fh += `<div class="frag"><div class="frag-title">${f === r.vision ? '👁 Видение' : '✧ Фрагмент памяти'}: ${esc(fr.title)}</div><div class="frag-text">${esc(fr.text)}</div></div>`;
+      fh += `<div class="frag"><div class="frag-title">${f === r.vision ? 'Видение' : '✧ Фрагмент памяти'}: ${esc(fr.title)}</div><div class="frag-text">${esc(fr.text)}</div></div>`;
     }
     if (!frags.length) fh = '<div class="muted">Все воспоминания этой главы уже открыты.</div>';
     $('resFrags').innerHTML = fh;
@@ -292,7 +297,7 @@ const UI = (() => {
       const el = document.createElement('div');
       el.className = 'card ending-card' + (locked ? ' locked' : '') + (id === 'free' ? ' secret' : '');
       el.style.setProperty('--c', id === 'seal' ? '#9ad0ff' : id === 'absorb' ? '#b46cff' : '#ffd86b');
-      el.innerHTML = `<div class="card-icon">${id === 'seal' ? '✶' : id === 'absorb' ? '●' : '☀'}</div>
+      el.innerHTML = `<img class="card-icon-img" alt="" src="${Icons.url(id)}">
         <div class="card-title">${locked ? '???' : esc(e.title)}</div>
         <div class="card-desc">${locked ? 'Тебе не хватает правды. Собери все фрагменты памяти (' + Save.fragmentCount() + '/' + Save.totalFragments() + ').' : esc(e.desc)}</div>`;
       if (!locked) el.onclick = () => playEnding(id, r);
@@ -333,9 +338,9 @@ const UI = (() => {
     let html = '<div class="build">';
     for (const w of run.weapons) {
       const d = DATA.weapons[w.id];
-      html += `<div class="build-item" style="--c:${d.color}"><span>${d.icon}</span>${esc(w.evo ? d.evo.name : d.name)} <b>${w.evo ? '★' : 'ур. ' + w.lvl}</b><div class="muted">Эволюция: ${esc(d.evo.name)} (5 ур. + ${esc(DATA.passives[d.evo.needs].name)})</div></div>`;
+      html += `<div class="build-item" style="--c:${d.color}"><img class="mini-icon" alt="" src="${Icons.url((w.evo ? 'evo_' : '') + w.id, 48)}">${esc(w.evo ? d.evo.name : d.name)} <b>${w.evo ? '★' : 'ур. ' + w.lvl}</b><div class="muted">Эволюция: ${esc(d.evo.name)} (5 ур. + ${esc(DATA.passives[d.evo.needs].name)})</div></div>`;
     }
-    for (const id in run.passives) html += `<div class="build-item"><span>${DATA.passives[id].icon}</span>${esc(DATA.passives[id].name)} <b>ур. ${run.passives[id]}</b></div>`;
+    for (const id in run.passives) html += `<div class="build-item"><img class="mini-icon" alt="" src="${Icons.url(id, 48)}">${esc(DATA.passives[id].name)} <b>ур. ${run.passives[id]}</b></div>`;
     html += '</div>';
     $('pauseBuild').innerHTML = html;
     show('pause');
@@ -381,6 +386,7 @@ const UI = (() => {
         if (e.code === 'KeyR') $('btnReroll').click();
       }
     });
+    $('heartBtn').innerHTML = `<img alt="" src="${Icons.url('void', 96)}">`;
     toTitle();
   }
 
