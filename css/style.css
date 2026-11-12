@@ -158,3 +158,5 @@ canvas#game { position: fixed; inset: 0; display: block; touch-action: none; }
 }
 .pause-btn { position: fixed; right: 12px; top: 58px; z-index: 15; width: 42px; height: 42px; border-radius: 8px; font-size: 14px;
   color: #d8c8ff; background: #120d20cc; border: 1px solid #4a3a70; }
+.ask { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(4,3,8,0.8); padding: 20px; }
+.ask-text { font-size: 18px; line-height: 1.5; text-align: center; color: #efe6ff; }

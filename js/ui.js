@@ -341,6 +341,10 @@ const UI = (() => {
     show('pause');
   }
 
+  // Подтверждение внутри страницы (системные диалоги могут быть заблокированы)
+  let askCb = null;
+  function ask(text, cb) { askCb = cb; $('askText').textContent = text; $('ask').classList.remove('hidden'); }
+
   // -------------------------------------------------------------------
   //  Привязка событий
   // -------------------------------------------------------------------
@@ -353,7 +357,7 @@ const UI = (() => {
     };
     $('btnPrologue').onclick = () => dialog(DATA.prologue, () => toTitle());
     $('btnReset').onclick = () => {
-      if (confirm('Стереть весь прогресс? Фрагменты, Эфир и концовки будут утеряны.')) { Save.reset(); for (const k in seenIntro) delete seenIntro[k]; toTitle(); }
+      ask('Стереть весь прогресс? Фрагменты, Эфир и концовки будут утеряны.', () => { Save.reset(); for (const k in seenIntro) delete seenIntro[k]; toTitle(); });
     };
     for (const t of ['chapters', 'codex', 'upgrades']) $('tab-' + t).onclick = () => toHub(t);
     $('btnHubBack').onclick = toTitle;
@@ -361,7 +365,9 @@ const UI = (() => {
     $('dlgSkip').onclick = (e) => { e.stopPropagation(); dialogSkip(); };
     $('btnReroll').onclick = () => { const c = Game.reroll(); if (c) { currentChoices = c; renderChoices(false); } };
     $('btnResume').onclick = () => togglePause();
-    $('btnQuit').onclick = () => { if (confirm('Покинуть забег? Прогресс забега будет потерян.')) toHub(); };
+    $('btnQuit').onclick = () => ask('Покинуть забег? Прогресс забега будет потерян.', () => toHub());
+    $('askNo').onclick = () => $('ask').classList.add('hidden');
+    $('askYes').onclick = () => { $('ask').classList.add('hidden'); const cb = askCb; askCb = null; cb && cb(); };
     $('btnResHub').onclick = () => toHub('chapters');
     $('heartBtn').addEventListener('touchstart', (e) => { e.preventDefault(); Game.useHeart(); });
     $('pauseBtn').addEventListener('touchstart', (e) => { e.preventDefault(); togglePause(); });
