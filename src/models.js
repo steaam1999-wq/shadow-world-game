@@ -180,7 +180,7 @@ ENEMY.ghost = () => {
   const body = mat('#a8b6ff', { emi: '#2a3890', ei: 0.55, opacity: 0.7, double: true, rough: 0.3 });
   b.add(tatteredLathe([[0.0, 1.5], [0.24, 1.46], [0.38, 1.3], [0.42, 1.0], [0.46, 0.7], [0.55, 0.38], [0.62, 0.15]], 16, 0.18), body, { ch: 'sway' });
   b.add(sphere(0.2), mat('#05060c'), { ch: 'sway', at: [0, 1.22, 0.2], scl: [1, 1.1, 0.8] });
-  const eye = glowMat('#9fe8ff', 6);
+  const eye = glowMat('#9fe8ff', 2.6);
   b.add(sphere(0.05, 6, 5), eye, { ch: 'sway', at: [-0.08, 1.24, 0.36] }).add(sphere(0.05, 6, 5), eye, { ch: 'sway', at: [0.08, 1.24, 0.36] });
   b.add(limb(0.1, 0.02, 0.6), body, { ch: 'reachL', pv: [-0.36, 1.08, 0.05] });
   b.add(limb(0.1, 0.02, 0.6), body, { ch: 'reachR', pv: [0.36, 1.08, 0.05] });
@@ -194,7 +194,7 @@ ENEMY.ghoul = () => {
   for (let i = 0; i < 3; i++) b.add(sphere(0.07, 6, 5), dark, { ch: 'body', at: [0, 0.98 - i * 0.14, -0.2 - i * 0.03] });
   b.add(sphere(0.2, 10, 8), skin, { ch: 'head', pv: [0, 1.0, 0.22], at: [0, 0.04, 0.08], scl: [1, 0.85, 1.25] });
   b.add(box(0.22, 0.05, 0.12), dark, { ch: 'head', pv: [0, 1.0, 0.22], at: [0, -0.06, 0.25] });
-  const eye = glowMat('#ff3020', 6);
+  const eye = glowMat('#ff3020', 2.6);
   b.add(sphere(0.045, 6, 5), eye, { ch: 'head', pv: [0, 1.0, 0.22], at: [-0.08, 0.08, 0.3] }).add(sphere(0.045, 6, 5), eye, { ch: 'head', pv: [0, 1.0, 0.22], at: [0.08, 0.08, 0.3] });
   for (const [ch, x] of [['armL', -0.32], ['armR', 0.32]]) {
     b.add(limb(0.08, 0.055, 0.72), skin, { ch, pv: [x, 0.98, 0.12] });
@@ -208,7 +208,7 @@ ENEMY.ghoul = () => {
 ENEMY.cknight = () => {
   const b = new Builder();
   const steel = mat('#6a6a7c', { metal: 0.4, rough: 0.45, flat: true }), dark = mat('#2e2c38', { metal: 0.3, rough: 0.5 });
-  const cloth = mat('#3a1322', { rough: 0.9 }), visor = glowMat('#ff2a2a', 7);
+  const cloth = mat('#3a1322', { rough: 0.9 }), visor = glowMat('#ff2a2a', 2.6);
   b.add(limb(0.12, 0.1, 0.78), steel, { ch: 'legL', pv: [-0.16, 0.8, 0] });
   b.add(limb(0.12, 0.1, 0.78), steel, { ch: 'legR', pv: [0.16, 0.8, 0] });
   b.add(cyl(0.34, 0.26, 0.68, 8), steel, { ch: 'body', at: [0, 1.15, 0] });
@@ -237,7 +237,7 @@ ENEMY.wolf = () => {
   b.add(sphere(0.21, 9, 7), fur, { ...H, at: [0, 0.03, 0.08], scl: [0.9, 0.85, 1.1] });
   b.add(cone(0.12, 0.32, 6), fur, { ...H, at: [0, -0.04, 0.34], rot: [Math.PI / 2, 0, 0] });
   b.add(cone(0.06, 0.18, 4), fur, { ...H, at: [-0.11, 0.24, 0.02], rot: [-0.2, 0, -0.3] }).add(cone(0.06, 0.18, 4), fur, { ...H, at: [0.11, 0.24, 0.02], rot: [-0.2, 0, 0.3] });
-  const eye = glowMat('#ffd23a', 6);
+  const eye = glowMat('#ffd23a', 2.6);
   b.add(sphere(0.035, 6, 5), eye, { ...H, at: [-0.09, 0.07, 0.24] }).add(sphere(0.035, 6, 5), eye, { ...H, at: [0.09, 0.07, 0.24] });
   b.add(cone(0.015, 0.08, 3), mat('#e8e0c8'), { ...H, at: [0.05, -0.12, 0.38], rot: [Math.PI, 0, 0] }).add(cone(0.015, 0.08, 3), mat('#e8e0c8'), { ...H, at: [-0.05, -0.12, 0.38], rot: [Math.PI, 0, 0] });
   for (const [ch, z] of [['fl', 0.36], ['bl', -0.36]]) for (const s of [0, 1]) {
@@ -250,11 +250,11 @@ ENEMY.wolf = () => {
 
 ENEMY.wisp = () => {
   const b = new Builder();
-  b.add(sphere(0.17), glowMat('#9dffc8', 6), { ch: 'pulse', pv: [0, 1.1, 0] });
+  b.add(sphere(0.17), glowMat('#9dffc8', 2.6), { ch: 'pulse', pv: [0, 1.1, 0] });
   b.add(sphere(0.32, 14, 10), mat('#5affb0', { emi: '#2aff90', ei: 1.2, opacity: 0.3, rough: 0.2 }), { ch: 'pulse', pv: [0, 1.1, 0] });
   for (let i = 0; i < 3; i++) {
     const a = i / 3 * TAU;
-    b.add(sphere(0.06, 6, 5), glowMat('#c8ffe0', 5), { ch: 'spin', k: 0, pv: [0, 1.1, 0], at: [Math.cos(a) * 0.48, Math.sin(i) * 0.1, Math.sin(a) * 0.48] });
+    b.add(sphere(0.06, 6, 5), glowMat('#c8ffe0', 2.6), { ch: 'spin', k: 0, pv: [0, 1.1, 0], at: [Math.cos(a) * 0.48, Math.sin(i) * 0.1, Math.sin(a) * 0.48] });
   }
   for (let i = 0; i < 3; i++) b.add(cone(0.08, 0.5, 5), mat('#5affb0', { emi: '#2aff90', ei: 1.5, opacity: 0.4 }), { ch: 'tent', k: i, pv: [(i - 1) * 0.1, 0.9, 0], at: [0, -0.25, 0], rot: [Math.PI, 0, 0] });
   return { parts: b.build(), float: true, h: 1.5 };
@@ -266,7 +266,7 @@ ENEMY.treant = () => {
   const moss = mat('#2f6a40', { flat: true, emi: '#103a20', ei: 0.4 });
   b.add(cyl(0.28, 0.42, 1.35, 8), bark, { ch: 'body', at: [0, 0.95, 0] });
   b.add(box(0.2, 0.06, 0.05), mat('#0a0604'), { ch: 'body', at: [0, 1.05, 0.33] });
-  const eye = glowMat('#d8ff5a', 6);
+  const eye = glowMat('#d8ff5a', 2.6);
   b.add(sphere(0.05, 6, 5), eye, { ch: 'body', at: [-0.11, 1.28, 0.3] }).add(sphere(0.05, 6, 5), eye, { ch: 'body', at: [0.11, 1.28, 0.3] });
   b.add(limb(0.16, 0.1, 0.62), bark, { ch: 'legL', pv: [-0.2, 0.55, 0] });
   b.add(limb(0.16, 0.1, 0.62), bark, { ch: 'legR', pv: [0.2, 0.55, 0] });
@@ -291,7 +291,7 @@ ENEMY.skeleton = () => {
   b.add(sphere(0.16, 10, 8), bone, { ...Hd, at: [0, 0.14, 0], scl: [0.95, 1, 1.05] });
   b.add(box(0.16, 0.06, 0.12), bone, { ...Hd, at: [0, 0.0, 0.06] });
   b.add(sphere(0.05, 6, 5), mat('#05060a'), { ...Hd, at: [-0.06, 0.15, 0.13] }).add(sphere(0.05, 6, 5), mat('#05060a'), { ...Hd, at: [0.06, 0.15, 0.13] });
-  const eye = glowMat('#4aa8ff', 7);
+  const eye = glowMat('#4aa8ff', 2.6);
   b.add(sphere(0.025, 5, 4), eye, { ...Hd, at: [-0.06, 0.15, 0.16] }).add(sphere(0.025, 5, 4), eye, { ...Hd, at: [0.06, 0.15, 0.16] });
   b.add(limb(0.04, 0.03, 0.82), bone, { ch: 'legL', pv: [-0.1, 0.86, 0] });
   b.add(limb(0.04, 0.03, 0.82), bone, { ch: 'legR', pv: [0.1, 0.86, 0] });
@@ -308,12 +308,12 @@ ENEMY.deadmage = () => {
   b.add(new THREE.TorusGeometry(0.33, 0.025, 4, 16), trim, { ch: 'sway', at: [0, 0.95, 0], rot: [Math.PI / 2, 0, 0] });
   b.add(sphere(0.24, 10, 8), robe, { ch: 'sway', at: [0, 1.58, -0.02], scl: [1, 1.1, 1.05] });
   b.add(sphere(0.17, 8, 6), mat('#020308'), { ch: 'sway', at: [0, 1.55, 0.1] });
-  const eye = glowMat('#7fc8ff', 7);
+  const eye = glowMat('#7fc8ff', 2.6);
   b.add(sphere(0.03, 5, 4), eye, { ch: 'sway', at: [-0.06, 1.57, 0.24] }).add(sphere(0.03, 5, 4), eye, { ch: 'sway', at: [0.06, 1.57, 0.24] });
   b.add(limb(0.1, 0.07, 0.5), robe, { ch: 'armL', pv: [-0.28, 1.35, 0] });
   b.add(limb(0.1, 0.07, 0.5), robe, { ch: 'armR', pv: [0.28, 1.35, 0] });
   b.add(cyl(0.025, 0.025, 1.7, 5), mat('#3a2a1e'), { ch: 'armR', pv: [0.28, 1.35, 0], at: [0.02, -0.45, 0.12] });
-  b.add(sphere(0.09, 8, 6), glowMat('#7fbfff', 6), { ch: 'armR', pv: [0.28, 1.35, 0], at: [0.02, 0.42, 0.12] });
+  b.add(sphere(0.09, 8, 6), glowMat('#7fbfff', 2.6), { ch: 'armR', pv: [0.28, 1.35, 0], at: [0.02, 0.42, 0.12] });
   return { parts: b.build(), h: 1.9 };
 };
 
@@ -322,9 +322,9 @@ ENEMY.golem = () => {
   const bone = mat('#bdb39a', { flat: true, rough: 0.85 }), dark = mat('#3a342a', { flat: true });
   b.add(rock(0.62, 0, 11, 0.2), bone, { ch: 'body', at: [0, 1.45, 0], scl: [1.2, 1, 0.9] });
   for (let i = 0; i < 4; i++) b.add(cyl(0.05, 0.05, 0.9, 5), bone, { ch: 'body', at: [-0.3 + i * 0.2, 1.2, 0.45], rot: [0.2, 0, Math.PI / 2 + 0.3] });
-  b.add(sphere(0.15, 10, 8), glowMat('#5ab0ff', 6), { ch: 'body', at: [0, 1.45, 0.55] });
+  b.add(sphere(0.15, 10, 8), glowMat('#5ab0ff', 2.6), { ch: 'body', at: [0, 1.45, 0.55] });
   b.add(sphere(0.2, 8, 6), bone, { ch: 'head', pv: [0, 2.0, 0.15], at: [0, 0.1, 0.05] });
-  const eye = glowMat('#5ab0ff', 7);
+  const eye = glowMat('#5ab0ff', 2.6);
   b.add(sphere(0.04, 5, 4), eye, { ch: 'head', pv: [0, 2.0, 0.15], at: [-0.07, 0.12, 0.22] }).add(sphere(0.04, 5, 4), eye, { ch: 'head', pv: [0, 2.0, 0.15], at: [0.07, 0.12, 0.22] });
   for (const [ch, s] of [['armL', -1], ['armR', 1]]) {
     b.add(limb(0.2, 0.15, 0.9), bone, { ch, pv: [s * 0.75, 1.8, 0] });
@@ -339,7 +339,7 @@ ENEMY.spawn = () => {
   const b = new Builder();
   const flesh = mat('#4a1d7a', { emi: '#2a0a50', ei: 0.8, rough: 0.5 });
   b.add(sphere(0.42, 14, 10), flesh, { ch: 'pulse', pv: [0, 0.5, 0], scl: [1, 0.85, 1] });
-  const eye = glowMat('#ffb0ff', 6);
+  const eye = glowMat('#ffb0ff', 2.6);
   [[-0.15, 0.12, 0.33, 0.07], [0.15, 0.1, 0.33, 0.06], [0, -0.05, 0.38, 0.08], [0.25, -0.08, 0.28, 0.05]].forEach(([x, y, z, r]) => b.add(sphere(r, 6, 5), eye, { ch: 'pulse', pv: [0, 0.5, 0], at: [x, y, z] }));
   for (let i = 0; i < 6; i++) {
     const a = i / 6 * TAU;
@@ -365,7 +365,7 @@ ENEMY.voideye = () => {
 ENEMY.horror = () => {
   const b = new Builder();
   const mass = mat('#24113a', { flat: true, rough: 0.6, emi: '#12051f', ei: 1 });
-  const spikeM = mat('#120818', { flat: true }), glow = glowMat('#c070ff', 5);
+  const spikeM = mat('#120818', { flat: true }), glow = glowMat('#c070ff', 2.6);
   b.add(rock(0.75, 1, 21, 0.18), mass, { ch: 'pulse', pv: [0, 1.15, 0] });
   for (let i = 0; i < 12; i++) {
     const a = i / 12 * TAU, y = Math.sin(i * 1.7) * 0.4;

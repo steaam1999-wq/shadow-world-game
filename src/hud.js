@@ -104,6 +104,33 @@ export class Hud {
     }
   }
 
+  // круглая мини-карта: враги, элиты, босс, награды, разломы, объекты
+  minimap(run, x, y, w) {
+    const g = this.g, r = w / 2 - 4, cx = x + w / 2, cy = y + r + 4, SC = r / 900, p = run.p;
+    g.save();
+    g.fillStyle = 'rgba(8,5,14,0.78)'; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fill();
+    g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.clip();
+    g.strokeStyle = 'rgba(180,140,255,0.12)'; g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, r * 0.5, 0, TAU); g.stroke();
+    const dot = (wx, wy, c, s) => {
+      const dx = (wx - p.x) * SC, dy = (wy - p.y) * SC;
+      if (dx * dx + dy * dy > r * r) return;
+      g.fillStyle = c; g.fillRect(cx + dx - s / 2, cy + dy - s / 2, s, s);
+    };
+    for (const o of run.props) dot(o.x, o.y, '#c8a878', 3);
+    for (const e of run.enemies) if (!e.dead && !e.boss) dot(e.x, e.y, e.elite ? '#ffd86b' : e.champion ? '#ff9a40' : '#d04050', e.elite || e.champion ? 5 : 2);
+    for (const k of run.pickups) dot(k.x, k.y, k.kind === 'fragment' ? '#ffe08a' : k.kind === 'heal' ? '#ff6a8a' : '#9ad0ff', 4);
+    for (const rf of run.rifts) dot(rf.x, rf.y, '#c070ff', 7);
+    g.restore();
+    if (run.boss) {
+      const b = run.boss, dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy), k = Math.min(1, (r - 5) / (d * SC || 1));
+      g.fillStyle = '#ff3050'; g.beginPath(); g.arc(cx + dx * SC * k, cy + dy * SC * k, 5, 0, TAU); g.fill();
+    }
+    g.fillStyle = '#e0c8ff'; g.beginPath(); g.moveTo(cx, cy - 5); g.lineTo(cx + 4, cy + 4); g.lineTo(cx - 4, cy + 4); g.fill();
+    const gr = g.createLinearGradient(cx, cy - r, cx, cy + r); gr.addColorStop(0, '#f0d890'); gr.addColorStop(1, '#5a4320');
+    g.strokeStyle = gr; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.stroke();
+  }
+
   draw(run, joy) {
     const g = this.g, W = this.W, H = this.H, T = this.R.time;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -201,6 +228,23 @@ export class Hud {
     if (!run.bossSpawned) {
       g.font = `italic ${sm ? 10 : 12}px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#a898c0';
       g.fillText('Страж через ' + Math.ceil(DATA.rules.bossTime - run.time) + ' с', tx + tw / 2, ty + (sm ? 74 : 84));
+    }
+
+    // ---------- мини-карта
+    if (sm) this.minimap(run, W - 12 - 92, run.boss ? 136 : ty + 84, 92);
+    else this.minimap(run, tx, ty + 96, tw);
+    // ---------- направление натиска
+    if (run.eventDirT > 0) {
+      const a = run.eventDir, rr = Math.min(W, H) / 2 - 60, al = Math.min(1, run.eventDirT);
+      g.save(); g.globalAlpha = al * (0.6 + Math.sin(T * 10) * 0.4); g.translate(W / 2 + Math.cos(a) * rr, H / 2 + Math.sin(a) * rr * 0.8); g.rotate(a);
+      g.fillStyle = '#ff9a40'; g.shadowColor = '#ff6000'; g.shadowBlur = 14;
+      for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(-6 - i * 12, -12); g.lineTo(4 - i * 12, 0); g.lineTo(-6 - i * 12, 12); g.lineTo(-2 - i * 12, 0); g.fill(); }
+      g.restore();
+    }
+    // ---------- сила эфира
+    if (run.buffT > 0) {
+      g.font = `bold ${sm ? 12 : 14}px ${FONT}`; g.textAlign = 'center'; g.fillStyle = '#ffb0ff'; g.shadowColor = '#d060ff'; g.shadowBlur = 10;
+      g.fillText('Сила Эфира: +50% урона · ' + Math.ceil(run.buffT) + ' с', W / 2, sm ? 150 : 120); g.shadowBlur = 0;
     }
 
     // ---------- босс

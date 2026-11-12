@@ -197,20 +197,20 @@ DATA.endings = {
 DATA.enemies = {
   // Глава I
   ghost:    { name: 'Призрак',          hp: 10,  speed: 62,  dmg: 6,  r: 11, color: '#b9c4ff', xp: 1, shape: 'ghost' },
-  ghoul:    { name: 'Гуль',             hp: 18,  speed: 52,  dmg: 8,  r: 12, color: '#8f9c6a', xp: 1, shape: 'ghoul' },
-  cknight:  { name: 'Проклятый рыцарь', hp: 55,  speed: 38,  dmg: 14, r: 16, color: '#7d7f92', xp: 3, shape: 'knight' },
+  ghoul:    { name: 'Гуль',             hp: 18,  speed: 52,  dmg: 8,  r: 12, color: '#8f9c6a', xp: 1, shape: 'ghoul', behavior: 'lunge' },
+  cknight:  { name: 'Проклятый рыцарь', hp: 55,  speed: 38,  dmg: 14, r: 16, color: '#7d7f92', xp: 3, shape: 'knight', behavior: 'slam' },
   // Глава II
-  wolf:     { name: 'Мутант-волк',      hp: 12,  speed: 92,  dmg: 8,  r: 12, color: '#7a5a46', xp: 1, shape: 'wolf' },
+  wolf:     { name: 'Мутант-волк',      hp: 12,  speed: 92,  dmg: 8,  r: 12, color: '#7a5a46', xp: 1, shape: 'wolf', behavior: 'lunge' },
   wisp:     { name: 'Древний дух',      hp: 18,  speed: 48,  dmg: 7,  r: 10, color: '#8dffc0', xp: 2, shape: 'wisp', ranged: { cd: 3.2, speed: 160, dmg: 8, range: 320, color: '#8dffc0' } },
-  treant:   { name: 'Древень',          hp: 75,  speed: 30,  dmg: 16, r: 20, color: '#4d6b3a', xp: 4, shape: 'treant' },
+  treant:   { name: 'Древень',          hp: 75,  speed: 30,  dmg: 16, r: 20, color: '#4d6b3a', xp: 4, shape: 'treant', behavior: 'slam' },
   // Глава III
   skeleton: { name: 'Скелет-воин',      hp: 15,  speed: 66,  dmg: 9,  r: 12, color: '#d8d2bf', xp: 1, shape: 'skeleton' },
   deadmage: { name: 'Павший маг',       hp: 20,  speed: 44,  dmg: 8,  r: 12, color: '#6fa6e8', xp: 2, shape: 'mage', ranged: { cd: 2.6, speed: 190, dmg: 10, range: 360, color: '#7fbfff' } },
-  golem:    { name: 'Костяной голем',   hp: 90,  speed: 32,  dmg: 18, r: 22, color: '#bdb39a', xp: 5, shape: 'golem' },
+  golem:    { name: 'Костяной голем',   hp: 90,  speed: 32,  dmg: 18, r: 22, color: '#bdb39a', xp: 5, shape: 'golem', behavior: 'slam' },
   // Глава IV
-  spawn:    { name: 'Порождение Бездны',hp: 15,  speed: 78,  dmg: 10, r: 11, color: '#a04cff', xp: 1, shape: 'spawn' },
+  spawn:    { name: 'Порождение Бездны',hp: 15,  speed: 78,  dmg: 10, r: 11, color: '#a04cff', xp: 1, shape: 'spawn', behavior: 'bomb' },
   voideye:  { name: 'Око Бездны',       hp: 22,  speed: 46,  dmg: 9,  r: 14, color: '#ff5fd2', xp: 2, shape: 'eye', ranged: { cd: 2.2, speed: 210, dmg: 12, range: 380, color: '#ff6fe0' } },
-  horror:   { name: 'Безликий ужас',    hp: 100, speed: 36,  dmg: 20, r: 22, color: '#3b1d55', xp: 5, shape: 'horror' },
+  horror:   { name: 'Безликий ужас',    hp: 100, speed: 36,  dmg: 20, r: 22, color: '#3b1d55', xp: 5, shape: 'horror', behavior: 'slam' },
 };
 
 // ---------------------------------------------------------------------
@@ -325,6 +325,8 @@ DATA.rules = {
   bossTime: 240,      // секунда появления босса
   eliteTimes: [55, 120, 185],
   tideTimes: [90, 165],
+  // сценарные события волн: натиск с одной стороны, засада стрелков, разлом Бездны, стая чемпионов
+  events: [{ t: 40, kind: 'rush' }, { t: 72, kind: 'ambush' }, { t: 125, kind: 'rift' }, { t: 150, kind: 'pack' }, { t: 205, kind: 'rush' }, { t: 222, kind: 'rift' }],
   maxEnemies: 320,
   weaponSlots: 5,
   passiveSlots: 5,

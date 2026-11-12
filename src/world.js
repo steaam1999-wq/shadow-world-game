@@ -115,10 +115,10 @@ function propsFor(kind) {
 //  Свет и атмосфера глав
 // ---------------------------------------------------------------------
 const MOOD = {
-  ruins:  { sky: '#7d7aa0', gnd: '#1a1520', hemi: 0.75, dir: '#b8c4ff', dirI: 1.7, fog: '#0c0a12', near: 30, far: 72, bump: 0.9, motes: { color: '#ffb070', cell: 'DOT', rise: 0.6, size: 0.12 } },
-  forest: { sky: '#8ad0c8', gnd: '#10201e', hemi: 1.0, dir: '#d8f0ff', dirI: 1.9, fog: '#0b1a1a', near: 32, far: 76, bump: 0.6, motes: { color: '#b0ffe0', cell: 'GLOW', rise: 0.15, size: 0.25 } },
-  crypt:  { sky: '#7080b0', gnd: '#141824', hemi: 0.85, dir: '#a8bce8', dirI: 1.6, fog: '#06080d', near: 26, far: 64, bump: 1.0, motes: { color: '#9ab8ff', cell: 'DOT', rise: -0.1, size: 0.1 } },
-  abyss:  { sky: '#9a6ac0', gnd: '#120818', hemi: 0.65, dir: '#d0a8ff', dirI: 1.2, fog: '#10061a', near: 28, far: 70, bump: 0.8, motes: { color: '#d68bff', cell: 'GLOW', rise: 0.4, size: 0.22 } },
+  ruins:  { fogTint: '#6a6080', sky: '#7d7aa0', gnd: '#1a1520', hemi: 0.75, dir: '#b8c4ff', dirI: 1.7, fog: '#0c0a12', near: 30, far: 72, bump: 0.9, motes: { color: '#ffb070', cell: 'DOT', rise: 0.6, size: 0.12 } },
+  forest: { fogTint: '#5aa090', sky: '#8ad0c8', gnd: '#10201e', hemi: 1.0, dir: '#d8f0ff', dirI: 1.9, fog: '#0b1a1a', near: 32, far: 76, bump: 0.6, motes: { color: '#b0ffe0', cell: 'GLOW', rise: 0.15, size: 0.25 } },
+  crypt:  { fogTint: '#5a6a90', sky: '#7080b0', gnd: '#141824', hemi: 0.85, dir: '#a8bce8', dirI: 1.6, fog: '#06080d', near: 26, far: 64, bump: 1.0, motes: { color: '#9ab8ff', cell: 'DOT', rise: -0.1, size: 0.1 } },
+  abyss:  { fogTint: '#8050b0', sky: '#9a6ac0', gnd: '#120818', hemi: 0.65, dir: '#d0a8ff', dirI: 1.2, fog: '#10061a', near: 28, far: 70, bump: 0.8, motes: { color: '#d68bff', cell: 'GLOW', rise: 0.4, size: 0.22 } },
 };
 
 export function createWorld(scene, kind) {
@@ -173,6 +173,11 @@ export function createWorld(scene, kind) {
     for (const t of types) t.n = 0;
     for (let i = cx - RADIUS; i <= cx + RADIUS; i++) for (let j = cz - RADIUS; j <= cz + RADIUS; j++) {
       const r = rng((i * 73856093) ^ (j * 19349663) ^ (kind.length * 83492791));
+      // светящиеся руны на земле
+      if (r() < 0.45 && (i || j)) {
+        const runeCol = { ruins: '#b48cff', forest: '#60ffd0', crypt: '#7fb0ff', abyss: '#d070ff' }[kind];
+        emitters.push({ x: (i + r()) * CHUNK, y: 0, z: (j + r()) * CHUNK, kind: 'rune', size: 3 + r() * 3, color: runeCol, ph: r() * TAU });
+      }
       types.forEach((t, ti) => {
         let n = Math.floor(t.density + r());
         while (n-- > 0) {

@@ -30,7 +30,7 @@ export class Renderer {
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.5, 200);
     this.composer = new EffectComposer(r);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.62, 0.42, 0.88);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.38, 0.9);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -94,6 +94,8 @@ export class Renderer {
     for (const m of this.pickMeshes.values()) this.scene.remove(m);
     for (const m of this.holeMeshes.values()) this.scene.remove(m);
     this.pickMeshes.clear(); this.holeMeshes.clear();
+    if (this.propMeshes) { for (const m of this.propMeshes.values()) this.scene.remove(m); this.propMeshes.clear(); }
+    this.fog = [];
   }
 
   // -------------------------------------------------------------------
@@ -210,7 +212,9 @@ export class Renderer {
     st.ph = e._ph; st.t = this.time; st.seed = e.seed || 0; st.atk = e.atk > 0 ? Math.sin((e.atk / 0.35) * Math.PI) : 0;
     st.mv = e.frozen > 0 ? 0 : Math.min(1, moved * 2 + 0.2);
     if (e.frozen > 0) st.t = e._ft || (e._ft = this.time); else e._ft = 0;
-    let sc = e.elite ? 1.6 : 1, yOff = t.model.float ? 0.25 + Math.sin(this.time * 2 + (e.seed || 0)) * 0.12 : 0;
+    let sc = e.elite ? 1.6 : e.champion ? 1.3 : 1;
+    if (e.st === 'wind' && e.bh === 'bomb') sc *= 1 + (0.65 - e.stT) * 0.7 + Math.sin(this.time * 40) * 0.05;
+    let yOff = t.model.float ? 0.25 + Math.sin(this.time * 2 + (e.seed || 0)) * 0.12 : 0;
     let tilt = 0;
     if (dying) { const k = dying.t / 0.45; sc *= 1 - k * 0.7; yOff -= k * 0.6; tilt = k * 1.2; }
     this.e.set(tilt, e._yaw, 0); this.q.setFromEuler(this.e);
@@ -222,7 +226,10 @@ export class Renderer {
     else if (e.flash > 0) col.setRGB(7, 7, 7);
     else if (e.frozen > 0) col.setRGB(0.7, 1.4, 2.0);
     else if (e.burnT > 0) col.setRGB(1.7, 0.8 + Math.sin(this.time * 20) * 0.15, 0.45);
+    else if (e.st === 'wind' && e.bh === 'bomb') { const f = Math.sin(this.time * 30) > 0 ? 3 : 1.2; col.setRGB(f, f * 0.6, f * 1.2); }
+    else if (e.st === 'wind') col.setRGB(1.8, 0.9, 0.8);
     else if (e.elite) col.setRGB(1.35, 1.1, 0.7);
+    else if (e.champion) col.setRGB(1.5, 0.95, 0.55);
     else if (e.slowT > 0) col.setRGB(0.85, 1.1, 1.4);
     else col.setRGB(1, 1, 1);
     for (const { im, p } of t.meshes) {
@@ -244,6 +251,12 @@ export class Renderer {
     }
     if (e.burnT > 0 && Math.random() < 0.5) this.emit(x + rand(-R, R) * 0.6, h * rand(0.3, 0.9), z + rand(-R, R) * 0.6, 0, 1.6, 0, 0.45, R * 1.2, '#ff7a2a', CELL.FLAME, { grow: -0.5 });
     if (e.frozen > 0) this.add.add(x, h * 0.5, z, h * 1.1, h * 1.1, 0.4, 0.9, 1.3, 0.35, 0, CELL.STAR);
+    if (e.champion) this.gAdd.add(x, 0.04, z, R * 3, R * 3, 1.6, 0.7, 0.2, 0.55, -this.time, CELL.RING);
+    if (e.st === 'wind' && e.bh === 'lunge') {
+      const L = 200 * U, a = e.ta;
+      this.gAdd.add(x + Math.cos(a) * L / 2, 0.06, z + Math.sin(a) * L / 2, L, R * 1.8, 2.0, 0.25, 0.2, 0.7, a, CELL.STREAK);
+    }
+    if (e.st === 'dash' && Math.random() < 0.6) this.emit(x, 0.3, z, rand(-0.5, 0.5), 0.4, rand(-0.5, 0.5), 0.5, 0.6, '#2a2030', CELL.SMOKE, { add: false, grow: 1.2, a: 0.4 });
     if (e.atk > 0 && e.ranged) this.add.add(x, h * 0.75, z + 0.3, 1.2, 1.2, ...rgb(e.ranged.color), 1.2 * (e.atk / 0.35), 0, CELL.GLOW);
   }
 
@@ -402,6 +415,11 @@ export class Renderer {
     this.playerLight.position.set(x, 3.2, z + 1.2);
     this.playerLight.color.set(auraC);
     this.playerLight.intensity = 16 + (p.castT || 0) * 50;
+    // постоянная метка героя — его видно в любой толпе
+    if (run) {
+      this.gAdd.add(x, 0.035, z, 1.7, 1.7, 1.6, 1.25, 0.55, 0.55, 0, CELL.RING);
+      if (run.buffT > 0) { this.gAdd.add(x, 0.04, z, 3, 3, 2, 0.5, 2, 0.6, this.time * 2, CELL.SIGIL); this.add.add(x, 1.2, z, 3, 3, 1.2, 0.4, 1.4, 0.25, 0, CELL.GLOW); }
+    }
     // магический круг под ногами
     const ac = rgb(auraC);
     const cast = Math.min(1, (p.castT || 0) / 0.2);
@@ -430,6 +448,11 @@ export class Renderer {
     for (const em of this.world.emitters) {
       if ((em.x - px) ** 2 + (em.z - pz) ** 2 > 40 * 40) continue;
       const c = rgb(em.color), fl = 0.8 + Math.sin(this.time * 9 + em.ph) * 0.12 + Math.sin(this.time * 23 + em.ph) * 0.08;
+      if (em.kind === 'rune') {
+        const pu = 0.35 + Math.sin(this.time * 1.5 + em.ph) * 0.25;
+        this.gAdd.add(em.x, 0.03, em.z, em.size, em.size, c[0] * 1.5, c[1] * 1.5, c[2] * 1.5, pu, em.ph + this.time * 0.1, CELL.RUNE);
+        continue;
+      }
       if (em.kind === 'flame') {
         this.add.add(em.x, em.y + em.size * 0.25, em.z, em.size * 0.7 * fl, em.size * 1.1 * fl, c[0] * 1.6, c[1] * 1.2, c[2] * 0.8, 0.8, Math.sin(this.time * 3 + em.ph) * 0.1, CELL.FLAME);
         this.add.add(em.x, em.y, em.z, em.size * 2.2, em.size * 2.2, c[0], c[1] * 0.7, c[2] * 0.5, 0.18, 0, CELL.GLOW);
@@ -518,6 +541,9 @@ export class Renderer {
     this.gemIM.forEach((im, k) => { im.count = gc[k]; im.instanceMatrix.needsUpdate = true; });
 
     this.drawPickups(run);
+    this.drawProps(run, dt);
+    this.drawRifts(run, dt);
+    this.drawFog(run, dt);
     this.drawSpells(run, dt);
     this.drawEnemyShots(run);
 
@@ -532,9 +558,10 @@ export class Renderer {
     // опасные зоны
     for (const h of run.hazards) {
       if (h.done) continue;
-      const k = h.t / h.delay, R = h.r * U * 2;
-      G.add(h.x * U, 0.06, h.y * U, R, R, 2.0, 0.4, 2.4, 0.5 + k * 0.5, T * 2, CELL.RUNE);
-      G.add(h.x * U, 0.07, h.y * U, R * k, R * k, 1.6, 0.3, 2.0, 0.5, 0, CELL.GLOW);
+      const k = h.t / h.delay, R = h.r * U * 2, hc = rgb(h.color);
+      G.add(h.x * U, 0.06, h.y * U, R, R, hc[0] * 2, hc[1] * 2, hc[2] * 2, 0.45 + k * 0.5, T * 2, CELL.RUNE);
+      G.add(h.x * U, 0.07, h.y * U, R * k, R * k, hc[0] * 1.6, hc[1] * 1.6, hc[2] * 1.6, 0.45, 0, CELL.GLOW);
+      G.add(h.x * U, 0.065, h.y * U, R * 1.02, R * 1.02, hc[0] * 2, hc[1] * 2, hc[2] * 2, 0.6, 0, CELL.RING);
     }
   }
 
@@ -588,7 +615,7 @@ export class Renderer {
         this.light(x, y, z, '#a060ff', 20);
       } else {
         const sz = s.star ? 0.9 : 0.75;
-        A.add(x, y, z, sz * 1.5, sz * 1.5, c[0] * 1.2, c[1] * 1.2, c[2] * 1.4, 0.6, 0, CELL.GLOW);
+        A.add(x, y, z, sz * 1.3, sz * 1.3, c[0] * 1.1, c[1] * 1.1, c[2] * 1.3, 0.5, 0, CELL.GLOW);
         A.add(x, y, z, sz * 0.8, sz * 0.8, 1.6, 1.6, 1.8, 0.9, T * 8, CELL.STAR);
         A.add(x - vx * 0.03, y, z - vz * 0.03, 1.8, 0.4, c[0] * 1.6, c[1] * 1.6, c[2] * 2, 0.8, 0, CELL.STREAK, vx, 0, vz);
         const tr = s._tr;
@@ -699,11 +726,78 @@ export class Renderer {
     for (const [h, m] of this.holeMeshes) if (!seenH.has(h)) { this.scene.remove(m); this.holeMeshes.delete(h); }
   }
 
+  // разрушаемые объекты: урны, коконы, кристаллы — разбиваются, роняют награду
+  drawProps(run, dt) {
+    const kind = run.ch.decor, seen = new Set();
+    if (!this.propMeshes) this.propMeshes = new Map();
+    for (const o of run.props) {
+      seen.add(o);
+      let m = this.propMeshes.get(o);
+      if (!m) { m = this.makeProp(kind); this.scene.add(m); this.propMeshes.set(o, m); }
+      m.position.set(o.x * U, 0, o.y * U); m.rotation.y = o.seed;
+      if (kind === 'abyss' || kind === 'forest') this.add.add(o.x * U, 0.8, o.y * U, 1.6, 1.6, ...(kind === 'abyss' ? [0.9, 0.4, 1.5] : [0.4, 1.3, 1.0]), 0.25, 0, CELL.GLOW);
+    }
+    for (const [o, m] of this.propMeshes) if (!seen.has(o)) { this.scene.remove(m); this.propMeshes.delete(o); }
+    for (const b of run.propBreaks) {
+      if (b._f) continue;
+      b._f = 1;
+      const x = b.x * U, z = b.y * U, col = kind === 'abyss' ? '#c080ff' : kind === 'forest' ? '#80ffd0' : '#c8a878';
+      for (let i = 0; i < 14; i++) { const a = Math.random() * TAU, sp = rand(2, 5); this.emit(x, 0.6, z, Math.cos(a) * sp, rand(2, 5), Math.sin(a) * sp, 0.9, rand(0.12, 0.25), col, CELL.SHARD, { grav: 12, spin: 8, add: kind !== 'ruins' && kind !== 'crypt' }); }
+      this.emit(x, 0.5, z, 0, 0.5, 0, 0.8, 1.6, '#3a3040', CELL.SMOKE, { add: false, grow: 1.5, a: 0.5 });
+      this.emit(x, 0.8, z, 0, 0, 0, 0.35, 2.4, '#ffe0a0', CELL.GLOW);
+    }
+  }
+
+  makeProp(kind) {
+    const g = new THREE.Group();
+    if (kind === 'ruins' || kind === 'crypt') {
+      const clay = mat(kind === 'crypt' ? '#5a6070' : '#8a5a3a', { rough: 0.8 }), band = mat('#c8a24a', { metal: 0.6, rough: 0.4 });
+      const pts = [[0, 0], [0.22, 0.02], [0.32, 0.25], [0.3, 0.55], [0.16, 0.72], [0.18, 0.82], [0, 0.82]].map(([x, y]) => new THREE.Vector2(x, y));
+      const urn = new THREE.Mesh(new THREE.LatheGeometry(pts, 14), clay); urn.castShadow = true; g.add(urn);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.025, 4, 16), band); ring.rotation.x = Math.PI / 2; ring.position.y = 0.4; g.add(ring);
+    } else if (kind === 'forest') {
+      const pod = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), mat('#2a6a58', { emi: '#30ffb0', ei: 0.5, rough: 0.5 }));
+      pod.scale.set(1, 1.3, 1); pod.position.y = 0.42; pod.castShadow = true; g.add(pod);
+      for (let i = 0; i < 4; i++) { const l = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 4), mat('#1f4a44', { flat: true })); const a = i / 4 * TAU; l.position.set(Math.cos(a) * 0.25, 0.2, Math.sin(a) * 0.25); l.rotation.set(Math.sin(a) * 0.8, 0, -Math.cos(a) * 0.8); g.add(l); }
+    } else {
+      const cm = mat('#b46cff', { emi: '#9a4cff', ei: 1.4, rough: 0.2 });
+      for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.2), cm); c.scale.set(1, 2.4 - i * 0.5, 1); c.position.set((i - 1) * 0.18, 0.45 - i * 0.08, (i % 2) * 0.12); c.rotation.z = (i - 1) * 0.3; c.castShadow = true; g.add(c); }
+    }
+    return g;
+  }
+
+  drawRifts(run) {
+    for (const rf of run.rifts) {
+      const x = rf.x * U, z = rf.y * U, k = Math.min(1, rf.t * 2) * Math.min(1, Math.max(0, rf.life + 1 - rf.t));
+      this.gAdd.add(x, 0.05, z, 5 * k, 5 * k, 1.4, 0.4, 2.2, 0.8, -this.time * 2, CELL.SIGIL);
+      this.gAdd.add(x, 0.06, z, 3 * k, 3 * k, 1.6, 0.5, 2.4, 0.9, this.time * 3, CELL.SHOCK);
+      this.gNorm.add(x, 0.07, z, 2.2 * k, 2.2 * k, 1, 1, 1, 0.95, 0, CELL.SHADOW);
+      this.add.add(x, 3, z, 1.2 * k, 7 * k, 1.2, 0.5, 2.2, 0.45, 0, CELL.STREAK, 0, 1, 0);
+      if (Math.random() < 0.7) { const a = Math.random() * TAU; this.emit(x + Math.cos(a) * 2.4, 0.2, z + Math.sin(a) * 2.4, -Math.cos(a) * 3, rand(0.5, 2), -Math.sin(a) * 3, 0.8, 0.2, '#d090ff', CELL.DOT); }
+      this.light(x, 1.5, z, '#9050ff', 50 * k);
+    }
+  }
+
+  // стелющийся туман у земли
+  drawFog(run, dt) {
+    if (!this.fog) this.fog = [];
+    const px = run.p.x * U, pz = run.p.y * U;
+    while (this.fog.length < 22) this.fog.push({ x: px + rand(-24, 24), z: pz + rand(-18, 18), s: rand(5, 9), ph: Math.random() * TAU, v: rand(0.2, 0.5) });
+    const fc = rgb(this.world.mood.fogTint || '#8a90b0');
+    for (const f of this.fog) {
+      f.x += f.v * dt;
+      if (f.x > px + 26) f.x -= 52; if (f.x < px - 26) f.x += 52;
+      if (f.z > pz + 20) f.z -= 40; if (f.z < pz - 20) f.z += 40;
+      const a = 0.05 + Math.sin(this.time * 0.4 + f.ph) * 0.02;
+      this.gAdd.add(f.x, 0.25, f.z, f.s * 1.6, f.s, fc[0], fc[1], fc[2], a, f.ph, CELL.SMOKE);
+    }
+  }
+
   drawEnemyShots(run) {
     const A = this.add, N = this.norm;
     for (const s of run.eShots) {
       const x = s.x * U, z = s.y * U, c = rgb(s.color), R = s.r * U;
-      A.add(x, 0.9, z, R * 5, R * 5, c[0] * 1.6, c[1] * 1.6, c[2] * 1.6, 0.9, 0, CELL.GLOW);
+      A.add(x, 0.9, z, R * 4.2, R * 4.2, c[0] * 1.5, c[1] * 1.5, c[2] * 1.5, 0.8, 0, CELL.GLOW);
       A.add(x - s.vx * U * 0.04, 0.9, z - s.vy * U * 0.04, R * 6, R * 2.2, c[0], c[1], c[2], 0.6, 0, CELL.STREAK, s.vx, 0, s.vy);
       N.add(x, 0.9, z, R * 1.6, R * 1.6, 0.05, 0, 0.04, 0.9, 0, CELL.DOT);
     }

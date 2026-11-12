@@ -114,6 +114,7 @@ export function createLogic(canvas) {
       weapons: [], passives: {}, spec: null,
       enemies: [], shots: [], eShots: [], gems: [], pickups: [],
       rings: [], lines: [], blasts: [], parts: [], texts: [], hazards: [], holes: [], dying: [],
+      props: [], propBreaks: [], rifts: [], evDone: 0, propT: 0, buffT: 0,
       spawnAcc: 0, boss: null, bossSpawned: false, victoryT: -1,
       elitesDone: 0, tidesDone: 0, fragmentsFound: [],
       shake: 0, flash: 0, flashColor: '#b46cff', heartUses: 0,
@@ -163,14 +164,19 @@ export function createLogic(canvas) {
         pool.push({ type: 'evo', id: w.id, w: 100, icon: def.icon, color: '#ffd86b', title: '✧ ' + def.evo.name, desc: 'ЭВОЛЮЦИЯ: ' + def.evo.desc, tag: 'Эволюция' });
       }
     }
+    const slotsLeft = DATA.rules.weaponSlots - run.weapons.length;
     for (const id in DATA.weapons) {
       const def = DATA.weapons[id], w = getWeapon(id);
       if (w && w.lvl >= 5) continue;
       if (!w && run.weapons.length >= DATA.rules.weaponSlots) continue;
       const lvl = w ? w.lvl + 1 : 1;
+      const pas = DATA.passives[def.evo.needs], hasPas = !!run.passives[def.evo.needs];
       pool.push({
-        type: 'weapon', id, w: (id === specWeapon ? 3 : 1) * (w ? 1.4 : 1), icon: def.icon, color: def.color,
+        type: 'weapon', id, w: (id === specWeapon ? 3 : 1) * (w ? 1.6 + (slotsLeft <= 1 ? 0.6 : 0) : 1), icon: def.icon, color: def.color,
         title: def.name, desc: w ? def.lvlDesc[w.lvl] : def.desc, tag: w ? 'Ур. ' + lvl : 'Новое заклинание',
+        lvl: w ? w.lvl : 0, next: lvl, max: 5,
+        hint: 'Эволюция → ' + def.evo.name + ': 5 ур. + ' + pas.name + (hasPas ? ' ✓' : ''),
+        ready: lvl >= 5 && hasPas,
       });
     }
     for (const id in DATA.passives) {
@@ -179,9 +185,13 @@ export function createLogic(canvas) {
       if (!l && Object.keys(run.passives).length >= DATA.rules.passiveSlots) continue;
       // подсказка эволюции
       const evoFor = Object.keys(DATA.weapons).find((k) => DATA.weapons[k].evo.needs === id && getWeapon(k));
+      const evoAny = Object.keys(DATA.weapons).find((k) => DATA.weapons[k].evo.needs === id);
       pool.push({
-        type: 'passive', id, w: evoFor ? 1.3 : 1, icon: def.icon, color: '#d8c8ff', title: def.name,
-        desc: def.desc + (evoFor ? ' (Эволюция для: ' + DATA.weapons[evoFor].name + ')' : ''), tag: l ? 'Ур. ' + (l + 1) : 'Артефакт',
+        type: 'passive', id, w: evoFor ? (l ? 1.2 : 2.2) : 1, icon: def.icon, color: '#d8c8ff', title: def.name,
+        desc: def.desc, tag: l ? 'Ур. ' + (l + 1) : 'Артефакт',
+        lvl: l, next: l + 1, max: 5,
+        hint: evoAny ? 'Ключ эволюции: ' + DATA.weapons[evoAny].name + (evoFor ? ' (заклинание уже есть)' : '') : 'Общее усиление',
+        ready: !!evoFor && !l && getWeapon(evoFor).lvl >= 5,
       });
     }
     const out = [];
@@ -195,6 +205,11 @@ export function createLogic(canvas) {
       i = Math.min(i, rest.length - 1);
       out.push(rest[i]);
       rest.splice(i, 1);
+    }
+    // стратегия: всегда есть вариант прокачать то, что уже собрано
+    if (out.length >= n && !out.some((o) => o.type === 'weapon' && o.lvl > 0)) {
+      const own = rest.filter((o) => o.type === 'weapon' && o.lvl > 0);
+      if (own.length) out[out.length - 1] = pick(own);
     }
     if (!out.length) {
       out.push({ type: 'heal', id: 'heal', icon: '✚', color: '#7dffa8', title: 'Эфирный эликсир', desc: 'Восстановить 40% здоровья и +10 Эфира.', tag: 'Дар' });
@@ -286,10 +301,14 @@ export function createLogic(canvas) {
     if (spec && spec === el) dmg *= spec === 'void' ? 1.4 : 1.5;
     if (spec === 'fire' && el !== 'burn') { e.burnT = 2.5; e.burnDps = Math.max(e.burnDps || 0, dmg * 0.25); }
     if (spec === 'frost') { e.slowT = Math.max(e.slowT || 0, 1.0); e.slow = Math.max(e.slow || 0, 0.3); }
+    let crit = false;
+    if (el !== 'burn' && Math.random() < 0.06) { dmg *= 2; crit = true; }
+    if (run.buffT > 0) dmg *= 1.5;
     e.hp -= dmg;
     e.flash = 0.08;
     run.dealt = (run.dealt || 0) + dmg;
-    if (!noText && (dmg >= 8 || Math.random() < 0.3)) texts(e.x + rand(-6, 6), e.y - e.r - 4, Math.round(dmg), el === 'burn' ? '#ffa860' : '#ffffff', dmg > 60 ? 16 : 12);
+    if (crit && !noText) texts(e.x + rand(-6, 6), e.y - e.r - 6, Math.round(dmg) + '!', '#ffd04a', 18);
+    else if (!noText && (dmg >= 8 || Math.random() < 0.3)) texts(e.x + rand(-6, 6), e.y - e.r - 4, Math.round(dmg), el === 'burn' ? '#ffa860' : '#ffffff', dmg > 60 ? 16 : 12);
     if (e.hp <= 0) kill(e);
   }
 
@@ -306,6 +325,7 @@ export function createLogic(canvas) {
     }
     if (e.boss) { onBossDown(e); return; }
     dropGem(e.x, e.y, e.xp);
+    if (e.champion && Math.random() < 0.5) run.pickups.push({ x: e.x, y: e.y, kind: 'heal', t: 0 });
     if (e.elite) {
       run.pickups.push({ x: e.x, y: e.y, kind: 'fragment', t: 0 });
       run.pickups.push({ x: e.x + 20, y: e.y, kind: 'heal', t: 0 });
@@ -353,6 +373,7 @@ export function createLogic(canvas) {
       color: d.color, shape: d.shape, xp: d.xp * (elite ? 25 : 1), ranged: d.ranged || null,
       shootCd: d.ranged ? rand(1, d.ranged.cd) : 0, elite, seed: Math.random() * 10,
       slowT: 0, slow: 0, burnT: 0, burnDps: 0, frozen: 0, flash: 0, kx: 0, ky: 0, hits: {},
+      bh: d.behavior || null, bcd: rand(0.5, 2.5), st: null, stT: 0,
     };
     run.enemies.push(e);
     return e;
@@ -400,11 +421,93 @@ export function createLogic(canvas) {
       }
       banner('Прилив Бездны', 'Они окружают тебя', 2);
     }
+    // сценарные события
+    const ev = DATA.rules.events;
+    if (run.evDone < ev.length && t >= ev[run.evDone].t) {
+      if (!run.boss) runEvent(ev[run.evDone].kind);
+      run.evDone++;
+    }
+    // разломы Бездны выпускают тварей
+    for (const rf of run.rifts) {
+      rf.t += dt; rf.acc += dt;
+      while (rf.acc >= 0.42 && rf.t < rf.life) {
+        rf.acc -= 0.42;
+        if (run.enemies.length < DATA.rules.maxEnemies + 40) makeEnemy(types[Math.random() < 0.7 ? 0 : 1], rf.x + rand(-30, 30), rf.y + rand(-30, 30));
+      }
+    }
+    run.rifts = run.rifts.filter((rf) => rf.t < rf.life + 1);
     // босс
     if (!run.bossSpawned && t >= DATA.rules.bossTime) {
       run.bossSpawned = true;
       spawnBoss();
     }
+  }
+
+  function runEvent(kind) {
+    const types = run.ch.enemies, p = run.p;
+    if (kind === 'rush') {
+      const a = Math.random() * TAU, R0 = Math.hypot(W, H) / 2 + 40, n = 16 + run.chId * 4;
+      for (let i = 0; i < n; i++) {
+        const aa = a + rand(-0.35, 0.35), rr = R0 + rand(0, 160);
+        const e = makeEnemy(types[0], p.x + Math.cos(aa) * rr, p.y + Math.sin(aa) * rr);
+        e.rush = true;
+      }
+      run.eventDir = a; run.eventDirT = 3;
+      banner('Натиск', 'Орда идёт с одной стороны', 2);
+    } else if (kind === 'ambush') {
+      const rt = types.find((t) => DATA.enemies[t].ranged) || 'deadmage', n = 6 + run.chId;
+      for (let i = 0; i < n; i++) { const a = i / n * TAU + rand(-0.2, 0.2); makeEnemy(rt, p.x + Math.cos(a) * 330, p.y + Math.sin(a) * 330); }
+      banner('Засада', 'Стрелки окружили тебя', 2);
+    } else if (kind === 'rift') {
+      const a = Math.random() * TAU;
+      run.rifts.push({ x: p.x + Math.cos(a) * 280, y: p.y + Math.sin(a) * 280, t: 0, life: 10, acc: 0 });
+      banner('Разлом Бездны', 'Из трещины лезут твари — не стой рядом', 2);
+    } else if (kind === 'pack') {
+      const a = Math.random() * TAU, n = 3 + (run.chId > 1 ? 1 : 0);
+      for (let i = 0; i < n; i++) {
+        const aa = a + (i - n / 2) * 0.3, R0 = Math.hypot(W, H) / 2 + 30;
+        const e = makeEnemy(types[2], p.x + Math.cos(aa) * R0, p.y + Math.sin(aa) * R0);
+        e.hp *= 3.5; e.maxHp *= 3.5; e.r *= 1.25; e.xp *= 5; e.champion = true;
+      }
+      banner('Стая чемпионов', 'Сильные твари — с них падает больше эфира', 2);
+    }
+  }
+
+  // -------------------------------------------------------------------
+  //  Разрушаемые объекты (урны, коконы, кристаллы)
+  // -------------------------------------------------------------------
+  function updateProps(dt) {
+    const p = run.p;
+    run.propT -= dt;
+    if (run.propT <= 0) {
+      run.propT = 6;
+      run.props = run.props.filter((o) => dist2(o.x, o.y, p.x, p.y) < 1700 * 1700);
+      let near = 0;
+      for (const o of run.props) if (dist2(o.x, o.y, p.x, p.y) < 900 * 900) near++;
+      if (near < 4) {
+        const a = Math.random() * TAU, r = rand(320, 720);
+        run.props.push({ x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, seed: Math.random() * 10 });
+      }
+    }
+    for (const o of run.props) if (!o.dead && dist2(o.x, o.y, p.x, p.y) < (p.r + 18) ** 2) breakProp(o);
+    run.props = run.props.filter((o) => !o.dead);
+    for (const b of run.propBreaks) b.t += dt;
+    run.propBreaks = run.propBreaks.filter((b) => b.t < 1.2);
+  }
+  function breakPropsAt(x, y, r) {
+    for (const o of run.props) if (!o.dead && dist2(o.x, o.y, x, y) < (r + 16) ** 2) breakProp(o);
+  }
+  function breakProp(o) {
+    if (o.dead) return;
+    o.dead = true;
+    run.propBreaks.push({ x: o.x, y: o.y, t: 0, seed: o.seed });
+    particles(o.x, o.y, '#c8b088', 12, 160, 0.6, 3);
+    const r = Math.random();
+    if (r < 0.55) { const n = 3 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) dropGem(o.x + rand(-18, 18), o.y + rand(-18, 18), 1 + (Math.random() * 2 | 0)); }
+    else if (r < 0.75) run.pickups.push({ x: o.x, y: o.y, kind: 'heal', t: 0 });
+    else if (r < 0.85) run.pickups.push({ x: o.x, y: o.y, kind: 'magnet', t: 0 });
+    else if (r < 0.95) run.pickups.push({ x: o.x, y: o.y, kind: 'power', t: 0 });
+    else { run.bonusEther = (run.bonusEther || 0) + 15; texts(o.x, o.y - 20, '+15 Эфира', '#c9a8ff', 15); }
   }
 
   function spawnBoss() {
@@ -444,6 +547,13 @@ export function createLogic(canvas) {
     const hpf = e.hp / e.maxHp;
     const enraged = hpf < 0.5;
     let move = true, spd = e.speed;
+    if (enraged && !ai.p2 && e.bossId !== 'abyss_lord') {
+      ai.p2 = true;
+      const P2 = { fallen_knight: ['Клятва нарушена', 'Кадмон больше не держит строй'], devourer: ['Голод без дна', 'Корни леса тянутся к тебе'], soulless_king: ['Корона в огне', 'Король призывает дождь проклятий'] }[e.bossId];
+      banner(P2[0], P2[1], 2.2);
+      run.shake = 16; ringShots(e, 24, 190, 0, '#ff8a7a', 8);
+      e.speed *= 1.15;
+    }
 
     if (ai.mode === 'windup') {
       move = false; ai.mt -= dt;
@@ -452,6 +562,7 @@ export function createLogic(canvas) {
       move = false; ai.mt -= dt;
       e.x += ai.vx * dt; e.y += ai.vy * dt;
       if (Math.random() < 0.6) particles(e.x, e.y, '#ff5a5a', 1, 40, 0.4);
+      if (ai.p2 && e.bossId === 'fallen_knight') { ai.trail = (ai.trail || 0) - dt; if (ai.trail <= 0) { ai.trail = 0.07; hazard(e.x, e.y, 42, 0.55, e.dmg * 0.7, '#ff5030'); } }
       if (ai.mt <= 0) {
         ai.mode = 'walk';
         if (e.bossId === 'fallen_knight' || e.bossId === 'abyss_lord') ringShots(e, enraged ? 14 : 10, 170, ai.t, '#ff7a7a', 7);
@@ -475,6 +586,11 @@ export function createLogic(canvas) {
         if (ai.a <= 0) { ai.a = 2.6; for (let i = -2; i <= 2; i++) eShot(e.x, e.y, ang + i * 0.22, 190, e.dmg * 0.55, '#a6ff5a', 9); }
         if (ai.b <= 0) { ai.b = 8; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; makeEnemy('wolf', e.x + Math.cos(a) * 80, e.y + Math.sin(a) * 80); } }
         if (enraged && ai.c <= 0) { ai.c = 3.5; ringShots(e, 22, 150, ai.t, '#7dff7a', 8); }
+        if (ai.p2 && ai.d <= 0) {
+          ai.d = 3.2;
+          hazard(p.x, p.y, 70, 1.0, e.dmg, '#7dff5a');
+          for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + ai.t; hazard(p.x + Math.cos(a) * 125, p.y + Math.sin(a) * 125, 55, 1.15, e.dmg * 0.8, '#7dff5a'); }
+        }
         break;
       }
       case 'soulless_king': {
@@ -488,6 +604,7 @@ export function createLogic(canvas) {
           ai.a = Math.min(ai.a, 0.6);
         }
         if (ai.c <= 0) { ai.c = 9; for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + 0.7; makeEnemy('deadmage', e.x + Math.cos(a) * 90, e.y + Math.sin(a) * 90); } }
+        if (ai.p2) { ai.rain = (ai.rain || 0) - dt; if (ai.rain <= 0) { ai.rain = 2.6; hazard(p.x, p.y, 75, 1.0, e.dmg, '#ffd060'); hazard(p.x + rand(-140, 140), p.y + rand(-140, 140), 75, 1.15, e.dmg, '#ffd060'); hazard(p.x + rand(-140, 140), p.y + rand(-140, 140), 75, 1.3, e.dmg, '#ffd060'); } }
         if (enraged) { ai.spin += dt; if (ai.d <= 0) { ai.d = 0.16; eShot(e.x, e.y, ai.spin * 2.2, 180, e.dmg * 0.5, '#fff0a0', 6); eShot(e.x, e.y, ai.spin * 2.2 + Math.PI, 180, e.dmg * 0.5, '#fff0a0', 6); } }
         break;
       }
@@ -692,6 +809,7 @@ export function createLogic(canvas) {
   }
 
   function explode(x, y, R, dmg, el, color) {
+    breakPropsAt(x, y, R);
     for (const e of query(x, y, R, [])) damage(e, dmg, el);
     run.blasts.push({ x, y, r: R, life: 0.3, max: 0.3, color });
     particles(x, y, color, 14, R * 2, 0.45, 3);
@@ -738,6 +856,9 @@ export function createLogic(canvas) {
 
     buildGrid();
     spawnTick(dt);
+    updateProps(dt);
+    if (run.buffT > 0) run.buffT -= dt;
+    if (run.eventDirT > 0) run.eventDirT -= dt;
     updateWeapons(dt);
 
     // --- враги
@@ -753,15 +874,34 @@ export function createLogic(canvas) {
       if (e.frozen > 0) { e.frozen -= dt; }
       else if (e.boss) bossAI(e, dt);
       else {
-        let spd = e.speed;
+        let spd = e.speed * (e.rush ? 1.45 : 1);
         if (e.slowT > 0) { e.slowT -= dt; spd *= 1 - e.slow; }
         const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
+        e.face = dx >= 0 ? 1 : -1;
+        if (e.bcd > 0) e.bcd -= dt;
+        let free = true;
+        if (e.st === 'wind') {
+          // подготовка атаки — враг замирает (виден сигнал)
+          free = false; e.stT -= dt;
+          if (e.stT <= 0) {
+            if (e.bh === 'lunge') { e.st = 'dash'; e.stT = 0.3; const v = Math.max(320, e.speed * 3.8); e.dvx = Math.cos(e.ta) * v; e.dvy = Math.sin(e.ta) * v; }
+            else if (e.bh === 'bomb') { e.st = null; kill(e); continue; }
+            else { e.st = null; e.atk = 0.35; run.shake = Math.max(run.shake, 3); }
+          }
+        } else if (e.st === 'dash') {
+          free = false; e.stT -= dt;
+          e.x += e.dvx * dt; e.y += e.dvy * dt;
+          if (e.stT <= 0) e.st = null;
+        } else if (e.bh && e.bcd <= 0) {
+          if (e.bh === 'lunge' && d < 200 && d > 45) { e.st = 'wind'; e.stT = 0.42; e.ta = Math.atan2(dy, dx); e.bcd = rand(2.6, 4.2); free = false; }
+          else if (e.bh === 'slam' && d < e.r + 85) { e.st = 'wind'; e.stT = 0.8; e.bcd = rand(3.5, 5); hazard(e.x, e.y, 55 + e.r * 1.6, 0.8, e.dmg * 1.3, '#ff6a3a'); free = false; }
+          else if (e.bh === 'bomb' && d < 85) { e.st = 'wind'; e.stT = 0.65; e.bcd = 99; hazard(e.x, e.y, 82, 0.65, e.dmg * 1.6, '#d060ff'); free = false; }
+        }
         // стрелки держат дистанцию
         let dir = 1;
         if (e.ranged && d < e.ranged.range * 0.65) dir = -0.4;
-        e.x += (dx / d) * spd * dt * dir; e.y += (dy / d) * spd * dt * dir;
-        e.face = dx >= 0 ? 1 : -1;
-        if (e.ranged) {
+        if (free) { e.x += (dx / d) * spd * dt * dir; e.y += (dy / d) * spd * dt * dir; }
+        if (e.ranged && free) {
           e.shootCd -= dt;
           if (e.shootCd <= 0 && d < e.ranged.range) {
             e.shootCd = e.ranged.cd * rand(0.8, 1.2);
@@ -803,6 +943,7 @@ export function createLogic(canvas) {
         }
       }
       s.x += s.vx * dt; s.y += s.vy * dt;
+      for (const o of run.props) if (!o.dead && dist2(o.x, o.y, s.x, s.y) < 22 * 22) breakProp(o);
       if (s.kind === 'orb' && s.life <= 0) { explode(s.x, s.y, s.blast, s.dmg, 'void', '#b46cff'); continue; }
       for (const e of query(s.x, s.y, s.r)) {
         if (s.hit.has(e)) continue;
@@ -943,6 +1084,7 @@ export function createLogic(canvas) {
   function collect(k) {
     const p = run.p;
     if (k.kind === 'heal') { const v = Math.round(p.maxHp * 0.3); p.hp = Math.min(p.maxHp, p.hp + v); texts(p.x, p.y - 30, '+' + v, '#7dffa8', 16); }
+    else if (k.kind === 'power') { run.buffT = 10; texts(p.x, p.y - 30, 'Сила Эфира! +50% урона', '#ffb0ff', 16); run.flash = 0.4; run.flashColor = '#d080ff'; }
     else if (k.kind === 'magnet') { for (const g of run.gems) g.mag = true; texts(p.x, p.y - 30, 'Притяжение!', '#9ad0ff', 16); }
     else if (k.kind === 'fragment') {
       const f = Save.unlockNextFragment(run.chId);

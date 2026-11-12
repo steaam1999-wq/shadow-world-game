@@ -201,3 +201,22 @@ body.touch .desk-only { display: none; }
   .logo { font-size: 40px; }
   .epigraph { margin: 10px auto 14px; }
 }
+
+/* стратегия улучшений */
+.card-pips { display: flex; gap: 4px; justify-content: center; margin-top: 10px; }
+.card-pips span { width: 16px; height: 5px; border-radius: 2px; background: #2a2140; }
+.card-pips span.on { background: #b48cff; }
+.card-pips span.new { background: #ffd86b; box-shadow: 0 0 6px #ffd86b; animation: pipPulse 0.8s ease-in-out infinite alternate; }
+@keyframes pipPulse { from { opacity: 0.5; } to { opacity: 1; } }
+.card-hint { margin-top: 8px; font-size: 12px; color: #9b90b3; font-style: italic; line-height: 1.35; }
+.card-hint.ready { color: #ffd86b; }
+.lu-build { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 4px auto 14px; max-width: 900px; }
+.lu-build .bi-title { width: 100%; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #8d82a8; }
+.lu-build .bi { display: flex; align-items: center; gap: 6px; background: rgba(13,10,23,0.85); border: 1px solid #3d2f5c; border-radius: 20px; padding: 3px 10px 3px 3px; font-size: 12px; color: #c8bcdf; }
+.lu-build .bi.evo { border-color: #ffd86b; color: #ffe9b0; }
+.lu-build .bi img { width: 24px; height: 24px; border-radius: 50%; }
+@media (max-width: 700px), (max-height: 520px) {
+  .card-pips { grid-column: 2; justify-content: flex-start; margin-top: 5px; }
+  .card-hint { grid-column: 2; margin-top: 3px; font-size: 11px; }
+  .lu-build .bi { font-size: 11px; }
+}

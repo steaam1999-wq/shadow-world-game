@@ -210,14 +210,29 @@ const UI = (() => {
       const el = document.createElement('div');
       el.className = 'card' + (c.type === 'evo' ? ' evo' : '') + (c.type === 'spec' ? ' spec' : '');
       el.style.setProperty('--c', c.color);
+      const pips = c.max ? `<div class="card-pips">${Array.from({ length: c.max }, (_, k) => `<span class="${k < c.lvl ? 'on' : k < c.next ? 'new' : ''}"></span>`).join('')}</div>` : '';
+      const hint = c.hint ? `<div class="card-hint${c.ready ? ' ready' : ''}">${esc(c.hint)}</div>` : '';
       el.innerHTML = `<img class="card-icon-img" alt="" src="${Icons.url(iconOf(c))}"><div class="card-tag">${esc(c.tag)}</div>
-        <div class="card-title">${esc(c.title)}</div><div class="card-desc">${esc(c.desc)}</div><div class="card-key">${idx + 1}</div>`;
+        <div class="card-title">${esc(c.title)}</div><div class="card-desc">${esc(c.desc)}</div>${pips}${hint}<div class="card-key">${idx + 1}</div>`;
       el.onclick = () => choose(idx);
       box.appendChild(el);
     });
+    renderBuild();
     const rr = Game.rerolls;
     $('btnReroll').classList.toggle('hidden', isSpec || rr <= 0);
     $('btnReroll').textContent = 'Перебор (' + rr + ')';
+  }
+  // текущая сборка: заклинания, их уровни и путь к эволюции
+  function renderBuild() {
+    const run = Game.run;
+    if (!run) return;
+    let html = '';
+    for (const w of run.weapons) {
+      const d = DATA.weapons[w.id], has = !!run.passives[d.evo.needs];
+      const st = w.evo ? 'Эволюция получена' : (w.lvl >= 5 ? '5/5' : w.lvl + '/5') + ' · ' + DATA.passives[d.evo.needs].name + (has ? ' ✓' : ' —');
+      html += `<div class="bi${w.evo ? ' evo' : ''}"><img alt="" src="${Icons.url((w.evo ? 'evo_' : '') + w.id, 48)}"><span>${esc(st)}</span></div>`;
+    }
+    $('luBuild').innerHTML = html ? '<div class="bi-title">Твоя сборка · путь к эволюциям</div>' + html : '';
   }
   function iconOf(c) {
     if (c.type === 'evo') return 'evo_' + c.id;
