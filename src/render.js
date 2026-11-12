@@ -10,7 +10,8 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { SpriteBatch, rgb } from './fx.js';
 import { makeAtlas, CELL } from './textures.js';
 import { createWorld } from './world.js';
-import { enemyModel, animate, buildHero, buildBoss, mat, PROJ } from './models.js';
+import { enemyModel, animate, buildBoss, mat, PROJ } from './models.js';
+import { buildHero } from './hero.js';
 import { Assets, loadAssets, makeAssetHero, makeAssetBoss } from './assets.js';
 
 const U = 1 / 20;                 // игровой пиксель -> мировая единица
@@ -454,9 +455,9 @@ export class Renderer {
     H.root.visible = !(run && p.invuln > 0 && p.invuln < 5 && Math.floor(this.time * 20) % 2);
     const corr = Save.data.corruption / 100;
     const auraC = corr > 0.5 ? '#c060ff' : corr > 0.2 ? '#9a80ff' : '#80a8ff';
-    this.playerLight.position.set(x, 3.2, z + 1.2);
+    this.playerLight.position.set(x, 3.4, z + 1.6);
     this.playerLight.color.set(auraC);
-    this.playerLight.intensity = 16 + (p.castT || 0) * 50;
+    this.playerLight.intensity = 13 + (p.castT || 0) * 22;
     // постоянная метка героя — его видно в любой толпе
     if (run) {
       this.gAdd.add(x, 0.035, z, 1.7, 1.7, 1.6, 1.25, 0.55, 0.55, 0, CELL.RING);
@@ -469,10 +470,10 @@ export class Renderer {
     if (p.heart >= 100) this.gAdd.add(x, 0.04, z, 3.6, 3.6, 1.6, 0.6, 2.2, 0.45 + Math.sin(this.time * 6) * 0.2, -this.time, CELL.SIGIL);
     // свечение кристалла посоха
     const cp = new THREE.Vector3(); H.crystal.getWorldPosition(cp);
-    this.add.add(cp.x, cp.y, cp.z, 0.7 + cast * 0.5, 0.7 + cast * 0.5, 1.0, 0.45, 1.5, 0.45, 0, CELL.GLOW);
-    if (p.heart >= 100) this.add.add(cp.x, cp.y, cp.z, 1.2, 1.2, 1.2, 0.5, 1.6, 0.45, this.time, CELL.STAR);
+    this.add.add(cp.x, cp.y, cp.z, 0.55 + cast * 0.3, 0.55 + cast * 0.3, 0.55, 0.18, 1.0, 0.35, 0, CELL.GLOW);
+    if (p.heart >= 100) this.add.add(cp.x, cp.y, cp.z, 0.8, 0.8, 0.8, 0.3, 1.3, 0.35, this.time, CELL.STAR);
     const op = new THREE.Vector3(); H.orb.getWorldPosition(op);
-    this.add.add(op.x, op.y, op.z, 0.45 + cast * 0.6, 0.45 + cast * 0.6, 1.0, 0.45, 1.6, 0.5, 0, CELL.GLOW);
+    this.add.add(op.x, op.y, op.z, 0.35 + cast * 0.35, 0.35 + cast * 0.35, 0.6, 0.2, 1.1, 0.35, 0, CELL.GLOW);
     if (run && Math.random() < 0.3) this.emit(op.x, op.y, op.z, rand(-0.3, 0.3), 0.8, rand(-0.3, 0.3), 0.6, 0.12, '#d0a0ff', CELL.DOT);
   }
 
