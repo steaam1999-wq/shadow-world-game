@@ -21,7 +21,7 @@ export class Hud {
     this.W = window.innerWidth; this.H = window.innerHeight;
     this.c.width = this.W * this.dpr; this.c.height = this.H * this.dpr;
     this.c.style.width = this.W + 'px'; this.c.style.height = this.H + 'px';
-    this.small = this.W < 700;
+    this.small = Math.min(this.W, this.H) < 520;
   }
 
   // кованая рамка
@@ -172,8 +172,8 @@ export class Hud {
     const s = sm ? 34 : 46, gap = 6;
     const wn = DATA.rules.weaponSlots;
     const totalW = wn * (s + gap) - gap;
-    let sx = sm ? W - totalW - 12 : (W - totalW) / 2, sy = H - s - 14;
-    if (sm) sy = H - s - 90;
+    // на телефоне: ячейки над портретом слева, справа внизу — кнопка Сердца
+    let sx = sm ? 12 : (W - totalW) / 2, sy = sm ? H - 2 * pr - 44 - s : H - s - 14;
     for (let i = 0; i < wn; i++) {
       const w = run.weapons[i];
       if (w) this.slot(sx, sy, s, (w.evo ? 'evo_' : '') + w.id, w.evo ? '★' : String(w.lvl), DATA.weapons[w.id].color, w.evo);
@@ -181,7 +181,7 @@ export class Hud {
       sx += s + gap;
     }
     const ps = sm ? 24 : 30, pids = Object.keys(run.passives);
-    let qx = (sm ? W - totalW - 12 : (W - totalW) / 2), qy = sy - ps - 8;
+    let qx = (sm ? 12 : (W - totalW) / 2), qy = sy - ps - 8;
     for (const id of pids) { this.slot(qx, qy, ps, id, String(run.passives[id]), '#d8c8ff', false); qx += ps + 4; }
     if (run.spec && !sm) {
       const sp = DATA.specs[run.spec];

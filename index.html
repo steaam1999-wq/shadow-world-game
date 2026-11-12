@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <script>if ('ontouchstart' in window) document.body.classList.add('touch');</script>
   <canvas id="game"></canvas>
   <canvas id="hud"></canvas>
 
@@ -21,7 +22,8 @@
         <button id="btnPrologue" class="btn">Пролог</button>
         <button id="btnReset" class="btn ghost">Сбросить прогресс</button>
       </div>
-      <div class="controls-hint">WASD / стрелки — движение · ПРОБЕЛ — Сердце Эфира · ESC — пауза · 1-3 — выбор улучшения</div>
+      <div class="controls-hint desk-only">WASD / стрелки — движение · ПРОБЕЛ — Сердце Эфира · ESC — пауза · 1-3 — выбор улучшения</div>
+      <div class="controls-hint touch-only">Веди пальцем по экрану — движение · фиолетовая кнопка — Сердце Эфира · ❚❚ — пауза</div>
     </div>
   </section>
 

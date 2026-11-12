@@ -147,7 +147,7 @@ canvas#hud { position: fixed; inset: 0; display: block; pointer-events: none; z-
 .toast.show { transform: translateX(0); opacity: 1; }
 .toast-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
 .toast-text { font-size: 15px; color: #efe6ff; margin-top: 2px; }
-.heart-btn { position: fixed; right: 24px; bottom: 70px; z-index: 15; width: 72px; height: 72px; border-radius: 50%; font-size: 32px;
+.heart-btn { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom)); z-index: 15; width: 76px; height: 76px; border-radius: 50%; font-size: 32px;
   color: #ffd6ff; background: radial-gradient(#6a2cb0, #2a1045); border: 2px solid #b46cff; box-shadow: 0 0 20px #b46cff88; }
 
 @media (max-width: 700px) {
@@ -158,7 +158,7 @@ canvas#hud { position: fixed; inset: 0; display: block; pointer-events: none; z-
   .chapter-card { gap: 10px; }
   .ch-roman { width: 36px; font-size: 26px; }
 }
-.pause-btn { position: fixed; right: 12px; top: 58px; z-index: 15; width: 42px; height: 42px; border-radius: 8px; font-size: 14px;
+.pause-btn { position: fixed; left: max(12px, env(safe-area-inset-left)); top: 22px; z-index: 15; width: 42px; height: 42px; border-radius: 8px; font-size: 14px;
   color: #d8c8ff; background: #120d20cc; border: 1px solid #4a3a70; }
 .ask { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(4,3,8,0.8); padding: 20px; }
 .ask-text { font-size: 18px; line-height: 1.5; text-align: center; color: #efe6ff; }
@@ -168,3 +168,36 @@ canvas#hud { position: fixed; inset: 0; display: block; pointer-events: none; z-
 .heart-btn { padding: 0; overflow: hidden; }
 .logo { text-shadow: 0 0 18px #9b5cff, 0 0 60px #6a2cff88, 0 4px 18px #000; }
 .panel { background: linear-gradient(rgba(23,17,42,0.92), rgba(15,11,27,0.94)); border-color: #6a5430; box-shadow: 0 10px 60px #000a, inset 0 0 40px #2a1a4a55, 0 0 0 1px #2a1d10; }
+
+/* центрирование без обрезки: если содержимое выше экрана, его можно прокрутить */
+.screen { align-items: stretch; justify-content: stretch; }
+.screen > * { margin: auto; }
+#dialog > .dlg-box { margin: auto auto 0; }
+#dialog.ending-style > .dlg-box { margin: auto; }
+#hub > .panel { margin: 20px auto; }
+.heart-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.pause-btn { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.touch-only { display: none; }
+body.touch .touch-only { display: block; }
+body.touch .desk-only { display: none; }
+
+@media (max-width: 700px), (max-height: 520px) {
+  .lu-wrap h2 { font-size: 26px; }
+  .cards { gap: 10px; margin: 14px 0 10px; }
+  .card, .cards.spec .card, .ending-card { width: 100%; max-width: 520px; min-height: 0; padding: 12px 14px;
+    display: grid; grid-template-columns: 58px 1fr; column-gap: 12px; align-items: center; text-align: left; }
+  .card .card-icon-img { width: 54px; height: 54px; grid-row: 1 / span 3; }
+  .card-tag { margin: 0; }
+  .card-title { font-size: 17px; margin: 0; }
+  .card-desc { font-size: 13px; grid-column: 2; }
+  .card-key { display: none; }
+  .panel h2 { font-size: 24px; }
+  .dlg-box { padding: 16px 18px 10px; }
+  .dlg-text { font-size: 17px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .cards { flex-direction: row; flex-wrap: wrap; }
+  .card, .cards.spec .card, .ending-card { width: calc(50% - 10px); }
+  .logo { font-size: 40px; }
+  .epigraph { margin: 10px auto 14px; }
+}

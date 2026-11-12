@@ -34,8 +34,9 @@ export class Renderer {
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
-    const touch = 'ontouchstart' in window && Math.min(screen.width, screen.height) < 900;
-    this.quality = touch ? 1 : 2;
+    // телефоны: высокое качество (без теней врагов), дальше — автоподстройка по FPS
+    this.touch = 'ontouchstart' in window && Math.min(screen.width, screen.height) < 900;
+    this.quality = 2;
     this.fpsAcc = 0; this.fpsN = 0; this.fpsT = 0;
 
     // спрайтовые пакеты
@@ -100,7 +101,7 @@ export class Renderer {
     const q = this.quality, dpr = window.devicePixelRatio || 1;
     this.gl.setPixelRatio(q === 2 ? Math.min(dpr, 1.5) : q === 1 ? Math.min(dpr, 1) : 0.75);
     this.gl.shadowMap.enabled = q > 0;
-    this.enemyShadows = q === 2;
+    this.enemyShadows = q === 2 && !this.touch;
     for (const t of this.enemyTypes.values()) for (const m of t.meshes) m.im.castShadow = this.enemyShadows;
     if (this.world) this.world.setShadows(q > 0);
     if (this.world) this.world.sun.shadow.mapSize.set(q === 2 ? 2048 : 1024, q === 2 ? 2048 : 1024);
@@ -118,7 +119,7 @@ export class Renderer {
     this.camera.aspect = w / h;
     // на узких экранах поднимаем камеру, чтобы видеть поле
     const k = Math.max(1, 1.1 / (w / h));
-    this.camK = Math.min(1.7, k);
+    this.camK = Math.min(1.42, k);
     this.camera.updateProjectionMatrix();
   }
 
