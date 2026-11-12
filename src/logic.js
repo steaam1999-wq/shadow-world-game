@@ -6,6 +6,8 @@
 export const TAU = Math.PI * 2;
 export const view = { W: 1280, H: 760 };   // видимая область в игровых пикселях
 
+const snd = (n, v) => { if (window.Sound) window.Sound.play(n, v); };
+
 export function createLogic(canvas) {
   let W = 1280, H = 760;
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -261,6 +263,7 @@ export function createLogic(canvas) {
     if (p.heart < 100) return;
     p.heart = 0;
     run.heartUses++;
+    snd('heart');
     Save.addCorruption(2);
     const R = Math.max(W, H) * 0.75;
     const list = query(p.x, p.y, R, []);
@@ -306,6 +309,7 @@ export function createLogic(canvas) {
     if (run.buffT > 0) dmg *= 1.5;
     e.hp -= dmg;
     e.flash = 0.08;
+    if (el !== 'burn') snd('hit');
     run.dealt = (run.dealt || 0) + dmg;
     if (crit && !noText) texts(e.x + rand(-6, 6), e.y - e.r - 6, Math.round(dmg) + '!', '#ffd04a', 18);
     else if (!noText && (dmg >= 8 || Math.random() < 0.3)) texts(e.x + rand(-6, 6), e.y - e.r - 4, Math.round(dmg), el === 'burn' ? '#ffa860' : '#ffffff', dmg > 60 ? 16 : 12);
@@ -314,6 +318,7 @@ export function createLogic(canvas) {
 
   function kill(e) {
     e.dead = true;
+    snd('death');
     if (run.dying.length < 120) run.dying.push({ e, t: 0 });
     run.kills++;
     const p = run.p;
@@ -444,6 +449,7 @@ export function createLogic(canvas) {
   }
 
   function runEvent(kind) {
+    snd('event');
     const types = run.ch.enemies, p = run.p;
     if (kind === 'rush') {
       const a = Math.random() * TAU, R0 = Math.hypot(W, H) / 2 + 40, n = 16 + run.chId * 4;
@@ -500,6 +506,7 @@ export function createLogic(canvas) {
   function breakProp(o) {
     if (o.dead) return;
     o.dead = true;
+    snd('crack');
     run.propBreaks.push({ x: o.x, y: o.y, t: 0, seed: o.seed });
     particles(o.x, o.y, '#c8b088', 12, 160, 0.6, 3);
     const r = Math.random();
@@ -522,6 +529,7 @@ export function createLogic(canvas) {
     run.enemies.push(e);
     run.boss = e;
     run.shake = 10;
+    snd('roar');
     if (UI.onBoss) UI.onBoss(d);
   }
 
@@ -530,12 +538,16 @@ export function createLogic(canvas) {
   // -------------------------------------------------------------------
   function eShot(x, y, a, speed, dmg, color, r = 6) {
     if (run.boss && x === run.boss.x && y === run.boss.y) run.boss.atk = 0.4;
+    snd('eshot');
     run.eShots.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, dmg, color, r, life: 6 });
   }
   function ringShots(e, n, speed, off, color, r) {
     for (let i = 0; i < n; i++) eShot(e.x, e.y, off + i / n * TAU, speed, e.dmg * 0.6, color, r);
   }
-  function hazard(x, y, r, delay, dmg, color) { run.hazards.push({ x, y, r, t: 0, delay, dmg, color, done: false }); }
+  function hazard(x, y, r, delay, dmg, color) {
+    snd('warn');
+    run.hazards.push({ x, y, r, t: 0, delay, dmg, color, done: false });
+  }
 
   // -------------------------------------------------------------------
   //  ИИ боссов
@@ -550,7 +562,7 @@ export function createLogic(canvas) {
     if (enraged && !ai.p2 && e.bossId !== 'abyss_lord') {
       ai.p2 = true;
       const P2 = { fallen_knight: ['Клятва нарушена', 'Кадмон больше не держит строй'], devourer: ['Голод без дна', 'Корни леса тянутся к тебе'], soulless_king: ['Корона в огне', 'Король призывает дождь проклятий'] }[e.bossId];
-      banner(P2[0], P2[1], 2.2);
+      banner(P2[0], P2[1], 2.2); snd('phase');
       run.shake = 16; ringShots(e, 24, 190, 0, '#ff8a7a', 8);
       e.speed *= 1.15;
     }
@@ -612,7 +624,7 @@ export function createLogic(canvas) {
         const phase = hpf > 0.66 ? 1 : hpf > 0.33 ? 2 : 3;
         if (phase !== ai.phase) {
           ai.phase = phase;
-          if (phase > 1) { banner('Фаза ' + phase, phase === 2 ? 'Бездна пробуждается' : 'Последний вздох Владыки', 2); run.shake = 15; ringShots(e, 30, 200, 0, '#e08bff', 8); }
+          if (phase > 1) { snd('phase'); banner('Фаза ' + phase, phase === 2 ? 'Бездна пробуждается' : 'Последний вздох Владыки', 2); run.shake = 15; ringShots(e, 30, 200, 0, '#e08bff', 8); }
         }
         ai.spin += dt;
         if (ai.d <= 0) {
@@ -660,11 +672,13 @@ export function createLogic(canvas) {
   }
 
   function shoot(o) {
+    snd(o.kind === 'shard' ? 'shard' : o.kind === 'orb' ? 'orb' : 'bolt');
     run.p.castT = 0.3; run.p.castA = Math.atan2(o.vy, o.vx);
     run.shots.push(Object.assign({ pierce: 1, life: 2, r: 6, hit: new Set(), homing: 0, kind: 'bolt', slow: 0 }, o));
   }
 
   function chainLightning(start, dmg, jumps, range) {
+    snd('zap');
     run.p.castT = 0.3; run.p.castA = Math.atan2(start.y - run.p.y, start.x - run.p.x);
     let cur = start, prevX = run.p.x, prevY = run.p.y - 10;
     const hit = new Set();
@@ -713,6 +727,7 @@ export function createLogic(canvas) {
             w.cd = 0.55 * CD;
             for (let i = 0; i < 3 + A; i++) {
               const t = randomEnemyOnScreen(); if (!t) break;
+              snd('zap');
               run.lines.push({ x1: t.x + rand(-40, 40), y1: t.y - 500, x2: t.x, y2: t.y, life: 0.2, color: '#fffbd0', wide: true });
               for (const e of query(t.x, t.y, 60 * AR, [])) damage(e, 40 * D, 'storm');
               run.blasts.push({ x: t.x, y: t.y, r: 60 * AR, life: 0.2, max: 0.2, color: '#fff27a' });
@@ -738,6 +753,7 @@ export function createLogic(canvas) {
           if (w.cd > 0) break;
           const R = (w.evo ? 260 : 110 + (L >= 2 ? 25 : 0) + (L >= 4 ? 30 : 0)) * AR;
           w.cd = (w.evo ? 1.6 : 3.0 - (L >= 3 ? 0.5 : 0) - (L >= 5 ? 0.5 : 0)) * CD;
+          snd('nova');
           run.rings.push({ x: p.x, y: p.y, r: 8, max: R, speed: R * 2.6, dmg: (w.evo ? 45 : 18 + (L >= 2 ? 6 : 0) + (L >= 4 ? 8 : 0) + (L >= 5 ? 8 : 0)) * D, hit: new Set(), color: '#ff8a3c', el: 'fire', burn: (w.evo ? 18 : 4 + L * 2) * D, width: 10 });
           break;
         }
@@ -749,7 +765,7 @@ export function createLogic(canvas) {
               const R = 420 * AR;
               for (const e of query(p.x, p.y, R, [])) { e.frozen = e.boss ? 0.6 : 2.2; damage(e, 40 * D, 'frost'); }
               run.rings.push({ x: p.x, y: p.y, r: 10, max: R, speed: 1400, dmg: 0, hit: null, color: '#bff8ff', visual: true, width: 14 });
-              run.flash = 0.25; run.flashColor = '#bff8ff';
+              run.flash = 0.25; run.flashColor = '#bff8ff'; snd('freeze');
             }
           }
           if (w.cd > 0) break;
@@ -777,7 +793,7 @@ export function createLogic(canvas) {
               if (run.time - last < 0.35) continue;
               e.hits.blood = run.time;
               e.bladeKill = true;
-              damage(e, dmg, 'blood');
+              damage(e, dmg, 'blood'); snd('blade');
               if (!e.dead) e.bladeKill = false;
               if (w.evo) p.hp = Math.min(p.maxHp, p.hp + dmg * 0.01);
               particles(e.x, e.y, '#ff3b5c', 2, 80, 0.3);
@@ -809,6 +825,7 @@ export function createLogic(canvas) {
   }
 
   function explode(x, y, R, dmg, el, color) {
+    snd('boom');
     breakPropsAt(x, y, R);
     for (const e of query(x, y, R, [])) damage(e, dmg, el);
     run.blasts.push({ x, y, r: R, life: 0.3, max: 0.3, color });
@@ -824,6 +841,7 @@ export function createLogic(canvas) {
     if (p.invuln > 0 || run.victoryT >= 0) return;
     p.hp -= d;
     p.invuln = 0.5;
+    snd('hurt');
     run.shake = Math.max(run.shake, 7);
     run.flash = Math.max(run.flash, 0.25); run.flashColor = '#ff2040';
     texts(p.x, p.y - 26, '-' + Math.round(d), '#ff6a7a', 15);
@@ -1062,6 +1080,7 @@ export function createLogic(canvas) {
   function gainXp(v) {
     const p = run.p;
     p.xp += v;
+    snd('gem');
     run.xpTotal = (run.xpTotal || 0) + v;
     p.heart = Math.min(100, p.heart + v * 0.55 * (run.spec === 'void' ? 2 : 1));
     while (p.xp >= p.xpNext) {
@@ -1074,6 +1093,7 @@ export function createLogic(canvas) {
   }
 
   function levelUp() {
+    snd('level');
     run.paused = true;
     const p = run.p;
     particles(p.x, p.y, '#9ad0ff', 24, 200, 0.6);
@@ -1083,6 +1103,9 @@ export function createLogic(canvas) {
 
   function collect(k) {
     const p = run.p;
+    if (k.kind === 'heal') snd('heal');
+    if (k.kind === 'fragment') snd('chime');
+    if (k.kind === 'power') snd('power');
     if (k.kind === 'heal') { const v = Math.round(p.maxHp * 0.3); p.hp = Math.min(p.maxHp, p.hp + v); texts(p.x, p.y - 30, '+' + v, '#7dffa8', 16); }
     else if (k.kind === 'power') { run.buffT = 10; texts(p.x, p.y - 30, 'Сила Эфира! +50% урона', '#ffb0ff', 16); run.flash = 0.4; run.flashColor = '#d080ff'; }
     else if (k.kind === 'magnet') { for (const g of run.gems) g.mag = true; texts(p.x, p.y - 30, 'Притяжение!', '#9ad0ff', 16); }
@@ -1100,6 +1123,7 @@ export function createLogic(canvas) {
     if (run.over) return;
     run.over = true;
     run.paused = true;
+    snd(victory ? 'victory' : 'defeat');
     const s = Save.data;
     const ether = Math.floor(run.kills / 8) + Math.floor(run.time / 6) + (victory ? 80 + run.chId * 40 : 0) + (run.bonusEther || 0);
     s.ether += ether;

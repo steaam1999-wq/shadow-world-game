@@ -402,6 +402,20 @@ const UI = (() => {
       }
     });
     $('heartBtn').innerHTML = `<img alt="" src="${Icons.url('void', 96)}">`;
+    // звук
+    const refreshAudio = () => {
+      const S = window.Sound; if (!S) return;
+      $('btnMusic').textContent = 'Музыка: ' + (S.musicOn ? 'вкл' : 'выкл');
+      $('btnSfx').textContent = 'Звуки: ' + (S.sfxOn ? 'вкл' : 'выкл');
+      $('btnMusic').classList.toggle('off', !S.musicOn); $('btnSfx').classList.toggle('off', !S.sfxOn);
+      const all = S.musicOn || S.sfxOn;
+      $('btnHubAudio').textContent = all ? 'Звук: вкл' : 'Звук: выкл';
+    };
+    $('btnMusic').onclick = () => { Sound.unlock(); Sound.setMusic(!Sound.musicOn); refreshAudio(); };
+    $('btnSfx').onclick = () => { Sound.unlock(); Sound.setSfx(!Sound.sfxOn); refreshAudio(); };
+    $('btnHubAudio').onclick = () => { Sound.unlock(); const on = !(Sound.musicOn || Sound.sfxOn); Sound.setMusic(on); Sound.setSfx(on); refreshAudio(); };
+    refreshAudio();
+    document.addEventListener('click', (e) => { if (e.target.closest('.btn, .card, .tab, .chapter-card') && window.Sound) Sound.play('ui'); });
     toTitle();
   }
 

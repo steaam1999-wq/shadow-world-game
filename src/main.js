@@ -4,6 +4,7 @@
 import { createLogic } from './logic.js';
 import { Renderer } from './render.js';
 import { Hud } from './hud.js';
+import { Sound } from './audio.js';
 
 /* global Save */
 if (!Save.data) Save.load();
@@ -24,6 +25,9 @@ try {
 }
 
 let menuKind = 'ruins';
+window.Sound = Sound;
+// iOS/Safari разрешают звук только после действия пользователя
+for (const ev of ['pointerdown', 'touchend', 'keydown', 'click']) window.addEventListener(ev, () => Sound.unlock(), { passive: true });
 let last = 0;
 function frame(t) {
   const real = Math.min(0.05, (t - last) / 1000 || 0);
@@ -37,6 +41,7 @@ function frame(t) {
   if (renderer) {
     renderer.render(logic.run, run ? (active ? real : 0) : real, menuKind);
     hud.draw(logic.run, logic.joy);
+    Sound.update(logic.run);
   }
   requestAnimationFrame(frame);
 }
