@@ -38,8 +38,8 @@ function changeRel(id, d) {
   const st = npcSt(id), n = npcById(id);
   const wasFriend = st.met && st.rel >= 61;
   st.rel = Math.max(0, Math.min(100, st.rel + d));
-  if (st.met && !wasFriend && st.rel >= 61) { addLog(`${n.name}: дружба! Бонус: ${n.perk.text}`); return `<p class="good"><b>🤝 Дружба с ${esc(n.name.split(" ")[0])}!</b><br>${n.perk.text}</p>`; }
-  if (st.met && wasFriend && st.rel < 61) { addLog(`${n.name}: дружба потеряна`); return `<p class="bad">Дружба с ${esc(n.name.split(" ")[0])} потеряна — бонус отключён.</p>`; }
+  if (st.met && !wasFriend && st.rel >= 61) { addLog(`${n.name}: дружба! Бонус: ${n.perk.text}`); return `<p class="good"><b>🤝 Теперь вы друзья: ${esc(n.name)}</b><br>${n.perk.text}</p>`; }
+  if (st.met && wasFriend && st.rel < 61) { addLog(`${n.name}: дружба потеряна`); return `<p class="bad">Дружба потеряна: ${esc(n.name)}. Бонус отключён.</p>`; }
   return "";
 }
 const relDelta = (n, d) => `<span class="${d >= 0 ? "good" : "bad"}">${esc(n.name.split(" ")[0])} ${d >= 0 ? "+" : ""}${d}</span>`;
@@ -64,7 +64,10 @@ const PEOPLE_ACTIONS = {
     if (st.met) return closeModal();
     st.met = true;
     let notes = [relDelta(n, o.rel)];
-    let extra = changeRel(id, o.rel);
+    // первое впечатление не делает другом сразу: максимум 60 (нейтралитет)
+    const d = o.rel > 0 ? Math.max(0, Math.min(o.rel, 60 - st.rel)) : o.rel;
+    notes[0] = relDelta(n, d);
+    let extra = changeRel(id, d);
     for (const k in (o.others || {})) { changeRel(k, o.others[k]); notes.push(relDelta(npcById(k), o.others[k])); }
     if (o.cash) { S.cash = Math.max(0, S.cash + o.cash); notes.push(`$${fmt(o.cash)}`); }
     if (o.hp) { S.hp = Math.max(1, S.hp + o.hp); notes.push(`${o.hp} ❤️`); }
