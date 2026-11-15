@@ -7,6 +7,15 @@ export const pages = [
   "orgs",
   "inventory",
   "settings",
+  "jobs",
+  "fights",
+  "raids",
+  "turf",
+  "business",
+  "shop",
+  "home",
+  "crew",
+  "bank",
 ] as const;
 export type Page = (typeof pages)[number];
 export function readPage(hash: string): Page {
@@ -22,4 +31,13 @@ export const pageNames: Record<Page, string> = {
   orgs: "Организации",
   inventory: "Вещи",
   settings: "Настройки",
+  jobs: "Движухи",
+  fights: "Бои",
+  raids: "Рейды",
+  turf: "Районы",
+  business: "Точки",
+  shop: "Барыга",
+  home: "Хата",
+  crew: "Бригада",
+  bank: "Сейф",
 };

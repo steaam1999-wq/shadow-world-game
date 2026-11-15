@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { freshGame, localRepository, type GameState } from "./game";
+import { tick } from "./economy";
 export function useGame() {
   const [initial] = useState(() => {
     try {
@@ -16,6 +17,12 @@ export function useGame() {
   const [saveBlocked, setSaveBlocked] = useState(!!initial.error);
   const [error, setError] = useState(initial.error);
   const [toast, setToast] = useState("");
+  // энергия и здоровье восстанавливаются со временем (в том числе пока игра была закрыта)
+  useEffect(() => {
+    setGame((s) => tick(s, Date.now()));
+    const timer = setInterval(() => setGame((s) => tick(s, Date.now())), 1000);
+    return () => clearInterval(timer);
+  }, []);
   useEffect(() => {
     if (saveBlocked) return;
     try {

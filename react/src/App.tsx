@@ -47,6 +47,8 @@ import {
   type ItemId,
 } from "./game";
 import { readPage, pageNames, type Page } from "./navigation";
+import { Dialog, SectionTitle } from "./ui";
+import { Activities, CityActivities, activityPages } from "./Activities";
 import { levelInfo, maxEnergy, maxHealth, restAvailableIn } from "./economy";
 import { useGame } from "./useGame";
 const itemData: Record<
@@ -94,74 +96,6 @@ const bottomItems = [
   ["orgs", 3, "Семьи"],
   ["inventory", 4, "Вещи"],
 ] as const;
-function SectionTitle({ children }: { children: ReactNode }) {
-  return (
-    <h2 className="section-title">
-      <span>{children}</span>
-    </h2>
-  );
-}
-function Dialog({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    ref.current?.querySelector<HTMLElement>("button")?.focus();
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Tab") {
-        const nodes = ref.current?.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),input:not(:disabled),a[href]",
-        );
-        if (nodes?.length) {
-          const first = nodes[0],
-            last = nodes[nodes.length - 1];
-          if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
-      }
-    };
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("keydown", key);
-      previous?.focus();
-    };
-  }, [onClose]);
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <section
-        ref={ref}
-        className="game-dialog metal-frame"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className="dialog-close round-control"
-          onClick={onClose}
-          aria-label="Закрыть окно"
-        >
-          <X size={18} />
-        </button>
-        <h2 className="dialog-title">{title}</h2>
-        <div className="dialog-body">{children}</div>
-      </section>
-    </div>
-  );
-}
 export default function App() {
   const { game, setGame, error, toast, setToast, replaceGame } = useGame();
   const [page, setPage] = useState<Page>(() => readPage(window.location.hash));
@@ -573,7 +507,7 @@ export default function App() {
                 <Medallion index={8} />
                 <span>
                   <b>Отдохнуть</b>
-                  <small>Восстановить здоровье и энергию · бесплатно</small>
+                  <small>Восстановить здоровье и энергию · бесплатно, раз в 4 часа</small>
                 </span>
                 <ChevronRight size={18} />
               </button>
@@ -586,11 +520,15 @@ export default function App() {
                 <ChevronRight size={18} />
               </button>
             </div>
+            <CityActivities game={game} go={go} />
             <SectionTitle>Люди района</SectionTitle>
             <div className="residents-grid">
               {npcs.filter((n) => n.district === game.district).map(npcCard)}
             </div>
           </>
+        )}
+        {(activityPages as readonly string[]).includes(page) && (
+          <Activities page={page} game={game} setGame={setGame} setToast={setToast} go={go} />
         )}
         {page === "quests" && (
           <>
