@@ -82,7 +82,7 @@ describe("Новый игровой интерфейс", () => {
       money: 270,
       xp: 105,
       level: 2,
-      energy: 70,
+      energy: 102,
       reputation: 6,
     });
     await act(async () => root.unmount());

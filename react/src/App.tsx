@@ -47,6 +47,7 @@ import {
   type ItemId,
 } from "./game";
 import { readPage, pageNames, type Page } from "./navigation";
+import { levelInfo, maxEnergy, maxHealth, restAvailableIn } from "./economy";
 import { useGame } from "./useGame";
 const itemData: Record<
   ItemId,
@@ -212,7 +213,13 @@ export default function App() {
     else if (game.energy < 5)
       setToast("Нужно 5 энергии. Восстановите силы в профиле.");
   };
+  const lvl = levelInfo(game.xp);
   const doRest = () => {
+    const wait = restAvailableIn(game, Date.now());
+    if (wait > 0) {
+      setToast(`Отдых будет доступен через ${Math.ceil(wait / 60000)} мин. Силы восстанавливаются и сами.`);
+      return;
+    }
     setGame((s) => rest(s));
     setToast("Отдых завершён. Здоровье и энергия восстановлены.");
   };
@@ -334,16 +341,16 @@ export default function App() {
         <button
           className="experience-row"
           onClick={() => go("profile")}
-          aria-label={`Опыт: ${game.xp % 100} из 100`}
+          aria-label={`Опыт: ${lvl.into} из ${lvl.need}`}
         >
           <span>
             <Shield size={12} /> Независимый ·{" "}
             {game.reputation < 10 ? "Новичок" : "На слуху"}
           </span>
           <span>
-            Опыт <b>★ {game.xp % 100}</b> / 100
+            Опыт <b>★ {lvl.into}</b> / {lvl.need}
           </span>
-          <i style={{ width: (game.xp % 100) + "%" }} />
+          <i style={{ width: Math.min(100, (lvl.into / lvl.need) * 100) + "%" }} />
         </button>
       </header>
       <main
@@ -431,14 +438,14 @@ export default function App() {
                       <Heart className="red" size={14} />
                       <b>{game.health}</b>
                       <span>
-                        Здоровье <em>/ 100</em>
+                        Здоровье <em>/ {maxHealth(game)}</em>
                       </span>
                     </div>
                     <div>
                       <Zap className="yellow" size={14} />
                       <b>{game.energy}</b>
                       <span>
-                        Энергия <em>/ 100</em>
+                        Энергия <em>/ {maxEnergy(game)}</em>
                       </span>
                     </div>
                     <div>

@@ -1,4 +1,14 @@
 import { npcs, type DistrictId } from "./data";
+import {
+  freshEconomy,
+  isEconomy,
+  levelFor,
+  addXp,
+  maxEnergy,
+  maxHealth,
+  rest as ecoRest,
+  type Economy,
+} from "./economy";
 export type Stage =
   | "arrival"
   | "questions"
@@ -10,7 +20,7 @@ export type Stage =
   | "complete";
 export type ItemId = "phone" | "ticket" | "envelope" | "card";
 export type GameState = {
-  version: 1;
+  version: 2;
   money: number;
   energy: number;
   health: number;
@@ -25,9 +35,11 @@ export type GameState = {
   decisions: { id: string; text: string }[];
   unlocked: DistrictId[];
   name: string;
+  /** экономика и развитие: движухи, бои, районы, точки, снаряжение */
+  eco: Economy;
 };
-export const freshGame = (): GameState => ({
-  version: 1,
+export const freshGame = (now: number = Date.now()): GameState => ({
+  version: 2,
   money: 150,
   energy: 100,
   health: 100,
@@ -42,6 +54,7 @@ export const freshGame = (): GameState => ({
   decisions: [],
   unlocked: ["center", "old"],
   name: "Новый житель",
+  eco: freshEconomy(now),
 });
 export type Effect = {
   money?: number;
@@ -258,7 +271,7 @@ export const scenes: Record<Stage, Scene> = {
     choices: [],
   },
 };
-const clamp = (x: number) => Math.max(0, Math.min(100, x));
+const clamp = (x: number, max = 100) => Math.max(0, Math.min(max, x));
 export function choose(s: GameState, id: string): GameState {
   const scene = scenes[s.stage];
   const c = scene.choices.find((c) => c.id === id);
@@ -270,15 +283,12 @@ export function choose(s: GameState, id: string): GameState {
   )
     return s;
   const e = c.effect;
-  const xp = s.xp + (e.xp ?? 0);
-  return {
+  const next: GameState = {
     ...s,
     money: s.money + (e.money ?? 0),
-    energy: clamp(s.energy + (e.energy ?? 0)),
-    health: clamp(s.health + (e.health ?? 0)),
+    energy: clamp(s.energy + (e.energy ?? 0), maxEnergy(s)),
+    health: clamp(s.health + (e.health ?? 0), maxHealth(s)),
     reputation: Math.max(0, s.reputation + (e.reputation ?? 0)),
-    xp,
-    level: 1 + Math.floor(xp / 100),
     stage: c.next,
     relations: Object.fromEntries(
       Object.entries(s.relations).map(([id, v]) => [
@@ -293,6 +303,7 @@ export function choose(s: GameState, id: string): GameState {
     unlocked: [...new Set([...s.unlocked, ...(e.unlock ?? [])])],
     decisions: [...s.decisions, { id: c.id, text: c.label }],
   };
+  return addXp(next, e.xp ?? 0);
 }
 export function travel(s: GameState, district: DistrictId): GameState {
   return s.district !== district &&
@@ -301,8 +312,9 @@ export function travel(s: GameState, district: DistrictId): GameState {
     ? { ...s, district, energy: s.energy - 5 }
     : s;
 }
-export function rest(s: GameState): GameState {
-  return { ...s, energy: 100, health: 100 };
+/** Бесплатный отдых: всё восстанавливает, но не чаще раза в 4 часа. */
+export function rest(s: GameState, now: number = Date.now()): GameState {
+  return ecoRest(s, now).state;
 }
 export const SAVE_KEY = "empire-city:save";
 export interface SaveRepository {
@@ -314,8 +326,15 @@ export function parseSave(raw: string): GameState | null {
   try {
     const s = JSON.parse(raw);
     const base = freshGame();
+    if (s && s.version === 1) {
+      // перенос сохранения 0.3: добавляем экономику, уровень пересчитывается по новой кривой
+      s.version = 2;
+      s.eco = freshEconomy(Date.now());
+      s.level = levelFor(s.xp);
+    }
     if (
-      s.version !== 1 ||
+      s.version !== 2 ||
+      !isEconomy(s.eco) ||
       !Object.hasOwn(scenes, s.stage) ||
       s.chapter !== 1 ||
       typeof s.name !== "string" ||
@@ -326,9 +345,9 @@ export function parseSave(raw: string): GameState | null {
       if (typeof s[k] !== "number" || !Number.isFinite(s[k]) || s[k] < 0)
         return null;
     if (
-      s.energy > 100 ||
-      s.health > 100 ||
-      s.level !== 1 + Math.floor(s.xp / 100)
+      s.energy > maxEnergy(s) ||
+      s.health > maxHealth(s) ||
+      s.level !== levelFor(s.xp)
     )
       return null;
     const ids = ["center", "old", "kings", "industrial", "west"];
@@ -397,16 +416,13 @@ export function meet(s: GameState, id: string): GameState {
   const npc = npcs.find((n) => n.id === id);
   if (!npc || hasMet(s, id) || npc.district !== s.district || s.energy < 5)
     return s;
-  const xp = s.xp + 5;
-  return {
+  return addXp({
     ...s,
-    xp,
-    level: 1 + Math.floor(xp / 100),
     energy: s.energy - 5,
     relations: { ...s.relations, [id]: clamp(s.relations[id] + 3) },
     decisions: [
       ...s.decisions,
       { id: `meet:${id}`, text: `Знакомство: ${npc.name}` },
     ],
-  };
+  }, 5);
 }
