@@ -42,6 +42,8 @@ function newState(name) {
     crew: 0,
     bosses: {}, bossKills: {},
     story: 0, npc: {},
+    rank: 0, rating: 0, ach: {}, talents: {}, dogs: [], dog: null, crafts: {}, profXp: {}, crafted: 0,
+    bag: {}, buffs: {}, giftsDay: {}, notes: "", spins: 0, earned: 0,
     jobsTotal: 0, mastery: {},
     wins: 0, losses: 0,
     lastSpin: "", lastBonus: "",
@@ -70,11 +72,11 @@ function gearSum(key) { return ["weapon", "armor", "extra"].reduce((a, sl) => a 
 function furnSum(key) { return DATA.furniture.reduce((a, f) => a + (hasF(f.id) ? (f[key] || 0) : 0), 0); }
 
 const totStr = () => S.stats.str + furnSum("str");
-const totAgi = () => S.stats.agi + furnSum("agi") + gearSum("agi");
-const maxHp  = () => 100 + S.stats.end * 10;
-const maxEn  = () => 50 + (S.level - 1) * 2 + DATA.homes[S.home].en + furnSum("en");
-const atk    = () => Math.round((totStr() * 2 + gearSum("atk") + S.crew * 3) * (1 + perk("atkPct") / 100));
-const def    = () => S.stats.def * 2 + gearSum("def") + S.crew * 3;
+const totAgi = () => S.stats.agi + furnSum("agi") + gearSum("agi") + perk("agiFlat");
+const maxHp  = () => Math.round((100 + S.stats.end * 10 + perk("hpFlat")) * (1 + perk("hpPct") / 100));
+const maxEn  = () => 50 + (S.level - 1) * 2 + DATA.homes[S.home].en + furnSum("en") + perk("enFlat");
+const atk    = () => Math.round((totStr() * 2 + gearSum("atk") + S.crew * 3 + perk("atkFlat")) * (1 + perk("atkPct") / 100));
+const def    = () => Math.round((S.stats.def * 2 + gearSum("def") + S.crew * 3 + perk("defFlat")) * (1 + perk("defPct") / 100));
 const safeCap = () => Math.round(DATA.homes[S.home].safe * (hasF("safe") ? 2 : 1) * (1 + perk("safePct") / 100));
 const xpNeed = l => Math.round(40 * Math.pow(l, 1.45));
 function authority(s) {
@@ -125,7 +127,7 @@ function addLog(t) { S.log.unshift({ t: Date.now(), m: t }); S.log.length = Math
 
 function give(r) {
   const parts = [];
-  if (r.cash) { S.cash += r.cash; parts.push("+$" + fmt(r.cash)); }
+  if (r.cash) { S.cash += r.cash; if (r.cash > 0) S.earned += r.cash; parts.push("+$" + fmt(r.cash)); }
   if (r.gold) { S.gold += r.gold; parts.push("+" + r.gold + " 💎"); }
   if (r.auth) { S.authBase += r.auth; parts.push("+" + r.auth + " 🤘"); }
   if (r.energyFull) { S.energy = Math.max(S.energy, maxEn()); parts.push("⚡ энергия полная"); }
@@ -160,8 +162,17 @@ function unlocksText(l) {
 function makeFighter(o) {
   return { name: o.name, hp: o.hp, maxHp: o.hp, atk: o.atk, def: o.def, agi: o.agi || 0 };
 }
-function playerFighter() {
-  return { name: S.name, hp: S.hp, maxHp: maxHp(), atk: atk(), def: def(), agi: totAgi() };
+function playerFighter(consume) {
+  let a = atk();
+  if (S.buffs && S.buffs.ammo > 0) { a = Math.round(a * 1.25); if (consume) S.buffs.ammo--; }
+  return { name: S.name, hp: S.hp, maxHp: maxHp(), atk: a, def: def(), agi: totAgi() };
+}
+// опыт активному псу после победы
+function dogWin(xp) {
+  const d = S.dogs && S.dogs[S.dog];
+  if (!d || dogState(d) === "sick") return;
+  d.xp += xp;
+  while (d.xp >= dogXpNeed(d) && d.lvl < 30) { d.xp -= dogXpNeed(d); d.lvl++; addLog(`${d.name}: ${d.lvl} уровень`); }
 }
 function hit(a, b) {
   const dodge = b.agi / (b.agi + 120);
@@ -226,7 +237,7 @@ const A = {
     const j = DATA.jobs.find(x => x.id === id);
     if (S.level < j.lvl || !needEnergy(j.en)) return;
     S.energy -= j.en;
-    const fail = Math.random() < Math.max(0.02, j.risk - totAgi() / 400);
+    const fail = Math.random() < Math.max(0.02, j.risk - totAgi() / 400 - perk("jobRisk") / 100);
     if (fail) {
       const loss = Math.min(S.hp - 1, rnd(5, 15) + j.lvl);
       S.hp -= loss;
@@ -251,21 +262,23 @@ const A = {
     const o = S._opps && S._opps[i];
     if (!o || !needHp() || !needEnergy(5)) return;
     S.energy -= 5;
-    const p = playerFighter(), e = makeFighter(o);
+    const p = playerFighter(true), e = makeFighter(o);
     const res = battle(p, e, 8);
     S.hp = Math.max(1, p.hp);
     let summary;
     if (res.win) {
-      S.wins++; S.rep.street++;
+      S.wins++; S.rep.street++; dogWin(5);
       const cash = o.level * rnd(40, 90);
       summary = give({ cash, xp: 4 + o.level, auth: rnd(1, 3) });
       addLog(`Победа над ${o.name} [${o.level}]: ${summary}`);
     } else {
       S.losses++;
-      const lost = Math.round(S.cash * (perk("lossPct") ? 0.05 : 0.1));
+      const alibi = S.buffs.alibi;
+      const lost = alibi ? 0 : Math.round(S.cash * (perk("lossPct") ? 0.05 : 0.1));
+      if (alibi) S.buffs.alibi = 0;
       S.cash -= lost;
       addXp(1);
-      summary = `−$${fmt(lost)} (наличные не в сейфе)`;
+      summary = alibi ? "Алиби сработало: деньги при тебе" : `−$${fmt(lost)} (наличные не в сейфе)`;
       addLog(`Поражение от ${o.name} [${o.level}]`);
     }
     genOpponents();
@@ -333,7 +346,7 @@ const A = {
     const d = DATA.districts.find(x => x.id === id);
     if (S.districts[id] || S.level < d.lvl || !needHp() || !needEnergy(captureEn())) return;
     S.energy -= captureEn();
-    const p = playerFighter(), e = makeFighter({ name: d.boss, hp: d.hp, atk: d.atk, def: d.def, agi: d.lvl * 2 });
+    const p = playerFighter(true), e = makeFighter({ name: d.boss, hp: d.hp, atk: d.atk, def: d.def, agi: d.lvl * 2 });
     const res = battle(p, e, 12);
     S.hp = Math.max(1, p.hp);
     let msg;
@@ -352,7 +365,7 @@ const A = {
     const st = bossState(b);
     if (S.level < b.lvl || st.dead || !needHp() || !needEnergy(10)) return;
     S.energy -= 10;
-    const p = playerFighter(), e = makeFighter({ name: b.name, hp: st.hp, atk: b.atk, def: b.def, agi: b.lvl });
+    const p = playerFighter(true), e = makeFighter({ name: b.name, hp: st.hp, atk: b.atk, def: b.def, agi: b.lvl });
     e.maxHp = b.hp;
     p.atk = Math.round(p.atk * (1 + perk("raidDmgPct") / 100));
     const before = st.hp;
@@ -398,6 +411,7 @@ const A = {
     S.lastSpin = today();
     const i = rnd(0, DATA.wheel.length - 1);
     const w = DATA.wheel[i];
+    S.spins++;
     const wheel = $("#wheel");
     if (wheel) {
       const deg = 360 * 5 + (360 - i * 45 - 22.5);
@@ -459,7 +473,7 @@ const A = {
   }
 };
 
-Object.assign(A, PEOPLE_ACTIONS);
+Object.assign(A, PEOPLE_ACTIONS, SYS_ACTIONS);
 
 function bossState(b) {
   const st = S.bosses[b.id];
@@ -542,7 +556,8 @@ const SCREENS = {
     const pct = Math.floor(S.xp / xpNeed(S.level) * 100);
     const bonus = S.lastBonus !== today();
     return topbar() + `
-    <div class="cityhead"><div class="logo sm">EMPIRE<span>CITY</span></div><small>${DATA.homes[S.home].name}</small></div>
+    <div class="cityhead"><div class="logo sm">EMPIRE<span>CITY</span></div><small>${DATA.homes[S.home].name} · ранг «${rankOf().name}»</small></div>
+    <div class="sectitle">События города</div>${eventsStrip()}
     <div class="menugrid">
       ${tile("points", "🏪", "Точки")}${tile("realty", "🏢", "Недвижка")}${tile("districts", "🏙️", "Районы")}
       ${tile("fights", "🥊", "Бои")}${tile("home", "🛋️", "Хата")}${tile("crew", "🧑‍🤝‍🧑", "Бригада")}
@@ -582,6 +597,7 @@ const SCREENS = {
     ${room()}
     <div class="namebar"><span>${esc(S.name)}</span><span>ур. <b class="level">${S.level}</b></span></div>
     <div class="paper">
+      <div class="rowstat"><div class="label" onclick="go('ranks')">Ранг:</div><div class="value">${rankOf().name}${nextRank() ? ` · до «${nextRank().name}» ${Math.round(rankProgress(nextRank()) * 100)}%` : ""}</div></div>
       <div class="rowstat"><div class="label">Опыт:</div><div class="value">⭐ ${fmt(S.xp)} / ${fmt(xpNeed(S.level))}</div></div>
       <div class="rowstat"><div class="label">Авторитет:</div><div class="value">🤘 ${fmt(authority())}</div></div>
       <div class="rowstat"><div class="label">Наличные:</div><div class="value">💵 ${fmt(S.cash)} &nbsp; 💎 ${S.gold}</div></div>
@@ -597,7 +613,7 @@ const SCREENS = {
       <div class="rowstat"><div class="label">Бои:</div><div class="value">🏆 ${S.wins} &nbsp; 🤕 ${S.losses}</div></div>
       <div class="rowstat"><div class="label">Бригада:</div><div class="value">🧍 ${S.crew} чел.</div></div>
       <div class="rowstat"><div class="label">Районы:</div><div class="value">${DATA.districts.filter(d => S.districts[d.id]).map(d => d.icon).join(" ") || "—"}</div></div>
-    </div>` + back();
+    </div>` + profileExtras() + back();
   },
 
   jobs() {
@@ -777,11 +793,14 @@ const SCREENS = {
   }
 };
 
-Object.assign(SCREENS, PEOPLE_SCREENS);
+Object.assign(SCREENS, PEOPLE_SCREENS, SYS_SCREENS);
 
 function render() {
   if (!S && screen !== "start") screen = "start";
-  app().innerHTML = SCREENS[screen]();
+  const ev = document.querySelector(".events"), evx = ev ? ev.scrollLeft : 0;
+  app().innerHTML = SCREENS[screen]() + (S && screen !== "start" ? navbar() : "");
+  const ev2 = document.querySelector(".events"); if (ev2) ev2.scrollLeft = evx;
+  document.body.classList.toggle("withnav", !!S && screen !== "start");
 }
 
 function startGame(name) {
@@ -808,9 +827,10 @@ setInterval(() => {
   tick();
   if (++saveCounter % 5 === 0) save();
   const after = S.energy + "|" + S.hp + "|" + Math.floor(S.pending);
-  const busy = document.activeElement && document.activeElement.tagName === "INPUT";
+  const busy = document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName);
+  const live = ["raids", "hub", "crafts", "dogs", "gifts"].includes(screen);
   // Перерисовываем, только если что-то изменилось и пользователь не крутит колесо
-  if (!busy && screen !== "casino" && screen !== "start" && (before !== after || screen === "raids")) {
+  if (!busy && !["casino", "start", "notes"].includes(screen) && !document.querySelector("#modal.show") && (before !== after || live)) {
     const y = window.scrollY; render(); window.scrollTo(0, y);
   } else if (screen !== "start") {
     const el = $("#tbEn"); if (el) el.textContent = S.energy + "/" + maxEn();

@@ -31,6 +31,7 @@ function perk(key) {
   if (!S || !S.npc) return 0;
   let v = 0;
   for (const n of NPCS) { const st = S.npc[n.id]; if (st && st.met && st.rel >= 61 && n.perk[key]) v += n.perk[key]; }
+  if (typeof sysBonus === "function") v += sysBonus(key);
   return v;
 }
 
@@ -43,7 +44,7 @@ function changeRel(id, d) {
   return "";
 }
 const relDelta = (n, d) => `<span class="${d >= 0 ? "good" : "bad"}">${esc(n.name.split(" ")[0])} ${d >= 0 ? "+" : ""}${d}</span>`;
-const giftPrice = () => 300 + S.level * 200;
+const giftPrice = () => Math.round((300 + S.level * 200) * (1 - perk("giftDisc") / 100));
 
 function openNpc(id) { S._npc = id; closeModal(); go("npc"); }
 function setOrg(o) { S._org = o; render(); }
@@ -84,9 +85,10 @@ const PEOPLE_ACTIONS = {
     if (st.rel <= 20) return toast(n.name.split(" ")[0] + " не желает с тобой разговаривать", "bad");
     st.talk = today();
     const line = n.talk[Math.floor(Math.random() * n.talk.length)];
-    const extra = changeRel(id, 3);
+    const dv = 3 + perk("talkBonus");
+    const extra = changeRel(id, dv);
     save(); render();
-    modal(`<div class="portrait" style="--oc:${ORGS[n.org].color}">${ART.npc(n)}</div><h3>${n.name}</h3><p class="quote left">${line}</p><p class="small">Отношения: ${relDelta(n, 3)}</p>${extra}`);
+    modal(`<div class="portrait" style="--oc:${ORGS[n.org].color}">${ART.npc(n)}</div><h3>${n.name}</h3><p class="quote left">${line}</p><p class="small">Отношения: ${relDelta(n, dv)}</p>${extra}`);
   },
   gift(id) {
     const n = npcById(id), st = npcSt(id), p = giftPrice();
