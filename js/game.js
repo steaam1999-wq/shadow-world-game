@@ -56,7 +56,12 @@ function load() {
   try { S = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { S = null; }
   if (S) S = Object.assign(newState(S.name), S);
 }
-function save() { if (S) { S.last = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } }
+function save() { if (S) { S.last = Date.now(); try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* хранилище недоступно — играем без сохранения */ } } }
+// Подтверждение внутри страницы (системные confirm() могут быть заблокированы)
+function ask(text, onYes) {
+  window._askYes = () => { closeModal(); onYes(); };
+  modal(`<div class="big">⚠️</div><p>${text}</p><div class="btnrow"><button class="btn" onclick="closeModal()">Отмена</button><button class="btn red" onclick="_askYes()">Да</button></div>`, true);
+}
 
 // ---------- Производные параметры ----------
 const item = id => DATA.items.find(i => i.id === id);
@@ -447,8 +452,10 @@ const A = {
   },
 
   reset() {
-    if (!confirm("Сбросить весь прогресс? Это нельзя отменить.")) return;
-    localStorage.removeItem(SAVE_KEY); S = null; go("start");
+    ask("Сбросить весь прогресс? Это нельзя отменить.", () => {
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) { }
+      S = null; go("start");
+    });
   }
 };
 
@@ -777,10 +784,11 @@ function render() {
   app().innerHTML = SCREENS[screen]();
 }
 
-function startGame() {
-  const n = ($("#nameIn").value || "").trim();
+function startGame(name) {
+  const n = (name || ($("#nameIn") ? $("#nameIn").value : "") || "").trim();
   if (!n) return toast("Введи кличку", "bad");
-  if (S && !confirm("Начать заново? Текущий прогресс будет удалён.")) return;
+  if (S && !startGame.ok) { return ask("Начать заново? Текущий прогресс будет удалён.", () => { startGame.ok = true; startGame(n); }); }
+  startGame.ok = false;
   S = newState(n.slice(0, 18));
   addLog("Ты приехал в Empire City.");
   save(); go("hub");
