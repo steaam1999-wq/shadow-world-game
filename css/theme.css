@@ -127,3 +127,21 @@
 .theme-emerald .toast{background:#16241c;border-color:var(--gold)}
 .theme-emerald .reels{border-color:var(--gold2)}
 .theme-emerald .cityhead,.theme-emerald .menugrid{display:none}
+
+/* рисованный арт */
+.atlas{display:block;width:100%;height:100%;background-repeat:no-repeat}
+.pic{display:block}
+.medal:has(.atlas),.theme-emerald .navicon:has(.atlas),.lmed:has(.atlas),.crest:has(.atlas){border-color:transparent;background:none;box-shadow:0 3px 8px #000a}
+.theme-emerald .navicon:has(.atlas){border:0}
+.banner{aspect-ratio:2/1}
+.banner:has(img){aspect-ratio:16/10}
+.herobg .pic{object-position:50% 35%}
+.npcfull:has(.npcportrait){width:46%;align-self:center;margin:10px 0 10px 10px;border:2px solid var(--gold2);border-radius:10px;overflow:hidden;box-shadow:0 4px 10px #000a}
+.npcportrait{aspect-ratio:1/1;height:auto}
+.theme-emerald .npchero{background:linear-gradient(135deg,#22362a,#13201a)}
+.theme-emerald .npchead{color:var(--text)}
+.theme-emerald .npchead .traits span{background:#0004;border-color:var(--line2);color:var(--text)}
+.sunset .startpic{width:100%;height:420px;object-fit:cover}
+.sunset:has(.startpic):after{content:"";position:absolute;inset:0;background:linear-gradient(#0008,#0000 45%,#13201a)}
+.sunset .logo{z-index:2}
+.versus div .pic,.portrait .pic,.cico.face .pic,.pframe .pic{width:100%;height:100%;object-fit:cover}

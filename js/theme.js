@@ -3,7 +3,13 @@
 "use strict";
 
 // ---------- картинки с запасным SVG ----------
-const pic = (key, fallback, cls = "") => ASSETS[key] ? `<img class="pic ${cls}" src="${ASSETS[key]}" alt="">` : fallback;
+function pic(key, fallback, cls = "") {
+  const a = ASSETS[key];
+  if (!a) return fallback;
+  if (typeof a === "string") return `<img class="pic ${cls}" src="${a}" alt="" decoding="async">`;
+  const x = a.cols > 1 ? (a.i % a.cols) * 100 / (a.cols - 1) : 0, y = a.rows > 1 ? Math.floor(a.i / a.cols) * 100 / (a.rows - 1) : 0;
+  return `<span class="pic atlas ${cls}" role="img" style="background-image:url(${a.src});background-size:${a.cols * 100}% ${a.rows * 100}%;background-position:${x}% ${y}%"></span>`;
+}
 
 // ---------- навигация с историей ----------
 const HIST = [];
@@ -44,6 +50,15 @@ const MED = {
   rest: () => MED.watch(),
   story: () => MED.letter()
 };
+// рисованные медальоны вместо векторных, если они есть в ASSETS
+{
+  const v = Object.assign({}, MED);
+  MED.letter = () => pic("icon.letter", v.letter());
+  MED.watch = () => pic("icon.watch", v.watch());
+  MED.map = () => pic("nav.map", v.map());
+  MED.city = () => pic("nav.city", v.city());
+  MED.items = () => pic("nav.items", v.items());
+}
 // медальон-иконка раздела из прежних плиток
 const medTile = key => `<div class="medtile">${ART.tile(key)}</div>`;
 
@@ -238,7 +253,7 @@ const THEME_SCREENS = {
     const L = LOC[curLoc()];
     return topbar() + `
       <div class="herocard">
-        <div class="herobg">${ASSETS["hero.full"] ? (ASSETS["bg.profile"] ? `<img class="pic" src="${ASSETS["bg.profile"]}">` : nightStreet(false)) + `<img class="pic herofull" src="${ASSETS["hero.full"]}">` : nightStreet(true)}</div>
+        <div class="herobg">${ASSETS["bg.profile"] ? pic("bg.profile", "") : nightStreet(true)}</div>
         <div class="slots left">
           ${gearSlot("weapon", `<span class="semoji dim">🔫</span>`)}
           ${gearSlot("armor", `<span class="semoji dim">🧥</span>`)}
@@ -294,9 +309,13 @@ const THEME_SCREENS = {
   }
 };
 
-// портреты NPC из файлов, если они есть
-const _npcArt = ART.npc;
+// портреты и сцены из рисованного арта, если он есть
+const _npcArt = ART.npc, _npcFull = ART.npcFull, _contact = ART.contact, _hero = ART.hero, _start = ART.startScene;
 ART.npc = n => pic("npc." + n.id, _npcArt(n));
+ART.npcFull = n => ASSETS["npc." + n.id] ? pic("npc." + n.id, "", "npcportrait") : _npcFull(n);
+ART.contact = id => { const n = npcById(id); return n ? ART.npc(n) : _contact(id); };
+ART.hero = st => pic("hero.portrait", _hero(st));
+ART.startScene = () => pic("bg.start", _start(), "startpic");
 
 Object.assign(SCREENS, THEME_SCREENS);
 document.documentElement.classList.add("theme-emerald");
