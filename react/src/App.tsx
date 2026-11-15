@@ -48,7 +48,7 @@ import {
 } from "./game";
 import { readPage, pageNames, type Page } from "./navigation";
 import { Dialog, SectionTitle } from "./ui";
-import { Activities, CityActivities, activityPages } from "./Activities";
+import { Activities, DeedsRow, activityPages } from "./Activities";
 import { levelInfo, maxEnergy, maxHealth, restAvailableIn } from "./economy";
 import { useGame } from "./useGame";
 const itemData: Record<
@@ -519,8 +519,8 @@ export default function App() {
                 </span>
                 <ChevronRight size={18} />
               </button>
+              <DeedsRow game={game} go={go} />
             </div>
-            <CityActivities game={game} go={go} />
             <SectionTitle>Люди района</SectionTitle>
             <div className="residents-grid">
               {npcs.filter((n) => n.district === game.district).map(npcCard)}

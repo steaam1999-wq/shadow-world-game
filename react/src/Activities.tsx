@@ -32,7 +32,7 @@ const itemIcon: Record<string, LucideIcon> = { knuckle: Swords, bat: Sword, knif
 const furnIcon: Record<string, LucideIcon> = { weights: Dumbbell, bag: Target, sofa: Sofa, fridge: Refrigerator, tv: Tv, safe: Vault };
 const statIcon: Record<E.StatKey, LucideIcon> = { str: Dumbbell, def: Shield, agi: Crosshair, end: HeartPulse };
 
-export const activityPages = ["jobs", "fights", "raids", "turf", "business", "shop", "home", "crew", "bank"] as const;
+export const activityPages = ["deeds", "jobs", "fights", "raids", "turf", "business", "shop", "home", "crew", "bank"] as const;
 
 /** Ряд действия в стиле 0.311: медальон, текст, кнопка справа. */
 function Row({ icon, title, sub, action, locked }: { icon: LucideIcon; title: string; sub: ReactNode; action: ReactNode; locked?: boolean }) {
@@ -82,6 +82,7 @@ export function Activities({ page, game, setGame, setToast, go }: Props) {
   );
 
   let body: ReactNode = null;
+  if (page === "deeds") body = <DeedsList game={game} go={go} />;
   if (page === "jobs")
     body = (
       <>
@@ -269,8 +270,8 @@ export function Activities({ page, game, setGame, setToast, go }: Props) {
   return (
     <>
       {body}
-      <button className="game-button secondary back-to-city" onClick={() => go("city")}>
-        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> В город
+      <button className="game-button secondary back-to-city" onClick={() => go(page === "deeds" ? "city" : "deeds")}>
+        <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} /> {page === "deeds" ? "В город" : "К делам"}
       </button>
       {outcome && (
         <Dialog title={outcome.title} onClose={() => setOutcome(null)}>
@@ -283,28 +284,42 @@ export function Activities({ page, game, setGame, setToast, go }: Props) {
   );
 }
 
-/** Строки раздела «Дела» для экрана «Город». */
-export function CityActivities({ game, go }: { game: GameState; go: (p: Page) => void }) {
+/** Одна строка для экрана «Город» — в том же блоке и стиле, что строки 0.311. */
+export function DeedsRow({ game, go }: { game: GameState; go: (p: Page) => void }) {
   const pending = E.pendingIncome(game, Date.now());
-  // рисованный медальон — только когда картинка значит то же самое (карта, город, портфель); иначе иконка
-  const rows: [Page, ReactNode, string, string][] = [
-    ["jobs", <IconMedal icon={BriefcaseBusiness} />, "Движухи", "Работа за энергию"],
-    ["fights", <IconMedal icon={Swords} />, "Бои", "Наехать на соперника"],
-    ["raids", <IconMedal icon={Skull} />, "Рейды", "Боссы города"],
-    ["turf", <Medallion index={0} />, "Районы", `Под контролем: ${game.eco.captured.length} из ${E.turfs.length}`],
-    ["business", <Medallion index={1} />, "Точки", pending > 0 ? `Собрать $${fmt(pending)}` : "Бизнес и доход"],
-    ["shop", <Medallion index={4} />, "Барыга", "Оружие, броня, аксессуары"],
-    ["home", <IconMedal icon={House} />, "Хата", E.homes[game.eco.home].name],
-    ["crew", <IconMedal icon={Users} />, "Бригада", `${game.eco.crew} бойцов`],
-    ["bank", <IconMedal icon={Vault} />, "Сейф и лечение", `В сейфе $${fmt(game.eco.safe)}`],
+  return (
+    <button className="game-row" onClick={() => go("deeds")}>
+      <Medallion index={4} />
+      <span>
+        <b>Дела района</b>
+        <small>{pending > 0 ? `Движухи, бои, рейды · собрать с точек $${fmt(pending)}` : "Движухи, бои, рейды, точки, барыга"}</small>
+      </span>
+      <ChevronRight size={18} />
+    </button>
+  );
+}
+
+/** Экран «Дела»: список всех занятий. */
+function DeedsList({ game, go }: { game: GameState; go: (p: Page) => void }) {
+  const pending = E.pendingIncome(game, Date.now());
+  const rows: [Page, LucideIcon, string, string][] = [
+    ["jobs", BriefcaseBusiness, "Движухи", "Работа за энергию"],
+    ["fights", Swords, "Бои", "Наехать на соперника"],
+    ["raids", Skull, "Рейды", "Боссы города"],
+    ["turf", Flag, "Районы", `Под контролем: ${game.eco.captured.length} из ${E.turfs.length}`],
+    ["business", Store, "Точки", pending > 0 ? `Собрать $${fmt(pending)}` : "Бизнес и доход"],
+    ["shop", Sword, "Барыга", "Оружие, броня, аксессуары"],
+    ["home", House, "Хата", E.homes[game.eco.home].name],
+    ["crew", Users, "Бригада", `${game.eco.crew} бойцов`],
+    ["bank", Vault, "Сейф и лечение", `В сейфе $${fmt(game.eco.safe)}`],
   ];
   return (
     <>
-      <SectionTitle>Дела</SectionTitle>
+      <p className="screen-note">Чем заняться в городе. Энергия восстанавливается сама: 1 за 20 секунд.</p>
       <div className="city-actions">
-        {rows.map(([p, art, title, sub]) => (
+        {rows.map(([p, icon, title, sub]) => (
           <button key={p} className="game-row" onClick={() => go(p)}>
-            {art}
+            <IconMedal icon={icon} />
             <span>
               <b>{title}</b>
               <small>{sub}</small>
