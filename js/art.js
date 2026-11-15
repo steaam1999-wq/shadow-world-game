@@ -31,44 +31,85 @@ const ART = (() => {
   const OUTFITS = ["#1f2a44", "#2b2b2b", "#3c4f2f", "#5a1f1f", "#2f3f6a", "#4a3a5a", "#6a4a2a"];
 
   // ---------- Персонаж ----------
-  // o: {skin, hair, hairType, beard, hat, hatColor, outfit, stripes, chain, weapon, mood, scar, shades, uniform, big}
+  // o: {skin, hair, hairType, beard, hat, hatColor, outfit, stripes, chain, weapon, mood, scar, shades, uniform, big,
+  //     female, skirt, skirtColor, suit, tie, shirt, old, glasses, watch, tattoo, earrings, lips, pants}
   function thug(o) {
     const sk = o.skin, skD = shade(sk, 0.82), hc = o.hair || "#2b2118", out = o.outfit || "#1f2a44";
-    const outD = shade(out, 0.75), str = o.stripes === false ? null : (o.stripes || "#f2f2f2");
+    const fem = !!o.female;
+    const outD = o.pants || shade(out, 0.75);
+    const str = (o.stripes === false || o.suit || o.uniform || fem) ? null : (o.stripes || "#f2f2f2");
+    const browC = (hc === "#9a9a9a" || hc === "#bdbdbd" || hc === "#d0d0d0" || hc === "#e0e0e0") ? "#888" : OL;
     let g = "";
 
+    // волосы за головой
+    if (fem && o.hairType === "long") g += P("M54 60 Q48 16 100 14 Q152 16 146 60 L154 158 Q100 172 46 158 Z", hc);
+    if (fem && o.hairType === "ponytail") g += P("M126 32 Q170 52 160 136 Q148 104 124 62 Z", hc);
+
     // ноги и обувь
-    g += E(74, 287, 21, 9, "#1d1d1d") + E(126, 287, 21, 9, "#1d1d1d");
-    g += P("M68 200 L64 283 L93 283 L99 206 Z", outD) + P("M101 206 L107 283 L136 283 L132 200 Z", outD);
-    if (str) g += L("M70 210 L67 278", str, 3) + L("M130 210 L133 278", str, 3);
+    if (o.skirt) {
+      g += P("M80 236 L78 280 L90 280 L92 236 Z", sk, 2.5) + P("M108 236 L110 280 L122 280 L120 236 Z", sk, 2.5);
+      g += P("M72 280 h20 l2 8 h-24 Z", "#1d1d1d", 2.5) + P("M108 280 h20 l2 8 h-24 Z", "#1d1d1d", 2.5);
+      g += P("M60 200 L140 200 L154 248 Q100 260 46 248 Z", o.skirtColor || outD);
+    } else {
+      const w = fem ? 0.85 : 1;
+      g += E(74, 287, 21 * w, 9, "#1d1d1d") + E(126, 287, 21 * w, 9, "#1d1d1d");
+      g += P(fem ? "M72 200 L70 283 L94 283 L99 206 Z" : "M68 200 L64 283 L93 283 L99 206 Z", outD) +
+           P(fem ? "M101 206 L106 283 L130 283 L128 200 Z" : "M101 206 L107 283 L136 283 L132 200 Z", outD);
+      if (str) g += L("M70 210 L67 278", str, 3) + L("M130 210 L133 278", str, 3);
+      if (o.suit && !fem) g += L("M84 214 L80 280 M116 214 L120 280", "#0000002a", 2);
+    }
 
     // руки за торсом
-    g += P("M62 126 Q38 152 42 202 L58 203 Q58 164 72 142 Z", out);
-    g += P("M138 126 Q162 152 158 202 L142 203 Q142 164 128 142 Z", out);
-    if (str) g += L("M56 134 Q42 160 47 196", str, 3) + L("M144 134 Q158 160 153 196", str, 3);
+    const hx1 = fem ? 56 : 50, hx2 = fem ? 144 : 150;
+    if (fem) {
+      g += P("M66 126 Q46 152 50 200 L62 201 Q62 164 74 144 Z", out) + P("M134 126 Q154 152 150 200 L138 201 Q138 164 126 144 Z", out);
+    } else {
+      g += P("M62 126 Q38 152 42 202 L58 203 Q58 164 72 142 Z", out) + P("M138 126 Q162 152 158 202 L142 203 Q142 164 128 142 Z", out);
+      if (str) g += L("M56 134 Q42 160 47 196", str, 3) + L("M144 134 Q158 160 153 196", str, 3);
+    }
 
     // торс
-    g += P(o.big ? "M54 120 Q100 106 146 120 L160 212 Q100 226 40 212 Z" : "M58 120 Q100 108 142 120 L150 210 Q100 222 50 210 Z", out);
+    g += P(fem ? "M64 122 Q100 112 136 122 L142 206 Q100 216 58 206 Z"
+           : o.big ? "M54 120 Q100 106 146 120 L160 212 Q100 226 40 212 Z" : "M58 120 Q100 108 142 120 L150 210 Q100 222 50 210 Z", out);
     if (o.uniform) {
       g += P("M86 118 L100 150 L114 118 Z", "#e8e4d8", 2) + P("M97 128 L100 170 L103 128 Z", "#6a1f1f", 2);
       g += C(72, 150, 4, "#e6b64f", 2) + C(128, 150, 4, "#e6b64f", 2) + L("M66 132 L82 130", "#e6b64f", 3) + L("M134 132 L118 130", "#e6b64f", 3);
+    } else if (o.suit) {
+      const shirt = o.shirt || "#f2efe6", lap = shade(out, 0.78);
+      g += P("M86 117 L100 158 L114 117 Z", shirt, 2);
+      if (o.tie) g += P("M96 122 L100 118 L104 122 L103 128 L106 152 L100 160 L94 152 L97 128 Z", o.tie, 2);
+      g += P("M84 116 L100 160 L90 168 L76 128 Z", lap, 2.5) + P("M116 116 L100 160 L110 168 L124 128 Z", lap, 2.5);
+      g += C(100, 176, 2.5, "#1a1a1a", 1) + C(100, 192, 2.5, "#1a1a1a", 1);
+      if (!fem) g += L("M118 140 l12 -2", "#f2efe6", 3);
+    } else if (fem) {
+      g += P("M88 118 Q100 140 112 118 Z", sk, 2);
     } else {
       g += L("M100 118 L100 214", OL, 2.5) + P("M86 116 L100 132 L114 116", "none", 3);
       g += `<path d="M64 150 Q62 180 66 206" stroke="#ffffff22" stroke-width="8" fill="none"/>`;
     }
     // кисти
-    g += C(50, 207, 10, sk) + C(150, 207, 10, sk);
+    g += C(hx1, 207, fem ? 8 : 10, sk) + C(hx2, 207, fem ? 8 : 10, sk);
+    if (o.watch) g += R(hx1 - 8, 192, 16, 7, "#f2c94c", 2, 2);
+    if (o.tattoo) g += L(`M${hx2 - 5} 203 l4 4 l4 -4 M${hx1 - 4} 204 h8`, "#2a4a7a", 2);
 
     // шея
-    g += P("M88 104 L88 122 Q100 128 112 122 L112 104 Z", skD);
+    g += fem ? P("M92 104 L92 122 Q100 126 108 122 L108 104 Z", skD) : P("M88 104 L88 122 Q100 128 112 122 L112 104 Z", skD);
+    if (o.tattoo) g += L("M106 108 q6 4 2 9 q-4 4 2 8", "#2a4a7a", 2.5);
 
-    // цепь
-    if (o.chain) g += L("M80 120 Q100 168 120 120", "#7a5a10", 7) + L("M80 120 Q100 168 120 120", "#f2c94c", 4) +
-      P("M96 146 h8 v8 h6 v6 h-6 v12 h-8 v-12 h-6 v-6 h6 Z", "#f2c94c", 2);
+    // цепь / ожерелье
+    if (o.chain && fem) {
+      for (let i = 0; i <= 8; i++) { const t = i / 8, x = 86 + 28 * t, y = 120 + 18 * Math.sin(Math.PI * t); g += C(x, y, 2.6, "#f6f1e4", 1.2); }
+    } else if (o.chain) {
+      g += L("M80 120 Q100 168 120 120", "#7a5a10", 7) + L("M80 120 Q100 168 120 120", "#f2c94c", 4) +
+        P("M96 146 h8 v8 h6 v6 h-6 v12 h-8 v-12 h-6 v-6 h6 Z", "#f2c94c", 2);
+    }
 
     // голова
-    g += C(62, 74, 9, sk) + C(138, 74, 9, sk);
-    g += P("M62 58 Q62 24 100 24 Q138 24 138 58 L140 90 Q136 118 100 120 Q64 118 60 90 Z", sk);
+    g += C(fem ? 64 : 62, 74, fem ? 7 : 9, sk) + C(fem ? 136 : 138, 74, fem ? 7 : 9, sk);
+    g += P(fem ? "M64 58 Q64 26 100 26 Q136 26 136 58 L136 84 Q130 114 100 116 Q70 114 64 84 Z"
+               : "M62 58 Q62 24 100 24 Q138 24 138 58 L140 90 Q136 118 100 120 Q64 118 60 90 Z", sk);
+    if (fem && (o.earrings !== false)) g += C(64, 88, 3.5, "#f2c94c", 1.5) + C(136, 88, 3.5, "#f2c94c", 1.5);
+    if (fem) g += `<ellipse cx="78" cy="88" rx="7" ry="4" fill="#e0707044"/><ellipse cx="122" cy="88" rx="7" ry="4" fill="#e0707044"/>`;
     // щетина / борода
     if (o.beard === "stubble") g += `<path d="M64 86 Q100 124 136 86 Q132 114 100 119 Q68 114 64 86 Z" fill="#0000002a"/>`;
     if (o.beard === "full") g += P("M61 80 Q62 126 100 128 Q138 126 139 80 Q130 102 100 102 Q70 102 61 80 Z", hc);
@@ -78,19 +119,28 @@ const ART = (() => {
       g += P("M72 62 h24 v10 q-2 8 -12 8 q-10 0 -12 -8 Z", "#151515") + P("M104 62 h24 v10 q-2 8 -12 8 q-10 0 -12 -8 Z", "#151515") + L("M96 64 L104 64", OL, 3);
       g += L("M77 66 L84 66", "#ffffff88", 2) + L("M109 66 L116 66", "#ffffff88", 2);
     } else {
-      g += E(85, 69, 7, 5.5, "#fff", 2) + E(115, 69, 7, 5.5, "#fff", 2);
-      g += `<circle cx="87" cy="70" r="2.8" fill="${OL}"/><circle cx="113" cy="70" r="2.8" fill="${OL}"/>`;
-      // брови: злые или спокойные
-      g += o.mood === "calm" ? L("M75 59 Q85 55 95 60", hc === "#9a9a9a" ? "#777" : OL, 4.5) + L("M125 59 Q115 55 105 60", hc === "#9a9a9a" ? "#777" : OL, 4.5)
-                             : L("M74 56 L96 64", OL, 5) + L("M126 56 L104 64", OL, 5);
+      g += E(85, 69, fem ? 6.5 : 7, fem ? 6 : 5.5, "#fff", 2) + E(115, 69, fem ? 6.5 : 7, fem ? 6 : 5.5, "#fff", 2);
+      g += `<circle cx="87" cy="70" r="${fem ? 3.2 : 2.8}" fill="${OL}"/><circle cx="113" cy="70" r="${fem ? 3.2 : 2.8}" fill="${OL}"/>`;
+      if (fem) {
+        g += L("M78 65 l-4 -3 M81 63 l-2 -4 M122 65 l4 -3 M119 63 l2 -4", OL, 1.8);
+        g += L("M76 57 Q85 52 94 57", browC, 2.5) + L("M124 57 Q115 52 106 57", browC, 2.5);
+      } else {
+        g += o.mood === "calm" ? L("M75 59 Q85 55 95 60", browC, 4.5) + L("M125 59 Q115 55 105 60", browC, 4.5)
+                               : L("M74 56 L96 64", browC, 5) + L("M126 56 L104 64", browC, 5);
+      }
+      if (o.glasses) g += `<circle cx="85" cy="69" r="10" fill="#ffffff22" stroke="${OL}" stroke-width="2.5"/><circle cx="115" cy="69" r="10" fill="#ffffff22" stroke="${OL}" stroke-width="2.5"/>` + L("M95 68 L105 68 M75 67 L66 64 M125 67 L134 64", OL, 2.5);
     }
+    if (o.old) g += L("M78 46 Q88 43 98 46 M102 46 Q112 43 122 46", "#00000033", 2) + L("M75 78 q4 3 9 2 M125 78 q-4 3 -9 2 M72 92 q3 8 8 12 M128 92 q-3 8 -8 12", "#00000033", 2);
     if (o.scar) g += L("M118 54 L110 82", "#9a3a2a", 2.5) + L("M112 62 L118 64 M110 70 L116 72", "#9a3a2a", 1.5);
 
     // нос
-    g += P("M100 68 Q90 86 97 90 Q104 92 107 87", skD, 2.5);
+    g += fem ? P("M100 72 Q94 84 98 87 Q102 89 105 86", skD, 2) : P("M100 68 Q90 86 97 90 Q104 92 107 87", skD, 2.5);
 
     // рот
-    if (o.mood === "grin") g += P("M84 99 Q100 113 116 99 Z", "#fff", 2.5) + `<rect x="103" y="100" width="6" height="6" fill="#f2c94c"/>`;
+    if (fem) {
+      g += o.mood === "angry" ? P("M89 104 Q100 98 111 104 Q100 108 89 104 Z", o.lips || "#b8392b", 2)
+                              : P("M88 101 Q94 98 100 100 Q106 98 112 101 Q100 111 88 101 Z", o.lips || "#b8392b", 2);
+    } else if (o.mood === "grin") g += P("M84 99 Q100 113 116 99 Z", "#fff", 2.5) + `<rect x="103" y="100" width="6" height="6" fill="#f2c94c"/>`;
     else if (o.mood === "calm") g += L("M88 103 Q100 107 112 103", OL, 3);
     else g += L("M86 105 Q100 97 114 105", OL, 3.5);
     if (o.beard === "mustache" || o.beard === "full") g += P("M82 97 Q92 89 100 94 Q108 89 118 97 Q108 96 100 99 Q92 96 82 97 Z", hc, 2);
@@ -109,18 +159,25 @@ const ART = (() => {
     } else if (ht === "fedora") {
       g += P("M44 56 Q100 40 156 56 Q160 62 150 62 Q100 52 50 62 Q40 62 44 56 Z", o.hatColor || "#3a2a20");
       g += P("M66 54 Q64 18 100 16 Q136 18 134 54 Q100 46 66 54 Z", o.hatColor || "#3a2a20") + P("M67 46 Q100 40 133 46 L134 53 Q100 46 66 53 Z", "#1a1a1a", 2);
+    } else if (fem && o.hairType === "bob") {
+      g += P("M58 92 Q50 20 100 18 Q150 20 142 92 L132 92 Q134 54 116 42 Q96 52 70 48 Q66 70 68 92 Z", hc) + L("M82 26 Q100 20 118 26", "#ffffff33", 3);
+    } else if (fem && o.hairType === "bun") {
+      g += C(100, 16, 14, hc) + P("M62 60 Q60 24 100 24 Q140 24 138 60 Q122 38 100 40 Q78 38 62 60 Z", hc) + L("M84 30 Q100 26 116 30", "#ffffff33", 2.5);
+    } else if (fem) { // long / ponytail
+      g += P("M60 66 Q58 22 100 20 Q142 22 140 66 Q130 42 110 38 Q96 50 70 46 Q62 54 60 66 Z", hc) + L("M84 28 Q100 22 116 28", "#ffffff33", 3);
     } else if (o.hairType === "buzz") {
       g += P("M62 58 Q60 22 100 22 Q140 22 138 58 Q128 40 100 40 Q72 40 62 58 Z", hc);
     } else if (o.hairType === "slick") {
       g += P("M60 64 Q56 20 100 18 Q146 20 140 64 Q136 40 112 36 Q90 34 72 42 Q62 50 60 64 Z", hc) + L("M76 30 Q100 24 124 30", "#ffffff33", 3);
     } else if (o.hairType === "mullet") {
       g += P("M60 70 Q54 22 100 20 Q146 22 140 70 Q138 46 100 40 Q62 46 60 70 Z", hc) + P("M60 70 Q56 100 66 110 L70 88 Z", hc, 2.5) + P("M140 70 Q144 100 134 110 L130 88 Z", hc, 2.5);
+    } else if (o.hairType === "sides") {
+      g += P("M60 76 Q58 52 66 44 L70 66 Z", hc, 2.5) + P("M140 76 Q142 52 134 44 L130 66 Z", hc, 2.5) + `<ellipse cx="88" cy="36" rx="12" ry="6" fill="#ffffff55" transform="rotate(-20 88 36)"/>`;
     } else {
-      // лысый — блик
       g += `<ellipse cx="88" cy="36" rx="12" ry="6" fill="#ffffff55" transform="rotate(-20 88 36)"/>`;
     }
 
-    // оружие в правой руке
+    // предмет в правой руке
     g += weapon(o.weapon, sk);
     return g;
   }
@@ -136,6 +193,10 @@ const ART = (() => {
         return P("M112 204 L196 176 L199 184 L160 198 L156 214 L146 216 L148 202 L116 212 Z", "#2e2e2e", 2.5) +
           P("M112 204 L94 212 L98 224 L118 214 Z", "#7a4a22", 2.5) + P("M152 200 L156 220 L148 222 L146 204 Z", "#2e2e2e", 2) +
           (w === "sniper" ? R(150, 178, 26, 8, "#1a1a1a", 3, 2) : "");
+      case "cane": return L("M150 214 L158 288", OL, 8) + L("M150 214 L158 288", "#4a2a1a", 5) + P("M142 210 Q150 196 160 206", "none", 6) + L("M142 210 Q150 197 159 206", "#e6b64f", 3);
+      case "folder": return P("M138 186 h34 v40 h-34 Z", "#c9a46a", 2.5) + L("M144 196 h20 M144 204 h20 M144 212 h14", "#7a5a2a", 2);
+      case "glass": return P("M144 186 h16 l-2 22 h-12 Z", "#cfe6ee", 2) + `<rect x="147" y="196" width="10" height="11" fill="#c9862a"/>`;
+      case "cigar": return P("M150 200 h18 v5 h-18 Z", "#7a4a22", 1.5) + L("M168 202 h3", "#e05a2a", 3) + `<path d="M172 196 q4 -6 0 -12" stroke="#9998" stroke-width="2" fill="none"/>`;
       default: return "";
     }
   }
@@ -356,7 +417,10 @@ const ART = (() => {
   return {
     thug, bust, full, randomLook, hasTile: k => !!TILES[k], heroLook, room, wanted, tile, ICONS, startScene,
     boss: id => bust(BOSSES[id], "boss"),
-    contact: who => bust(CONTACTS[who] || randomLook(who), "contact"),
+    contact: id => { const n = typeof npcById === "function" && npcById(id); return bust(n ? n.look : (CONTACTS[id] || randomLook(id)), "contact"); },
+    npc: n => bust(n.look, "npc"),
+    npcFull: n => full(n.look, "npcfull"),
+    inset,
     opponent: seed => bust(randomLook(seed), "opp"),
     hero: S => bust(heroLook(S), "hero"),
     crewMember: i => full(randomLook("crew" + i, { weapon: pick(rng(i), ["bat", "knife", "knuckle", null]) }), "crewm")

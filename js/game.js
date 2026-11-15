@@ -41,7 +41,7 @@ function newState(name) {
     districts: {},
     crew: 0,
     bosses: {}, bossKills: {},
-    story: 0,
+    story: 0, npc: {},
     jobsTotal: 0, mastery: {},
     wins: 0, losses: 0,
     lastSpin: "", lastBonus: "",
@@ -68,22 +68,24 @@ const totStr = () => S.stats.str + furnSum("str");
 const totAgi = () => S.stats.agi + furnSum("agi") + gearSum("agi");
 const maxHp  = () => 100 + S.stats.end * 10;
 const maxEn  = () => 50 + (S.level - 1) * 2 + DATA.homes[S.home].en + furnSum("en");
-const atk    = () => totStr() * 2 + gearSum("atk") + S.crew * 3;
+const atk    = () => Math.round((totStr() * 2 + gearSum("atk") + S.crew * 3) * (1 + perk("atkPct") / 100));
 const def    = () => S.stats.def * 2 + gearSum("def") + S.crew * 3;
-const safeCap = () => DATA.homes[S.home].safe * (hasF("safe") ? 2 : 1);
+const safeCap = () => Math.round(DATA.homes[S.home].safe * (hasF("safe") ? 2 : 1) * (1 + perk("safePct") / 100));
 const xpNeed = l => Math.round(40 * Math.pow(l, 1.45));
 function authority(s) {
   s = s || S;
   const d = DATA.districts.reduce((a, x) => a + (s.districts[x.id] ? x.auth : 0), 0);
   const g = ["weapon", "armor", "extra"].reduce((a, sl) => a + ((s.gear[sl] && item(s.gear[sl]).auth) || 0), 0);
-  return s.authBase + d + g + s.home * 15;
+  return s.authBase + d + g + s.home * 15 + (s === S ? perk("auth") : 0);
 }
 function incomePerHour() {
-  const b = DATA.biz.reduce((a, x) => a + (S.biz[x.id] || 0) * x.inc, 0);
-  const d = DATA.districts.reduce((a, x) => a + (S.districts[x.id] ? x.inc : 0), 0);
+  const b = DATA.biz.reduce((a, x) => a + (S.biz[x.id] || 0) * x.inc, 0) * (1 + perk("bizPct") / 100);
+  const d = DATA.districts.reduce((a, x) => a + (S.districts[x.id] ? x.inc : 0), 0) * (1 + perk("distPct") / 100);
   return b + d;
 }
-const bizPrice = b => Math.round(b.price * Math.pow(1.15, S.biz[b.id] || 0));
+const bizPrice = b => Math.round(b.price * Math.pow(1.15, S.biz[b.id] || 0) * (1 - perk("bizDisc") / 100));
+const itemPrice = it => Math.round(it.price * (1 - perk("shopDisc") / 100));
+const captureEn = () => perk("captureEn") ? 15 : 20;
 const statPrice = v => Math.round(40 * Math.pow(v, 1.45));
 const crewPrice = () => Math.round(500 * Math.pow(S.crew + 1, 1.5));
 const crewMax = () => S.level + 2;
@@ -228,8 +230,8 @@ const A = {
     } else {
       const m = S.mastery[id] || 0;
       const bonus = 1 + Math.floor(m / 100) * 0.25;
-      const cash = Math.round(rnd(j.cash[0], j.cash[1]) * bonus);
-      const xp = Math.round(j.xp * (hasF("tv") ? 1.1 : 1));
+      const cash = Math.round(rnd(j.cash[0], j.cash[1]) * bonus * (1 + perk("jobCashPct") / 100));
+      const xp = Math.round(j.xp * (hasF("tv") ? 1.1 : 1) * (1 + perk("jobXpPct") / 100));
       S.mastery[id] = m + 10;
       S.rep[j.side]++;
       S.authBase += 1;
@@ -255,7 +257,7 @@ const A = {
       addLog(`Победа над ${o.name} [${o.level}]: ${summary}`);
     } else {
       S.losses++;
-      const lost = Math.round(S.cash * 0.1);
+      const lost = Math.round(S.cash * (perk("lossPct") ? 0.05 : 0.1));
       S.cash -= lost;
       addXp(1);
       summary = `−$${fmt(lost)} (наличные не в сейфе)`;
@@ -286,8 +288,8 @@ const A = {
 
   buyItem(id) {
     const it = item(id);
-    if (S.level < it.lvl || S.owned.includes(id) || !needCash(it.price)) return;
-    S.cash -= it.price; S.owned.push(id);
+    if (S.level < it.lvl || S.owned.includes(id) || !needCash(itemPrice(it))) return;
+    S.cash -= itemPrice(it); S.owned.push(id);
     const cur = S.gear[it.slot] && item(S.gear[it.slot]);
     if (!cur || cur.price < it.price) S.gear[it.slot] = id;
     toast(`${it.icon} ${it.name} куплен${cur && cur.price >= it.price ? "" : " и надет"}`);
@@ -324,8 +326,8 @@ const A = {
 
   capture(id) {
     const d = DATA.districts.find(x => x.id === id);
-    if (S.districts[id] || S.level < d.lvl || !needHp() || !needEnergy(20)) return;
-    S.energy -= 20;
+    if (S.districts[id] || S.level < d.lvl || !needHp() || !needEnergy(captureEn())) return;
+    S.energy -= captureEn();
     const p = playerFighter(), e = makeFighter({ name: d.boss, hp: d.hp, atk: d.atk, def: d.def, agi: d.lvl * 2 });
     const res = battle(p, e, 12);
     S.hp = Math.max(1, p.hp);
@@ -347,6 +349,7 @@ const A = {
     S.energy -= 10;
     const p = playerFighter(), e = makeFighter({ name: b.name, hp: st.hp, atk: b.atk, def: b.def, agi: b.lvl });
     e.maxHp = b.hp;
+    p.atk = Math.round(p.atk * (1 + perk("raidDmgPct") / 100));
     const before = st.hp;
     const res = battle(p, e, 3);
     S.hp = Math.max(1, p.hp);
@@ -356,7 +359,7 @@ const A = {
     if (e.hp <= 0) {
       S.bossKills[id] = (S.bossKills[id] || 0) + 1;
       S.bosses[id] = { hp: 0, t: Date.now(), dead: Date.now() };
-      extra = "<p><b>Босс повержен! " + give({ cash: b.cash, xp: b.xp, gold: b.gold, auth: 10 }) + "</b></p>";
+      extra = "<p><b>Босс повержен! " + give({ cash: b.cash, xp: Math.round(b.xp * (1 + perk("raidXpPct") / 100)), gold: b.gold, auth: 10 }) + "</b></p>";
       addLog(`Рейд: ${b.name} повержен`);
     } else addXp(2);
     save(); render();
@@ -406,7 +409,7 @@ const A = {
     let mult = 0;
     if (r[0] === r[1] && r[1] === r[2]) mult = r[0] === "7️⃣" ? 20 : r[0] === "💎" ? 12 : 6;
     else if (r[0] === r[1] || r[1] === r[2] || r[0] === r[2]) mult = 1.5;
-    const win = Math.round(bet * mult);
+    const win = Math.round(bet * mult * (mult ? 1 + perk("casinoPct") / 100 : 1));
     S.cash += win;
     save(); render();
     if (!$("#reels")) return;
@@ -421,13 +424,13 @@ const A = {
     const r = give(q.reward);
     addLog("Связи: «" + q.title + "» выполнено");
     save(); render();
-    modal(`<div class="portrait">${ART.contact(q.who)}</div><h3>${q.title}</h3><p>Задание выполнено.</p><p><b>${r}</b></p>`);
+    modal(`<div class="portrait" style="--oc:${ORGS[npcById(q.who).org].color}">${ART.contact(q.who)}</div><h3>${q.title}</h3><p>Задание выполнено.</p><p><b>${r}</b></p>`);
   },
 
   bonus() {
     if (S.lastBonus === today()) return;
     S.lastBonus = today();
-    const r = give({ cash: 300 * S.level, gold: 1, energyFull: true });
+    const r = give({ cash: 300 * S.level, gold: 1 + perk("bonusGold"), energyFull: true });
     save(); render(); modal(`<div class="big">🎁</div><h3>Ежедневный бонус</h3><p>${r}</p>`);
   },
 
@@ -438,7 +441,7 @@ const A = {
   },
   heal() {
     if (S.hp >= maxHp()) return toast("Здоровье полное");
-    const p = Math.max(100, Math.round((maxHp() - S.hp) * 3 * (1 + S.level / 10)));
+    const p = Math.max(100, Math.round((maxHp() - S.hp) * 3 * (1 + S.level / 10) * (1 - perk("healPct") / 100)));
     if (!needCash(p)) return;
     S.cash -= p; S.hp = maxHp(); toast("❤️ Подлечился за $" + fmt(p)); save(); render();
   },
@@ -448,6 +451,8 @@ const A = {
     localStorage.removeItem(SAVE_KEY); S = null; go("start");
   }
 };
+
+Object.assign(A, PEOPLE_ACTIONS);
 
 function bossState(b) {
   const st = S.bosses[b.id];
@@ -464,7 +469,8 @@ function badges() {
   const b = {};
   if (S.pending >= 1) b.points = "$";
   const q = DATA.story[S.story];
-  if (q && q.check(S)) b.contacts = 1;
+  const nm = meetableCount() + (q && q.check(S) ? 1 : 0);
+  if (nm) b.contacts = nm;
   if (S.lastSpin !== today()) b.casino = 1;
   if (S.points > 0) b.profile = S.points;
   const opd = DATA.districts.filter(d => !S.districts[d.id] && S.level >= d.lvl).length;
@@ -479,8 +485,8 @@ function toast(msg, kind) {
   t.innerHTML = msg; t.className = "toast show " + (kind || "");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = "toast", 2600);
 }
-function modal(html) {
-  $("#modal .box").innerHTML = html + `<button class="btn" onclick="closeModal()">Ок</button>`;
+function modal(html, noOk) {
+  $("#modal .box").innerHTML = html + (noOk ? "" : `<button class="btn" onclick="closeModal()">Ок</button>`);
   $("#modal").classList.add("show");
 }
 function closeModal() { $("#modal").classList.remove("show"); }
@@ -550,6 +556,7 @@ const SCREENS = {
       </div>
     </div>
     <div class="links">
+      <a onclick="go('people')">👥 Люди города</a>
       <a onclick="go('log')">📟 Сводки <span class="muted">(${S.log.length})</span></a>
       <a onclick="go('help')">Помощь</a>
       <a onclick="go('start')">Главный экран</a>
@@ -559,7 +566,7 @@ const SCREENS = {
   },
 
   profile() {
-    const wanted = Math.min(5, Math.floor(S.rep.street / 25));
+    const wanted = Math.max(0, Math.min(5, Math.floor(S.rep.street / 25)) + perk("wanted"));
     const pt = st => S.points > 0 ? `<button class="mini" onclick="A.point('${st}')">+</button>` : "";
     const g = sl => S.gear[sl] ? item(S.gear[sl]) : null;
     const gearTxt = ["weapon", "armor", "extra"].map(sl => g(sl) ? `${g(sl).icon} ${g(sl).name}` : "—").join("<br>");
@@ -632,7 +639,7 @@ const SCREENS = {
   },
 
   districts() {
-    return head("Районы", "districts", "Захвати район — получай доход и авторитет. Штурм стоит ⚡20.") +
+    return head("Районы", "districts", "Захвати район — получай доход и авторитет. Штурм стоит ⚡" + captureEn() + ".") +
       `<div class="map">${DATA.districts.map(d => `<div class="blk ${S.districts[d.id] ? "mine" : ""}">${d.icon}<small>${d.name}</small></div>`).join("")}</div>` +
       DATA.districts.map(d => {
         const lock = S.level < d.lvl, mine = !!S.districts[d.id];
@@ -698,7 +705,7 @@ const SCREENS = {
         return `<div class="card ${lock ? "locked" : ""}"><div class="cico">${it.icon}</div>
           <div class="cbody"><b>${it.name}</b><small>${st}</small></div>
           ${on ? `<span class="lock good">Надето</span>` : own ? `<button class="btn sm" onclick="A.equip('${it.id}')">Надеть</button>` :
-            lock ? lockTag(it.lvl) : `<button class="btn sm" onclick="A.buyItem('${it.id}')">$${short(it.price)}</button>`}</div>`;
+            lock ? lockTag(it.lvl) : `<button class="btn sm" onclick="A.buyItem('${it.id}')">$${short(itemPrice(it))}</button>`}</div>`;
       }).join("")).join("") + back();
   },
 
@@ -729,13 +736,20 @@ const SCREENS = {
   contacts() {
     const q = DATA.story[S.story];
     const done = DATA.story.slice(0, S.story);
-    return head("Связи", "contacts", "Сюжет: Глава I · «Новая жизнь»") +
-      (q ? `<div class="paper"><div class="row"><div class="cico face big">${ART.contact(q.who)}</div><div><b>${q.who}</b><br><small>${q.title}</small></div></div>
+    const qn = q && npcById(q.who);
+    const nm = meetableCount();
+    return head("Связи", "contacts", "«Цена власти» · Глава I · «Новая жизнь»") +
+      `<div class="chapters">${CHAPTERS.map((c, i) => `<div class="chap ${i === 0 ? (q ? "on" : "done") : "locked"}"><b>${c.n}</b><small>${c.title}</small></div>`).join("")}</div>` +
+      (q ? `<div class="paper"><div class="row"><div class="cico face big">${ART.contact(q.who)}</div>
+            <div><b>${qn.name}</b><br><small>${qn.title}</small><br><small class="muted">Шаг ${S.story + 1} из ${DATA.story.length} · ${q.title}</small></div></div>
           <p class="quote">${q.text}</p><p>🎯 <b>${q.goal}</b></p>
           <p class="small">Награда: ${[q.reward.cash && "$" + fmt(q.reward.cash), q.reward.xp && q.reward.xp + " ⭐", q.reward.gold && q.reward.gold + " 💎"].filter(Boolean).join(" · ")}</p>
+          ${!npcMet(S, q.who) && npcUnlocked(qn) ? `<button class="btn" onclick="openNpc('${q.who}')">🤝 Познакомиться: ${qn.name}</button>` : ""}
           <button class="btn ${q.check(S) ? "green" : ""}" onclick="A.story()" ${q.check(S) ? "" : "disabled"}>${q.check(S) ? "Готово — забрать награду" : "Ещё не выполнено"}</button></div>`
-        : `<div class="paper center"><div class="big">🕴️</div><b>Глава I завершена.</b><p>Продолжение — в следующем обновлении.</p></div>`) +
-      (done.length ? `<h4 class="sub">Выполнено</h4>` + done.map(d => `<div class="card done"><div class="cico face">${ART.contact(d.who)}</div><div class="cbody"><b>${d.title}</b><small>${d.who}</small></div><span class="lock good">✓</span></div>`).join("") : "") + back();
+        : `<div class="paper center"><b>Глава I завершена.</b><p>${CHAPTERS[1].text}</p><p class="muted">Глава II «Первые связи» — в следующем обновлении. Харриганы уже ждут тебя в «Людях города».</p></div>`) +
+      `<button class="btn green" onclick="go('people')">👥 Люди города${nm ? ` · можно познакомиться: ${nm}` : ""}</button>` +
+      (done.length ? `<h4 class="sub">Выполнено</h4>` + done.map(d => `<div class="card done"><div class="cico face">${ART.contact(d.who)}</div><div class="cbody"><b>${d.title}</b><small>${npcById(d.who).name}</small></div><span class="lock good">✓</span></div>`).join("") : "") +
+      `<h4 class="sub">Сюжет «Цена власти»</h4>` + CHAPTERS.map((c, i) => `<div class="card ${i ? "locked" : ""}"><div class="cico chapn">${c.n}</div><div class="cbody"><b>Глава ${c.n}. ${c.title}</b><small>${c.text}</small></div></div>`).join("") + back();
   },
 
   log() {
@@ -755,6 +769,8 @@ const SCREENS = {
       <p class="muted">Это одиночная демо-версия: соперники — сгенерированные персонажи, прогресс хранится в браузере.</p></div>` + back();
   }
 };
+
+Object.assign(SCREENS, PEOPLE_SCREENS);
 
 function render() {
   if (!S && screen !== "start") screen = "start";
