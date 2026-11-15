@@ -1778,3 +1778,32 @@ input::placeholder {
 /* span.icon-medal перебивает .game-row > span:not(.medallion) { flex: 1 } из 0.311 */
 .game-row > span.icon-medal { width: 43px; height: 43px; flex: 0 0 43px; min-width: 43px; }
 .game-row > span.icon-medal svg { width: 20px; height: 20px; }
+
+/* ---------- пошаговый бой ---------- */
+.battle-backdrop { align-items: center; padding-top: 34px; }
+.game-dialog.battle { width: min(100%, 460px); max-height: calc(100dvh - 60px); display: flex; flex-direction: column; gap: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+.battle-sides { display: flex; align-items: flex-start; gap: 6px; }
+.battle-vs { align-self: center; font-family: "PT Serif", Georgia, serif; color: #d9b56a; font-size: 18px; }
+.battle-fighter { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.battle-fighter b { font-family: "PT Serif", Georgia, serif; font-weight: 400; color: #d3c695; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.battle-portrait { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; border: 2px solid #9c905b; box-shadow: 0 0 0 2px #080b08; display: grid; place-items: center; }
+.battle-portrait img, .battle-portrait .player-art { width: 100%; height: 100%; object-fit: cover; }
+.battle-portrait .icon-medal { width: 100%; height: 100%; }
+.battle-portrait .icon-medal svg { width: 28px; height: 28px; }
+.battle-bar { position: relative; width: 100%; height: 14px; border-radius: 7px; background: #0007; overflow: hidden; border: 1px solid #ffffff1a; }
+.battle-bar i { display: block; height: 100%; transition: width .3s; }
+.battle-bar.hp i { background: linear-gradient(#d0503f, #8a2418); }
+.battle-bar.ap i { background: linear-gradient(#e2c071, #a8843e); }
+.battle-bar span { position: absolute; inset: 0; font-size: 10px; line-height: 13px; color: #fff; text-shadow: 0 1px 2px #000; }
+.battle-effects { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; min-height: 16px; }
+.battle-effects span { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; padding: 1px 5px; border-radius: 8px; background: #0006; color: #e0c98a; }
+.battle-log { flex: 1 1 auto; min-height: 90px; max-height: 26dvh; overflow: auto; font-size: 12.5px; background: #0005; border-radius: 10px; padding: 6px 10px; text-align: left; }
+.battle-log div { padding: 2px 0; border-bottom: 1px dotted #ffffff12; }
+.battle-log .turn { color: #d9b56a; border: 0; padding-top: 6px; }
+.battle-log .crit { color: #ffb070; }
+.battle-skills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.battle-skill { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid #9c905b88; background: radial-gradient(ellipse at 45% 30%, #3a4a3a, #13221a 70%); color: #e1c55e; }
+.battle-skill b { font-family: "PT Serif", Georgia, serif; font-weight: 400; font-size: 12px; color: #e6dcc0; line-height: 1.15; }
+.battle-skill small { font-size: 9.5px; color: #9ca98f; }
+.battle-skill:disabled { opacity: .4; }
+.battle-flee { align-self: center; }

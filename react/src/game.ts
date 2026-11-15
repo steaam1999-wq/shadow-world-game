@@ -2,6 +2,7 @@ import { npcs, type DistrictId } from "./data";
 import {
   freshEconomy,
   isEconomy,
+  normalizeEconomy,
   levelFor,
   addXp,
   maxEnergy,
@@ -332,6 +333,7 @@ export function parseSave(raw: string): GameState | null {
       s.eco = freshEconomy(Date.now());
       s.level = levelFor(s.xp);
     }
+    if (s && s.version === 2) s.eco = normalizeEconomy(s.eco);
     if (
       s.version !== 2 ||
       !isEconomy(s.eco) ||

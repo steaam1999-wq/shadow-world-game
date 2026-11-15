@@ -99,7 +99,7 @@ describe("Бои", () => {
 describe("Рейды и районы", () => {
   it("урон по боссу сохраняется, после победы босс возвращается через 30 минут", () => {
     const boar = bosses[0];
-    let s = atLevel(20, { energy: 1000 }, { stats: { str: 200, def: 200, agi: 0, end: 5 } });
+    let s = atLevel(20, { energy: 1000 }, { stats: { str: 200, def: 200, agi: 0, end: 5, int: 5 } });
     const first = raid(s, "boar", "Я", seeded(5), T0);
     expect(first.ok).toBe(true);
     s = first.state;
@@ -111,7 +111,7 @@ describe("Рейды и районы", () => {
     expect(bossHealth(s, boar, T0 + BOSS_RESPAWN_MS + 1).dead).toBe(false);
   });
   it("захват района добавляет доход и не повторяется", () => {
-    const s = atLevel(5, { energy: 100 }, { stats: { str: 60, def: 60, agi: 10, end: 5 } });
+    const s = atLevel(5, { energy: 100 }, { stats: { str: 60, def: 60, agi: 10, end: 5, int: 5 } });
     const r = capture(s, "west", "Я", seeded(6), T0);
     expect(r.win).toBe(true);
     expect(r.state.eco.captured).toEqual(["west"]);

@@ -5,13 +5,16 @@
  * передаются параметрами (rng, now), поэтому всё детерминированно тестируется.
  */
 import type { DistrictId } from "./data";
+import { roles, npcCombatant, type Battle, type Combatant, type Role } from "./combat";
 
 export type Rng = () => number;
-export type StatKey = "str" | "def" | "agi" | "end";
+export type StatKey = "str" | "def" | "agi" | "end" | "int";
 export type Slot = "weapon" | "armor" | "extra";
 
 export type Economy = {
   stats: Record<StatKey, number>;
+  /** стиль боя: громила, стрелок или хирург */
+  role: Role;
   points: number;
   gold: number;
   safe: number;
@@ -147,7 +150,8 @@ export const RAID_ENERGY = 10;
 export const CAPTURE_ENERGY = 20;
 
 export const freshEconomy = (now: number): Economy => ({
-  stats: { str: 5, def: 5, agi: 5, end: 5 },
+  stats: { str: 5, def: 5, agi: 5, end: 5, int: 5 },
+  role: "brute",
   points: 0,
   gold: 5,
   safe: 0,
@@ -476,7 +480,8 @@ export function isEconomy(e: unknown): e is Economy {
   const stats = x.stats as Record<string, unknown> | undefined;
   const gear = x.gear as Record<string, unknown> | undefined;
   return (
-    !!stats && ["str", "def", "agi", "end"].every((k) => num(stats[k])) &&
+    !!stats && ["str", "def", "agi", "end", "int"].every((k) => num(stats[k])) &&
+    typeof x.role === "string" && x.role in roles &&
     ["points", "gold", "safe", "banked", "incomeAt", "home", "crew", "jobsTotal", "wins", "losses", "regenAt", "hpAt", "restAt", "earned"].every((k) => num(x[k])) &&
     (x.home as number) < homes.length &&
     !!gear && ["weapon", "armor", "extra"].every((k) => gear[k] === null || items.some((i) => i.id === gear[k])) &&
@@ -488,4 +493,91 @@ export function isEconomy(e: unknown): e is Economy {
     !!x.bosses && typeof x.bosses === "object" &&
     !!x.bossKills && typeof x.bossKills === "object"
   );
+}
+
+/** Дополнить экономику из старых сохранений полями, появившимися позже (интуиция, стиль боя). */
+export function normalizeEconomy(e: unknown): unknown {
+  if (!e || typeof e !== "object") return e;
+  const x = e as Record<string, unknown>;
+  const stats = (x.stats && typeof x.stats === "object" ? x.stats : {}) as Record<string, unknown>;
+  return { ...x, stats: { int: 5, ...stats }, role: typeof x.role === "string" ? x.role : "brute", hpAt: typeof x.hpAt === "number" ? x.hpAt : x.regenAt };
+}
+
+// ---------------- пошаговый бой: связь с экономикой ----------------
+export const maxAdrenaline = (s: EcoHost) => 60 + s.eco.stats.int * 3;
+/** Боец игрока для пошагового боя. */
+export function playerCombatant(s: EcoHost, name: string): Combatant {
+  return {
+    name, hp: s.health, maxHp: maxHealth(s), ap: maxAdrenaline(s), maxAp: maxAdrenaline(s),
+    str: strength(s), agi: agility(s), int: s.eco.stats.int, atk: attack(s), armor: defense(s), level: s.level,
+    effects: [], cooldowns: {}, skills: roles[s.eco.role].skills,
+  };
+}
+export function setRole<T extends EcoHost>(s: T, role: Role): Result<T> {
+  if (!(role in roles)) return fail(s, "Нет такого стиля");
+  return ok({ ...s, eco: { ...s.eco, role } }, `Стиль боя: ${roles[role].name}`);
+}
+/** Списать энергию за вход в бой. */
+function payEnergy<T extends EcoHost>(s: T, cost: number): Result<T> {
+  if (!enoughHealth(s)) return fail(s, "Слишком мало здоровья — отдохни или подлечись");
+  if (s.energy < cost) return fail(s, `Не хватает энергии (нужно ${cost})`);
+  return ok({ ...s, energy: s.energy - cost }, "");
+}
+export const beginFight = <T extends EcoHost>(s: T) => payEnergy(s, FIGHT_ENERGY);
+export function settleFight<T extends EcoHost>(s: T, o: Opponent, b: Battle, rng: Rng): Result<T> {
+  let next: T = { ...s, health: Math.max(1, b.player.hp) };
+  if (b.winner === "player") {
+    const cash = o.level * rnd(rng, 40, 90);
+    next = { ...next, reputation: next.reputation + rnd(rng, 1, 3), eco: { ...next.eco, wins: next.eco.wins + 1 } };
+    next = addXp(addMoney(next, cash), 4 + o.level);
+    return { state: next, ok: true, message: `Победа над ${o.name}: +$${cash}, +${4 + o.level} опыта`, win: true };
+  }
+  const lost = Math.round(next.money * 0.1);
+  next = addXp({ ...next, money: next.money - lost, eco: { ...next.eco, losses: next.eco.losses + 1 } }, 1);
+  return { state: next, ok: true, message: `Поражение от ${o.name}: −$${lost} (сейф не тронут)`, win: false };
+}
+export function beginRaid<T extends EcoHost>(s: T, id: string, now: number): Result<T> {
+  const b = bosses.find((x) => x.id === id);
+  if (!b) return fail(s, "Нет такого босса");
+  if (s.level < b.lvl) return fail(s, `Откроется с ${b.lvl} уровня`);
+  if (bossHealth(s, b, now).dead) return fail(s, "Босс ещё не вернулся");
+  return payEnergy(s, RAID_ENERGY);
+}
+export function bossCombatant(s: EcoHost, id: string, now: number): Combatant {
+  const b = bosses.find((x) => x.id === id)!;
+  return npcCombatant({ name: b.name, hp: bossHealth(s, b, now).hp, maxHp: b.hp, atk: b.atk, def: b.def, agi: b.lvl, level: b.lvl }, "boss");
+}
+export function settleRaid<T extends EcoHost>(s: T, id: string, b: Battle, now: number): Result<T> {
+  const boss = bosses.find((x) => x.id === id)!;
+  let next: T = { ...s, health: Math.max(1, b.player.hp) };
+  if (b.enemy.hp <= 0) {
+    next = { ...next, reputation: next.reputation + 10, eco: { ...next.eco, gold: next.eco.gold + boss.gold, bosses: { ...next.eco.bosses, [id]: { hp: 0, deadAt: now } }, bossKills: { ...next.eco.bossKills, [id]: (next.eco.bossKills[id] ?? 0) + 1 } } };
+    next = addXp(addMoney(next, boss.cash), boss.xp);
+    return { state: next, ok: true, message: `${boss.name} повержен! +$${boss.cash}, +${boss.xp} опыта, +${boss.gold} золота`, win: true };
+  }
+  next = addXp({ ...next, eco: { ...next.eco, bosses: { ...next.eco.bosses, [id]: { hp: b.enemy.hp } } } }, 2);
+  return { state: next, ok: true, message: `Нанесено ${b.dealt} урона. У босса осталось ${b.enemy.hp}`, win: false };
+}
+export function beginCapture<T extends EcoHost>(s: T, id: DistrictId): Result<T> {
+  const t = turfs.find((x) => x.id === id);
+  if (!t) return fail(s, "Этот район не захватить");
+  if (s.eco.captured.includes(id)) return fail(s, "Район уже под контролем");
+  if (s.level < t.lvl) return fail(s, `Откроется с ${t.lvl} уровня`);
+  return payEnergy(s, CAPTURE_ENERGY);
+}
+export function turfCombatant(id: DistrictId): Combatant {
+  const t = turfs.find((x) => x.id === id)!;
+  return npcCombatant({ name: t.boss, hp: Math.round(t.hp * 1.3), atk: Math.round(t.atk * 0.75), def: Math.round(t.def * 0.7), agi: t.lvl * 2, level: t.lvl });
+}
+export function settleCapture<T extends EcoHost>(s: T, id: DistrictId, b: Battle, now: number): Result<T> {
+  const t = turfs.find((x) => x.id === id)!;
+  let next: T = { ...s, health: Math.max(1, b.player.hp) };
+  if (b.winner !== "player") {
+    next = addXp({ ...next, eco: { ...next.eco, losses: next.eco.losses + 1 } }, 3);
+    return { state: next, ok: true, message: `Штурм сорвался: ${t.boss} устояли`, win: false };
+  }
+  const banked = pendingIncome(next, now);
+  next = { ...next, eco: { ...next.eco, banked, incomeAt: now, captured: [...next.eco.captured, id], wins: next.eco.wins + 1 } };
+  next = addXp(addMoney(next, t.inc * 3), 25 + t.lvl * 6);
+  return { state: next, ok: true, message: `Район под контролем! +$${t.inc}/ч`, win: true };
 }
