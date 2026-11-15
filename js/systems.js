@@ -377,7 +377,7 @@ function cityMap() {
   g += [[204, 180], [228, 350]].map(([x, y]) => `<rect x="${x - 22}" y="${y - 6}" width="44" height="12" fill="#a08060" stroke="${OL2}" stroke-width="2"/>`).join("");
   for (const d of DATA.districts) {
     const [x, y] = pos[d.id], mine = !!S.districts[d.id], lock = S.level < d.lvl;
-    g += `<g class="mapdist${lock ? " locked" : ""}" onclick="go('districts')" transform="translate(${x} ${y})">${art[d.id]()}
+    g += `<g class="mapdist${lock ? " locked" : ""}" onclick="visitLoc('${d.id}')" transform="translate(${x} ${y})">${art[d.id]()}
       ${mine ? p2("M38 -40 V0", "none", 2.5) + p2("M38 -40 L58 -34 L38 -28 Z", "#2a9a2a", 2) : ""}
       ${lock ? `<g transform="translate(0 -18)"><rect x="-9" y="-2" width="18" height="14" rx="2" fill="#e6b64f" stroke="${OL2}" stroke-width="2"/><path d="M-5 -2 v-4 a5 5 0 0 1 10 0 v4" fill="none" stroke="${OL2}" stroke-width="2.5"/></g>` : ""}
       <rect x="-58" y="32" width="116" height="20" rx="6" fill="${mine ? "#2a6a2a" : "#2a1d12"}" opacity=".88"/>
@@ -585,4 +585,11 @@ function profileExtras() {
       ${sysTile(ICON2.talent(), "Таланты", "talents", sb.tal)}
       ${sysTile(ICON2.notes(), "Заметки", "notes", "")}
     </div>`;
+}
+
+// переход в район с карты: «Город» показывает выбранный район
+function visitLoc(id) {
+  const d = DATA.districts.find(x => x.id === id);
+  if (S.level < d.lvl) return toast(d.name + " откроется с " + d.lvl + " ур.", "bad");
+  S._loc = id; save(); go("hub");
 }

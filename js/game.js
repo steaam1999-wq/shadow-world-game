@@ -833,7 +833,7 @@ setInterval(() => {
   if (!busy && !["casino", "start", "notes"].includes(screen) && !document.querySelector("#modal.show") && (before !== after || live)) {
     const y = window.scrollY; render(); window.scrollTo(0, y);
   } else if (screen !== "start") {
-    const el = $("#tbEn"); if (el) el.textContent = S.energy + "/" + maxEn();
+    const el = $("#tbEn"); if (el) el.textContent = S.energy;
   }
   const t = $("#tbT"); if (t) t.textContent = mmss(ENERGY_REGEN_SEC - S.enAcc);
 }, 1000);
