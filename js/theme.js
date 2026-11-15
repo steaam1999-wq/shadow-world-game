@@ -320,3 +320,43 @@ ART.startScene = () => pic("bg.start", _start(), "startpic");
 Object.assign(SCREENS, THEME_SCREENS);
 document.documentElement.classList.add("theme-emerald");
 render();
+
+// ---------- нуар-силуэты для безымянных соперников, боссов и бойцов бригады ----------
+function noirFigure(seed, opt = {}) {
+  const r = rng2("noir" + seed), pick = a => a[Math.floor(r() * a.length)];
+  const hat = opt.hat || pick(["fedora", "cap", "none", "fedora", "flat"]);
+  const wide = opt.big ? 1.18 : 0.92 + r() * 0.2;
+  const glow = opt.glow || pick(["#d9b56a", "#4ad8a0", "#e08a4a"]);
+  const id = "nf" + String(seed).replace(/\W/g, "") + (opt.big ? "b" : "");
+  const sx = w => 50 + (w - 50) * wide;
+  let g = `<defs><radialGradient id="${id}" cx=".5" cy=".3" r=".8"><stop offset="0" stop-color="${opt.bg || "#2c4434"}"/><stop offset="1" stop-color="#0a120d"/></radialGradient>
+    <linearGradient id="${id}r" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${glow}" stop-opacity=".0"/><stop offset=".85" stop-color="${glow}" stop-opacity=".0"/><stop offset="1" stop-color="${glow}" stop-opacity=".55"/></linearGradient></defs>
+    <rect width="100" height="100" fill="url(#${id})"/>`;
+  // дымка и фонарь
+  g += `<circle cx="${20 + r() * 60}" cy="18" r="22" fill="${glow}" opacity=".10"/>`;
+  // плечи и голова
+  const body = `M${sx(8)} 100 Q${sx(10)} 70 ${sx(30)} 64 L44 60 Q50 66 56 60 L${sx(70)} 64 Q${sx(90)} 70 ${sx(92)} 100 Z`;
+  g += `<path d="${body}" fill="#060a08"/><path d="${body}" fill="url(#${id}r)"/>`;
+  g += `<path d="M44 52 h12 v10 h-12 Z" fill="#060a08"/><ellipse cx="50" cy="40" rx="${13 * Math.min(wide, 1.08)}" ry="16" fill="#060a08"/>`;
+  g += `<path d="M44 60 L50 74 L56 60" fill="none" stroke="#1a2a20" stroke-width="2"/>`;
+  if (hat === "fedora") g += `<path d="M28 31 Q50 25 72 31 Q74 35 68 34 Q50 30 32 34 Q26 35 28 31 Z" fill="#060a08"/><path d="M37 31 Q36 14 50 13 Q64 14 63 31 Z" fill="#060a08"/><path d="M37.5 27 Q50 24 62.5 27" stroke="${glow}" stroke-opacity=".35" stroke-width="1.5" fill="none"/>`;
+  if (hat === "cap") g += `<path d="M36 33 Q35 20 50 20 Q65 20 64 33 Z" fill="#060a08"/><path d="M50 30 Q66 28 76 33 Q66 36 50 34 Z" fill="#060a08"/>`;
+  if (hat === "flat") g += `<path d="M35 32 Q36 22 52 22 Q68 23 70 30 Q60 34 35 32 Z" fill="#060a08"/>`;
+  // контровой свет по краю головы
+  g += `<path d="M${50 + 12 * Math.min(wide, 1.08)} 34 Q${52 + 13 * Math.min(wide, 1.08)} 44 ${48 + 12 * Math.min(wide, 1.08)} 54" stroke="${glow}" stroke-opacity=".55" stroke-width="1.6" fill="none"/>`;
+  // глаза / огонёк сигареты
+  if (opt.eyes !== false && r() < 0.6) g += `<circle cx="45" cy="41" r="1.3" fill="${glow}" opacity=".8"/><circle cx="55" cy="41" r="1.3" fill="${glow}" opacity=".8"/>`;
+  if (opt.cigar || r() < 0.3) g += `<path d="M56 50 l10 2" stroke="#3a2a1a" stroke-width="2"/><circle cx="67" cy="52" r="1.6" fill="#ff7a3a"/><path d="M68 49 q4 -6 0 -12 q-3 -5 2 -10" stroke="#9aa" stroke-opacity=".35" stroke-width="1.2" fill="none"/>`;
+  if (opt.mark) g += `<text x="50" y="95" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-size="11" font-weight="700" fill="${glow}" opacity=".8">${opt.mark}</text>`;
+  return `<svg class="art noir" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">${g}</svg>`;
+}
+const BOSS_NOIR = {
+  boar:  { hat: "cap",    big: true, glow: "#e08a4a", bg: "#3a2a1a", mark: "КАБАН" },
+  shtyr: { hat: "flat",   big: true, glow: "#9ab0c0", bg: "#26323a", mark: "ШТЫРЬ" },
+  baron: { hat: "fedora", big: false, glow: "#d9b56a", bg: "#3a2c1a", cigar: true, mark: "БАРОН" },
+  sedoy: { hat: "none",   big: true, glow: "#c0d0d8", bg: "#1e2a30", mark: "СЕДОЙ" }
+};
+ART.opponent = seed => noirFigure(seed);
+ART.boss = id => noirFigure("boss" + id, Object.assign({ eyes: true }, BOSS_NOIR[id] || {}));
+ART.crewMember = i => `<span class="crewnoir">${noirFigure("crew" + i, { glow: "#d9b56a" })}</span>`;
+render();
