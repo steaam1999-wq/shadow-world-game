@@ -52,7 +52,9 @@ const route = async (page: Page) => {
 const saved = () => JSON.parse(localStorage.getItem(SAVE_KEY)!);
 describe("Новый игровой интерфейс", () => {
   it("показывает профиль с полноростовым героем и открывает восемь экранов без потери прогресса", async () => {
-    expect(host.querySelector(".character-image")).not.toBeNull();
+    // герой в профиле — слоёный аватар экипировки: базовое тело + надетые вещи
+    expect(host.querySelector(".character-stage svg.avatar")).not.toBeNull();
+    expect(host.querySelectorAll('.character-stage svg.avatar [data-slot]').length).toBe(3);
     expect(host.querySelector(".hero")).toBeNull();
     expect(host.querySelectorAll(".bottom-nav>button")).toHaveLength(5);
     for (const p of pages) {
@@ -117,5 +119,26 @@ describe("Новый игровой интерфейс", () => {
     await click("Закрыть окно");
     await act(async () => emma.click());
     expect(saved().xp).toBe(5);
+  });
+});
+
+describe("Экипировка в интерфейсе", () => {
+  it("клик «Надеть» по вещи в сумке меняет слой на аватаре, клик по слоту — снимает", async () => {
+    // положим в сумку кепку через сохранение и перемонтируем приложение
+    const s = JSON.parse(localStorage.getItem(SAVE_KEY)!);
+    s.eco.loadout.items.push({ uid: "t1", defId: "cap" });
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    await act(async () => root.render(<App />));
+    await route("gear");
+    const layers = () => Array.from(host.querySelectorAll(".gear-avatar svg.avatar [data-slot]")).map((g) => g.getAttribute("data-slot"));
+    expect(layers()).not.toContain("head");
+    await click("Надеть");
+    expect(layers()).toContain("head");
+    expect(saved().eco.loadout.equipment.head.defId).toBe("cap");
+    await click("Голова: Бейсболка");
+    expect(layers()).not.toContain("head");
+    expect(saved().eco.loadout.items.some((i: { defId: string }) => i.defId === "cap")).toBe(true);
   });
 });

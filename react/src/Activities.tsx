@@ -4,9 +4,17 @@ import {
   ChevronRight, Lock, Swords, Zap, Heart, Wallet, Shield, Crosshair, Dumbbell, Users, Landmark, RefreshCw,
   Package, Bike, Car, Music, Banknote, Truck, Handshake, Gavel, Building2, Skull, Flag, Crown, Store, Droplets,
   Utensils, Wrench, Warehouse, Hotel, Sword, Shirt, UserRound, Gem, Watch, Glasses, Target, Sofa, Refrigerator,
-  Tv, Vault, HeartPulse, House, BriefcaseBusiness, Brain, type LucideIcon,
+  Tv, Vault, HeartPulse, House, BriefcaseBusiness, Brain, Trophy, ScrollText, type LucideIcon,
 } from "lucide-react";
 import { BattleView } from "./Battle";
+import { Avatar } from "./avatar/Avatar";
+import { EquipmentScreen, SLOT_ICON, statLine } from "./EquipmentScreen";
+import { ITEMS, SLOT_IDS, SLOT_NAMES, RARITY_NAMES, defOf, type SlotId } from "./equipment";
+import { makeRivals, rivalCombatant, beginArena, settleArena, attemptsLeft, leagueOf, LEAGUES, ARENA_ATTEMPTS, type Rival } from "./arena";
+import { STORY_QUESTS, DAILY_POOL, availableStory, acceptQuest, claimQuest, refreshDaily, progress, isStoryDone, isDailyDone, dailyMoney, type QuestDef } from "./quests";
+import { npcs } from "./data";
+import { Portrait } from "./Art";
+import { useEffect } from "react";
 import { combatTurn, flee, startBattle, npcCombatant, roles, type Battle, type SkillId, type Role } from "./combat";
 import { Medallion } from "./Art";
 import { Dialog, SectionTitle, IconMedal } from "./ui";
@@ -34,7 +42,7 @@ const itemIcon: Record<string, LucideIcon> = { knuckle: Swords, bat: Sword, knif
 const furnIcon: Record<string, LucideIcon> = { weights: Dumbbell, bag: Target, sofa: Sofa, fridge: Refrigerator, tv: Tv, safe: Vault };
 const statIcon: Record<E.StatKey, LucideIcon> = { str: Dumbbell, def: Shield, agi: Crosshair, end: HeartPulse, int: Brain };
 
-export const activityPages = ["deeds", "jobs", "fights", "raids", "turf", "business", "shop", "home", "crew", "bank"] as const;
+export const activityPages = ["deeds", "contracts", "arena", "gear", "jobs", "fights", "raids", "turf", "business", "shop", "home", "crew", "bank"] as const;
 
 /** Ряд действия в стиле 0.311: медальон, текст, кнопка справа. */
 function Row({ icon, title, sub, action, locked }: { icon: LucideIcon; title: string; sub: ReactNode; action: ReactNode; locked?: boolean }) {
@@ -57,7 +65,18 @@ const LockTag = ({ lvl }: { lvl: number }) => (
 
 export function Activities({ page, game, setGame, setToast, go }: Props) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  type Fight = { battle: Battle; kind: "fight" | "raid" | "turf"; opp?: E.Opponent; id?: string; icon: LucideIcon; result: string | null };
+  type Fight = { battle: Battle; kind: "fight" | "raid" | "turf" | "arena"; opp?: E.Opponent; rival?: Rival; id?: string; icon: LucideIcon; result: string | null };
+  const today = new Date().toISOString().slice(0, 10);
+  const [rivalSeed, setRivalSeed] = useState(() => Math.floor(Math.random() * 1e9));
+  const rivals = useMemo(() => {
+    let x = rivalSeed;
+    const rng = () => ((x = (x * 1103515245 + 12345) >>> 0) % 1e6) / 1e6;
+    return makeRivals(game.level, game.eco.arena.rating, rng);
+  }, [rivalSeed, game.level, game.eco.arena.rating]);
+  // ежедневные задания обновляются при входе в «Поручения» в новый день
+  useEffect(() => {
+    if (page === "contracts" && game.eco.quests.daily.day !== today) setGame(refreshDaily(game, today));
+  }, [page, today, game, setGame]);
   const [fightState, setFightState] = useState<Fight | null>(null);
   const [oppSeed, setOppSeed] = useState(() => Math.floor(Math.random() * 1e9));
   const opponents = useMemo(() => {
@@ -84,11 +103,13 @@ export function Activities({ page, game, setGame, setToast, go }: Props) {
   const settle = (f: Fight, b: Battle) => {
     const t = Date.now();
     const r =
-      f.kind === "fight" ? E.settleFight(game, f.opp!, b, Math.random)
+      f.kind === "arena" ? settleArena(game, f.rival!, b, Math.random, E.addXp)
+      : f.kind === "fight" ? E.settleFight(game, f.opp!, b, Math.random)
       : f.kind === "raid" ? E.settleRaid(game, f.id!, b, t)
       : E.settleCapture(game, f.id! as E.Turf["id"], b, t);
     setGame(r.state);
     if (f.kind === "fight") setOppSeed(Math.floor(Math.random() * 1e9));
+    if (f.kind === "arena") setRivalSeed(Math.floor(Math.random() * 1e9));
     return r.message;
   };
   const onSkill = (id: SkillId) => {
@@ -105,6 +126,8 @@ export function Activities({ page, game, setGame, setToast, go }: Props) {
     begin(E.beginFight(game), (s) => startBattle(E.playerCombatant(s, s.name), npcCombatant(o)), { kind: "fight", opp: o, icon: Swords });
   const startRaid = (id: string) =>
     begin(E.beginRaid(game, id, Date.now()), (s) => startBattle(E.playerCombatant(s, s.name), E.bossCombatant(s, id, Date.now()), 6), { kind: "raid", id, icon: Skull });
+  const startArena = (r: Rival) =>
+    begin(beginArena(game, today), (s) => startBattle(E.playerCombatant(s, s.name), rivalCombatant(r)), { kind: "arena", rival: r, icon: Swords });
   const startTurf = (id: E.Turf["id"]) =>
     begin(E.beginCapture(game, id), (s) => startBattle(E.playerCombatant(s, s.name), E.turfCombatant(id), 20), { kind: "turf", id, icon: Flag });
 
@@ -218,26 +241,102 @@ export function Activities({ page, game, setGame, setToast, go }: Props) {
   }
 
   if (page === "shop") {
-    const slots: [E.Slot, string][] = [["weapon", "Оружие"], ["armor", "Броня"], ["extra", "Аксессуары"]];
+    const owned = (id: string) => game.eco.loadout.items.filter((i) => i.defId === id).length + SLOT_IDS.filter((sl) => game.eco.loadout.equipment[sl]?.defId === id).length;
     body = (
       <>
-        <p className="screen-note">«Всё чистое, почти новое. Деньги вперёд».</p>
-        {stats}
-        {slots.map(([sl, title]) => (
+        <p className="screen-note">Покупка попадает в сумку, а в пустой слот надевается сразу. Переодеться — в «Экипировке».</p>
+        <button className="game-row" onClick={() => go("gear")}><IconMedal icon={Shirt} /><span><b>Экипировка</b><small>Надеть, снять, продать</small></span><ChevronRight size={18} /></button>
+        {SLOT_IDS.map((sl) => (
           <div key={sl}>
-            <SectionTitle>{title}</SectionTitle>
-            {E.items.filter((i) => i.slot === sl).map((it) => {
-              const own = game.eco.owned.includes(it.id), on = game.eco.gear[sl] === it.id, lock = game.level < it.lvl;
-              const bonus = [it.atk && `атака +${it.atk}`, it.def && `защита +${it.def}`, it.agi && `ловкость +${it.agi}`, it.auth && `авторитет +${it.auth}`].filter(Boolean).join(" · ");
+            <SectionTitle>{SLOT_NAMES[sl]}</SectionTitle>
+            {ITEMS.filter((i) => i.slot === sl).map((it) => {
+              const lock = game.level < it.lvl, on = defOf(game.eco.loadout.equipment[sl])?.id === it.id, n = owned(it.id);
               return (
-                <Row key={it.id} icon={itemIcon[it.id] ?? Sword} locked={lock} title={it.name} sub={bonus}
-                  action={on ? <span className="lock-tag">Надето</span> : own ? <button className="game-button small secondary" onClick={() => apply(E.equip(game, it.id))}>Надеть</button> : lock ? <LockTag lvl={it.lvl} /> : (
-                    <button className="game-button small" disabled={game.money < it.price} onClick={() => apply(E.buyItem(game, it.id))}>${short(it.price)}</button>
-                  )} />
+                <Row key={it.id} icon={SLOT_ICON[sl]} locked={lock} title={it.name}
+                  sub={<span className={"rarity-text-" + it.rarity}>{RARITY_NAMES[it.rarity]} · {statLine(it)}{n ? ` · есть: ${n}` : ""}{on ? " · надето" : ""}</span>}
+                  action={lock ? <LockTag lvl={it.lvl} /> : <button className="game-button small" disabled={game.money < it.price} onClick={() => apply(E.buyItem(game, it.id))}>${short(it.price)}</button>} />
               );
             })}
           </div>
         ))}
+      </>
+    );
+  }
+
+  if (page === "gear") body = <EquipmentScreen game={game} setGame={setGame} setToast={setToast} />;
+
+  if (page === "arena") {
+    const a = game.eco.arena, left = attemptsLeft(a, today), lg = leagueOf(a.rating);
+    const next = LEAGUES.find((l) => l.min > a.rating);
+    body = (
+      <>
+        <div className="income-box metal-frame arena-head">
+          <span>Лига <b>{lg.name}</b> · рейтинг <b>{a.rating}</b>{next ? ` · до лиги «${next.name}» ${next.min - a.rating}` : ""}</span>
+          <small>Победы {a.wins} · поражения {a.losses} · рекорд {a.best}</small>
+          <small>Попыток сегодня: <b>{left}</b> из {ARENA_ATTEMPTS} · энергия не тратится · деньги при поражении не теряются</small>
+        </div>
+        <SectionTitle>Соперники</SectionTitle>
+        <div className="rival-grid">
+          {rivals.map((r, i) => {
+            const c = rivalCombatant(r);
+            return (
+              <div key={r.seed + "-" + i} className="rival-card metal-frame">
+                <div className="rival-avatar"><Avatar equipment={r.equipment} flash={false} /></div>
+                <b>{r.name}</b>
+                <small>{r.level} ур. · рейтинг {r.rating} · {leagueOf(r.rating).name}</small>
+                <small>атака {c.atk} · броня {c.armor} · ❤ {c.maxHp}</small>
+                <button className="game-button small danger" disabled={left <= 0} onClick={() => startArena(r)}>В бой</button>
+              </div>
+            );
+          })}
+        </div>
+        <button className="game-button secondary" onClick={() => setRivalSeed(Math.floor(Math.random() * 1e9))}><RefreshCw size={14} /> Других соперников</button>
+      </>
+    );
+  }
+
+  if (page === "contracts") {
+    const q = game.eco.quests;
+    const giver = (id: string) => npcs.find((n) => n.id === id);
+    const card = (d: QuestDef, state: "available" | "active" | "daily", base: Partial<Record<string, number>>) => {
+      const done = state === "daily" ? isDailyDone(game, d.id) : state === "active" && isStoryDone(game, d.id);
+      const claimed = state === "daily" && q.daily.claimed.includes(d.id);
+      const g = giver(d.giver);
+      const money = state === "daily" ? dailyMoney(d, game.level) : d.reward.money;
+      return (
+        <div key={d.id} className={"quest-card metal-frame" + (claimed ? " claimed" : "")}>
+          <div className="quest-head">
+            <span className="quest-portrait">{g ? <Portrait look={g.look} /> : null}</span>
+            <span><b>{d.title}</b><small>{g ? g.name : ""}</small></span>
+          </div>
+          <p>{d.text}</p>
+          {state !== "available" && d.objectives.map((o) => {
+            const v = Math.max(0, progress(game, o, base));
+            return (
+              <div key={o.m} className="quest-obj"><span>{o.label}</span><b>{fmt(v)} / {fmt(o.n)}</b>
+                <div className="progress-meter"><i style={{ width: (v / o.n) * 100 + "%" }} /></div></div>
+            );
+          })}
+          {state === "available" && <small className="muted">Цель: {d.objectives.map((o) => `${o.label.toLowerCase()} — ${fmt(o.n)}`).join(", ")}</small>}
+          <small className="quest-reward">Награда: ${fmt(money)} · {d.reward.xp} опыта{d.reward.gold ? ` · ${d.reward.gold} золота` : ""}{d.reward.item ? ` · ${ITEMS.find((i) => i.id === d.reward.item)?.name}` : ""}</small>
+          {state === "available" && <button className="game-button" onClick={() => apply(acceptQuest(game, d.id))}>Взять поручение</button>}
+          {state !== "available" && !claimed && <button className="game-button" disabled={!done} onClick={() => apply(claimQuest(game, d.id, E.grantReward))}>{done ? "Забрать награду" : "В процессе"}</button>}
+          {claimed && <span className="lock-tag">✓ Получено</span>}
+        </div>
+      );
+    };
+    const active = STORY_QUESTS.filter((d) => q.active[d.id]);
+    const avail = availableStory(game);
+    const locked = STORY_QUESTS.filter((d) => !q.done.includes(d.id) && !q.active[d.id] && !avail.includes(d)).slice(0, 1);
+    body = (
+      <>
+        <SectionTitle>Ежедневные · обновятся завтра</SectionTitle>
+        {q.daily.ids.map((id) => card(DAILY_POOL.find((d) => d.id === id)!, "daily", q.daily.base))}
+        <SectionTitle>Поручения жителей</SectionTitle>
+        {active.map((d) => card(d, "active", q.active[d.id]))}
+        {avail.map((d) => card(d, "available", {}))}
+        {locked.map((d) => <p key={d.id} className="screen-note"><Lock size={12} /> Следующее поручение — «{d.title}» — откроется с {d.minLevel} уровня или после текущего.</p>)}
+        <p className="screen-note">Выполнено поручений: {q.done.length} из {STORY_QUESTS.length}</p>
       </>
     );
   }
@@ -348,7 +447,12 @@ export function DeedsRow({ game, go }: { game: GameState; go: (p: Page) => void 
 /** Экран «Дела»: список всех занятий. */
 function DeedsList({ game, go }: { game: GameState; go: (p: Page) => void }) {
   const pending = E.pendingIncome(game, Date.now());
+  const q = game.eco.quests;
+  const readyQuests = STORY_QUESTS.filter((d) => q.active[d.id] && isStoryDone(game, d.id)).length + q.daily.ids.filter((id) => isDailyDone(game, id) && !q.daily.claimed.includes(id)).length;
   const rows: [Page, LucideIcon, string, string][] = [
+    ["contracts", ScrollText, "Поручения", readyQuests ? `Готово к сдаче: ${readyQuests}` : `Сюжетные и ежедневные задания`],
+    ["arena", Trophy, "Арена", `${leagueOf(game.eco.arena.rating).name} · рейтинг ${game.eco.arena.rating}`],
+    ["gear", Shirt, "Экипировка", "Надеть, снять, продать вещи"],
     ["jobs", BriefcaseBusiness, "Движухи", "Работа за энергию"],
     ["fights", Swords, "Бои", "Наехать на соперника"],
     ["raids", Skull, "Рейды", "Боссы города"],

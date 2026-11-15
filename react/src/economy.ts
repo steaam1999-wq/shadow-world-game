@@ -6,10 +6,12 @@
  */
 import type { DistrictId } from "./data";
 import { roles, npcCombatant, type Battle, type Combatant, type Role } from "./combat";
+import { freshArena, isArena, type ArenaState } from "./arena";
+import { freshQuests, isQuests, type QuestState, type Reward } from "./quests";
+import { ITEMS, itemDef, starterLoadout, addItem, equipItem, unequipItem, equipmentStats, isLoadout, emptyEquipment, type Loadout, type SlotId } from "./equipment";
 
 export type Rng = () => number;
 export type StatKey = "str" | "def" | "agi" | "end" | "int";
-export type Slot = "weapon" | "armor" | "extra";
 
 export type Economy = {
   stats: Record<StatKey, number>;
@@ -18,8 +20,12 @@ export type Economy = {
   points: number;
   gold: number;
   safe: number;
-  gear: Record<Slot, string | null>;
-  owned: string[];
+  /** сумка и экипированные слоты (см. equipment.ts) */
+  loadout: Loadout;
+  arena: ArenaState;
+  quests: QuestState;
+  /** сколько тренировок проведено (для заданий) */
+  trained: number;
   biz: Record<string, number>;
   /** доход, накопленный до последнего изменения ставки, и момент начала текущего накопления */
   banked: number;
@@ -65,28 +71,6 @@ export const jobs: Job[] = [
   { id: "deal",    name: "Ночная сделка в порту",          lvl: 18, en: 35, cash: [6000, 9000],   xp: 60,  risk: 0.22, icon: 5 },
   { id: "auction", name: "Подпольный аукцион",             lvl: 25, en: 45, cash: [14000, 20000], xp: 85,  risk: 0.25, icon: 7 },
   { id: "tower",   name: "Тендер на стройку в центре",     lvl: 32, en: 60, cash: [30000, 45000], xp: 120, risk: 0.2,  icon: 1 },
-];
-
-export type Item = { id: string; slot: Slot; name: string; lvl: number; price: number; atk?: number; def?: number; agi?: number; auth?: number };
-export const items: Item[] = [
-  { id: "knuckle", slot: "weapon", name: "Кастет", lvl: 1, price: 300, atk: 4 },
-  { id: "bat", slot: "weapon", name: "Бита", lvl: 3, price: 900, atk: 8 },
-  { id: "knife", slot: "weapon", name: "Нож-бабочка", lvl: 5, price: 2500, atk: 14 },
-  { id: "sawoff", slot: "weapon", name: "Обрез", lvl: 9, price: 7000, atk: 24 },
-  { id: "pistol", slot: "weapon", name: "Пистолет", lvl: 14, price: 18000, atk: 38 },
-  { id: "rifle", slot: "weapon", name: "Автомат", lvl: 20, price: 50000, atk: 60 },
-  { id: "sniper", slot: "weapon", name: "Снайперка", lvl: 28, price: 140000, atk: 90 },
-  { id: "leather", slot: "armor", name: "Кожанка", lvl: 1, price: 300, def: 4 },
-  { id: "track", slot: "armor", name: "Олимпийка", lvl: 3, price: 900, def: 8 },
-  { id: "vest", slot: "armor", name: "Лёгкий бронежилет", lvl: 6, price: 3000, def: 15 },
-  { id: "kevlar", slot: "armor", name: "Кевлар", lvl: 10, price: 9000, def: 26 },
-  { id: "heavy", slot: "armor", name: "Тяжёлый бронежилет", lvl: 16, price: 25000, def: 40 },
-  { id: "tactic", slot: "armor", name: "Тактический комплект", lvl: 22, price: 70000, def: 60 },
-  { id: "cap", slot: "extra", name: "Кепка", lvl: 1, price: 200, agi: 2 },
-  { id: "chain", slot: "extra", name: "Золотая цепь", lvl: 4, price: 1500, agi: 4, auth: 5 },
-  { id: "watch", slot: "extra", name: "Часы с гравировкой", lvl: 8, price: 6000, agi: 7, auth: 10 },
-  { id: "shades", slot: "extra", name: "Тёмные очки", lvl: 12, price: 15000, agi: 11, auth: 15 },
-  { id: "ring", slot: "extra", name: "Перстень", lvl: 18, price: 40000, agi: 16, auth: 25 },
 ];
 
 export type Biz = { id: string; name: string; lvl: number; price: number; inc: number };
@@ -155,8 +139,10 @@ export const freshEconomy = (now: number): Economy => ({
   points: 0,
   gold: 5,
   safe: 0,
-  gear: { weapon: null, armor: null, extra: null },
-  owned: [],
+  loadout: starterLoadout(),
+  arena: freshArena(),
+  quests: freshQuests(),
+  trained: 0,
   biz: {},
   banked: 0,
   incomeAt: now,
@@ -187,9 +173,8 @@ export function levelInfo(xp: number): { level: number; into: number; need: numb
 export const levelFor = (xp: number) => levelInfo(xp).level;
 
 // ---------------- производные параметры ----------------
-const item = (id: string | null) => (id ? items.find((i) => i.id === id) : undefined);
-const gearSum = (e: Economy, k: "atk" | "def" | "agi" | "auth") =>
-  (["weapon", "armor", "extra"] as Slot[]).reduce((a, sl) => a + (item(e.gear[sl])?.[k] ?? 0), 0);
+/** бонусы всех надетых вещей */
+const gearSum = (e: Economy, k: "atk" | "def" | "agi" | "auth" | "int") => equipmentStats(e.loadout.equipment)[k];
 const furnSum = (e: Economy, k: "str" | "agi" | "en") =>
   furniture.reduce((a, f) => a + (e.furniture.includes(f.id) ? f[k] ?? 0 : 0), 0);
 export const hasFurniture = (e: Economy, id: string) => e.furniture.includes(id);
@@ -394,20 +379,39 @@ export function capture<T extends EcoHost>(s: T, id: DistrictId, name: string, r
   return { state: next, ok: true, message: `Район под контролем! +$${t.inc}/ч`, log: res.log, win: true };
 }
 
+/** Купить вещь: она кладётся в сумку; если её слот пуст — сразу надевается. */
 export function buyItem<T extends EcoHost>(s: T, id: string): Result<T> {
-  const it = item(id);
+  const it = itemDef(id);
   if (!it) return fail(s, "Нет такого предмета");
-  if (s.eco.owned.includes(id)) return fail(s, "Уже куплено");
   if (s.level < it.lvl) return fail(s, `Доступно с ${it.lvl} уровня`);
   if (s.money < it.price) return fail(s, `Нужно $${it.price}`);
-  const cur = item(s.eco.gear[it.slot]);
-  const wear = !cur || cur.price < it.price;
-  return ok({ ...s, money: s.money - it.price, eco: { ...s.eco, owned: [...s.eco.owned, id], gear: wear ? { ...s.eco.gear, [it.slot]: id } : s.eco.gear } }, `${it.name} куплен${wear ? " и надет" : ""}`);
+  let loadout = addItem(s.eco.loadout, id);
+  const fresh = loadout.items[loadout.items.length - 1];
+  const wear = !loadout.equipment[it.slot];
+  if (wear) loadout = equipItem(loadout, fresh.uid).loadout;
+  return ok({ ...s, money: s.money - it.price, eco: { ...s.eco, loadout } }, `${it.name} куплен${wear ? " и надет" : " — лежит в сумке"}`);
 }
-export function equip<T extends EcoHost>(s: T, id: string): Result<T> {
-  const it = item(id);
-  if (!it || !s.eco.owned.includes(id)) return fail(s, "Предмета нет в сумке");
-  return ok({ ...s, eco: { ...s.eco, gear: { ...s.eco.gear, [it.slot]: id } } }, `${it.name} надет`);
+/** Надеть вещь из сумки (обёртка над equipItem с проверкой уровня). */
+export function equip<T extends EcoHost>(s: T, uid: string): Result<T> {
+  const r = equipItem(s.eco.loadout, uid, { level: s.level });
+  return r.ok ? ok(withLoadout(s, r.loadout), r.message) : fail(s, r.message);
+}
+export function unequip<T extends EcoHost>(s: T, slot: SlotId): Result<T> {
+  const r = unequipItem(s.eco.loadout, slot);
+  return r.ok ? ok(withLoadout(s, r.loadout), r.message) : fail(s, r.message);
+}
+/** Продать вещь из сумки за половину цены. */
+export function sellItem<T extends EcoHost>(s: T, uid: string): Result<T> {
+  const inst = s.eco.loadout.items.find((i) => i.uid === uid);
+  const d = inst && itemDef(inst.defId);
+  if (!inst || !d) return fail(s, "Вещи нет в сумке");
+  const price = Math.floor(d.price / 2);
+  return ok({ ...s, money: s.money + price, eco: { ...s.eco, loadout: { ...s.eco.loadout, items: s.eco.loadout.items.filter((i) => i.uid !== uid) } } }, `${d.name} продан за $${price}`);
+}
+/** Сменить снаряжение и не дать здоровью превысить новый максимум. */
+function withLoadout<T extends EcoHost>(s: T, loadout: Loadout): T {
+  const next = { ...s, eco: { ...s.eco, loadout } };
+  return { ...next, health: Math.min(next.health, maxHealth(next)) };
 }
 export function buyBusiness<T extends EcoHost>(s: T, id: string, now: number): Result<T> {
   const b = businesses.find((x) => x.id === id);
@@ -441,7 +445,7 @@ export function buyFurniture<T extends EcoHost>(s: T, id: string): Result<T> {
 export function train<T extends EcoHost>(s: T, k: StatKey): Result<T> {
   const price = statPrice(s.eco.stats[k]);
   if (s.money < price) return fail(s, `Нужно $${price}`);
-  const next = { ...s, money: s.money - price, eco: { ...s.eco, stats: { ...s.eco.stats, [k]: s.eco.stats[k] + 1 } } };
+  const next = { ...s, money: s.money - price, eco: { ...s.eco, trained: s.eco.trained + 1, stats: { ...s.eco.stats, [k]: s.eco.stats[k] + 1 } } };
   return ok(k === "end" ? { ...next, health: next.health + 10 } : next, "Тренировка: +1");
 }
 export function spendPoint<T extends EcoHost>(s: T, k: StatKey): Result<T> {
@@ -478,14 +482,12 @@ export function isEconomy(e: unknown): e is Economy {
   const x = e as Record<string, unknown>;
   const num = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 0;
   const stats = x.stats as Record<string, unknown> | undefined;
-  const gear = x.gear as Record<string, unknown> | undefined;
   return (
     !!stats && ["str", "def", "agi", "end", "int"].every((k) => num(stats[k])) &&
     typeof x.role === "string" && x.role in roles &&
     ["points", "gold", "safe", "banked", "incomeAt", "home", "crew", "jobsTotal", "wins", "losses", "regenAt", "hpAt", "restAt", "earned"].every((k) => num(x[k])) &&
     (x.home as number) < homes.length &&
-    !!gear && ["weapon", "armor", "extra"].every((k) => gear[k] === null || items.some((i) => i.id === gear[k])) &&
-    Array.isArray(x.owned) && x.owned.every((id) => items.some((i) => i.id === id)) &&
+    isLoadout(x.loadout) && isArena(x.arena) && isQuests(x.quests) && num(x.trained) &&
     Array.isArray(x.furniture) && x.furniture.every((id) => furniture.some((f) => f.id === id)) &&
     Array.isArray(x.captured) && x.captured.every((id) => turfs.some((t) => t.id === id)) &&
     !!x.biz && typeof x.biz === "object" && Object.entries(x.biz).every(([k, v]) => businesses.some((b) => b.id === k) && num(v)) &&
@@ -500,7 +502,23 @@ export function normalizeEconomy(e: unknown): unknown {
   if (!e || typeof e !== "object") return e;
   const x = e as Record<string, unknown>;
   const stats = (x.stats && typeof x.stats === "object" ? x.stats : {}) as Record<string, unknown>;
-  return { ...x, stats: { int: 5, ...stats }, role: typeof x.role === "string" ? x.role : "brute", hpAt: typeof x.hpAt === "number" ? x.hpAt : x.regenAt };
+  let loadout = x.loadout as Loadout | undefined;
+  if (!loadout) {
+    // сохранения до системы экипировки: три слота gear/owned переносятся в новые слоты
+    const map: Record<string, string> = { knuckle: "knuckles", bat: "bat", knife: "knife", sawoff: "traumatic", pistol: "pistol", rifle: "smg", sniper: "carbine",
+      leather: "leather", track: "tracktop", vest: "stabvest", kevlar: "puffer", heavy: "plate", tactic: "tactical", cap: "cap", chain: "chain", shades: "shades", ring: "heavychain", watch: "tglasses" };
+    loadout = starterLoadout();
+    const owned = Array.isArray(x.owned) ? (x.owned as string[]) : [];
+    const gear = (x.gear ?? {}) as Record<string, string | null>;
+    for (const old of owned) {
+      const id = map[old];
+      if (!id) continue;
+      loadout = addItem(loadout, id);
+      if (Object.values(gear).includes(old)) loadout = equipItem(loadout, loadout.items[loadout.items.length - 1].uid).loadout;
+    }
+  }
+  const { gear: _g, owned: _o, ...rest } = x;
+  return { arena: freshArena(), quests: freshQuests(), trained: 0, ...rest, loadout, stats: { int: 5, ...stats }, role: typeof x.role === "string" ? x.role : "brute", hpAt: typeof x.hpAt === "number" ? x.hpAt : x.regenAt };
 }
 
 // ---------------- пошаговый бой: связь с экономикой ----------------
@@ -509,7 +527,7 @@ export const maxAdrenaline = (s: EcoHost) => 60 + s.eco.stats.int * 3;
 export function playerCombatant(s: EcoHost, name: string): Combatant {
   return {
     name, hp: s.health, maxHp: maxHealth(s), ap: maxAdrenaline(s), maxAp: maxAdrenaline(s),
-    str: strength(s), agi: agility(s), int: s.eco.stats.int, atk: attack(s), armor: defense(s), level: s.level,
+    str: strength(s), agi: agility(s), int: s.eco.stats.int + gearSum(s.eco, "int"), atk: attack(s), armor: defense(s), level: s.level,
     effects: [], cooldowns: {}, skills: roles[s.eco.role].skills,
   };
 }
@@ -580,4 +598,13 @@ export function settleCapture<T extends EcoHost>(s: T, id: DistrictId, b: Battle
   next = { ...next, eco: { ...next.eco, banked, incomeAt: now, captured: [...next.eco.captured, id], wins: next.eco.wins + 1 } };
   next = addXp(addMoney(next, t.inc * 3), 25 + t.lvl * 6);
   return { state: next, ok: true, message: `Район под контролем! +$${t.inc}/ч`, win: true };
+}
+
+export { ITEMS, emptyEquipment };
+
+/** Выдать награду поручения: деньги, опыт, золото и предмет в сумку. */
+export function grantReward<T extends EcoHost>(s: T, r: Reward): T {
+  let next: T = { ...addMoney(s, r.money), eco: { ...addMoney(s, r.money).eco, gold: s.eco.gold + (r.gold ?? 0) } };
+  if (r.item) next = { ...next, eco: { ...next.eco, loadout: addItem(next.eco.loadout, r.item) } };
+  return addXp(next, r.xp);
 }

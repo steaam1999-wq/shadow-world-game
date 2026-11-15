@@ -25,7 +25,9 @@ import {
   Watch,
   type LucideIcon,
 } from "lucide-react";
-import { CityArt, Portrait, Medallion, CharacterScene } from "./Art";
+import { CityArt, Portrait, Medallion } from "./Art";
+import { Avatar } from "./avatar/Avatar";
+import { SlotButton, LEFT_SLOTS, RIGHT_SLOTS } from "./EquipmentScreen";
 import {
   districts,
   npcs,
@@ -212,17 +214,6 @@ export default function App() {
         <Lock size={18} />
       </div>
     );
-  const futureSlot = (Icon: LucideIcon, label: string) => (
-    <div
-      className="equipment-slot unavailable future-slot"
-      role="img"
-      aria-label={label + " — в разработке"}
-      title={label + " — в разработке"}
-    >
-      <Icon size={23} />
-      <Lock className="slot-lock" size={10} />
-    </div>
-  );
   return (
     <div className="game-shell">
       <header className="game-header">
@@ -314,30 +305,21 @@ export default function App() {
         {page === "profile" && (
           <>
             <h1 className="sr-only">Профиль</h1>
-            <section className="character-stage">
-              <CharacterScene />
+            <section className="character-stage modern-stage">
+              {/* персонаж собирается из слоёв экипировки: см. src/avatar/Avatar.tsx */}
+              <div className="stage-avatar">
+                <Avatar equipment={game.eco.loadout.equipment} />
+              </div>
               <button className="stage-location" onClick={() => go("city")}>
                 <MapPin size={11} />
                 {district.ru}
                 <ChevronRight size={11} />
               </button>
               <div className="equipment-rail left-rail">
-                {slot("phone")}
-                {slot("ticket")}
-                {futureSlot(Shirt, "Гардероб")}
-                {futureSlot(Footprints, "Обувь")}
+                {LEFT_SLOTS.map((s) => <SlotButton key={s} game={game} slot={s} compact onClick={() => go("gear")} />)}
               </div>
               <div className="equipment-rail right-rail">
-                {slot("envelope")}
-                {slot("card")}
-                {futureSlot(Watch, "Аксессуары")}
-                <button
-                  className="equipment-slot action-slot"
-                  onClick={doRest}
-                  aria-label="Отдохнуть"
-                >
-                  <Medallion index={8} />
-                </button>
+                {RIGHT_SLOTS.map((s) => <SlotButton key={s} game={game} slot={s} compact onClick={() => go("gear")} />)}
               </div>
             </section>
             <button

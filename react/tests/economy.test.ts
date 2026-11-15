@@ -122,17 +122,22 @@ describe("Рейды и районы", () => {
 });
 
 describe("Барыга и снаряжение", () => {
-  it("покупает и надевает лучшее, не надевает худшее", () => {
+  it("покупка кладёт вещь в сумку; в пустой слот надевает, занятый не трогает", () => {
     let s = atLevel(5, { money: 10000 });
     s = buyItem(s, "bat").state;
-    expect(s.eco.gear.weapon).toBe("bat");
+    expect(s.eco.loadout.equipment.weapon?.defId).toBe("bat");
     expect(attack(s)).toBe(5 * 2 + 8);
-    s = buyItem(s, "knuckle").state;
-    expect(s.eco.gear.weapon).toBe("bat");
-    s = equip(s, "knuckle").state;
-    expect(s.eco.gear.weapon).toBe("knuckle");
-    expect(buyItem(s, "bat").ok).toBe(false);
-    expect(buyItem(game(), "rifle").ok).toBe(false);
+    s = buyItem(s, "knuckles").state;
+    expect(s.eco.loadout.equipment.weapon?.defId).toBe("bat");
+    const knuckles = s.eco.loadout.items.find((i) => i.defId === "knuckles")!;
+    s = equip(s, knuckles.uid).state;
+    expect(s.eco.loadout.equipment.weapon?.defId).toBe("knuckles");
+    expect(s.eco.loadout.items.some((i) => i.defId === "bat")).toBe(true);
+    expect(buyItem(game(), "carbine").ok).toBe(false);
+  });
+  it("старт: футболка, джинсы и кроссовки уже надеты", () => {
+    const eq = game().eco.loadout.equipment;
+    expect([eq.chest?.defId, eq.legs?.defId, eq.feet?.defId]).toEqual(["tee", "jeans", "sneakers"]);
   });
 });
 
@@ -172,7 +177,8 @@ describe("Жильё, хата, тренировки, бригада, сейф",
     const price = statPrice(5);
     s = train(s, "def").state;
     expect(s.money).toBe(10000 - price);
-    expect(defense(s)).toBe(12);
+    // защита 6×2 + броня стартовых вещей (футболка +1, джинсы +1)
+    expect(defense(s)).toBe(12 + 2);
     s = spendPoint(s, "end").state;
     expect(maxHealth(s)).toBe(110);
     expect(spendPoint(s, "end").ok).toBe(false);
