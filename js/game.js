@@ -190,7 +190,7 @@ function genOpponents() {
     list.push({
       name: DATA.nicks[rnd(0, DATA.nicks.length - 1)], level: l,
       hp: 100 + end * 10 + l * 8, atk: Math.round(str * 2 + gear * 1.1), def: Math.round(df * 2 + gear), agi,
-      face: ["🧔🏻", "👨🏻‍🦲", "🧑🏻‍🦰", "👨🏼", "🧔🏽", "👱🏻‍♂️", "👨🏻‍🦳"][rnd(0, 6)]
+      seed: rnd(1, 1e9)
     });
   }
   S._opps = list;
@@ -263,7 +263,7 @@ const A = {
     }
     genOpponents();
     save(); render();
-    modal(`<div class="big">${res.win ? "🏆" : "🤕"}</div><h3>${res.win ? "Победа!" : "Поражение"}</h3>
+    modal(`<div class="versus"><div>${ART.hero(S)}</div><b>VS</b><div>${ART.opponent(o.seed)}</div></div><h3>${res.win ? "🏆 Победа!" : "🤕 Поражение"}</h3>
       <p class="small">${esc(S.name)} ❤️${p.hp}/${p.maxHp} &nbsp;vs&nbsp; ${esc(o.name)} ❤️${e.hp}/${e.maxHp}</p>
       <div class="fightlog">${res.log.map(l => "<div>" + l + "</div>").join("")}</div><p><b>${summary}</b></p>`);
   },
@@ -360,7 +360,7 @@ const A = {
       addLog(`Рейд: ${b.name} повержен`);
     } else addXp(2);
     save(); render();
-    modal(`<div class="big">${b.icon}</div><h3>Нанесено ${fmt(dealt)} урона</h3>
+    modal(`<div class="versus"><div>${ART.hero(S)}</div><b>VS</b><div>${ART.boss(b.id)}</div></div><h3>Нанесено ${fmt(dealt)} урона</h3>
       <div class="fightlog">${res.log.map(l => "<div>" + l + "</div>").join("")}</div>
       <p class="small">У босса осталось ❤️ ${fmt(e.hp)} / ${fmt(b.hp)}</p>${extra}`);
   },
@@ -421,7 +421,7 @@ const A = {
     const r = give(q.reward);
     addLog("Связи: «" + q.title + "» выполнено");
     save(); render();
-    modal(`<div class="big">${q.icon}</div><h3>${q.title}</h3><p>Задание выполнено.</p><p><b>${r}</b></p>`);
+    modal(`<div class="portrait">${ART.contact(q.who)}</div><h3>${q.title}</h3><p>Задание выполнено.</p><p><b>${r}</b></p>`);
   },
 
   bonus() {
@@ -488,38 +488,20 @@ function closeModal() { $("#modal").classList.remove("show"); }
 function topbar() {
   const enT = S.energy < maxEn() ? `<i id="tbT">${mmss(ENERGY_REGEN_SEC - S.enAcc)}</i>` : "";
   return `<div class="topbar">
-    <button class="res" onclick="A.refill()" title="Восстановить за 5 💎">⚡<b id="tbEn">${S.energy}/${maxEn()}</b>${enT}</button>
-    <button class="res" onclick="A.heal()" title="Подлечиться">❤️<b>${S.hp}/${maxHp()}</b></button>
-    <span class="res">💵<b>${short(S.cash)}</b></span>
-    <span class="res">💎<b>${S.gold}</b></span>
+    <button class="res" onclick="A.refill()" title="Восстановить за 5 💎">${ART.ICONS.energy}<b id="tbEn">${S.energy}/${maxEn()}</b>${enT}</button>
+    <button class="res" onclick="A.heal()" title="Подлечиться">${ART.ICONS.hp}<b>${S.hp}/${maxHp()}</b></button>
+    <span class="res">${ART.ICONS.cash}<b>${short(S.cash)}</b></span>
+    <span class="res">${ART.ICONS.gold}<b>${S.gold}</b></span>
   </div>`;
 }
 function head(title, icon, sub) {
-  return topbar() + `<div class="sechead"><span class="secicon">${icon}</span><div><h2>${title}</h2>${sub ? `<small>${sub}</small>` : ""}</div></div>`;
+  return topbar() + `<div class="sechead"><span class="secicon">${ART.hasTile(icon) ? ART.tile(icon) : icon}</span><div><h2>${title}</h2>${sub ? `<small>${sub}</small>` : ""}</div></div>`;
 }
 const back = () => `<button class="btn back" onclick="go('hub')">← В город</button>`;
 function lockTag(l) { return `<span class="lock">🔒 с ${l} ур.</span>`; }
 
 function room() {
-  const h = DATA.homes[S.home];
-  const f = id => hasF(id);
-  const w = S.gear.weapon ? item(S.gear.weapon).icon : "";
-  return `<div class="room" style="--w1:${h.wall[0]};--w2:${h.wall[1]};--fl:${h.floor}">
-    <div class="wallpaper"></div><div class="lamp"></div>
-    <div class="window"><div class="sky"></div></div><div class="curtain c1"></div><div class="curtain c2"></div>
-    <div class="floor"></div><div class="door"></div>
-    ${S.home >= 2 ? `<div class="poster-girl">🖼️</div>` : ""}
-    <div class="bed"></div>
-    ${f("weights") ? `<div class="fur weights">🏋️</div>` : ""}
-    ${f("bag") ? `<div class="fur bag">🥊</div>` : ""}
-    ${f("sofa") ? `<div class="fur sofa">🛋️</div>` : ""}
-    ${f("fridge") ? `<div class="fur fridge">🧊</div>` : ""}
-    ${f("tv") ? `<div class="fur tv">📺</div>` : ""}
-    ${f("safe") ? `<div class="fur safe">🔐</div>` : ""}
-    <div class="dice">🎲🎲</div>
-    <div class="avatar">🧍🏻‍♂️${w ? `<span class="weap">${w}</span>` : ""}</div>
-    <div class="roomcaption">${h.name}</div>
-  </div>`;
+  return `<div class="room">${ART.room(S, DATA.homes)}<div class="roomcaption">${DATA.homes[S.home].name}</div></div>`;
 }
 
 // ---------- Экраны ----------
@@ -530,11 +512,7 @@ const SCREENS = {
   start() {
     const has = !!S;
     return `<div class="start">
-      <div class="sunset">
-        <div class="logo">EMPIRE<span>CITY</span></div>
-        <div class="skyline"><i style="height:55%"></i><i style="height:80%"></i><i style="height:40%"></i><i style="height:95%"></i><i style="height:60%"></i><i style="height:72%"></i><i style="height:48%"></i><i style="height:85%"></i></div>
-        <div class="crew"><span>🧔🏻</span><span class="mid">👨🏻‍🦲</span><span>🧔🏽‍♂️</span></div>
-      </div>
+      <div class="sunset">${ART.startScene()}<div class="logo">EMPIRE<span>CITY</span></div></div>
       <div class="startbox">
         <p>Готов приехать в большой город<br>и построить свою империю?</p>
         ${has ? `<button class="btn green" onclick="go('hub')">Продолжить за ${esc(S.name)}</button><p class="small">или начни заново:</p>` : ""}
@@ -547,7 +525,7 @@ const SCREENS = {
 
   hub() {
     const b = badges();
-    const tile = (id, icon, name) => `<button class="tile" onclick="go('${id}')">${b[id] ? `<span class="badge">${b[id]}</span>` : ""}<div class="art">${icon}</div><div class="txt">${name}</div></button>`;
+    const tile = (id, icon, name) => `<button class="tile" onclick="go('${id}')">${b[id] ? `<span class="badge">${b[id]}</span>` : ""}<div class="art">${ART.tile(id)}</div><div class="txt">${name}</div></button>`;
     const pct = Math.floor(S.xp / xpNeed(S.level) * 100);
     const bonus = S.lastBonus !== today();
     return topbar() + `
@@ -560,13 +538,13 @@ const SCREENS = {
     </div>
     <button class="promo" onclick="${bonus ? "A.bonus()" : ""}">${bonus ? "🎁 Забери ежедневный бонус: $" + fmt(300 * S.level) + " + 💎 + ⚡" : "★ Бонус получен. Возвращайся завтра ★"}</button>
     <div class="hubbar">
-      <button class="photo" onclick="go('profile')">${b.profile ? `<span class="badge">${b.profile}</span>` : ""}<span class="face">🧍🏻‍♂️</span><span class="lv">${S.level}</span><span class="cap">Профиль</span></button>
+      <button class="photo" onclick="go('profile')">${b.profile ? `<span class="badge">${b.profile}</span>` : ""}<span class="face">${ART.hero(S)}</span><span class="lv">${S.level}</span><span class="cap">Профиль</span></button>
       <div class="hubres">
         <div class="resrow">
-          <div class="rbox">⚡<small>${S.energy}/${maxEn()}</small></div>
-          <div class="rbox">🤘<small>${short(authority())}</small></div>
-          <div class="rbox">💵<small>${short(S.cash)}</small></div>
-          <div class="rbox gold">💎<small>${S.gold}</small></div>
+          <div class="rbox">${ART.ICONS.energy}<small>${S.energy}/${maxEn()}</small></div>
+          <div class="rbox">${ART.ICONS.auth}<small>${short(authority())}</small></div>
+          <div class="rbox">${ART.ICONS.cash}<small>${short(S.cash)}</small></div>
+          <div class="rbox gold">${ART.ICONS.gold}<small>${S.gold}</small></div>
         </div>
         <div class="xp"><i style="width:${pct}%"></i><span>${short(S.xp)} / ${short(xpNeed(S.level))}</span></div>
       </div>
@@ -586,7 +564,7 @@ const SCREENS = {
     const g = sl => S.gear[sl] ? item(S.gear[sl]) : null;
     const gearTxt = ["weapon", "armor", "extra"].map(sl => g(sl) ? `${g(sl).icon} ${g(sl).name}` : "—").join("<br>");
     return topbar() + `
-    <div class="wantedbar"><div>👮🏻‍♂️</div><div class="wposter"><b>РОЗЫСК</b><span>${"★".repeat(wanted)}${"☆".repeat(5 - wanted)}</span></div><div>👮🏻</div></div>
+    <div class="wantedbar">${ART.wanted(S, wanted)}</div>
     ${room()}
     <div class="namebar"><span>${esc(S.name)}</span><span>ур. <b class="level">${S.level}</b></span></div>
     <div class="paper">
@@ -609,7 +587,7 @@ const SCREENS = {
   },
 
   jobs() {
-    return head("Движухи", "🏃", "Работа за энергию. Мастерство каждые 10 раз даёт +25% к доходу.") +
+    return head("Движухи", "jobs", "Работа за энергию. Мастерство каждые 10 раз даёт +25% к доходу.") +
       DATA.jobs.map(j => {
         const lock = S.level < j.lvl;
         const m = S.mastery[j.id] || 0;
@@ -627,12 +605,12 @@ const SCREENS = {
   fights() {
     if (!S._opps) genOpponents();
     const me = playerFighter();
-    return head("Бои", "🥊", "Драка стоит ⚡5. Проиграл — теряешь 10% наличных (сейф не трогают).") +
+    return head("Бои", "fights", "Драка стоит ⚡5. Проиграл — теряешь 10% наличных (сейф не трогают).") +
       `<div class="paper small">Твоя сила: ⚔️ ${me.atk} · 🛡️ ${me.def} · 🎯 ${me.agi} · ❤️ ${S.hp}/${maxHp()} &nbsp; <b>Мощь ${power(me)}</b></div>` +
       S._opps.map((o, i) => {
         const pw = power(o), my = power(me);
         const cls = pw > my * 1.15 ? "bad" : pw < my * 0.85 ? "good" : "";
-        return `<div class="card"><div class="cico">${o.face}</div>
+        return `<div class="card"><div class="cico face">${ART.opponent(o.seed)}</div>
           <div class="cbody"><b>${esc(o.name)}</b> <small>ур. ${o.level}</small><small class="${cls}">Мощь ${pw}</small></div>
           <button class="btn sm red" onclick="A.fight(${i})">Наехать</button></div>`;
       }).join("") +
@@ -640,12 +618,12 @@ const SCREENS = {
   },
 
   raids() {
-    return head("Рейды", "⛓️", "Боссы с огромным запасом здоровья. Каждый заход ⚡10, урон сохраняется.") +
+    return head("Рейды", "raids", "Боссы с огромным запасом здоровья. Каждый заход ⚡10, урон сохраняется.") +
       DATA.bosses.map(b => {
         const st = bossState(b), lock = S.level < b.lvl;
         const pct = Math.round(st.hp / b.hp * 100);
         return `<div class="card col ${lock ? "locked" : ""}">
-          <div class="row"><div class="cico">${b.icon}</div><div class="cbody"><b>${b.name}</b>
+          <div class="row"><div class="cico face">${ART.boss(b.id)}</div><div class="cbody"><b>${b.name}</b>
             <small>Награда: $${fmt(b.cash)} · ⭐${b.xp} · 💎${b.gold} · побед: ${S.bossKills[b.id] || 0}</small></div>
           ${lock ? lockTag(b.lvl) : st.dead ? `<span class="lock">⏳ ${mmss(st.left)}</span>` : `<button class="btn sm red" onclick="A.raid('${b.id}')">⚡10</button>`}</div>
           <div class="hpbar"><i style="width:${pct}%"></i><span>❤️ ${fmt(st.hp)} / ${fmt(b.hp)}</span></div>
@@ -654,7 +632,7 @@ const SCREENS = {
   },
 
   districts() {
-    return head("Районы", "🏙️", "Захвати район — получай доход и авторитет. Штурм стоит ⚡20.") +
+    return head("Районы", "districts", "Захвати район — получай доход и авторитет. Штурм стоит ⚡20.") +
       `<div class="map">${DATA.districts.map(d => `<div class="blk ${S.districts[d.id] ? "mine" : ""}">${d.icon}<small>${d.name}</small></div>`).join("")}</div>` +
       DATA.districts.map(d => {
         const lock = S.level < d.lvl, mine = !!S.districts[d.id];
@@ -668,7 +646,7 @@ const SCREENS = {
 
   points() {
     const inc = incomePerHour();
-    return head("Точки", "🏪", "Бизнес приносит деньги, даже когда ты не в игре (до 12 часов).") +
+    return head("Точки", "points", "Бизнес приносит деньги, даже когда ты не в игре (до 12 часов).") +
       `<div class="paper center"><div>Доход: <b>$${fmt(inc)}/ч</b></div><div class="big2">💵 ${fmt(S.pending)}</div>
       <button class="btn green" onclick="A.collect()">Собрать</button></div>` +
       DATA.biz.map(b => {
@@ -680,7 +658,7 @@ const SCREENS = {
   },
 
   realty() {
-    return head("Недвижка", "🏢", "Новая хата — больше энергии, авторитета и места в сейфе.") +
+    return head("Недвижка", "realty", "Новая хата — больше энергии, авторитета и места в сейфе.") +
       DATA.homes.map((h, i) => {
         const mine = i === S.home, past = i < S.home, next = i === S.home + 1, lock = S.level < h.lvl;
         return `<div class="card ${!mine && !next ? "locked" : ""}"><div class="cico">${["🛏️", "🏠", "🏡", "🏬", "🌆", "🏰"][i]}</div>
@@ -691,7 +669,7 @@ const SCREENS = {
   },
 
   home() {
-    return head("Хата", "🛋️", "Обставь жильё и тренируйся.") + room() +
+    return head("Хата", "home", "Обставь жильё и тренируйся.") + room() +
       `<h4 class="sub">Обстановка</h4>` +
       DATA.furniture.map(f => `<div class="card"><div class="cico">${f.icon}</div>
         <div class="cbody"><b>${f.name}</b><small>${f.text}</small></div>
@@ -703,8 +681,8 @@ const SCREENS = {
   },
 
   crew() {
-    return head("Бригада", "🧑‍🤝‍🧑", "Каждый боец даёт +3 к атаке и защите в боях, рейдах и штурмах.") +
-      `<div class="paper center"><div class="big2">${"🧍".repeat(Math.min(S.crew, 12)) || "—"}${S.crew > 12 ? " +" + (S.crew - 12) : ""}</div>
+    return head("Бригада", "crew", "Каждый боец даёт +3 к атаке и защите в боях, рейдах и штурмах.") +
+      `<div class="paper center"><div class="crewrow">${S.crew ? Array.from({ length: Math.min(S.crew, 8) }, (_, i) => ART.crewMember(i)).join("") : "<i class='muted'>Пока никого</i>"}${S.crew > 8 ? `<b>+${S.crew - 8}</b>` : ""}</div>
       <div>Бойцов: <b>${S.crew}</b> из ${crewMax()} (лимит растёт с уровнем)</div>
       <div>Бонус: ⚔️ +${S.crew * 3} · 🛡️ +${S.crew * 3}</div>
       <button class="btn green" onclick="A.hire()" ${S.crew >= crewMax() ? "disabled" : ""}>Нанять бойца за $${fmt(crewPrice())}</button></div>
@@ -713,7 +691,7 @@ const SCREENS = {
 
   shop() {
     const slots = [["weapon", "Оружие"], ["armor", "Броня"], ["extra", "Аксессуары"]];
-    return head("Барыга", "🧥", "«Всё чистое, почти новое. Деньги вперёд».") +
+    return head("Барыга", "shop", "«Всё чистое, почти новое. Деньги вперёд».") +
       slots.map(([sl, nm]) => `<h4 class="sub">${nm}</h4>` + DATA.items.filter(i => i.slot === sl).map(it => {
         const own = S.owned.includes(it.id), on = S.gear[sl] === it.id, lock = S.level < it.lvl;
         const st = [it.atk && "⚔️+" + it.atk, it.def && "🛡️+" + it.def, it.agi && "🎯+" + it.agi, it.auth && "🤘+" + it.auth].filter(Boolean).join(" ");
@@ -725,7 +703,7 @@ const SCREENS = {
   },
 
   bank() {
-    return head("Банк", "🏦", "Деньги в сейфе не теряются при проигрыше в бою.") +
+    return head("Банк", "bank", "Деньги в сейфе не теряются при проигрыше в бою.") +
       `<div class="paper center">
         <div>Наличные: <b>$${fmt(S.cash)}</b></div>
         <div class="big2">🔐 $${fmt(S.safe)}</div>
@@ -739,7 +717,7 @@ const SCREENS = {
 
   casino() {
     const spun = S.lastSpin === today();
-    return head("Казино", "🎰", "Только игровая валюта. Никаких реальных денег.") +
+    return head("Казино", "casino", "Только игровая валюта. Никаких реальных денег.") +
       `<div class="paper center"><h4>Колесо удачи — раз в день бесплатно</h4>
         <div class="wheelwrap"><div class="pointer">▼</div><div id="wheel" class="wheel">${DATA.wheel.map((w, i) => `<span style="transform:rotate(${i * 45 + 22.5}deg)"><em>${w.label}</em></span>`).join("")}</div></div>
         <button class="btn green" onclick="A.spin()" ${spun ? "disabled" : ""}>${spun ? "Завтра снова" : "Крутить!"}</button></div>
@@ -751,13 +729,13 @@ const SCREENS = {
   contacts() {
     const q = DATA.story[S.story];
     const done = DATA.story.slice(0, S.story);
-    return head("Связи", "📞", "Сюжет: Глава I · «Новая жизнь»") +
-      (q ? `<div class="paper"><div class="row"><div class="cico">${q.icon}</div><div><b>${q.who}</b><br><small>${q.title}</small></div></div>
+    return head("Связи", "contacts", "Сюжет: Глава I · «Новая жизнь»") +
+      (q ? `<div class="paper"><div class="row"><div class="cico face big">${ART.contact(q.who)}</div><div><b>${q.who}</b><br><small>${q.title}</small></div></div>
           <p class="quote">${q.text}</p><p>🎯 <b>${q.goal}</b></p>
           <p class="small">Награда: ${[q.reward.cash && "$" + fmt(q.reward.cash), q.reward.xp && q.reward.xp + " ⭐", q.reward.gold && q.reward.gold + " 💎"].filter(Boolean).join(" · ")}</p>
           <button class="btn ${q.check(S) ? "green" : ""}" onclick="A.story()" ${q.check(S) ? "" : "disabled"}>${q.check(S) ? "Готово — забрать награду" : "Ещё не выполнено"}</button></div>`
         : `<div class="paper center"><div class="big">🕴️</div><b>Глава I завершена.</b><p>Продолжение — в следующем обновлении.</p></div>`) +
-      (done.length ? `<h4 class="sub">Выполнено</h4>` + done.map(d => `<div class="card done"><div class="cico">${d.icon}</div><div class="cbody"><b>${d.title}</b><small>${d.who}</small></div><span class="lock good">✓</span></div>`).join("") : "") + back();
+      (done.length ? `<h4 class="sub">Выполнено</h4>` + done.map(d => `<div class="card done"><div class="cico face">${ART.contact(d.who)}</div><div class="cbody"><b>${d.title}</b><small>${d.who}</small></div><span class="lock good">✓</span></div>`).join("") : "") + back();
   },
 
   log() {

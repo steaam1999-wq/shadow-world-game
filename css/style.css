@@ -25,15 +25,8 @@ button{font:inherit;cursor:pointer}
 
 /* ---------- Старт ---------- */
 .start{border:3px solid #0d1d17;overflow:hidden;border-radius:4px}
-.sunset{position:relative;height:420px;background:linear-gradient(#b8463a 0%,#e0763a 38%,#f2b14a 60%,#5b3a3c 61%,#2d2b38 100%);overflow:hidden}
-.sunset:before{content:"";position:absolute;left:-20%;top:28%;width:140%;height:30px;background:#ffd27a55;transform:rotate(-8deg);filter:blur(6px)}
 .logo{font:900 46px/1 Impact,"Arial Black",sans-serif;letter-spacing:2px;text-align:center;background:linear-gradient(#fff4b0,#f0c040 45%,#b07812);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:1.5px #3a2208;filter:drop-shadow(0 4px 0 #2a1806)}
 .logo span{display:block;font-size:.62em;letter-spacing:10px;background:linear-gradient(#c8f07a,#3aa02a);-webkit-background-clip:text;background-clip:text}
-.sunset .logo{position:relative;padding-top:28px;z-index:2}
-.skyline{position:absolute;left:0;right:0;bottom:118px;height:150px;display:flex;align-items:flex-end;gap:4px;padding:0 6px;opacity:.85}
-.skyline i{flex:1;background:repeating-linear-gradient(#2a2433 0 10px,#3b3247 10px 12px);box-shadow:inset 0 0 0 2px #1d1924}
-.crew{position:absolute;bottom:-6px;left:0;right:0;display:flex;justify-content:center;align-items:flex-end;font-size:100px;filter:drop-shadow(3px 4px 0 #1a1414)}
-.crew .mid{font-size:136px;margin:0 -14px;z-index:1}
 .startbox{background:linear-gradient(#24323a,#3e5262);color:#e8edf0;padding:18px 22px 22px;text-align:center;font-size:17px}
 .startbox input{width:100%;padding:13px 16px;border-radius:30px;border:0;background:#1d2a33;color:#fff;font-size:17px;margin-top:6px}
 .startbox .small{margin:8px 0 0}
@@ -71,30 +64,7 @@ button{font:inherit;cursor:pointer}
 .copy{text-align:center;color:#ffffff55;font-size:12px;margin-top:10px}
 
 /* ---------- Профиль ---------- */
-.wantedbar{display:grid;grid-template-columns:1fr 1.2fr 1fr;align-items:center;height:116px;background:linear-gradient(#e9e2cc 0 62%,#2f5a3a 62%);border:3px solid #4c4b36;font-size:66px;text-align:center;overflow:hidden}
-.wposter{background:#e4d3a2;border:2px solid #8a7550;box-shadow:2px 3px 0 #0004;transform:rotate(-2deg);padding:8px 4px;font-size:15px;display:flex;flex-direction:column;align-items:center;color:#3a2a14}
-.wposter b{font-size:19px;letter-spacing:1px}.wposter span{color:#b0281c;font-size:18px}
 
-.room{--w1:#b9b18b;--w2:#8d8a5d;--fl:#7d4935;height:310px;position:relative;overflow:hidden;border:3px solid #574d35;border-top:0;background:var(--w1)}
-.wallpaper{position:absolute;inset:0 0 40% 0;background:radial-gradient(circle at 9px 9px,var(--w2) 3px,transparent 4px) 0 0/18px 18px,linear-gradient(var(--w1),var(--w1))}
-.lamp{position:absolute;left:50%;top:0;width:44px;height:30px;margin-left:-22px;border-left:1px solid #333;background:radial-gradient(ellipse at 50% 100%,#fff6b5 0 40%,transparent 70%);}
-.lamp:before{content:"";position:absolute;left:21px;top:0;width:2px;height:14px;background:#333}
-.lamp:after{content:"";position:absolute;left:4px;top:13px;width:36px;height:10px;background:#d8cc6a;border-radius:50% 50% 4px 4px}
-.window{position:absolute;left:32%;top:12%;width:36%;height:38%;border:8px solid #ece7d4;box-shadow:0 0 0 2px #736e5c;overflow:hidden}
-.window .sky{position:absolute;inset:0;background:linear-gradient(#9dc4d0,#dbe1d2 70%);}
-.window .sky:after{content:"";position:absolute;left:8%;right:8%;bottom:0;height:55%;background:repeating-linear-gradient(90deg,#c8c2b0 0 18%,#a9a596 18% 20%,#d6cfbd 20% 34%,transparent 34% 38%)}
-.curtain{position:absolute;top:10%;height:45%;width:8%;background:#d94d3d;box-shadow:inset -5px 0 #a72e29;border-radius:0 0 4px 4px}
-.c1{left:27%}.c2{left:65%}
-.floor{position:absolute;bottom:0;height:40%;width:100%;background:repeating-linear-gradient(90deg,var(--fl) 0 40px,#0002 40px 42px),var(--fl);border-top:6px solid #e1d5b4}
-.bed{position:absolute;right:6%;bottom:26%;width:30%;height:13%;background:#267da0;border:6px solid #b8b5a4;border-radius:6px}
-.door{position:absolute;right:0;top:16%;height:52%;width:10%;background:linear-gradient(90deg,#8a4829,#b36b3d);border:4px solid #553522}
-.poster-girl{position:absolute;right:16%;top:16%;font-size:38px}
-.fur{position:absolute;font-size:44px;filter:drop-shadow(2px 3px 0 #0005)}
-.weights{left:3%;bottom:22%;font-size:54px}.bag{left:20%;top:30%}.sofa{left:16%;bottom:6%;font-size:58px}
-.fridge{left:4%;top:20%;font-size:48px}.tv{right:30%;bottom:38%;font-size:34px}.safe{right:14%;bottom:4%;font-size:36px}
-.dice{position:absolute;right:4%;bottom:8%;font-size:20px}
-.avatar{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);font-size:118px;line-height:1;filter:drop-shadow(3px 4px 0 #4a392b);z-index:2}
-.avatar .weap{position:absolute;right:-26px;bottom:14px;font-size:40px}
 .roomcaption{position:absolute;left:0;bottom:0;background:#4b382bdd;color:#f8e9c8;width:100%;padding:4px 12px;font-size:12px;z-index:4}
 .namebar{background:var(--brown);color:#fff;font-size:22px;font-weight:bold;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-top:5px solid #3b2615}
 .level{display:inline-block;background:#f5ebd5;color:#76552e;border-radius:50%;min-width:38px;height:38px;line-height:38px;text-align:center}
@@ -147,4 +117,27 @@ button{font:inherit;cursor:pointer}
 .modal .box{background:var(--paper2);border:4px solid #5a3927;border-radius:12px;padding:16px 18px;max-width:420px;width:100%;text-align:center;color:var(--ink);max-height:90vh;overflow:auto}
 .modal h3{margin:6px 0}
 
-@media(max-width:380px){.rowstat{grid-template-columns:92px 1fr;font-size:14px}.menugrid{margin:10px 2px;gap:8px}.tile .art{height:68px;font-size:40px}.room{height:270px}.avatar{font-size:100px}.res{font-size:12px}}
+@media(max-width:380px){.rowstat{grid-template-columns:92px 1fr;font-size:14px}.menugrid{margin:10px 2px;gap:8px}.res{font-size:12px}}
+
+/* ---------- SVG-графика ---------- */
+svg.art{display:block;width:100%;height:100%}
+.sunset{position:relative;background:#e0763a;line-height:0}
+.sunset .logo{position:absolute;left:0;right:0;top:22px;line-height:1}
+.room{position:relative;border:3px solid #574d35;border-top:0;line-height:0;background:#e9e5d6}
+.room svg{height:auto}
+.wantedbar{border:3px solid #4c4b36;line-height:0;background:#e9e2cc;overflow:hidden}
+.wantedbar svg{height:auto}
+.tile .art{height:auto;aspect-ratio:5/4;display:block;background:none;overflow:hidden}
+.secicon{width:62px;height:50px;flex:none;border:2px solid #2a1d12;border-radius:8px;overflow:hidden;background:#f6dfa6}
+.cico.face{width:58px;height:60px;background:linear-gradient(#e8d6a6,#c9a46a);border:2px solid #5a3a20;border-radius:8px;overflow:hidden}
+.cico.face.big{width:78px;height:80px}
+.photo .face{display:block;height:76px;margin:6px;border-radius:3px;background:linear-gradient(#e8c88a,#b88c52);overflow:hidden;line-height:0}
+.rbox{height:56px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding-top:4px}
+.rbox svg.ico{width:30px;height:30px}.rbox small{width:100%}
+.res svg.ico{width:20px;height:20px;flex:none}
+.crewrow{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:2px;min-height:90px;margin:4px 0 10px}
+.crewrow svg{width:56px;height:84px}
+.versus{display:flex;align-items:center;justify-content:center;gap:10px}
+.versus div{width:96px;height:100px;background:linear-gradient(#e8d6a6,#c9a46a);border:3px solid #5a3a20;border-radius:10px;overflow:hidden}
+.versus b{font:900 26px Impact,Arial Black,sans-serif;color:#b0281c;-webkit-text-stroke:1px #2a1d12}
+.portrait{width:110px;height:114px;margin:0 auto;background:linear-gradient(#e8d6a6,#c9a46a);border:3px solid #5a3a20;border-radius:10px;overflow:hidden}
