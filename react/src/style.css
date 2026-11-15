@@ -1773,3 +1773,8 @@ input::placeholder {
 .fight-log { max-height: 220px; overflow: auto; text-align: left; font-size: 13px; background: #0004; border-radius: 8px; padding: 8px 10px; margin: 8px 0 12px; }
 .fight-log div { padding: 2px 0; border-bottom: 1px dotted #ffffff1a; }
 .back-to-city { margin-top: 14px; }
+
+/* значок Lucide в металлическом круге (как кнопки шапки 0.311) */
+/* span.icon-medal перебивает .game-row > span:not(.medallion) { flex: 1 } из 0.311 */
+.game-row > span.icon-medal { width: 43px; height: 43px; flex: 0 0 43px; min-width: 43px; }
+.game-row > span.icon-medal svg { width: 20px; height: 20px; }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { X, type LucideIcon } from "lucide-react";
 
 export function SectionTitle({ children }: { children: ReactNode }) {
   return (
@@ -68,5 +68,14 @@ export function Dialog({
         <div className="dialog-body">{children}</div>
       </section>
     </div>
+  );
+}
+
+/** Иконка в металлическом круге — так 0.311 оформляет всё, для чего нет рисованного медальона. */
+export function IconMedal({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span className="round-control icon-medal" aria-hidden="true">
+      <Icon size={20} />
+    </span>
   );
 }
