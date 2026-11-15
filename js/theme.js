@@ -60,7 +60,7 @@ const MED = {
   MED.items = () => pic("nav.items", v.items());
 }
 // медальон-иконка раздела из прежних плиток
-const medTile = key => `<div class="medtile">${ART.tile(key)}</div>`;
+const medTile = key => ART.tile(key);
 
 // герб организации
 function crestSvg(org) {
@@ -359,4 +359,114 @@ const BOSS_NOIR = {
 ART.opponent = seed => noirFigure(seed);
 ART.boss = id => noirFigure("boss" + id, Object.assign({ eyes: true }, BOSS_NOIR[id] || {}));
 ART.crewMember = i => `<span class="crewnoir">${noirFigure("crew" + i, { glow: "#d9b56a" })}</span>`;
+render();
+
+// =====================================================================
+// Правила арта 0.311: рисованный медальон — только когда картинка значит то же самое;
+// всё остальное — золотая линейная иконка в металлическом круге (как кнопки шапки 0.311).
+// =====================================================================
+const LI = {
+  store: `<path d="M3 9l1.5-5h15L21 9M3 9h18v1.5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0zM5 13v8h14v-8M10 21v-5h4v5"/>`,
+  building: `<path d="M4 21V4h10v17M14 9h6v12M2 21h20M7 8h1M10 8h1M7 12h1M10 12h1M7 16h1M10 16h1M17 13h.5M17 17h.5"/>`,
+  flag: `<path d="M5 21V4M5 4h12l-2.5 4L17 12H5"/>`,
+  crown: `<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5zM5 21h14"/>`,
+  swords: `<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M9.5 17.5 21 6V3h-3L6.5 14.5M11 19l-6-6M8 16l-4 4M5 21l-2-2"/>`,
+  house: `<path d="M3 11l9-8 9 8M5 9.5V21h14V9.5M10 21v-6h4v6"/>`,
+  users: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/><circle cx="9" cy="7" r="4"/>`,
+  briefcase: `<path d="M3 7h18v13H3zM8 7V4h8v3M3 13h18M11 12h2v2h-2z"/>`,
+  skull: `<path d="M12 3a8 8 0 0 0-5 14.2V20h10v-2.8A8 8 0 0 0 12 3zM10 20v-2M14 20v-2"/><circle cx="9" cy="11" r="1.6"/><circle cx="15" cy="11" r="1.6"/>`,
+  dice: `<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r=".8"/><circle cx="15" cy="15" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="15" cy="9" r=".8"/><circle cx="9" cy="15" r=".8"/>`,
+  vault: `<rect x="3" y="4" width="18" height="15" rx="2"/><circle cx="12" cy="11.5" r="4"/><path d="M12 7.5v1.5M12 14v1.5M8 11.5h1.5M14.5 11.5H16M6 19v2M18 19v2"/>`,
+  gift: `<path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8S10 3 7.5 4 9 8 12 8M12 8s2-5 4.5-4S15 8 12 8"/>`,
+  paw: `<path d="M12 13c-3 0-5.5 3-5.5 5s1.8 3 5.5 3 5.5-1 5.5-3-2.5-5-5.5-5z"/><circle cx="6" cy="10" r="1.8"/><circle cx="10" cy="6" r="1.8"/><circle cx="14" cy="6" r="1.8"/><circle cx="18" cy="10" r="1.8"/>`,
+  medkit: `<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V4h6v3M12 10v7M8.5 13.5h7"/>`,
+  ranks: `<path d="M6 4l6 4 6-4M6 10l6 4 6-4M6 16l6 4 6-4"/>`,
+  trophy: `<path d="M8 21h8M12 16v5M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3.5 4M17 6h3a3 3 0 0 1-3.5 4"/>`,
+  star: `<path d="M12 3l2.6 5.8 6.4.6-4.8 4.3 1.4 6.3L12 16.8 6.4 20l1.4-6.3L3 9.4l6.4-.6z"/>`,
+  notes: `<path d="M5 3h11l3 3v15H5zM9 8h6M9 12h6M9 16h4"/>`,
+  wrench: `<path d="M14.7 6.3a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3z M14.7 6.3a4 4 0 0 1 5-3.3l-2.6 2.6.6 2.4 2.4.6 2.6-2.6a4 4 0 0 1-3.3 5"/>`,
+  bolt: `<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>`,
+  crosshair: `<circle cx="12" cy="12" r="8"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>`,
+  paper: `<path d="M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h7M9 8h3"/>`,
+  heart: `<path d="M12 20s-8-4.6-8-10.5A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 8 3.5C20 15.4 12 20 12 20z"/><path d="M5 12h3l2-3 3 6 2-3h4"/>`,
+  package: `<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5zM3 7.5l9 4.5 9-4.5M12 12v9M7.5 5.2l9 4.5"/>`,
+  bike: `<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1.5-3H6M15 9l-2 7h-3"/>`,
+  car: `<path d="M5 16H3v-4l2-5h12l3 5h1v4h-2M7 16h8"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M6 12h13"/>`,
+  music: `<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>`,
+  banknote: `<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>`,
+  truck: `<path d="M2 5h12v11H2zM14 9h4l4 4v3h-8"/><circle cx="6" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/>`,
+  handshake: `<path d="M2 11l4-4 4 2 3-2 3 2 4-2 2 3-6 6-2-1-2 2-2-1-2 1-4-3M10 9l-3 3M13 11l3 3"/>`,
+  gavel: `<path d="M14 4l6 6M12 6l6 6M10 8l4 4-8 8-3-3 8-8M3 21h8"/>`,
+  tower: `<path d="M6 21V8l6-5 6 5v13M3 21h18M10 21v-4h4v4M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>`,
+  drops: `<path d="M12 3s-5 6-5 10a5 5 0 0 0 10 0c0-4-5-10-5-10z"/>`,
+  utensils: `<path d="M4 3v7a2 2 0 0 0 2 2h1v9M8 3v6M6 3v6M17 3c-2 2-3 5-3 8h3v10"/>`,
+  warehouse: `<path d="M2 21V8l10-5 10 5v13M6 21v-8h12v8M6 17h12"/>`,
+  hotel: `<path d="M4 21V3h16v18M2 21h20M9 7h1M14 7h1M9 11h1M14 11h1M10 21v-4h4v4"/>`,
+  sword: `<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/>`,
+  shirt: `<path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c0 2-1.5 3-4 3S8 5 8 3z"/>`,
+  shield: `<path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5z"/>`,
+  cap: `<path d="M3 15a9 6 0 0 1 18 0zM12 9V6M3 15h10l8 1"/>`,
+  gem: `<path d="M6 3h12l4 6-10 12L2 9zM2 9h20M10 3 8 9l4 12 4-12-2-6"/>`,
+  watch: `<circle cx="12" cy="12" r="6"/><path d="M12 9v3l2 1M9 3h6l1 3M9 21h6l1-3M8 3l-1 3M8 21l-1-3"/>`,
+  glasses: `<circle cx="6.5" cy="14" r="3.5"/><circle cx="17.5" cy="14" r="3.5"/><path d="M10 14h4M3 14 4.5 7M21 14l-1.5-7"/>`,
+  ring: `<circle cx="12" cy="15" r="6"/><path d="M9 5h6l-1.5 4h-3z"/>`,
+  dumbbell: `<path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/>`,
+  target: `<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>`,
+  sofa: `<path d="M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2zM5 18v2M19 18v2"/>`,
+  fridge: `<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M9 5v2M9 13v3"/>`,
+  tv: `<rect x="2" y="7" width="20" height="13" rx="2"/><path d="M7 3l5 4 5-4"/>`,
+  lock: `<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>`,
+  phone: `<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>`
+};
+function metal(name) {
+  return `<svg class="art metal" viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="mtlbg" cx=".45" cy=".35" r=".7"><stop offset="0" stop-color="#404a3a"/><stop offset=".85" stop-color="#101c15"/><stop offset="1" stop-color="#050c08"/></radialGradient></defs>
+    <circle cx="32" cy="32" r="30" fill="url(#mtlbg)"/><circle cx="32" cy="32" r="29.5" fill="none" stroke="#5d6449" stroke-width="3"/><circle cx="32" cy="32" r="31" fill="none" stroke="#080b08" stroke-width="1.5"/><circle cx="32" cy="32" r="27.2" fill="none" stroke="#9c905b" stroke-opacity=".55" stroke-width="1"/>
+    <g transform="translate(18 18) scale(1.1667)" fill="none" stroke="#e1c55e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${LI[name] || LI.star}</g></svg>`;
+}
+const PAINT = { map: () => pic("nav.map", ""), city: () => pic("nav.city", ""), briefcase: () => pic("nav.items", ""), letter: () => pic("icon.letter", ""), phone: () => pic("icon.phone", ""), watch: () => pic("icon.watch", "") };
+
+// разделы города и плитки событий
+const TILE_ICON = { points: "store", realty: "building", districts: "flag", fights: "swords", home: "house", crew: "users", jobs: "briefcase", raids: "skull", casino: "dice", bank: "vault" };
+const _tile = ART.tile;
+ART.tile = key => key === "shop" ? PAINT.briefcase() : key === "contacts" ? PAINT.letter() : TILE_ICON[key] ? metal(TILE_ICON[key]) : _tile(key);
+ART.hasTile = key => key in TILE_ICON || key === "shop" || key === "contacts";
+
+// иконки систем: «Прочее», «Эффекты», заголовки, сумка
+Object.assign(ICON2, {
+  dog: () => metal("paw"), gift: () => metal("gift"), craft: () => metal("medkit"), rank: () => metal("ranks"),
+  ach: () => metal("trophy"), talent: () => metal("star"), notes: () => metal("notes"),
+  people: () => PAINT.phone(), bag: () => PAINT.briefcase(), map: () => PAINT.map(), city: () => PAINT.city(), crew: () => metal("users"),
+  item: id => metal({ kit: "medkit", drink: "bolt", ammo: "crosshair", alibi: "paper" }[id] || "star")
+});
+
+// предметы, движухи, точки, обстановка, районы — вместо эмодзи
+const ICON_OF = {
+  jobs: { port: "package", courier: "bike", car: "car", club: "music", debt: "banknote", convoy: "truck", deal: "handshake", auction: "gavel", tower: "tower" },
+  items: { knuckle: "swords", bat: "sword", knife: "sword", sawoff: "crosshair", pistol: "crosshair", rifle: "crosshair", sniper: "crosshair", leather: "shirt", track: "shirt", vest: "shield", kevlar: "shield", heavy: "shield", tactic: "shield", cap: "cap", chain: "gem", watch: "watch", shades: "glasses", ring: "ring" },
+  biz: { kiosk: "store", wash: "drops", shawa: "utensils", service: "wrench", club: "music", storage: "warehouse", hotel: "hotel" },
+  furniture: { weights: "dumbbell", bag: "target", sofa: "sofa", fridge: "fridge", tv: "tv", safe: "vault" },
+  districts: { west: "flag", prom: "flag", old: "flag", port: "flag", kings: "crown", city: "tower" }
+};
+for (const [list, map] of Object.entries(ICON_OF)) for (const x of DATA[list]) if (map[x.id]) x.icon = metal(map[x.id]);
+
+// «Хата»: вместо мультяшной комнаты — рисованная сцена района, где ты живёшь
+function room() {
+  const id = HOME_LOC[S.home] || "west";
+  return `<div class="banner homebanner">${pic("loc." + id, districtBanner(id))}<div class="bcap"><h3>${DATA.homes[S.home].name}</h3><small>${LOC[id].title}</small></div></div>`;
+}
+
+// «Карта»: карточки районов с рисованными сценами, как в 0.311
+SCREENS.map = function () {
+  const cur = curLoc();
+  return head("Карта города", null, "Переход между районами бесплатный. Закрытые районы откроются с уровнем.") +
+    DATA.districts.map((d, i) => {
+      const L = LOC[d.id], lock = S.level < d.lvl, here = cur === d.id, mine = !!S.districts[d.id];
+      return `<section class="distcard${lock ? " locked" : ""}">
+        <div class="distart">${pic("loc." + d.id, districtBanner(d.id))}<span class="distnum">${String(i + 1).padStart(2, "0")}</span>${here ? `<span class="disthere">${T.pin} Вы здесь</span>` : ""}</div>
+        <div class="distbody"><h3>${L.title}</h3><small>${mine ? "Под твоим контролем" : L.owner} · с ${d.lvl} ур.</small><p>${L.text}</p>
+          ${lock ? `<button class="btn" disabled>${T.lock} Откроется с ${d.lvl} уровня</button>` : here ? `<button class="btn" disabled>Вы здесь</button>` : `<button class="btn green" onclick="visitLoc('${d.id}')">Перейти в район</button>`}
+          ${!lock && !mine ? `<button class="linkbtn" onclick="go('districts')">Штурм района ›</button>` : ""}</div>
+      </section>`;
+    }).join("");
+};
 render();
