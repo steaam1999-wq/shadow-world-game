@@ -74,7 +74,6 @@ describe("Новый игровой интерфейс", () => {
       "Отправиться · −5 энергии",
       "Помочь на кухне",
       "Поблагодарить и выйти",
-      "Отправиться · −5 энергии",
       "Спросить, как можно помочь законно",
       "Завершить первую главу",
     ])
@@ -84,7 +83,7 @@ describe("Новый игровой интерфейс", () => {
       money: 270,
       xp: 105,
       level: 2,
-      energy: 70,
+      energy: 75,
       reputation: 6,
     });
     await act(async () => root.unmount());
@@ -381,5 +380,22 @@ describe("Спокойная карта", () => {
         .querySelector('.district-pin[aria-current="location"]')
         ?.getAttribute("aria-label"),
     ).toBe("Район: Старый город");
+  });
+});
+describe("Диалоги", () => {
+  it("не отнимают фокус у поля ввода при перерисовке игры", async () => {
+    await route("profile");
+    await click("Изменить образ");
+    const input = host.querySelector<HTMLInputElement>(
+      ".profile-name-field input",
+    )!;
+    input.focus();
+    // Отдых за окном перерисовывает всё приложение (новое состояние и тост).
+    await act(async () => {
+      button("Отдохнуть").click();
+    });
+    expect(document.activeElement).toBe(input);
+    await click("Закрыть окно");
+    expect(host.querySelector("[role=dialog]")).toBeNull();
   });
 });

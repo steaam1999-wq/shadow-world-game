@@ -11,7 +11,7 @@ import {
   startFight,
   arenaAction,
   travel,
-  rest,
+  REST_COST,
   type GameState,
 } from "./game";
 import { combatStats } from "./equipment";
@@ -118,9 +118,11 @@ export function JobsPanel({
 export function ArenaPanel({
   game,
   setGame,
+  onRest,
 }: {
   game: GameState;
   setGame: Dispatch<SetStateAction<GameState>>;
+  onRest: () => void;
 }) {
   const [selectedId, setSelectedId] = useState("rookie");
   const fight = game.arena;
@@ -277,11 +279,10 @@ export function ArenaPanel({
                 : "Начать спарринг"}
             </button>
           </article>
-          <button
-            className="game-button secondary"
-            onClick={() => setGame((s) => rest(s))}
-          >
-            Восстановить силы
+          <button className="game-button secondary" onClick={onRest}>
+            {game.money >= REST_COST
+              ? `Восстановить силы · −$${REST_COST}`
+              : "Короткая передышка"}
           </button>
         </>
       )}

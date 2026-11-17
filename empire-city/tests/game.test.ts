@@ -4,6 +4,11 @@ import {
   choose,
   travel,
   rest,
+  canRest,
+  REST_COST,
+  arenaAction,
+  startFight,
+  updateProfile,
   scenes,
   parseSave,
   localRepository,
@@ -51,7 +56,7 @@ describe("Глава I", () => {
       money: 320,
       xp: 110,
       level: 2,
-      energy: 85,
+      energy: 90,
       reputation: 5,
     });
     expect(s.relations).toMatchObject({ mark: 55, tommy: 65, miller: 60 });
@@ -81,13 +86,47 @@ describe("Глава I", () => {
     const rested = rest({ ...s, energy: 0, health: 1 });
     expect(rested.energy).toBe(100);
     expect(rested.health).toBe(100);
-    expect(rested.money).toBe(150);
+    expect(rested.money).toBe(150 - REST_COST);
+  });
+  it("отдых платный, без денег — бесплатная передышка без тупика", () => {
+    const s = freshGame();
+    expect(rest(s)).toBe(s);
+    expect(canRest(s)).toBe(false);
+    const broke = { ...s, money: 0, energy: 0, health: 10 };
+    const pause = rest(broke);
+    expect(pause).toMatchObject({ money: 0, energy: 40, health: 50 });
+    expect(rest(pause)).toBe(pause);
+    expect(rest({ ...s, energy: 70 }).money).toBe(150 - REST_COST);
+  });
+  it("Миллер ждёт у бара в Старом городе", () => {
+    expect(scenes.miller.district).toBe("old");
+    expect(scenes.tommy.choices.every((c) => c.next === "miller")).toBe(true);
+  });
+  it("записывает досрочное завершение спарринга в историю", () => {
+    const fight = startFight(freshGame(), "rookie");
+    const ended = arenaAction(fight, "forfeit");
+    expect(ended.decisions.at(-1)?.text).toContain("досрочное завершение");
+    expect(parseSave(JSON.stringify(ended))).toEqual(ended);
+  });
+  it("запоминает полный комплект, собранный через редактор образа", () => {
+    let s = freshGame();
+    s = { ...s, loadout: { ...s.loadout } };
+    const gloves = s.loadout.inventory.find((i) => i.id === "gear.gloves")!;
+    s.loadout = {
+      inventory: s.loadout.inventory.filter((i) => i !== gloves),
+      equipment: { ...s.loadout.equipment, weapon: gloves },
+    };
+    const next = updateProfile(s, s.name, s.appearance, true);
+    expect(next.decisions.some((d) => d.id === "achievement:outfit")).toBe(
+      true,
+    );
   });
   it("ограничивает отношения диапазоном 0–100", () => {
     const s = freshGame();
     s.relations.mark = 99;
     expect(choose(s, "accept").relations.mark).toBe(100);
     s.stage = "miller";
+    s.district = "old";
     s.relations.miller = 1;
     expect(choose(s, "private").relations.miller).toBe(0);
   });

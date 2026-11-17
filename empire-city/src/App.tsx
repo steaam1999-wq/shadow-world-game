@@ -38,6 +38,8 @@ import {
   choose,
   travel,
   rest,
+  canRest,
+  REST_COST,
   meet,
   hasMet,
   newGame,
@@ -49,6 +51,7 @@ import { EquipmentPanel } from "./EquipmentPanel";
 import { JobsPanel, ArenaPanel } from "./ActivitiesPanel";
 import { readPage, pageNames, type Page } from "./navigation";
 import { useGame } from "./useGame";
+import { progression } from "./progression";
 const itemData = storyItemCatalog;
 const menuItems: { page: Page; icon: number; label: string }[] = [
   { page: "profile", icon: 2, label: "Профиль" },
@@ -86,11 +89,14 @@ function Dialog({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
+  // Keep the latest handler without re-running the focus effect on every render.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     ref.current?.querySelector<HTMLElement>("button")?.focus();
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeRef.current();
       if (e.key === "Tab") {
         const nodes = ref.current?.querySelectorAll<HTMLElement>(
           "button:not(:disabled),input:not(:disabled),a[href]",
@@ -113,7 +119,7 @@ function Dialog({
       document.removeEventListener("keydown", key);
       previous?.focus();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <section
@@ -194,8 +200,21 @@ export default function App() {
       setToast("Сначала завершите спарринг.");
       return;
     }
+    if (game.energy >= 100 && game.health >= 100) {
+      setToast("Ты полон сил — отдых не нужен.");
+      return;
+    }
+    if (!canRest(game)) {
+      setToast(`Полный отдых стоит $${REST_COST}. Заработай на поручениях.`);
+      return;
+    }
+    const paid = game.money >= REST_COST;
     setGame((s) => rest(s));
-    setToast("Отдых завершён. Здоровье и энергия восстановлены.");
+    setToast(
+      paid
+        ? `Отдых завершён · −$${REST_COST}. Здоровье и энергия восстановлены.`
+        : "Короткая передышка: силы частично восстановлены.",
+    );
   };
   const residents = npcs.filter(
     (n) =>
@@ -282,8 +301,7 @@ export default function App() {
           aria-label={`Опыт: ${game.xp % 100} из 100`}
         >
           <span>
-            <Shield size={12} /> Независимый ·{" "}
-            {game.reputation < 10 ? "Новичок" : "На слуху"}
+            <Shield size={12} /> Независимый · {progression(game).rank.name}
           </span>
           <span>
             Опыт <b>★ {game.xp % 100}</b> / 100
@@ -401,7 +419,9 @@ export default function App() {
               )}
               {game.energy < 20 && (
                 <button className="text-link" onClick={doRest}>
-                  Восстановить энергию бесплатно
+                  {game.money >= REST_COST
+                    ? `Отдохнуть · −$${REST_COST}`
+                    : "Короткая передышка · бесплатно"}
                 </button>
               )}
             </section>
@@ -426,7 +446,9 @@ export default function App() {
             </div>
           </>
         )}
-        {page === "arena" && <ArenaPanel game={game} setGame={setGame} />}
+        {page === "arena" && (
+          <ArenaPanel game={game} setGame={setGame} onRest={doRest} />
+        )}
         {page === "contacts" && (
           <>
             <div className="gallery-tools">

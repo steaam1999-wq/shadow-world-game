@@ -6,6 +6,7 @@ import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
+await mkdir("preview", { recursive: true });
 import { visualAssets } from "../src/avatarAssets.ts";
 import { faces } from "../src/appearance.ts";
 const cache = path.resolve("node_modules/.cache");
@@ -72,7 +73,7 @@ const render = async (ids, index = 0, faceId = "street") => {
 await sharp(await render(selected.length ? selected : defaults))
   .flatten({ background: "#283c34" })
   .png()
-  .toFile("/workspace/avatar-preview.png");
+  .toFile("preview/avatar-preview.png");
 const variants = [
   [],
   ["tee.black", "jeans.blue", "sneakers.white"],
@@ -91,7 +92,7 @@ await sharp({
 })
   .composite(sheets)
   .png()
-  .toFile("/workspace/avatar-outfits-preview.png");
+  .toFile("preview/avatar-outfits-preview.png");
 await mkdir("public/art/gear-ink", { recursive: true });
 for (const id of Object.keys(visualAssets)) {
   const svg = renderToStaticMarkup(
@@ -108,8 +109,8 @@ for (const id of Object.keys(visualAssets)) {
     .webp({ quality: 92, effort: 6 })
     .toFile(`public/art/gear-ink/${id}.webp`);
 }
-console.log("/workspace/avatar-preview.png");
-console.log("/workspace/avatar-outfits-preview.png");
+console.log("preview/avatar-preview.png");
+console.log("preview/avatar-outfits-preview.png");
 const classic = [
   "coat.charcoal",
   "trousers.charcoal",
@@ -128,7 +129,7 @@ await sharp({
 })
   .composite(profiles)
   .png()
-  .toFile("/workspace/avatar-profiles-preview.png");
+  .toFile("preview/avatar-profiles-preview.png");
 const office = await sharp("public/art/profile-office.webp")
   .resize(375, 667, { fit: "cover" })
   .png()
@@ -140,8 +141,8 @@ const figure = await sharp(await render(classic, 20, "veteran"))
 await sharp(office)
   .composite([{ input: figure, left: 27, top: 10 }])
   .png()
-  .toFile("/workspace/mafia-profile-art-preview.png");
-console.log("/workspace/avatar-profiles-preview.png");
+  .toFile("preview/mafia-profile-art-preview.png");
+console.log("preview/avatar-profiles-preview.png");
 console.log(
   `${Object.keys(visualAssets).length} matching illustrated item thumbnails generated.`,
 );

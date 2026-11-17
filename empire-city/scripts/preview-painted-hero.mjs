@@ -5,6 +5,7 @@ import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
+await mkdir("preview", { recursive: true });
 await mkdir("node_modules/.cache", { recursive: true });
 let code = (
   await transformWithEsbuild(
@@ -104,7 +105,7 @@ await sharp({
 })
   .composite(layers)
   .png()
-  .toFile("/workspace/painted-outfits-qa.png");
+  .toFile("preview/painted-outfits-qa.png");
 const office = await sharp("public/art/profile-office.webp")
   .resize(375, 667, { fit: "cover" })
   .png()
@@ -113,8 +114,8 @@ const figure = await render(variants[1]);
 await sharp(office)
   .composite([{ input: figure, left: 27, top: 12 }])
   .png()
-  .toFile("/workspace/painted-profile-qa.png");
-console.log("/workspace/painted-outfits-qa.png");
+  .toFile("preview/painted-profile-qa.png");
+console.log("preview/painted-outfits-qa.png");
 
 const master = await sharp("public/art/painted-hero/classic-master.webp")
   .resize(307, 640, { fit: "contain", background: "#0000" })
@@ -123,5 +124,5 @@ const master = await sharp("public/art/painted-hero/classic-master.webp")
 await sharp(office)
   .composite([{ input: master, left: 34, top: 12 }])
   .png()
-  .toFile("/workspace/hero-reference-preview.png");
-console.log("/workspace/hero-reference-preview.png");
+  .toFile("preview/hero-reference-preview.png");
+console.log("preview/hero-reference-preview.png");

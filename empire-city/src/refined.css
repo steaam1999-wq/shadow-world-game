@@ -1033,6 +1033,7 @@ body {
 }
 .hub-people > div {
   justify-content: space-around;
+  flex-wrap: wrap;
   gap: 14px;
 }
 .hub-person-portrait {

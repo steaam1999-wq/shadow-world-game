@@ -124,7 +124,7 @@ export const scenes: Record<Stage, Scene> = {
       {
         id: "safe",
         label: "Выбрать работу в баре",
-        hint: "+$70 за смену · без чужих секретов",
+        hint: "+$70 за смену · без чужих секретов · Марк +2",
         next: "safe",
         effect: { relations: { mark: 2 } },
       },
@@ -173,7 +173,7 @@ export const scenes: Record<Stage, Scene> = {
       {
         id: "inspect",
         label: "Сначала спросить о содержимом",
-        hint: "+$120 · +20 опыта · Томми +4 · Марк −3",
+        hint: "+$120 · +20 опыта · Томми +4 · Марк −3 · репутация +1",
         next: "tommy",
         effect: {
           money: 120,
@@ -194,7 +194,7 @@ export const scenes: Record<Stage, Scene> = {
       {
         id: "kitchen",
         label: "Помочь на кухне",
-        hint: "+$70 · −20 энергии · +25 опыта · Томми +10",
+        hint: "+$70 · −20 энергии · +25 опыта · Томми +10 · репутация +2",
         next: "tommy",
         effect: {
           money: 70,
@@ -207,7 +207,7 @@ export const scenes: Record<Stage, Scene> = {
       {
         id: "guests",
         label: "Встретить гостей",
-        hint: "+$70 · −15 энергии · +20 опыта · Томми +8",
+        hint: "+$70 · −15 энергии · +20 опыта · Томми +8 · репутация +3",
         next: "tommy",
         effect: {
           money: 70,
@@ -228,14 +228,14 @@ export const scenes: Record<Stage, Scene> = {
       {
         id: "listen",
         label: "Остаться и выслушать",
-        hint: "Томми +8 · +10 энергии · +15 опыта",
+        hint: "Томми +8 · +10 энергии · +15 опыта · контакт бара",
         next: "miller",
         effect: { energy: 10, xp: 15, relations: { tommy: 8 }, add: "card" },
       },
       {
         id: "leave",
         label: "Поблагодарить и выйти",
-        hint: "Томми +3 · +10 опыта",
+        hint: "Томми +3 · +10 опыта · контакт бара",
         next: "miller",
         effect: { xp: 10, relations: { tommy: 3 }, add: "card" },
       },
@@ -244,7 +244,7 @@ export const scenes: Record<Stage, Scene> = {
   miller: {
     speaker: "miller",
     title: "Просто несколько вопросов",
-    district: "center",
+    district: "old",
     text: "У выхода из бара тебя останавливает человек в сером пальто. «Детектив Миллер. Новое лицо? Я расследую исчезновение архивных документов. Видели сегодня что-нибудь необычное? Вы не задержаны».",
     choices: [
       {
@@ -336,9 +336,27 @@ export function travel(s: GameState, district: DistrictId): GameState {
     ? { ...s, district, energy: s.energy - 5 }
     : s;
 }
+/** Full rest costs money; without money a free short break prevents a soft lock. */
+export const REST_COST = 15;
+export const FREE_REST = { energy: 40, health: 50 } as const;
+export function canRest(s: GameState): boolean {
+  if (s.arena && !s.arena.finished) return false;
+  if (s.energy >= 100 && s.health >= 100) return false;
+  return (
+    s.money >= REST_COST ||
+    s.energy < FREE_REST.energy ||
+    s.health < FREE_REST.health
+  );
+}
 export function rest(s: GameState): GameState {
-  if (s.arena && !s.arena.finished) return s;
-  return { ...s, energy: 100, health: 100 };
+  if (!canRest(s)) return s;
+  if (s.money >= REST_COST)
+    return { ...s, energy: 100, health: 100, money: s.money - REST_COST };
+  return {
+    ...s,
+    energy: Math.max(s.energy, FREE_REST.energy),
+    health: Math.max(s.health, FREE_REST.health),
+  };
 }
 export const SAVE_KEY = "empire-city:save";
 export interface SaveRepository {
@@ -515,6 +533,23 @@ export function meet(s: GameState, id: string): GameState {
   };
 }
 
+/** Remember the full-outfit achievement once all five slots are filled. */
+function withOutfitAchievement(s: GameState): GameState {
+  const completed = equipmentSlots.every((slot) => s.loadout.equipment[slot]);
+  const earned = s.decisions.some((d) => d.id === "achievement:outfit");
+  return completed && !earned
+    ? {
+        ...s,
+        decisions: [
+          ...s.decisions,
+          {
+            id: "achievement:outfit",
+            text: "Собран полный комплект экипировки",
+          },
+        ],
+      }
+    : s;
+}
 /** Game-level guard: a live match locks the outfit until the match ends. */
 export function equipGear(
   s: GameState,
@@ -524,22 +559,7 @@ export function equipGear(
   if (s.arena && !s.arena.finished) return s;
   const next = equipItem(s.loadout, id, slot, s.level);
   if (next === s.loadout) return s;
-  const completed = equipmentSlots.every((slot) => next.equipment[slot]);
-  const earned = s.decisions.some((d) => d.id === "achievement:outfit");
-  return {
-    ...s,
-    loadout: next,
-    decisions:
-      completed && !earned
-        ? [
-            ...s.decisions,
-            {
-              id: "achievement:outfit",
-              text: "Собран полный комплект экипировки",
-            },
-          ]
-        : s.decisions,
-  };
+  return withOutfitAchievement({ ...s, loadout: next });
 }
 export function unequipGear(s: GameState, slot: EquipmentSlot): GameState {
   if (s.arena && !s.arena.finished) return s;
@@ -638,6 +658,13 @@ export function arenaAction(
         result: "lost",
         log: [...fight.log, "Спарринг завершён досрочно."],
       },
+      decisions: [
+        ...s.decisions,
+        {
+          id: `arena:${s.decisions.length}`,
+          text: `Арена: ${opponent.name} — досрочное завершение`,
+        },
+      ],
     };
   if (action === "recover" && s.energy < 5) return s;
   const stats = combatStats(s.loadout);
@@ -720,12 +747,12 @@ export function updateProfile(
     trimmed.length > 40
   )
     return s;
-  return {
+  return withOutfitAchievement({
     ...s,
     name: trimmed,
     appearance: { ...appearance },
     loadout: profileOutfit(s.loadout, classic),
-  };
+  });
 }
 
 /** One-time art upgrade: no story, currencies, health or relationship resets. */

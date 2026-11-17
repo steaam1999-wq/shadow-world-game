@@ -219,7 +219,6 @@ export function CityHub({
         <div>
           {npcs
             .filter((n) => n.district === game.district)
-            .slice(0, 3)
             .map((n) => (
               <button key={n.id} onClick={() => onNpc(n)}>
                 <span className="hub-person-portrait">
