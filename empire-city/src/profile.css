@@ -1,0 +1,434 @@
+/* Profile layout is deliberately independent of the retired character-stage rules. */
+.player-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 12px 12px 16px;
+  background: linear-gradient(#11271f, #0e2119);
+  color: #e1e5d9;
+}
+.profile-portrait-card {
+  overflow: hidden;
+  border: 1px solid #b8a4783d;
+  border-radius: 17px;
+  background: #142e22;
+  box-shadow: 0 5px 15px #06120a24;
+}
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 41px;
+  padding: 3px 12px;
+  border-bottom: 1px solid #b4a47b22;
+  background: #173225;
+}
+.profile-card-header > span {
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: #b7c6ae;
+}
+.profile-card-header > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 0 7px 8px;
+  font-size: 10px;
+  color: #d5bf96;
+  white-space: nowrap;
+}
+.profile-figure {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+  gap: 9px;
+  align-items: stretch;
+  position: relative;
+  isolation: isolate;
+  height: 232px;
+  height: clamp(190px, min(62vw, 32svh), 280px);
+  min-height: 0;
+  padding: 9px 10px;
+  background-color: #1c342b;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+.profile-figure:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #0b21194d, transparent 35% 65%, #0b21194d);
+  pointer-events: none;
+  z-index: -1;
+}
+.profile-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  z-index: 2;
+}
+.profile-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 48px;
+  padding: 5px 3px;
+  border: 1px solid #b4ac7b44;
+  border-radius: 11px;
+  background: #142e23ed;
+  color: #acbd9f;
+  box-shadow: 0 2px 5px #03110a22;
+}
+.profile-slot.has-item {
+  border-color: #b7a16b88;
+  background: #2c422ced;
+}
+.profile-slot > img {
+  display: block;
+  width: 27px;
+  height: 25px;
+  object-fit: contain;
+}
+.profile-slot > small {
+  font-size: 7px;
+  line-height: 1;
+  letter-spacing: 0.1px;
+  font-weight: 500;
+}
+.profile-slot > svg {
+  color: #c8b88e;
+}
+.profile-avatar {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 1;
+}
+.profile-avatar > .avatar-renderer {
+  position: relative;
+  inset: auto;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  width: min(100%, 150px);
+  height: 100%;
+  aspect-ratio: 1/2;
+  margin: 0 auto;
+  filter: drop-shadow(0 3px 2px #09190e55);
+}
+.profile-avatar .painted-master {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+.profile-avatar .avatar-rig {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.profile-location {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 40px;
+  height: auto;
+  padding: 9px 12px;
+  background: #173225;
+  border-top: 1px solid #b4a47b22;
+  color: #d9dec4;
+  text-align: left;
+}
+.profile-location > svg {
+  color: #bba77a;
+}
+.profile-location > span {
+  font-size: 11px;
+  font-weight: 500;
+}
+.profile-location > small {
+  margin-left: auto;
+  color: #99b093;
+  font-size: 9px;
+}
+.profile-location > svg:last-child {
+  width: 13px;
+}
+.profile-vitals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+.profile-vital {
+  min-width: 0;
+  padding: 10px 7px 9px;
+  border: 1px solid #aab27b24;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #1e3828, #152e21);
+}
+.profile-vital dt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 9px;
+  line-height: 1.4;
+  color: #aabd9f;
+  white-space: nowrap;
+}
+.profile-vital dd {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  margin: 7px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e1ddc5;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.profile-vital dd > small {
+  font-size: 8px;
+  color: #819c81;
+  font-weight: 400;
+}
+.vital-health dt > svg {
+  color: #c1806d;
+}
+.vital-energy dt > svg {
+  color: #ceb880;
+}
+.vital-attack dt > svg,
+.vital-defense dt > svg {
+  color: #b7c4a1;
+}
+.profile-mission {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #b8a16c4d;
+  border-radius: 14px;
+  background: linear-gradient(125deg, #30412b, #1c3424);
+  text-align: left;
+}
+.profile-mission > .medallion {
+  display: block;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+.profile-mission > .medallion > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.profile-mission > span:not(.medallion) {
+  flex: 1;
+  min-width: 0;
+}
+.profile-mission small {
+  display: block;
+  font-size: 7px;
+  letter-spacing: 1.2px;
+  color: #bba979;
+  margin-bottom: 4px;
+}
+.profile-mission b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2d8b7;
+  line-height: 1.4;
+}
+.profile-mission em {
+  display: block;
+  font-size: 9px;
+  line-height: 1.5;
+  color: #aabf9e;
+  font-style: normal;
+  margin-top: 3px;
+}
+.profile-mission > svg {
+  color: #bca67b;
+}
+.profile-details {
+  overflow: hidden;
+  border: 1px solid #a2af7529;
+  border-radius: 14px;
+  background: #142e21;
+}
+.profile-details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 11px 13px;
+  text-align: left;
+  color: #d1d9be;
+  font-size: 12px;
+  font-weight: 500;
+}
+.profile-details-toggle > svg {
+  color: #adba94;
+}
+.profile-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid #a6b2801f;
+}
+.profile-facts > div {
+  padding: 12px 13px;
+  min-width: 0;
+}
+.profile-facts > div:nth-child(2n) {
+  border-left: 1px solid #a6b2801f;
+}
+.profile-facts > div:nth-child(n + 3) {
+  border-top: 1px solid #a6b2801f;
+}
+.profile-facts dt {
+  font-size: 9px;
+  color: #93aa8d;
+}
+.profile-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #dcd8bd;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.profile-facts dd > svg {
+  color: #b8a471;
+}
+.profile-facts dd > small {
+  font-size: 9px;
+  color: #819e7f;
+  font-weight: 400;
+}
+.profile-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.profile-links > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 49px;
+  padding: 9px;
+  border: 1px solid #a5ad7829;
+  border-radius: 12px;
+  background: #183324;
+  text-align: left;
+}
+.profile-links .medallion {
+  height: 29px;
+  width: 29px;
+  flex-shrink: 0;
+}
+.profile-links span:not(.medallion) {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  color: #bacaab;
+  line-height: 1.4;
+}
+.profile-links > button > svg {
+  color: #a3b18c;
+  flex-shrink: 0;
+}
+.player-profile button:focus-visible {
+  outline: 2px solid #d4be8f;
+  outline-offset: 2px;
+}
+.player-profile button:disabled {
+  opacity: 0.45;
+}
+.appearance-preview {
+  height: 210px;
+  background-size: cover;
+  background-position: center;
+}
+.appearance-preview > .avatar-renderer {
+  width: 50%;
+  max-width: 150px;
+  height: 94%;
+  top: 2%;
+  bottom: auto;
+}
+.preview-caption {
+  font-size: 9px;
+  padding: 3px 10px;
+  bottom: 5px;
+}
+@media (max-width: 359px) {
+  .player-profile {
+    padding: 9px;
+    gap: 9px;
+  }
+  .profile-figure {
+    padding: 8px;
+    gap: 5px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+  .profile-vitals {
+    gap: 5px;
+  }
+  .profile-vital {
+    padding: 9px 4px;
+  }
+  .profile-vital dt {
+    font-size: 8px;
+    gap: 3px;
+  }
+  .profile-vital dd {
+    font-size: 16px;
+  }
+  .profile-links > button {
+    gap: 5px;
+    padding: 7px;
+  }
+  .profile-links span:not(.medallion) {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-profile * {
+    transition: none !important;
+  }
+}
