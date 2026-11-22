@@ -61,6 +61,7 @@ b{{color:#fc6}}</style></head><body>
 
 CD = {'Листок Лотоса': 3.5, 'Проклятье Глайва': 6, 'Зелье здоровья': 20, 'Праздничная Пасха': 62}
 last = {}
+MX = [364000.0]
 def ready(n, L): return n in L and time.time() - last.get(n, 0) > CD.get(n, 0)
 
 def go_basin():
@@ -75,14 +76,17 @@ o = go_basin(); step = 0; last_shot = 0
 while True:
     step += 1
     L = links(o); hp, mx = myhp(o)
+    if mx: MX[0] = mx
     url = o.split('\n')[0]
     if 'Ты пал' in o or (hp is not None and hp <= 0 and 'Атаковать' in L):
         STATS['deaths'] += 1; log(f'Смерть #{STATS["deaths"]}. Выход из боя, жду восстановления здоровья.')
         if 'Покинуть бой' in L: g(k=L['Покинуть бой'], w=2500)
-        while True:
+        prev = -1
+        for _ in range(60):
             o = g(go='https://m.vten.ru/city', w=1500); h, _ = myhp(o)
             snapshot(o, f'восстановление здоровья ({int(h or 0):,})')
-            if h and h >= 0.7 * 364000: break
+            if h and (h >= 0.7 * MX[0] or h == prev): break
+            prev = h or prev
             time.sleep(20)
         o = go_basin(); continue
     if 'Атаковать' not in L:
