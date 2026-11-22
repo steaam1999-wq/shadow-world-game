@@ -48,7 +48,7 @@ def log(msg):
 def snapshot(o, mode):
     g(shot=os.path.join(LIVE, 'screen.png'))
     hp, mx = myhp(o)
-    mm = re.search(r'^\s*(\d+)\s+(\d+)\s*$', o, re.M)
+    ls = o.split('\n'); mm = re.match(r'^\s*(\d+)\s+(\d+)\s*$', ls[2]) if len(ls) > 2 and 'combat' not in ls[0] else None
     if mm: MONEY[0] = f'{mm.group(1)} золота / {mm.group(2)} серебра'
     money = MONEY[0]
     page = f"""<!DOCTYPE html><html><head><meta charset=utf-8><meta http-equiv=refresh content=5>
@@ -62,7 +62,7 @@ b{{color:#fc6}}</style></head><body>
 <pre>{html.escape(chr(10).join(reversed(LOG[-80:])))}</pre></div></body></html>"""
     with open(os.path.join(LIVE, 'index.html'), 'w') as f: f.write(page)
 
-CD = {'Листок Лотоса': 3.5, 'Проклятье Глайва': 6, 'Зелье здоровья': 20, 'Праздничная Пасха': 62}
+CD = {'Листок Лотоса': 3.05, 'Проклятье Глайва': 6, 'Зелье здоровья': 20, 'Праздничная Пасха': 62}
 last = {}
 MX = [364000.0]
 def ready(n, L): return n in L and time.time() - last.get(n, 0) > CD.get(n, 0)
@@ -109,19 +109,18 @@ while True:
             o = go_basin(); continue
         o = g(w=3000); continue
     # --- бой: режим лекаря ---
-    act = None
-    if mx and hp < 0.35 * mx and ready('Зелье здоровья', L): act = 'Зелье здоровья'
-    elif ready('Листок Лотоса', L): act = 'Листок Лотоса'
+    if ready('Листок Лотоса', L): act = 'Листок Лотоса'
+    elif mx and hp < 0.35 * mx and ready('Зелье здоровья', L): act = 'Зелье здоровья'
     elif ready('Праздничная Пасха', L): act = 'Праздничная Пасха'
-    elif ready('Проклятье Глайва', L): act = 'Проклятье Глайва'
     else: act = 'Атаковать'
     last[act] = time.time()
     if act == 'Листок Лотоса': STATS['lotus'] += 1
     if act == 'Атаковать': STATS['hits'] += 1
-    o = g(k=L[act])
+    o = g(k=L[act], sw=400)
     if step % 10 == 0:
         ev = [l.strip() for l in o.split('\n') if re.search(r'\d\d:\d\d$', l)][:2]
         log(f'{act:16s} hp={int(hp or 0):,} | ' + ' / '.join(ev)[:160])
-    if time.time() - last_shot > 6:
+    if time.time() - last_shot > 10 and act != 'Листок Лотоса':
         snapshot(o, 'бой — лекарь'); last_shot = time.time()
-    time.sleep(0.3)
+    w = CD['Листок Лотоса'] - (time.time() - last.get('Листок Лотоса', 0))
+    if 0 < w < 1.2: time.sleep(w)
