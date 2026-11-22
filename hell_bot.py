@@ -7,6 +7,7 @@ import urllib.request, urllib.parse, re, time, os, html, sys
 LIVE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'live')
 os.makedirs(LIVE, exist_ok=True)
 LOG = []
+MONEY = ['—']
 STATS = {'kills_quest': '-', 'deaths': 0, 'lotus': 0, 'hits': 0, 'start': time.strftime('%H:%M:%S')}
 
 def g(**kw):
@@ -47,7 +48,9 @@ def log(msg):
 def snapshot(o, mode):
     g(shot=os.path.join(LIVE, 'screen.png'))
     hp, mx = myhp(o)
-    money = o.split('\n')[2].strip() if len(o.split('\n')) > 2 else ''
+    mm = re.search(r'^\s*(\d+)\s+(\d+)\s*$', o, re.M)
+    if mm: MONEY[0] = f'{mm.group(1)} золота / {mm.group(2)} серебра'
+    money = MONEY[0]
     page = f"""<!DOCTYPE html><html><head><meta charset=utf-8><meta http-equiv=refresh content=5>
 <title>Лорд Плоць — Адские Игры</title><style>body{{background:#111;color:#ddd;font-family:sans-serif;margin:10px}}
 .wrap{{display:flex;gap:16px;flex-wrap:wrap}} pre{{background:#000;padding:8px;max-height:620px;overflow:auto;font-size:12px}}
@@ -67,6 +70,16 @@ def ready(n, L): return n in L and time.time() - last.get(n, 0) > CD.get(n, 0)
 def go_basin():
     o = g(go='https://m.vten.ru/basin', w=3000)
     L = links(o)
+    best = None
+    for name in L:
+        m = re.match(r'^(\d+) vs (\d+)$', name)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            score = (a - b, a)
+            if a > 0 and (best is None or score > best[0]): best = (score, name)
+    if best:
+        log(f'Выбран источник «{best[1]}» (наших vs врагов)')
+        o = g(k=L[best[1]], w=2500); L = links(o)
     if 'Начать бой!' in L:
         log('Вход в Адские Игры: «Начать бой!»')
         o = g(k=L['Начать бой!'], w=4000)
@@ -85,7 +98,7 @@ while True:
         for _ in range(60):
             o = g(go='https://m.vten.ru/city', w=1500); h, _ = myhp(o)
             snapshot(o, f'восстановление здоровья ({int(h or 0):,})')
-            if h and (h >= 0.7 * MX[0] or h == prev): break
+            if h and (h >= 0.95 * MX[0] or h == prev): break
             prev = h or prev
             time.sleep(20)
         o = go_basin(); continue
