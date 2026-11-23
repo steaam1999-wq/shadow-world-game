@@ -86,6 +86,7 @@ def go_basin():
     return o
 
 o = go_basin(); step = 0; last_shot = 0
+entered = [time.time()]; quick = [0]
 while True:
     step += 1
     L = links(o); hp, mx = myhp(o)
@@ -93,6 +94,7 @@ while True:
     url = o.split('\n')[0]
     if 'Ты пал' in o or (hp is not None and hp <= 0 and 'Атаковать' in L):
         STATS['deaths'] += 1; log(f'Смерть #{STATS["deaths"]}. Выход из боя, жду восстановления здоровья.')
+        quick[0] = quick[0] + 1 if time.time() - entered[0] < 60 else 0
         if 'Покинуть бой' in L: g(k=L['Покинуть бой'], w=2500)
         prev = -1
         for _ in range(60):
@@ -101,7 +103,9 @@ while True:
             if h and (h >= 0.95 * MX[0] or h == prev): break
             prev = h or prev
             time.sleep(20)
-        o = go_basin(); continue
+        if quick[0] >= 3:
+            log('3 быстрые смерти подряд — пережидаю 10 минут'); snapshot(o, 'пауза 10 мин (точку входа держит враг)'); time.sleep(600); quick[0] = 0
+        o = go_basin(); entered[0] = time.time(); continue
     if 'Атаковать' not in L:
         if 'Начать бой!' in L:
             o = g(k=L['Начать бой!'], w=4000); continue
